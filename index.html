@@ -589,7 +589,7 @@
    ========================================================================= */
 
 const STORAGE_KEY = 'fleetops_data_v1';
-const APP_VERSION = '2.6.0';
+const APP_VERSION = '2.6.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3371,6 +3371,13 @@ function openModal({title, body, onSave}){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '2.6.1',
+    date: '20 Jul 2026',
+    notes: [
+      'Perbaikan teknis: alamat sw.js kini menyertakan nomor versi, supaya update terdeteksi lebih cepat (sebelumnya bisa tertunda karena cache Cloudflare/browser).',
+    ]
+  },
+  {
     v: '2.6.0',
     date: '20 Jul 2026',
     notes: [
@@ -3734,7 +3741,12 @@ if ('serviceWorker' in navigator) {
   checkStartupVersionChange();
 
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').then((reg) => {
+    // Tambahkan ?v=APP_VERSION di alamat sw.js supaya SETIAP kali versi aplikasi
+    // naik, alamatnya benar-benar berbeda dari sebelumnya -> browser/CDN TIDAK
+    // BISA menyajikan salinan cache lama untuk alamat yang "baru" ini. Ini
+    // mengatasi keterlambatan deteksi update akibat file sw.js sempat
+    // tersimpan di cache Cloudflare/browser dengan nama file yang sama persis.
+    navigator.serviceWorker.register('./sw.js?v=' + APP_VERSION).then((reg) => {
       const checkForUpdate = () => { reg.update().catch(()=>{}); };
       setInterval(checkForUpdate, 5*60*1000);           // cek tiap 5 menit selama app terbuka
       document.addEventListener('visibilitychange', () => {
