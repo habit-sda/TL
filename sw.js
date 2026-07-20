@@ -3,7 +3,7 @@
    bisa dibuka walau sinyal internet lemah/putus (data tetap aman di localStorage,
    bukan di sini — service worker ini HANYA meng-cache file tampilan, bukan data).
    Naikkan CACHE_NAME setiap kali file di bawah berubah, supaya versi lama dibuang. */
-const CACHE_NAME = 'fleetops-cache-v1';
+const CACHE_NAME = 'fleetops-cache-v2';
 const APP_SHELL = [
   './',
   './index.html',
