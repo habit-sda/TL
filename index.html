@@ -4,14 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FleetOps — Manajemen Armada Pengiriman</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#161C27">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="FleetOps">
-<link rel="icon" href="icons/icon-192.png" type="image/png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -317,6 +309,14 @@
 
   select.select-inline{border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12.5px;}
   .search-row{display:flex;gap:8px;margin-bottom:14px;}
+  .ac-wrap{position:relative;}
+  .autocomplete-box{
+    display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;
+    background:#fff;border:1px solid var(--line);border-radius:8px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.12);z-index:50;max-height:180px;overflow-y:auto;
+  }
+  .ac-item{padding:8px 12px;font-size:13px;cursor:pointer;}
+  .ac-item:hover, .ac-item.active{background:#EEF3FF;color:var(--blue);}
   .search-row input{flex:1;border:1px solid var(--line);border-radius:7px;padding:8px 10px;font-family:inherit;font-size:13px;}
 
   @media(max-width:900px){
@@ -488,14 +488,14 @@
    ========================================================================= */
 
 const STORAGE_KEY = 'fleetops_data_v1';
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '2.0.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
-const SYNC_COLLECTIONS = ['cars','drivers','usage','services','documents','etollCards'];
+const SYNC_COLLECTIONS = ['cars','drivers','usage','services','documents','etollCards','etollTransactions'];
 
 function defaultTombstones(){
-  return { cars:[], drivers:[], usage:[], services:[], documents:[], etollCards:[] };
+  return { cars:[], drivers:[], usage:[], services:[], documents:[], etollCards:[], etollTransactions:[] };
 }
 function loadTombstones(){
   try{
@@ -529,6 +529,64 @@ function markDeleted(collection, id){
 // menang" saat data digabung dari beberapa device.
 function touch(obj){ obj.updatedAt = Date.now(); return obj; }
 
+// Mencatat 1 baris riwayat transaksi kartu E-Toll (top up / pemakaian), supaya
+// Modul Kartu E-Toll bisa menampilkan histori lengkap, bukan cuma saldo akhir.
+function logEtollTransaction(cardId, jenis, nominal, saldoSebelum, saldoSesudah, keterangan){
+  state.etollTransactions.push(touch({
+    id: uid(), cardId, jenis, nominal, saldoSebelum, saldoSesudah,
+    tanggal: today(), keterangan: keterangan||'', petugas: currentAdmin
+  }));
+}
+
+/* ---------------- Helper: autocomplete generik ----------------
+   Dipakai di field teks bebas (bengkel, tujuan, kategori custom, dll) supaya
+   petugas bisa pilih dari data yang sudah pernah diketik sebelumnya, bukan
+   mengetik ulang dari nol setiap kali (mengurangi typo/variasi penulisan).
+   Minimal 3 karakter baru muncul saran, navigasi pakai panah atas/bawah + Enter. */
+function attachAutocomplete(inputId, getSuggestions){
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  input.parentElement.classList.add('ac-wrap');
+  const box = document.createElement('div');
+  box.className = 'autocomplete-box';
+  input.parentElement.appendChild(box);
+
+  let items = [];
+  let activeIndex = -1;
+
+  function render(){
+    if(items.length === 0){ box.style.display = 'none'; return; }
+    box.innerHTML = items.map((it,i)=> `<div class="ac-item ${i===activeIndex?'active':''}" data-i="${i}">${escapeHtml(it)}</div>`).join('');
+    box.style.display = 'block';
+  }
+  function close(){ items = []; activeIndex = -1; box.style.display = 'none'; }
+
+  input.addEventListener('input', ()=>{
+    const q = input.value.trim().toLowerCase();
+    if(q.length < 3){ close(); return; }
+    let source = [];
+    try{ source = getSuggestions() || []; }catch(e){ source = []; }
+    items = Array.from(new Set(source.filter(Boolean)))
+      .filter(v => v.toLowerCase().includes(q) && v.toLowerCase() !== q)
+      .slice(0, 6);
+    activeIndex = -1;
+    render();
+  });
+  input.addEventListener('keydown', (e)=>{
+    if(box.style.display !== 'block' || items.length===0) return;
+    if(e.key === 'ArrowDown'){ e.preventDefault(); activeIndex = Math.min(activeIndex+1, items.length-1); render(); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); activeIndex = Math.max(activeIndex-1, 0); render(); }
+    else if(e.key === 'Enter'){
+      if(activeIndex >= 0){ e.preventDefault(); input.value = items[activeIndex]; close(); }
+    } else if(e.key === 'Escape'){ close(); }
+  });
+  box.addEventListener('mousedown', (e)=>{
+    const el = e.target.closest('.ac-item');
+    if(el){ input.value = items[Number(el.dataset.i)]; close(); }
+  });
+  input.addEventListener('blur', ()=> setTimeout(close, 150));
+}
+
 function loadData(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -542,6 +600,7 @@ function loadData(){
       services: Array.isArray(parsed.services) ? parsed.services : [],
       documents: Array.isArray(parsed.documents) ? parsed.documents : [],
       etollCards: Array.isArray(parsed.etollCards) ? parsed.etollCards : [],
+      etollTransactions: Array.isArray(parsed.etollTransactions) ? parsed.etollTransactions : [],
       admins: Array.isArray(parsed.admins) && parsed.admins.length ? parsed.admins : defaultData().admins,
     };
   }catch(e){
@@ -551,7 +610,7 @@ function loadData(){
   }
 }
 function defaultData(){
-  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], admins: ['Admin 1','Admin 2'] };
+  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], admins: ['Admin 1','Admin 2'] };
 }
 function saveData(){
   try{
@@ -965,6 +1024,20 @@ function serviceReminderInfo(car){
   return {level:'ok', text:'Servis masih jauh'};
 }
 
+const SERVICE_CATEGORIES = ['Ganti Oli','Servis Berkala / Tune Up','Rem','Ban & Balancing','AC','Kelistrikan','Suspensi/Understel','Aki','Lainnya'];
+
+// Kompatibilitas mundur: catatan servis versi lama menyimpan {jenis, biaya}
+// langsung (belum ada multi-item). Fungsi ini menyeragamkan keduanya jadi
+// array item, supaya kode tampilan tidak perlu tahu bedanya.
+function serviceItems(s){
+  if(Array.isArray(s.items)) return s.items;
+  if(s.jenis) return [{ id:'legacy-'+s.id, kategori:s.jenis, biaya:Number(s.biaya)||0, catatan:s.catatan||'' }];
+  return [];
+}
+function serviceTotal(s){
+  return serviceItems(s).reduce((sum,it)=> sum + (Number(it.biaya)||0), 0);
+}
+
 function carLabel(carId){
   const c = state.cars.find(x=>x.id===carId);
   return c ? (c.merk+' '+c.modelMobil+' — '+c.plat) : '(mobil telah dihapus)';
@@ -1077,6 +1150,11 @@ function renderDashboard(){
     .map(c=>({car:c, reminder: serviceReminderInfo(c)}))
     .filter(x=>x.reminder && (x.reminder.level==='warn' || x.reminder.level==='danger'));
 
+  const lowBalanceCards = state.etollCards
+    .map(card=>({card, batas: card.batasMinimum!=null?Number(card.batasMinimum):25000}))
+    .filter(x=> (Number(x.card.saldo)||0) < x.batas)
+    .sort((a,b)=> (Number(a.card.saldo)||0)-(Number(b.card.saldo)||0));
+
   let html = `
   <div class="kpi-grid">
     <div class="kpi"><div class="label">Total Mobil</div><div class="value">${totalCars}</div></div>
@@ -1097,6 +1175,25 @@ function renderDashboard(){
               <td>${escapeHtml(carLabel(x.car.id))}</td>
               <td>${x.car.odometerSaatIni!=null ? Number(x.car.odometerSaatIni).toLocaleString('id-ID')+' KM' : '-'}</td>
               <td><span class="badge ${x.reminder.level}">${escapeHtml(x.reminder.text)}</span></td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>`}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Kartu E-Toll Perlu Top Up</h2></div>
+    <div class="panel-body">
+      ${lowBalanceCards.length === 0 ? emptyState('✅','Semua kartu E-Toll saldonya masih aman.') : `
+      <div class="table-scroll"><table>
+        <thead><tr><th>Nomor Kartu</th><th>Terpasang di Mobil</th><th>Saldo</th><th>Batas Minimum</th></tr></thead>
+        <tbody>
+          ${lowBalanceCards.map(x=>`
+            <tr>
+              <td><span class="plate">${escapeHtml(x.card.nomorKartu)}</span></td>
+              <td>${x.card.mobilId ? escapeHtml(carLabel(x.card.mobilId)) : '<span class="badge neutral">Tidak terpasang</span>'}</td>
+              <td><span class="badge danger">${fmtMoney(x.card.saldo)}</span></td>
+              <td>${fmtMoney(x.batas)}</td>
             </tr>`).join('')}
         </tbody>
       </table></div>`}
@@ -1134,9 +1231,9 @@ function renderDashboard(){
             <tr>
               <td>${fmtDate(s.tanggal)}</td>
               <td>${escapeHtml(carLabel(s.carId))}</td>
-              <td>${escapeHtml(s.jenis)}</td>
+              <td>${serviceItems(s).map(it=>escapeHtml(it.kategori)).join(', ')||'-'}</td>
               <td>${escapeHtml(s.bengkel||'-')}</td>
-              <td>${fmtMoney(s.biaya)}</td>
+              <td>${fmtMoney(serviceTotal(s))}</td>
             </tr>`).join('')}
         </tbody>
       </table></div>`}
@@ -1336,12 +1433,20 @@ function renderDrivers(){
     `<button class="btn btn-primary" id="btn-add-driver">+ Tambah Sopir</button>`;
   document.getElementById('btn-add-driver').onclick = () => openDriverModal();
 
-  const items = [...state.drivers].sort((a,b)=> a.nama.localeCompare(b.nama));
-  let html = `<div class="panel"><div class="panel-body">`;
-  if(items.length===0){
-    html += emptyState('🧑\u200d✈️','Belum ada data sopir. Tambahkan sopir pertama.');
-  } else {
-    html += `
+  const allItems = [...state.drivers].sort((a,b)=> a.nama.localeCompare(b.nama));
+  const html = `<div class="panel"><div class="panel-body">
+    <div class="search-row"><input type="text" id="driver-search" placeholder="Cari nama, No. SIM, atau No. HP..."></div>
+    <div id="driver-table-wrap"></div>
+  </div></div>`;
+  document.getElementById('content').innerHTML = html;
+
+  function renderTable(items){
+    const wrap = document.getElementById('driver-table-wrap');
+    if(items.length===0){
+      wrap.innerHTML = emptyState('🧑\u200d✈️','Belum ada data sopir yang cocok.');
+      return;
+    }
+    wrap.innerHTML = `
       <div class="table-scroll"><table>
         <thead><tr><th>Nama</th><th>No. SIM</th><th>No. HP</th><th>Alamat</th><th></th></tr></thead>
         <tbody>
@@ -1359,12 +1464,17 @@ function renderDrivers(){
         </tbody>
       </table></div>
     `;
+    wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openDriverModal(b.dataset.edit));
+    wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteDriver(b.dataset.del));
   }
-  html += `</div></div>`;
-  document.getElementById('content').innerHTML = html;
+  renderTable(allItems);
 
-  document.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openDriverModal(b.dataset.edit));
-  document.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteDriver(b.dataset.del));
+  document.getElementById('driver-search').addEventListener('input', (e)=>{
+    const q = e.target.value.trim().toLowerCase();
+    renderTable(allItems.filter(d =>
+      d.nama.toLowerCase().includes(q) || (d.noSim||'').toLowerCase().includes(q) || (d.noHp||'').toLowerCase().includes(q)
+    ));
+  });
 }
 
 function deleteDriver(id){
@@ -1440,15 +1550,56 @@ function renderUsage(){
     `<button class="btn btn-primary" id="btn-add-usage">+ Catat Penggunaan</button>`;
   document.getElementById('btn-add-usage').onclick = () => openUsageModal();
 
-  const items = [...state.usage].sort((a,b)=> b.tglKeluar.localeCompare(a.tglKeluar));
+  const allItems = [...state.usage].sort((a,b)=> b.tglKeluar.localeCompare(a.tglKeluar));
 
-  let html = `<div class="panel"><div class="panel-body">`;
-  if(items.length===0){
-    html += emptyState('📍','Belum ada catatan penggunaan mobil.');
-  } else {
-    html += `
+  // ---- Panel laporan ringkas: total jarak, BBM, dan pemakaian E-Toll ----
+  const totalJarak = allItems.reduce((sum,u)=>{
+    if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) return sum + (u.odoKembali-u.odoKeluar);
+    return sum;
+  }, 0);
+  const totalLiter = allItems.reduce((sum,u)=> sum + (Number(u.literBensin)||0), 0);
+  const totalBiayaBensin = allItems.reduce((sum,u)=> sum + (Number(u.biayaBensin)||0), 0);
+  const totalTransaksiEtollPemakaian = state.etollTransactions
+    .filter(t=>t.jenis==='pemakaian')
+    .reduce((sum,t)=> sum + Math.abs(Math.min(0, Number(t.nominal)||0)), 0);
+
+  let html = `
+    <div class="panel">
+      <div class="panel-head"><h2>Ringkasan Pemakaian BBM &amp; E-Toll</h2></div>
+      <div class="panel-body">
+        <div class="kpi-grid">
+          <div class="kpi"><div class="label">Total Jarak Tempuh</div><div class="value">${totalJarak.toLocaleString('id-ID')}<span style="font-size:13px;font-weight:600;"> KM</span></div></div>
+          <div class="kpi"><div class="label">Total BBM Terisi</div><div class="value">${totalLiter.toLocaleString('id-ID')}<span style="font-size:13px;font-weight:600;"> L</span></div></div>
+          <div class="kpi"><div class="label">Total Biaya BBM</div><div class="value">${fmtMoney(totalBiayaBensin)}</div></div>
+          <div class="kpi"><div class="label">Total Pemakaian E-Toll</div><div class="value">${fmtMoney(totalTransaksiEtollPemakaian)}</div></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  html += `<div class="panel"><div class="panel-body">
+    <div class="search-row"><input type="text" id="usage-search" placeholder="Cari mobil, sopir, atau tujuan..."></div>
+    <div id="usage-table-wrap"></div>
+  </div></div>`;
+  document.getElementById('content').innerHTML = html;
+
+  function ratioLabel(u){
+    if(u.odoKeluar==null || u.odoKembali==null || u.odoKembali<u.odoKeluar || !u.literBensin) return '-';
+    const jarak = u.odoKembali - u.odoKeluar;
+    const rasio = jarak / Number(u.literBensin);
+    if(!isFinite(rasio) || rasio<=0) return '-';
+    return rasio.toFixed(1) + ' KM/L';
+  }
+
+  function renderTable(items){
+    const wrap = document.getElementById('usage-table-wrap');
+    if(items.length===0){
+      wrap.innerHTML = emptyState('📍','Belum ada catatan penggunaan mobil.');
+      return;
+    }
+    wrap.innerHTML = `
       <div class="table-scroll"><table>
-        <thead><tr><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Kembali</th><th>Jarak Tempuh</th><th>Sisa Bensin</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Jam</th><th>Kembali</th><th>Jam</th><th>Jarak</th><th>BBM</th><th>Rasio</th><th>Sisa Bensin</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${items.map(u=>{
             const bensin = (u.sisaBensin===null || u.sisaBensin===undefined || u.sisaBensin==='') ? null : Number(u.sisaBensin);
@@ -1466,6 +1617,7 @@ function renderUsage(){
             } else if(u.odoKeluar!=null){
               jarakBadge = `<span class="badge neutral">Belum kembali</span>`;
             }
+            const bbmLabel = (u.literBensin || u.biayaBensin) ? `${u.literBensin?Number(u.literBensin).toLocaleString('id-ID')+' L':''}${u.biayaBensin?' / '+fmtMoney(u.biayaBensin):''}` : '-';
             return `
             <tr>
               <td>${escapeHtml(carLabel(u.carId))}</td>
@@ -1473,8 +1625,12 @@ function renderUsage(){
               <td>${u.jenisPenggunaan==='pribadi' ? `<span class="badge neutral">Pribadi</span>` : `<span class="badge ok">Pengiriman</span>`}</td>
               <td>${escapeHtml(u.tujuan)}</td>
               <td>${fmtDate(u.tglKeluar)}</td>
+              <td>${u.jamKeluar || '-'}</td>
               <td>${u.tglKembali ? fmtDate(u.tglKembali) : '-'}</td>
+              <td>${u.jamKembali || '-'}</td>
               <td>${jarakBadge}</td>
+              <td>${bbmLabel}</td>
+              <td>${ratioLabel(u)}</td>
               <td>${bensinBadge}</td>
               <td>${linkedCard ? escapeHtml(linkedCard.nomorKartu) : '-'}</td>
               <td>${etoll !== null && !isNaN(etoll) ? fmtMoney(etoll) : '-'}</td>
@@ -1488,16 +1644,24 @@ function renderUsage(){
         </tbody>
       </table></div>
     `;
+    wrap.querySelectorAll('[data-return]').forEach(b=> b.onclick = ()=> markReturned(b.dataset.return));
+    wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> {
+      if(!confirm('Hapus catatan penggunaan ini?')) return;
+      markDeleted('usage', b.dataset.del);
+      state.usage = state.usage.filter(u=>u.id!==b.dataset.del);
+      saveData(); showToast('Catatan penggunaan dihapus.'); renderUsage();
+    });
   }
-  html += `</div></div>`;
-  document.getElementById('content').innerHTML = html;
+  renderTable(allItems);
 
-  document.querySelectorAll('[data-return]').forEach(b=> b.onclick = ()=> markReturned(b.dataset.return));
-  document.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> {
-    if(!confirm('Hapus catatan penggunaan ini?')) return;
-    markDeleted('usage', b.dataset.del);
-    state.usage = state.usage.filter(u=>u.id!==b.dataset.del);
-    saveData(); showToast('Catatan penggunaan dihapus.'); renderUsage();
+  document.getElementById('usage-search').addEventListener('input', (e)=>{
+    const q = e.target.value.trim().toLowerCase();
+    const filtered = allItems.filter(u =>
+      carLabel(u.carId).toLowerCase().includes(q) ||
+      driverLabel(u.driverId, u.driver).toLowerCase().includes(q) ||
+      (u.tujuan||'').toLowerCase().includes(q)
+    );
+    renderTable(filtered);
   });
 }
 
@@ -1507,10 +1671,16 @@ function markReturned(id){
   const linkedCard = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
   const body = `
     <p style="font-size:13px;color:var(--muted);margin-top:0;">Perbarui kondisi mobil saat kembali (opsional).</p>
-    <div class="field" id="f-odo-kembali">
-      <label>Odometer Saat Kembali (KM)</label>
-      <input type="text" inputmode="numeric" id="in-odo-kembali" placeholder="Contoh: 45.230" value="${fmtRibuanInitial(u.odoKembali)}">
-      <div class="err-msg">Odometer kembali tidak boleh lebih kecil dari odometer keluar (${u.odoKeluar!=null ? Number(u.odoKeluar).toLocaleString('id-ID') : '-'} KM).</div>
+    <div class="grid-2">
+      <div class="field" id="f-odo-kembali">
+        <label>Odometer Saat Kembali (KM)</label>
+        <input type="text" inputmode="numeric" id="in-odo-kembali" placeholder="Contoh: 45.230" value="${fmtRibuanInitial(u.odoKembali)}">
+        <div class="err-msg">Odometer kembali tidak boleh lebih kecil dari odometer keluar (${u.odoKeluar!=null ? Number(u.odoKeluar).toLocaleString('id-ID') : '-'} KM).</div>
+      </div>
+      <div class="field">
+        <label>Jam Pulang</label>
+        <input type="time" id="in-jam-kembali" value="${u.jamKembali||''}">
+      </div>
     </div>
     <div class="grid-2">
       <div class="field">
@@ -1523,6 +1693,19 @@ function markReturned(id){
         <div class="hint">${linkedCard ? `Terhubung ke kartu ${escapeHtml(linkedCard.nomorKartu)} — saldo di sini akan otomatis memperbarui saldo kartu tersebut.` : 'Perjalanan ini tidak terhubung ke kartu E-Toll manapun.'}</div>
       </div>
     </div>
+    <div class="panel-head" style="padding:0;border:none;margin:14px 0 8px 0;">
+      <h2 style="font-size:13px;">Pembelian BBM perjalanan ini (opsional)</h2>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Jumlah BBM (Liter)</label>
+        <input type="number" step="0.01" min="0" id="in-liter-bensin" placeholder="Contoh: 20" value="${u.literBensin ?? ''}">
+      </div>
+      <div class="field">
+        <label>Biaya BBM (Rp)</label>
+        <input type="text" inputmode="numeric" id="in-biaya-bensin" placeholder="Contoh: 200.000" value="${fmtRibuanInitial(u.biayaBensin)}">
+      </div>
+    </div>
   `;
   openModal({
     title: 'Tandai Mobil Telah Kembali',
@@ -1532,6 +1715,9 @@ function markReturned(id){
       const etoll = getRibuanValue('in-etoll-kembali');
       const odoKembaliVal = getRibuanValue('in-odo-kembali');
       const odoKembali = odoKembaliVal === '' ? null : Number(odoKembaliVal);
+      const jamKembali = document.getElementById('in-jam-kembali').value;
+      const literBensinVal = document.getElementById('in-liter-bensin').value;
+      const biayaBensinVal = getRibuanValue('in-biaya-bensin');
 
       const invalidOdo = odoKembali !== null && u.odoKeluar !== null && u.odoKeluar !== undefined && odoKembali < u.odoKeluar;
       toggleFieldError('f-odo-kembali', invalidOdo);
@@ -1539,9 +1725,12 @@ function markReturned(id){
 
       u.status = 'selesai';
       u.tglKembali = today();
+      u.jamKembali = jamKembali || null;
       u.sisaBensin = bensin === '' ? u.sisaBensin ?? null : Number(bensin);
       u.saldoEtoll = etoll === '' ? u.saldoEtoll ?? null : Number(etoll);
       u.odoKembali = odoKembali === null ? (u.odoKembali ?? null) : odoKembali;
+      u.literBensin = literBensinVal === '' ? (u.literBensin ?? null) : Number(literBensinVal);
+      u.biayaBensin = biayaBensinVal === '' ? (u.biayaBensin ?? null) : Number(biayaBensinVal);
       touch(u);
 
       // Sinkronkan ke Odometer Saat Ini di Data Mobil, supaya pengingat servis
@@ -1555,11 +1744,16 @@ function markReturned(id){
       }
 
       // Sinkronkan saldo akhir perjalanan kembali ke Kartu E-Toll (kalau terhubung),
-      // supaya jejaknya berlanjut otomatis ke perjalanan berikutnya yang pakai kartu ini.
+      // dan catat sebagai 1 baris riwayat transaksi (bukan cuma menimpa saldo).
       if(u.etollCardId && u.saldoEtoll != null){
         const card = state.etollCards.find(c=>c.id===u.etollCardId);
         if(card){
-          card.saldo = u.saldoEtoll;
+          const saldoSebelum = Number(card.saldo)||0;
+          const saldoSesudah = u.saldoEtoll;
+          if(saldoSesudah !== saldoSebelum){
+            logEtollTransaction(card.id, 'pemakaian', saldoSesudah - saldoSebelum, saldoSebelum, saldoSesudah, `Perjalanan: ${u.tujuan||'-'}`);
+          }
+          card.saldo = saldoSesudah;
           touch(card);
         }
       }
@@ -1572,6 +1766,7 @@ function markReturned(id){
   });
   attachRibuanInput('in-etoll-kembali');
   attachRibuanInput('in-odo-kembali');
+  attachRibuanInput('in-biaya-bensin');
 }
 
 function buildDriverOptions(selectedId){
@@ -1610,12 +1805,18 @@ function openUsageModal(){
     </div>
     <div class="field" id="f-tujuan">
       <label>Tujuan / Keperluan *</label>
-      <input type="text" id="in-tujuan" placeholder="Contoh: Gudang Surabaya - Toko A">
+      <input type="text" id="in-tujuan" placeholder="Contoh: Gudang Surabaya - Toko A" autocomplete="off">
       <div class="err-msg">Tujuan wajib diisi.</div>
     </div>
-    <div class="field">
-      <label>Tanggal Keluar</label>
-      <input type="date" id="in-tglkeluar" value="${today()}">
+    <div class="grid-2">
+      <div class="field">
+        <label>Tanggal Keluar</label>
+        <input type="date" id="in-tglkeluar" value="${today()}">
+      </div>
+      <div class="field">
+        <label>Jam Berangkat</label>
+        <input type="time" id="in-jam-keluar" value="${new Date().toTimeString().slice(0,5)}">
+      </div>
     </div>
     <div class="field">
       <label>Odometer Saat Keluar (KM)</label>
@@ -1650,6 +1851,7 @@ function openUsageModal(){
       const jenisPenggunaan = document.getElementById('in-jenis-pakai').value;
       const tujuan = document.getElementById('in-tujuan').value.trim();
       const tglKeluar = document.getElementById('in-tglkeluar').value || today();
+      const jamKeluar = document.getElementById('in-jam-keluar').value || null;
       const odoKeluarVal = getRibuanValue('in-odo-keluar');
       const bensinVal = document.getElementById('in-bensin').value;
       const etollCardId = document.getElementById('in-etoll-card').value || null;
@@ -1663,10 +1865,12 @@ function openUsageModal(){
 
       state.usage.push(touch({
         id: uid(), carId, driverId, jenisPenggunaan, tujuan, tglKeluar, tglKembali:null,
+        jamKeluar, jamKembali: null,
         status:'digunakan',
         odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
         odoKembali: null,
         sisaBensin: bensinVal === '' ? null : Number(bensinVal),
+        literBensin: null, biayaBensin: null,
         etollCardId,
         saldoEtoll: etollVal === '' ? null : Number(etollVal),
         petugas: currentAdmin
@@ -1678,6 +1882,7 @@ function openUsageModal(){
     }
   });
   attachRibuanInput('in-etoll');
+  attachAutocomplete('in-tujuan', () => state.usage.map(u=>u.tujuan));
   attachRibuanInput('in-odo-keluar');
 
   // Pilih kartu E-Toll → saldo saat ini otomatis tersalin ke field "Saldo Saat Keluar",
@@ -1720,39 +1925,82 @@ function renderService(){
     `<button class="btn btn-primary" id="btn-add-service">+ Catat Servis</button>`;
   document.getElementById('btn-add-service').onclick = () => openServiceModal();
 
-  const items = [...state.services].sort((a,b)=> b.tanggal.localeCompare(a.tanggal));
-  let html = `<div class="panel"><div class="panel-body">`;
-  if(items.length===0){
-    html += emptyState('🔧','Belum ada riwayat servis. Tambahkan catatan servis pertama.');
-  } else {
-    html += `
+  // Ditampilkan per-ITEM (bukan per-kunjungan), diurutkan terbaru dulu, supaya
+  // "kapan mobil ini terakhir ganti oli" tinggal filter kategori + lihat baris
+  // paling atas — tidak perlu buka satu-satu kunjungan servis.
+  const rows = [];
+  state.services.forEach(s=>{
+    serviceItems(s).forEach(it=> rows.push({ service: s, item: it }));
+  });
+  rows.sort((a,b)=> b.service.tanggal.localeCompare(a.service.tanggal));
+
+  const categoriesInUse = Array.from(new Set(rows.map(r=>r.item.kategori).filter(Boolean))).sort();
+
+  let html = `<div class="panel"><div class="panel-body">
+    <div class="search-row">
+      <input type="text" id="service-search" placeholder="Cari mobil, bengkel, atau catatan...">
+      <select class="select-inline" id="service-filter-kategori" style="min-width:180px;">
+        <option value="">Semua kategori</option>
+        ${categoriesInUse.map(k=>`<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join('')}
+      </select>
+    </div>
+    <div id="service-table-wrap"></div>
+  </div></div>`;
+  document.getElementById('content').innerHTML = html;
+
+  function renderTable(list){
+    const wrap = document.getElementById('service-table-wrap');
+    if(list.length===0){
+      wrap.innerHTML = emptyState('🔧','Belum ada riwayat servis yang cocok.');
+      return;
+    }
+    wrap.innerHTML = `
       <div class="table-scroll"><table>
-        <thead><tr><th>Tanggal</th><th>Mobil</th><th>Jenis Servis</th><th>Odometer</th><th>Bengkel</th><th>Biaya</th><th>Catatan</th><th></th></tr></thead>
+        <thead><tr><th>Tanggal</th><th>Mobil</th><th>Kategori</th><th>Odometer</th><th>Bengkel</th><th>Biaya</th><th>Catatan</th><th></th></tr></thead>
         <tbody>
-          ${items.map(s=>`
+          ${list.map(r=>`
             <tr>
-              <td>${fmtDate(s.tanggal)}</td>
-              <td>${escapeHtml(carLabel(s.carId))}</td>
-              <td>${escapeHtml(s.jenis)}</td>
-              <td>${s.odometer!=null ? Number(s.odometer).toLocaleString('id-ID')+' KM' : '-'}</td>
-              <td>${escapeHtml(s.bengkel||'-')}</td>
-              <td>${fmtMoney(s.biaya)}</td>
-              <td>${escapeHtml(s.catatan||'-')}</td>
-              <td style="text-align:right;"><button class="btn btn-danger btn-sm" data-del="${s.id}">Hapus</button></td>
+              <td>${fmtDate(r.service.tanggal)}</td>
+              <td>${escapeHtml(carLabel(r.service.carId))}</td>
+              <td><span class="badge neutral">${escapeHtml(r.item.kategori)}</span></td>
+              <td>${r.service.odometer!=null ? Number(r.service.odometer).toLocaleString('id-ID')+' KM' : '-'}</td>
+              <td>${escapeHtml(r.service.bengkel||'-')}</td>
+              <td>${fmtMoney(r.item.biaya)}</td>
+              <td>${escapeHtml(r.item.catatan||'-')}</td>
+              <td style="text-align:right;"><button class="btn btn-danger btn-sm" data-del="${r.service.id}">Hapus</button></td>
             </tr>`).join('')}
         </tbody>
       </table></div>
     `;
+    wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=>{
+      const s = state.services.find(x=>x.id===b.dataset.del);
+      const itemCount = s ? serviceItems(s).length : 1;
+      const warn = itemCount > 1
+        ? `Kunjungan servis ini punya ${itemCount} item. Hapus akan menghapus SEMUA item di kunjungan/tanggal ini sekaligus. Lanjutkan?`
+        : 'Hapus catatan servis ini?';
+      if(!confirm(warn)) return;
+      markDeleted('services', b.dataset.del);
+      state.services = state.services.filter(x=>x.id!==b.dataset.del);
+      saveData(); showToast('Catatan servis dihapus.'); renderService();
+    });
   }
-  html += `</div></div>`;
-  document.getElementById('content').innerHTML = html;
+  renderTable(rows);
 
-  document.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=>{
-    if(!confirm('Hapus catatan servis ini?')) return;
-    markDeleted('services', b.dataset.del);
-    state.services = state.services.filter(s=>s.id!==b.dataset.del);
-    saveData(); showToast('Catatan servis dihapus.'); renderService();
-  });
+  function applyFilter(){
+    const q = document.getElementById('service-search').value.trim().toLowerCase();
+    const kategori = document.getElementById('service-filter-kategori').value;
+    const filtered = rows.filter(r=>{
+      const matchQ = !q ||
+        carLabel(r.service.carId).toLowerCase().includes(q) ||
+        (r.service.bengkel||'').toLowerCase().includes(q) ||
+        (r.item.catatan||'').toLowerCase().includes(q);
+      const matchKat = !kategori || r.item.kategori === kategori;
+      return matchQ && matchKat;
+    });
+    renderTable(filtered);
+  }
+  document.getElementById('service-search').addEventListener('input', applyFilter);
+  document.getElementById('service-filter-kategori').addEventListener('change', applyFilter);
 }
 
 function openServiceModal(){
@@ -1761,6 +2009,12 @@ function openServiceModal(){
     return;
   }
   const carOptions = state.cars.map(c=>`<option value="${c.id}">${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}</option>`).join('');
+
+  // State sementara daftar item servis selama modal terbuka — baru dikunci ke
+  // data permanen saat "Simpan" ditekan. Ini yang mengizinkan 1 tanggal/kunjungan
+  // punya banyak item (ganti oli + rem + AC dst) dalam satu kali input.
+  let formItems = [{ id: uid(), kategori:'', kategoriCustom:'', biaya:'', catatan:'' }];
+
   const body = `
     <div class="field" id="f-car">
       <label>Mobil *</label>
@@ -1772,51 +2026,127 @@ function openServiceModal(){
         <label>Tanggal Servis</label>
         <input type="date" id="in-tanggal" value="${today()}">
       </div>
-      <div class="field" id="f-jenis">
-        <label>Jenis Servis *</label>
-        <input type="text" id="in-jenis" placeholder="Ganti oli, tune-up, dll">
-        <div class="err-msg">Jenis servis wajib diisi.</div>
-      </div>
-    </div>
-    <div class="grid-2">
       <div class="field">
-        <label>Bengkel</label>
-        <input type="text" id="in-bengkel" placeholder="Nama bengkel">
-      </div>
-      <div class="field">
-        <label>Biaya (Rp)</label>
-        <input type="text" inputmode="numeric" id="in-biaya" placeholder="Contoh: 350.000">
+        <label>Odometer Saat Servis (KM)</label>
+        <input type="text" inputmode="numeric" id="in-odo-servis" placeholder="Contoh: 45.000">
       </div>
     </div>
     <div class="field">
-      <label>Odometer Saat Servis (KM)</label>
-      <input type="text" inputmode="numeric" id="in-odo-servis" placeholder="Contoh: 45.000">
-      <div class="hint">Diisi supaya pengingat servis berikutnya (di Data Mobil) bisa dihitung otomatis.</div>
+      <label>Bengkel</label>
+      <input type="text" id="in-bengkel" placeholder="Nama bengkel" autocomplete="off">
     </div>
-    <div class="field">
-      <label>Catatan</label>
-      <textarea id="in-catatan" rows="2" placeholder="Catatan tambahan (opsional)"></textarea>
+    <div class="panel-head" style="padding:0;border:none;margin:16px 0 8px 0;display:flex;justify-content:space-between;align-items:center;">
+      <h2 style="font-size:13px;">Item Servis / Perbaikan *</h2>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-add-item">+ Tambah Item</button>
+    </div>
+    <div id="service-items-wrap"></div>
+    <div class="field" id="f-items"><div class="err-msg">Minimal 1 item servis dengan kategori terisi.</div></div>
+    <div class="field" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;">
+      <label style="margin:0;">Total Biaya Kunjungan Ini</label>
+      <div id="service-total" style="font-weight:700;font-size:16px;font-family:'JetBrains Mono',monospace;">Rp 0</div>
     </div>
   `;
+
+  function syncFormItemsFromDom(){
+    formItems.forEach(it=>{
+      const katEl = document.getElementById('item-kat-'+it.id);
+      const katCustomEl = document.getElementById('item-katcustom-'+it.id);
+      const catatanEl = document.getElementById('item-catatan-'+it.id);
+      if(katEl) it.kategori = katEl.value;
+      if(katCustomEl) it.kategoriCustom = katCustomEl.value;
+      it.biaya = getRibuanValue('item-biaya-'+it.id);
+      if(catatanEl) it.catatan = catatanEl.value;
+    });
+  }
+  function updateTotal(){
+    const total = formItems.reduce((sum,it)=> sum + (Number(getRibuanValue('item-biaya-'+it.id))||0), 0);
+    const el = document.getElementById('service-total');
+    if(el) el.textContent = fmtMoney(total);
+  }
+  function renderItems(){
+    const wrap = document.getElementById('service-items-wrap');
+    if(!wrap) return;
+    wrap.innerHTML = formItems.map(it=>`
+      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;">
+        <div class="grid-2">
+          <div class="field" style="margin-bottom:8px;">
+            <label>Kategori *</label>
+            <select id="item-kat-${it.id}">
+              <option value="">— pilih kategori —</option>
+              ${SERVICE_CATEGORIES.map(c=>`<option value="${c}" ${it.kategori===c?'selected':''}>${c}</option>`).join('')}
+              <option value="__lainnya__" ${it.kategori==='__lainnya__'?'selected':''}>+ Kategori lain...</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:8px;">
+            <label>Biaya (Rp)</label>
+            <input type="text" inputmode="numeric" id="item-biaya-${it.id}" placeholder="Contoh: 150.000" value="${fmtRibuanInitial(it.biaya)}">
+          </div>
+        </div>
+        ${it.kategori==='__lainnya__' ? `
+        <div class="field" style="margin-bottom:8px;">
+          <label>Nama Kategori Lain</label>
+          <input type="text" id="item-katcustom-${it.id}" placeholder="Contoh: Ganti wiper" value="${escapeHtml(it.kategoriCustom||'')}" autocomplete="off">
+        </div>` : ''}
+        <div class="field" style="margin-bottom:${formItems.length>1?'8px':'0'};">
+          <label>Catatan Item (opsional)</label>
+          <input type="text" id="item-catatan-${it.id}" value="${escapeHtml(it.catatan||'')}" placeholder="Detail tambahan">
+        </div>
+        ${formItems.length>1 ? `<button type="button" class="btn btn-danger btn-sm" data-remove-item="${it.id}">Hapus Item Ini</button>` : ''}
+      </div>
+    `).join('');
+
+    formItems.forEach(it=>{
+      const katEl = document.getElementById('item-kat-'+it.id);
+      if(katEl) katEl.addEventListener('change', ()=>{ syncFormItemsFromDom(); renderItems(); });
+      attachRibuanInput('item-biaya-'+it.id);
+      const biayaEl = document.getElementById('item-biaya-'+it.id);
+      if(biayaEl) biayaEl.addEventListener('input', updateTotal);
+      if(it.kategori==='__lainnya__'){
+        attachAutocomplete('item-katcustom-'+it.id, () => {
+          const custom = [];
+          state.services.forEach(s=> serviceItems(s).forEach(x=>{ if(x.kategori && !SERVICE_CATEGORIES.includes(x.kategori)) custom.push(x.kategori); }));
+          return custom;
+        });
+      }
+    });
+    wrap.querySelectorAll('[data-remove-item]').forEach(b=> b.onclick = ()=>{
+      syncFormItemsFromDom();
+      formItems = formItems.filter(it=> it.id !== b.dataset.removeItem);
+      renderItems();
+      updateTotal();
+    });
+    updateTotal();
+  }
+
   openModal({
     title: 'Catat Servis / Maintenance',
     body,
     onSave: () => {
       const carId = document.getElementById('in-car').value;
       const tanggal = document.getElementById('in-tanggal').value || today();
-      const jenis = document.getElementById('in-jenis').value.trim();
       const bengkel = document.getElementById('in-bengkel').value.trim();
-      const biaya = getRibuanValue('in-biaya');
       const odoServisVal = getRibuanValue('in-odo-servis');
-      const catatan = document.getElementById('in-catatan').value.trim();
+
+      syncFormItemsFromDom();
+      const validItems = formItems
+        .map(it => ({
+          id: it.id,
+          kategori: (it.kategori === '__lainnya__' ? it.kategoriCustom.trim() : it.kategori),
+          biaya: Number(it.biaya)||0,
+          catatan: (it.catatan||'').trim()
+        }))
+        .filter(it => it.kategori);
 
       let valid = true;
       toggleFieldError('f-car', !carId); if(!carId) valid=false;
-      toggleFieldError('f-jenis', !jenis); if(!jenis) valid=false;
+      toggleFieldError('f-items', validItems.length===0); if(validItems.length===0) valid=false;
       if(!valid) return false;
 
       const odometer = odoServisVal === '' ? null : Number(odoServisVal);
-      state.services.push(touch({id: uid(), carId, tanggal, jenis, bengkel, biaya: Number(biaya)||0, odometer, catatan, petugas: currentAdmin}));
+      state.services.push(touch({
+        id: uid(), carId, tanggal, bengkel, odometer, items: validItems,
+        petugas: currentAdmin
+      }));
 
       // Sinkronkan ke Odometer Saat Ini di Data Mobil kalau angkanya lebih baru/besar.
       if(odometer != null){
@@ -1830,8 +2160,15 @@ function openServiceModal(){
       return true;
     }
   });
-  attachRibuanInput('in-biaya');
+
   attachRibuanInput('in-odo-servis');
+  attachAutocomplete('in-bengkel', () => state.services.map(s=>s.bengkel));
+  renderItems();
+  document.getElementById('btn-add-item').addEventListener('click', ()=>{
+    syncFormItemsFromDom();
+    formItems.push({ id: uid(), kategori:'', kategoriCustom:'', biaya:'', catatan:'' });
+    renderItems();
+  });
 }
 
 /* ========================================================================
@@ -1842,12 +2179,20 @@ function renderDocs(){
     `<button class="btn btn-primary" id="btn-add-doc">+ Tambah Dokumen</button>`;
   document.getElementById('btn-add-doc').onclick = () => openDocModal();
 
-  const items = [...state.documents].sort((a,b)=> a.tglExpired.localeCompare(b.tglExpired));
-  let html = `<div class="panel"><div class="panel-body">`;
-  if(items.length===0){
-    html += emptyState('📄','Belum ada dokumen tercatat.');
-  } else {
-    html += `
+  const allItems = [...state.documents].sort((a,b)=> a.tglExpired.localeCompare(b.tglExpired));
+  const html = `<div class="panel"><div class="panel-body">
+    <div class="search-row"><input type="text" id="doc-search" placeholder="Cari mobil, jenis dokumen, atau nomor..."></div>
+    <div id="doc-table-wrap"></div>
+  </div></div>`;
+  document.getElementById('content').innerHTML = html;
+
+  function renderTable(items){
+    const wrap = document.getElementById('doc-table-wrap');
+    if(items.length===0){
+      wrap.innerHTML = emptyState('📄','Belum ada dokumen yang cocok.');
+      return;
+    }
+    wrap.innerHTML = `
       <div class="table-scroll"><table>
         <thead><tr><th>Mobil</th><th>Jenis</th><th>Nomor</th><th>Terbit</th><th>Masa Berlaku</th><th>Status</th><th></th></tr></thead>
         <tbody>
@@ -1871,15 +2216,20 @@ function renderDocs(){
         </tbody>
       </table></div>
     `;
+    wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=>{
+      if(!confirm('Hapus dokumen ini?')) return;
+      markDeleted('documents', b.dataset.del);
+      state.documents = state.documents.filter(x=>x.id!==b.dataset.del);
+      saveData(); showToast('Dokumen dihapus.'); renderDocs();
+    });
   }
-  html += `</div></div>`;
-  document.getElementById('content').innerHTML = html;
+  renderTable(allItems);
 
-  document.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=>{
-    if(!confirm('Hapus dokumen ini?')) return;
-    markDeleted('documents', b.dataset.del);
-    state.documents = state.documents.filter(d=>d.id!==b.dataset.del);
-    saveData(); showToast('Dokumen dihapus.'); renderDocs();
+  document.getElementById('doc-search').addEventListener('input', (e)=>{
+    const q = e.target.value.trim().toLowerCase();
+    renderTable(allItems.filter(d =>
+      carLabel(d.carId).toLowerCase().includes(q) || d.jenis.toLowerCase().includes(q) || (d.nomor||'').toLowerCase().includes(q)
+    ));
   });
 }
 
@@ -1954,37 +2304,94 @@ function renderEtollCards(){
     `<button class="btn btn-primary" id="btn-add-etoll">+ Tambah Kartu</button>`;
   document.getElementById('btn-add-etoll').onclick = () => openEtollCardModal();
 
-  const items = [...state.etollCards].sort((a,b)=> a.nomorKartu.localeCompare(b.nomorKartu));
-  let html = `<div class="panel"><div class="panel-body">`;
-  if(items.length===0){
-    html += emptyState('💳','Belum ada kartu E-Toll terdaftar.');
-  } else {
-    html += `
+  const allItems = [...state.etollCards].sort((a,b)=> a.nomorKartu.localeCompare(b.nomorKartu));
+  const html = `<div class="panel"><div class="panel-body">
+    <div class="search-row"><input type="text" id="etoll-search" placeholder="Cari nomor kartu atau mobil..."></div>
+    <div id="etoll-table-wrap"></div>
+  </div></div>`;
+  document.getElementById('content').innerHTML = html;
+
+  function renderTable(items){
+    const wrap = document.getElementById('etoll-table-wrap');
+    if(items.length===0){
+      wrap.innerHTML = emptyState('💳','Belum ada kartu E-Toll yang cocok.');
+      return;
+    }
+    wrap.innerHTML = `
       <div class="table-scroll"><table>
-        <thead><tr><th>Nomor Kartu</th><th>Terpasang di Mobil</th><th>Saldo Saat Ini</th><th>Catatan</th><th></th></tr></thead>
+        <thead><tr><th>Nomor Kartu</th><th>Terpasang di Mobil</th><th>Saldo Saat Ini</th><th>Batas Minimum</th><th>Catatan</th><th></th></tr></thead>
         <tbody>
-          ${items.map(card=>`
+          ${items.map(card=>{
+            const batas = card.batasMinimum!=null ? Number(card.batasMinimum) : 25000;
+            const saldo = Number(card.saldo)||0;
+            let saldoBadge;
+            if(saldo < batas) saldoBadge = `<span class="badge danger">${fmtMoney(saldo)} — segera top up</span>`;
+            else if(saldo < batas*2) saldoBadge = `<span class="badge warn">${fmtMoney(saldo)}</span>`;
+            else saldoBadge = `<span class="badge ok">${fmtMoney(saldo)}</span>`;
+            return `
             <tr>
               <td><span class="plate">${escapeHtml(card.nomorKartu)}</span></td>
               <td>${card.mobilId ? escapeHtml(carLabel(card.mobilId)) : '<span class="badge neutral">Tidak terpasang</span>'}</td>
-              <td>${fmtMoney(card.saldo)}</td>
+              <td>${saldoBadge}</td>
+              <td>${fmtMoney(batas)}</td>
               <td>${escapeHtml(card.catatan||'-')}</td>
               <td style="text-align:right;white-space:nowrap;">
                 <button class="btn btn-ghost btn-sm" data-topup="${card.id}">Top Up</button>
+                <button class="btn btn-ghost btn-sm" data-riwayat="${card.id}">Riwayat</button>
                 <button class="btn btn-ghost btn-sm" data-edit="${card.id}">Edit</button>
                 <button class="btn btn-danger btn-sm" data-del="${card.id}">Hapus</button>
               </td>
-            </tr>`).join('')}
+            </tr>`;
+          }).join('')}
         </tbody>
       </table></div>
     `;
+    wrap.querySelectorAll('[data-topup]').forEach(b=> b.onclick = ()=> topUpEtollCard(b.dataset.topup));
+    wrap.querySelectorAll('[data-riwayat]').forEach(b=> b.onclick = ()=> openEtollHistoryModal(b.dataset.riwayat));
+    wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openEtollCardModal(b.dataset.edit));
+    wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteEtollCard(b.dataset.del));
   }
-  html += `</div></div>`;
-  document.getElementById('content').innerHTML = html;
+  renderTable(allItems);
 
-  document.querySelectorAll('[data-topup]').forEach(b=> b.onclick = ()=> topUpEtollCard(b.dataset.topup));
-  document.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openEtollCardModal(b.dataset.edit));
-  document.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteEtollCard(b.dataset.del));
+  document.getElementById('etoll-search').addEventListener('input', (e)=>{
+    const q = e.target.value.trim().toLowerCase();
+    renderTable(allItems.filter(card =>
+      card.nomorKartu.toLowerCase().includes(q) || (card.mobilId ? carLabel(card.mobilId).toLowerCase().includes(q) : false)
+    ));
+  });
+}
+
+function openEtollHistoryModal(cardId){
+  const card = state.etollCards.find(c=>c.id===cardId);
+  if(!card) return;
+  const trx = state.etollTransactions
+    .filter(t=>t.cardId===cardId)
+    .sort((a,b)=> (b.updatedAt||0)-(a.updatedAt||0));
+  const body = trx.length===0
+    ? emptyState('🧾','Belum ada riwayat transaksi untuk kartu ini.')
+    : `<div class="table-scroll"><table>
+        <thead><tr><th>Tanggal</th><th>Jenis</th><th>Nominal</th><th>Saldo Sesudah</th><th>Keterangan</th><th>Petugas</th></tr></thead>
+        <tbody>
+          ${trx.map(t=>`
+            <tr>
+              <td>${fmtDate(t.tanggal)}</td>
+              <td>${t.jenis==='topup' ? `<span class="badge ok">Top Up</span>` : t.jenis==='pemakaian' ? `<span class="badge warn">Pemakaian</span>` : `<span class="badge neutral">Penyesuaian</span>`}</td>
+              <td>${t.nominal>=0?'+':''}${fmtMoney(t.nominal)}</td>
+              <td>${fmtMoney(t.saldoSesudah)}</td>
+              <td>${escapeHtml(t.keterangan||'-')}</td>
+              <td>${escapeHtml(t.petugas||'-')}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>`;
+  openModal({
+    title: `Riwayat Transaksi — ${card.nomorKartu}`,
+    body,
+    onSave: () => true
+  });
+  const saveBtn = document.getElementById('modal-save');
+  if(saveBtn) saveBtn.textContent = 'Tutup';
+  const cancelBtn = document.getElementById('modal-cancel');
+  if(cancelBtn) cancelBtn.style.display = 'none';
 }
 
 function topUpEtollCard(id){
@@ -1997,15 +2404,18 @@ function topUpEtollCard(id){
     showToast('Nominal top up tidak valid.', true);
     return;
   }
-  card.saldo = (Number(card.saldo)||0) + nominal;
+  const saldoSebelum = Number(card.saldo)||0;
+  const saldoSesudah = saldoSebelum + nominal;
+  card.saldo = saldoSesudah;
   touch(card);
+  logEtollTransaction(card.id, 'topup', nominal, saldoSebelum, saldoSesudah, 'Top up manual');
   saveData();
   showToast(`Top up berhasil. Saldo baru: ${fmtMoney(card.saldo)}`);
   renderEtollCards();
 }
 
 function deleteEtollCard(id){
-  if(!confirm('Hapus kartu E-Toll ini? Saldo yang tercatat akan ikut terhapus.')) return;
+  if(!confirm('Hapus kartu E-Toll ini? Saldo dan riwayat transaksi yang tercatat akan ikut terhapus.')) return;
   markDeleted('etollCards', id);
   state.etollCards = state.etollCards.filter(c=>c.id!==id);
   saveData();
@@ -2032,7 +2442,12 @@ function openEtollCardModal(editId){
     <div class="field">
       <label>${editing ? 'Saldo Saat Ini (Rp)' : 'Saldo Awal (Rp)'}</label>
       <input type="text" inputmode="numeric" id="in-saldo" placeholder="Contoh: 100.000" value="${editing?fmtRibuanInitial(editing.saldo):''}">
-      <div class="hint">Untuk menambah saldo kartu yang sudah ada, gunakan tombol "Top Up" agar lebih cepat.</div>
+      <div class="hint">Untuk menambah saldo kartu yang sudah ada, gunakan tombol "Top Up" agar lebih cepat (dan tercatat rapi di riwayat).</div>
+    </div>
+    <div class="field">
+      <label>Batas Minimum Saldo (Rp)</label>
+      <input type="text" inputmode="numeric" id="in-batas-minimum" placeholder="Contoh: 25.000" value="${fmtRibuanInitial(editing&&editing.batasMinimum!=null?editing.batasMinimum:25000)}">
+      <div class="hint">Saldo di bawah angka ini akan ditandai merah (perlu top up segera).</div>
     </div>
     <div class="field">
       <label>Catatan</label>
@@ -2046,6 +2461,8 @@ function openEtollCardModal(editId){
       const nomorKartu = document.getElementById('in-nomor').value.trim();
       const mobilId = document.getElementById('in-mobil').value || null;
       const saldo = Number(getRibuanValue('in-saldo')) || 0;
+      const batasMinimumVal = getRibuanValue('in-batas-minimum');
+      const batasMinimum = batasMinimumVal === '' ? 25000 : Number(batasMinimumVal);
       const catatan = document.getElementById('in-catatan').value.trim();
 
       const dupe = state.etollCards.some(c => c.nomorKartu === nomorKartu && c.id !== editId);
@@ -2054,11 +2471,17 @@ function openEtollCardModal(editId){
       if(!valid) return false;
 
       if(editing){
-        Object.assign(editing, {nomorKartu, mobilId, saldo, catatan});
+        const saldoSebelum = Number(editing.saldo)||0;
+        Object.assign(editing, {nomorKartu, mobilId, saldo, batasMinimum, catatan});
         touch(editing);
+        if(saldo !== saldoSebelum){
+          logEtollTransaction(editing.id, 'penyesuaian', saldo-saldoSebelum, saldoSebelum, saldo, 'Koreksi manual lewat form edit');
+        }
         showToast('Data kartu E-Toll diperbarui.');
       } else {
-        state.etollCards.push(touch({id: uid(), nomorKartu, mobilId, saldo, catatan, createdAt: today(), petugas: currentAdmin}));
+        const newCard = touch({id: uid(), nomorKartu, mobilId, saldo, batasMinimum, catatan, createdAt: today(), petugas: currentAdmin});
+        state.etollCards.push(newCard);
+        if(saldo > 0) logEtollTransaction(newCard.id, 'topup', saldo, 0, saldo, 'Saldo awal kartu didaftarkan');
         showToast('Kartu E-Toll baru ditambahkan.');
       }
       saveData();
@@ -2110,6 +2533,21 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '2.0.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Status Penggunaan: panel Ringkasan Pemakaian BBM & E-Toll (total jarak, liter, biaya BBM, pemakaian E-Toll).',
+      'Status Penggunaan: tambah Jam Berangkat & Jam Pulang.',
+      'Status Penggunaan: tambah pencatatan BBM (Liter & Rupiah) + kalkulator otomatis rasio KM/Liter per perjalanan.',
+      'Servis & Maintenance: dirombak total — 1 kunjungan/tanggal kini bisa punya banyak item servis (Ganti Oli, Rem, AC, dst), masing-masing dengan biaya sendiri.',
+      'Servis & Maintenance: tabel ditampilkan per-item + filter kategori, supaya "kapan terakhir ganti oli" tinggal difilter, tidak perlu buka satu-satu.',
+      'Kartu E-Toll: Riwayat Transaksi lengkap (top up/pemakaian/penyesuaian, saldo sebelum-sesudah, petugas) — bukan cuma saldo akhir.',
+      'Kartu E-Toll: Batas Minimum Saldo bisa diatur manual per kartu, dengan badge warna (hijau/kuning/merah) + panel peringatan di Dashboard.',
+      'Filter pencarian ditambahkan ke semua menu (sebelumnya cuma Data Mobil).',
+      'Field Tujuan & Bengkel kini punya saran otomatis (autocomplete) setelah 3 huruf, navigasi pakai panah atas/bawah + Enter.',
+    ]
+  },
   {
     v: '1.9.0',
     date: '20 Jul 2026',
@@ -2243,16 +2681,6 @@ loadGhConfig();
 if(isGhConnected()){
   fetchFromGithub();
   startAutoSync();
-}
-
-// Daftarkan service worker supaya bisa "diinstall" sebagai PWA & tetap bisa
-// dibuka saat koneksi lemah/putus.
-if('serviceWorker' in navigator){
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch((err) => {
-      console.error('Gagal mendaftarkan service worker (PWA/offline tidak aktif):', err);
-    });
-  });
 }
 </script>
 </body>
