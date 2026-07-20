@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FleetOps — Manajemen Armada Pengiriman</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#161C27">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FleetOps">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#161C27;
+    --navy-2:#1F2937;
+    --bg:#F5F6F8;
+    --card:#FFFFFF;
+    --line:#E4E7EC;
+    --text:#1A2130;
+    --muted:#6B7280;
+    --blue:#2F6FED;
+    --blue-dark:#1E4FBB;
+    --amber:#B7791F;
+    --amber-bg:#FEF3DC;
+    --red:#C4302B;
+    --red-bg:#FCE8E7;
+    --green:#1F8A5A;
+    --green-bg:#E4F6EC;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:0;}
+  html,body{height:100%;}
+  html{overflow-x:hidden;}
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    display:flex;
+    min-height:100vh;
+    overflow-x:hidden;
+    max-width:100vw;
+  }
+  ::selection{background:#CFE0FF;}
+
+  /* ---------- Sidebar ---------- */
+  #sidebar{
+    width:230px;
+    flex-shrink:0;
+    background:var(--navy);
+    color:#D7DCE5;
+    display:flex;
+    flex-direction:column;
+    position:sticky;
+    top:0;
+    height:100vh;
+  }
+  .brand{
+    padding:22px 20px 18px 20px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+  }
+  .brand-mark{
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;
+    font-size:13px;
+    letter-spacing:0.14em;
+    color:#8FB0FF;
+  }
+  .brand-title{
+    font-weight:800;
+    font-size:18px;
+    color:#fff;
+    margin-top:4px;
+  }
+  .brand-sub{
+    font-size:11.5px;
+    color:#8993A4;
+    margin-top:2px;
+  }
+  nav.menu{flex:1;padding:14px 10px;}
+  .menu-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    border-radius:8px;
+    font-size:13.5px;
+    font-weight:500;
+    color:#B9C0CE;
+    cursor:pointer;
+    margin-bottom:2px;
+    user-select:none;
+    transition:background .12s ease, color .12s ease;
+  }
+  .menu-item .ic{font-size:15px;width:18px;text-align:center;}
+  .menu-item:hover{background:rgba(255,255,255,0.06);color:#fff;}
+  .menu-item.active{background:var(--blue);color:#fff;}
+  .menu-section-label{
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:#5C6577;
+    padding:14px 12px 6px 12px;
+    font-weight:700;
+  }
+  #petugas-box{
+    padding:14px 16px;
+    border-top:1px solid rgba(255,255,255,0.08);
+  }
+  #petugas-box label{
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:#8993A4;
+    display:block;
+    margin-bottom:6px;
+  }
+  #petugas-select{
+    width:100%;
+    background:#0F141C;
+    color:#fff;
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:7px;
+    padding:7px 8px;
+    font-size:12.5px;
+    font-family:inherit;
+  }
+
+  /* ---------- Main ---------- */
+  #main{flex:1;display:flex;flex-direction:column;min-width:0;}
+  header.topbar{
+    background:var(--card);
+    border-bottom:1px solid var(--line);
+    padding:16px 28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  header.topbar h1{font-size:19px;margin:0;font-weight:700;}
+  header.topbar p{margin:2px 0 0 0;font-size:12.5px;color:var(--muted);}
+  #content{flex:1;padding:24px 28px 40px 28px;}
+
+  .btn{
+    border:none;
+    border-radius:8px;
+    padding:9px 15px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    font-family:inherit;
+    transition:filter .1s ease, transform .05s ease;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--blue);color:#fff;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--line);}
+  .btn-ghost:hover{background:#F0F1F3;}
+  .btn-danger{background:var(--red-bg);color:var(--red);}
+  .btn-danger:hover{filter:brightness(0.96);}
+  .btn-sm{padding:6px 10px;font-size:12px;}
+
+  /* cards / kpi */
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+  .kpi{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px 18px;
+  }
+  .kpi .label{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+  .kpi .value{font-size:28px;font-weight:800;margin-top:6px;font-family:'JetBrains Mono',monospace;}
+  .kpi .value.warn{color:var(--amber);}
+  .kpi .value.danger{color:var(--red);}
+  .kpi .value.ok{color:var(--green);}
+
+  .panel{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    margin-bottom:20px;
+    overflow:hidden;
+  }
+  .panel-head{
+    padding:14px 18px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .panel-head h2{font-size:15px;margin:0;font-weight:700;}
+  .panel-body{padding:16px 18px;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--muted);
+    padding:8px 10px;
+    border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }
+  td{padding:10px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:#FAFBFC;}
+
+  .plate{
+    display:inline-block;
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;
+    font-size:12.5px;
+    background:#F4F2EA;
+    border:2px solid #1A2130;
+    border-radius:5px;
+    padding:2px 8px;
+    letter-spacing:.03em;
+  }
+
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    padding:3px 9px;
+    border-radius:20px;
+    font-size:11.5px;
+    font-weight:600;
+  }
+  .badge.ok{background:var(--green-bg);color:var(--green);}
+  .badge.warn{background:var(--amber-bg);color:var(--amber);}
+  .badge.danger{background:var(--red-bg);color:var(--red);}
+  .badge.neutral{background:#EEF0F3;color:var(--muted);}
+
+  .empty-state{
+    text-align:center;
+    padding:40px 20px;
+    color:var(--muted);
+  }
+  .empty-state .ic{font-size:30px;margin-bottom:8px;}
+  .empty-state p{font-size:13px;margin:4px 0 14px 0;}
+
+  /* modal */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(15,20,28,0.5);
+    display:flex;align-items:center;justify-content:center;
+    z-index:100;padding:20px;
+  }
+  .modal{
+    background:#fff;border-radius:12px;max-width:480px;width:100%;
+    max-height:88vh;overflow-y:auto;
+    box-shadow:0 20px 60px rgba(0,0,0,0.25);
+  }
+  .modal-head{
+    padding:16px 20px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .modal-head h3{margin:0;font-size:16px;font-weight:700;}
+  .modal-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);}
+  .modal-body{padding:18px 20px;}
+  .modal-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;}
+
+  .field{margin-bottom:13px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:5px;color:#374151;}
+  .field .hint{font-size:11px;color:var(--muted);margin-top:4px;}
+  .field input, .field select, .field textarea{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:7px;
+    padding:9px 10px;
+    font-size:13px;
+    font-family:inherit;
+    background:#fff;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{
+    outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,111,237,0.12);
+  }
+  .field.error input, .field.error select{border-color:var(--red);}
+  .field .err-msg{font-size:11.5px;color:var(--red);margin-top:4px;display:none;}
+  .field.error .err-msg{display:block;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  .toast-wrap{position:fixed;bottom:20px;right:20px;z-index:200;display:flex;flex-direction:column;gap:8px;}
+  .toast{
+    background:var(--navy);color:#fff;padding:11px 16px;border-radius:8px;
+    font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,0.2);
+    display:flex;align-items:center;gap:8px;
+    animation:toastIn .18s ease;
+  }
+  .toast.err{background:var(--red);}
+  @keyframes toastIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  /* footer */
+  footer.appfoot{
+    border-top:1px solid var(--line);
+    padding:12px 28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-size:11.5px;
+    color:var(--muted);
+    background:var(--card);
+  }
+  footer.appfoot .ver-btn{
+    background:none;border:none;color:var(--blue);cursor:pointer;font-size:11.5px;font-weight:600;font-family:inherit;
+    padding:0;
+  }
+  .changelog-entry{margin-bottom:14px;}
+  .changelog-entry .v{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12.5px;color:var(--blue);}
+  .changelog-entry .d{font-size:11px;color:var(--muted);margin-left:6px;}
+  .changelog-entry ul{margin:6px 0 0 0;padding-left:18px;font-size:12.5px;}
+  .changelog-entry li{margin-bottom:3px;}
+
+  select.select-inline{border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12.5px;}
+  .search-row{display:flex;gap:8px;margin-bottom:14px;}
+  .search-row input{flex:1;border:1px solid var(--line);border-radius:7px;padding:8px 10px;font-family:inherit;font-size:13px;}
+
+  @media(max-width:900px){
+    .kpi-grid{grid-template-columns:1fr 1fr;}
+  }
+
+  /* ---------- Mobile layout (HP, termasuk Samsung ~360-412px) ---------- */
+  #hamburger-btn{
+    display:none;
+    background:none;
+    border:1px solid var(--line);
+    border-radius:8px;
+    width:36px;height:36px;
+    font-size:16px;
+    cursor:pointer;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+  }
+  #drawer-overlay{
+    display:none;
+    position:fixed;inset:0;
+    background:rgba(15,20,28,0.45);
+    z-index:140;
+  }
+  @media(max-width:768px){
+    body{display:block;}
+    #hamburger-btn{display:flex;}
+    #sidebar{
+      position:fixed;
+      top:0;left:0;
+      height:100vh;
+      width:78vw;
+      max-width:270px;
+      transform:translateX(-100%);
+      transition:transform .22s ease;
+      z-index:150;
+    }
+    #sidebar.open{transform:translateX(0);}
+    #drawer-overlay.open{display:block;}
+    #main{width:100%;min-width:0;}
+    header.topbar{padding:12px 16px;gap:10px;}
+    header.topbar h1{font-size:16.5px;}
+    header.topbar p{font-size:11.5px;}
+    #content{padding:14px 14px 28px 14px;}
+    .kpi-grid{grid-template-columns:1fr 1fr;gap:10px;}
+    .kpi{padding:12px 14px;}
+    .kpi .value{font-size:22px;}
+    .panel-head{padding:12px 14px;flex-wrap:wrap;gap:8px;}
+    .panel-body{padding:12px;}
+    footer.appfoot{padding:10px 14px;flex-direction:column;gap:4px;text-align:center;font-size:10.5px;}
+    .modal{max-width:100%;}
+    .grid-2{grid-template-columns:1fr;}
+  }
+  @media(max-width:420px){
+    .kpi-grid{grid-template-columns:1fr;}
+  }
+
+  /* Tabel: dibungkus kontainer scroll internal supaya HALAMAN UTAMA tidak pernah
+     geser kiri-kanan; hanya isi tabel yang kolomnya banyak yang boleh discroll,
+     dan hanya di dalam kotaknya sendiri (bukan seluruh layar). */
+  .table-scroll{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    max-width:100%;
+  }
+  .table-scroll table{min-width:640px;}
+  @media(max-width:768px){
+    .table-scroll table{font-size:12px;}
+    .table-scroll th, .table-scroll td{padding:8px 8px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="drawer-overlay"></div>
+
+<aside id="sidebar">
+  <div class="brand">
+    <div class="brand-mark">FLEET·OPS</div>
+    <div class="brand-title">Armada Pengiriman</div>
+    <div class="brand-sub">Manajemen kendaraan operasional</div>
+  </div>
+  <nav class="menu" id="nav-menu">
+    <div class="menu-section-label">Ringkasan</div>
+    <div class="menu-item" data-route="dashboard"><span class="ic">▣</span>Dashboard</div>
+    <div class="menu-section-label">Data</div>
+    <div class="menu-item" data-route="cars"><span class="ic">🚚</span>Data Mobil</div>
+    <div class="menu-item" data-route="drivers"><span class="ic">🧑‍✈️</span>Data Sopir</div>
+    <div class="menu-item" data-route="usage"><span class="ic">📍</span>Status Penggunaan</div>
+    <div class="menu-item" data-route="service"><span class="ic">🔧</span>Servis &amp; Maintenance</div>
+    <div class="menu-item" data-route="docs"><span class="ic">📄</span>Dokumen</div>
+    <div class="menu-item" data-route="etoll"><span class="ic">💳</span>Kartu E-Toll</div>
+  </nav>
+  <div id="petugas-box">
+    <label for="petugas-select">Petugas aktif</label>
+    <select id="petugas-select"></select>
+  </div>
+</aside>
+
+<div id="main">
+  <header class="topbar">
+    <button id="hamburger-btn" aria-label="Buka menu">☰</button>
+    <div>
+      <h1 id="page-title">Dashboard</h1>
+      <p id="page-sub">Ringkasan kondisi armada saat ini</p>
+    </div>
+    <div id="header-actions"></div>
+  </header>
+
+  <div id="content"></div>
+
+  <footer class="appfoot">
+    <span>FleetOps — Sistem internal pengelolaan armada pengiriman</span>
+    <span>
+      <button class="ver-btn" id="btn-changelog">Lihat Changelog</button>
+    </span>
+  </footer>
+</div>
+
+<div id="modal-root"></div>
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+/* =========================================================================
+   FLEETOPS — Sistem Manajemen Armada Pengiriman
+   Arsitektur: Single-file SPA, vanilla JS, localStorage sebagai penyimpanan.
+   Alasan pemilihan pendekatan ini (bukan framework/backend):
+   - Skala penggunaan: beberapa admin, satu titik akses (device/kantor) → 
+     tidak perlu server/database terpisah, localStorage cukup dan nol-biaya-infra.
+   - YAGNI: tidak dibangun sistem login/password karena kebutuhan awal hanya
+     mencatat "petugas mana yang melakukan perubahan", bukan otentikasi aman.
+   - Modular: setiap domain data (cars/usage/service/docs) punya store & 
+     render function sendiri agar mudah di-debug/dikembangkan terpisah.
+   ========================================================================= */
+
+const STORAGE_KEY = 'fleetops_data_v1';
+const APP_VERSION = '1.6.0';
+
+/* ---------------- Defensive storage layer ---------------- */
+function loadData(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return defaultData();
+    const parsed = JSON.parse(raw);
+    // Defensive: pastikan semua key wajib ada, walau data lama/corrupt sebagian
+    return {
+      cars: Array.isArray(parsed.cars) ? parsed.cars : [],
+      drivers: Array.isArray(parsed.drivers) ? parsed.drivers : [],
+      usage: Array.isArray(parsed.usage) ? parsed.usage : [],
+      services: Array.isArray(parsed.services) ? parsed.services : [],
+      documents: Array.isArray(parsed.documents) ? parsed.documents : [],
+      etollCards: Array.isArray(parsed.etollCards) ? parsed.etollCards : [],
+      admins: Array.isArray(parsed.admins) && parsed.admins.length ? parsed.admins : defaultData().admins,
+    };
+  }catch(e){
+    console.error('Gagal membaca data tersimpan, memakai data kosong.', e);
+    showToast('Data tersimpan bermasalah, sistem dimulai dengan data kosong.', true);
+    return defaultData();
+  }
+}
+function defaultData(){
+  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], admins: ['Admin 1','Admin 2'] };
+}
+function saveData(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }catch(e){
+    console.error('Gagal menyimpan data', e);
+    showToast('Gagal menyimpan perubahan (penyimpanan browser penuh/diblokir).', true);
+  }
+}
+
+let state = loadData();
+let currentAdmin = localStorage.getItem('fleetops_current_admin') || state.admins[0];
+let currentRoute = 'dashboard';
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function daysBetween(dateStr){
+  const d = new Date(dateStr + 'T00:00:00');
+  const t = new Date(today() + 'T00:00:00');
+  return Math.round((d-t)/86400000);
+}
+function fmtDate(s){
+  if(!s) return '-';
+  const d = new Date(s+'T00:00:00');
+  if(isNaN(d)) return s;
+  return d.toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'});
+}
+function fmtMoney(n){
+  n = Number(n)||0;
+  return 'Rp ' + n.toLocaleString('id-ID');
+}
+
+/* ---------------- Helper: input angka dengan pemisah ribuan ----------------
+   Kenapa perlu ini: <input type="number"> bawaan browser tidak bisa menampilkan
+   titik ribuan (mis. 100.000) sambil tetap bisa diketik dengan nyaman, jadi field
+   ini dibuat type="text" lalu diformat ulang setiap kali mengetik. Nilai mentah
+   (tanpa titik) diambil kembali saat disimpan lewat getRibuanValue(). */
+function attachRibuanInput(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.addEventListener('input', function(){
+    const digits = this.value.replace(/[^\d]/g,'');
+    this.value = digits ? Number(digits).toLocaleString('id-ID') : '';
+  });
+}
+function getRibuanValue(id){
+  const el = document.getElementById(id);
+  if(!el) return '';
+  return el.value.replace(/[^\d]/g,'');
+}
+function fmtRibuanInitial(n){
+  if(n===null || n===undefined || n==='') return '';
+  return Number(n).toLocaleString('id-ID');
+}
+function monthsBetween(dateStr, todayStr){
+  const d1 = new Date(dateStr + 'T00:00:00');
+  const d2 = new Date(todayStr + 'T00:00:00');
+  return (d2 - d1) / (1000*60*60*24*30.44);
+}
+/* Menghitung status pengingat servis/ganti oli untuk satu mobil.
+   Mengembalikan null kalau mobil tidak mengaktifkan pengingat (interval kosong),
+   supaya mobil yang belum diatur tidak memunculkan peringatan palsu. */
+function serviceReminderInfo(car){
+  if(!car.intervalKm && !car.intervalBulan) return null;
+
+  const lastService = state.services
+    .filter(s=>s.carId===car.id)
+    .sort((a,b)=> b.tanggal.localeCompare(a.tanggal))[0];
+
+  if(!lastService){
+    return {level:'warn', text:'Belum ada riwayat servis tercatat'};
+  }
+
+  let pctKm = null, pctBulan = null;
+  if(car.intervalKm && lastService.odometer!=null && car.odometerSaatIni!=null){
+    const traveled = car.odometerSaatIni - lastService.odometer;
+    pctKm = traveled / car.intervalKm;
+  }
+  if(car.intervalBulan){
+    const months = monthsBetween(lastService.tanggal, today());
+    pctBulan = months / car.intervalBulan;
+  }
+  if(pctKm===null && pctBulan===null){
+    return {level:'warn', text:'Data odometer belum cukup untuk hitung pengingat'};
+  }
+  const pct = Math.max(pctKm||0, pctBulan||0);
+  if(pct >= 1) return {level:'danger', text:'Sudah waktunya servis/ganti oli'};
+  if(pct >= 0.8) return {level:'warn', text:'Segera servis (mendekati jadwal)'};
+  return {level:'ok', text:'Servis masih jauh'};
+}
+
+function carLabel(carId){
+  const c = state.cars.find(x=>x.id===carId);
+  return c ? (c.merk+' '+c.modelMobil+' — '+c.plat) : '(mobil telah dihapus)';
+}
+function driverLabel(driverId, legacyDriverText){
+  // Defensive: catatan lama (sebelum modul Data Sopir ada) menyimpan nama sopir
+  // sebagai teks bebas (legacyDriverText). Fallback ini menjaga data lama tetap tampil.
+  if(driverId){
+    const d = state.drivers.find(x=>x.id===driverId);
+    if(d) return d.nama;
+    return legacyDriverText || '(sopir telah dihapus)';
+  }
+  return legacyDriverText || '-';
+}
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function showToast(msg, isErr){
+  const wrap = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast' + (isErr ? ' err' : '');
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.remove(); }, 3200);
+}
+
+/* ---------------- Petugas (admin) selector ---------------- */
+function renderPetugasSelect(){
+  const sel = document.getElementById('petugas-select');
+  sel.innerHTML = state.admins.map(a=>`<option value="${escapeHtml(a)}" ${a===currentAdmin?'selected':''}>${escapeHtml(a)}</option>`).join('')
+    + `<option value="__new__">+ Tambah petugas...</option>`;
+  sel.onchange = () => {
+    if(sel.value === '__new__'){
+      const name = prompt('Nama petugas baru:');
+      if(name && name.trim()){
+        if(!state.admins.includes(name.trim())){
+          state.admins.push(name.trim());
+          saveData();
+        }
+        currentAdmin = name.trim();
+      }
+      renderPetugasSelect();
+    } else {
+      currentAdmin = sel.value;
+    }
+    localStorage.setItem('fleetops_current_admin', currentAdmin);
+  };
+}
+
+/* ---------------- Navigation ---------------- */
+const ROUTES = {
+  dashboard: {title:'Dashboard', sub:'Ringkasan kondisi armada saat ini', render: renderDashboard},
+  cars:      {title:'Data Mobil', sub:'Data dasar setiap kendaraan armada', render: renderCars},
+  drivers:   {title:'Data Sopir', sub:'Data master sopir/pengemudi armada', render: renderDrivers},
+  usage:     {title:'Status Penggunaan', sub:'Status pemakaian mobil untuk pengiriman', render: renderUsage},
+  service:   {title:'Servis & Maintenance', sub:'Riwayat servis dan perawatan kendaraan', render: renderService},
+  docs:      {title:'Dokumen', sub:'STNK, pajak, dan asuransi kendaraan', render: renderDocs},
+  etoll:     {title:'Kartu E-Toll', sub:'Data kartu E-Toll dan saldo per mobil', render: renderEtollCards},
+};
+
+function navigate(route){
+  currentRoute = route;
+  document.querySelectorAll('.menu-item').forEach(el=>{
+    el.classList.toggle('active', el.dataset.route === route);
+  });
+  const r = ROUTES[route];
+  document.getElementById('page-title').textContent = r.title;
+  document.getElementById('page-sub').textContent = r.sub;
+  r.render();
+  closeDrawer();
+}
+
+document.querySelectorAll('.menu-item').forEach(el=>{
+  el.addEventListener('click', ()=> navigate(el.dataset.route));
+});
+
+/* ---------------- Drawer (menu) untuk tampilan HP ---------------- */
+function openDrawer(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('drawer-overlay').classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('drawer-overlay').classList.remove('open');
+}
+document.getElementById('hamburger-btn').addEventListener('click', openDrawer);
+document.getElementById('drawer-overlay').addEventListener('click', closeDrawer);
+
+/* ========================================================================
+   MODUL 1: DASHBOARD
+   ======================================================================== */
+function renderDashboard(){
+  document.getElementById('header-actions').innerHTML = '';
+  const totalCars = state.cars.length;
+  const inUse = state.usage.filter(u=>u.status==='digunakan').length;
+  const available = totalCars - inUse;
+
+  const expDocs = state.documents
+    .map(d=>({...d, sisaHari: daysBetween(d.tglExpired)}))
+    .filter(d=>d.sisaHari <= 30)
+    .sort((a,b)=>a.sisaHari-b.sisaHari);
+
+  const expiredCount = expDocs.filter(d=>d.sisaHari<0).length;
+  const soonCount = expDocs.filter(d=>d.sisaHari>=0).length;
+
+  const recentServices = [...state.services].sort((a,b)=> b.tanggal.localeCompare(a.tanggal)).slice(0,5);
+
+  const serviceReminders = state.cars
+    .map(c=>({car:c, reminder: serviceReminderInfo(c)}))
+    .filter(x=>x.reminder && (x.reminder.level==='warn' || x.reminder.level==='danger'));
+
+  let html = `
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">Total Mobil</div><div class="value">${totalCars}</div></div>
+    <div class="kpi"><div class="label">Sedang Digunakan</div><div class="value warn">${inUse}</div></div>
+    <div class="kpi"><div class="label">Tersedia</div><div class="value ok">${available}</div></div>
+    <div class="kpi"><div class="label">Dokumen Perlu Perhatian</div><div class="value ${expiredCount>0?'danger':(soonCount>0?'warn':'ok')}">${expDocs.length}</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Pengingat Servis / Ganti Oli</h2></div>
+    <div class="panel-body">
+      ${serviceReminders.length === 0 ? emptyState('✅','Tidak ada mobil yang perlu servis dalam waktu dekat (atau pengingat belum diaktifkan — atur di Data Mobil).') : `
+      <div class="table-scroll"><table>
+        <thead><tr><th>Mobil</th><th>Odometer Saat Ini</th><th>Status</th></tr></thead>
+        <tbody>
+          ${serviceReminders.map(x=>`
+            <tr>
+              <td>${escapeHtml(carLabel(x.car.id))}</td>
+              <td>${x.car.odometerSaatIni!=null ? Number(x.car.odometerSaatIni).toLocaleString('id-ID')+' KM' : '-'}</td>
+              <td><span class="badge ${x.reminder.level}">${escapeHtml(x.reminder.text)}</span></td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>`}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Dokumen akan/telah kedaluwarsa (≤30 hari)</h2></div>
+    <div class="panel-body">
+      ${expDocs.length === 0 ? emptyState('✅','Tidak ada dokumen yang mendekati atau melewati masa berlaku.') : `
+      <div class="table-scroll"><table>
+        <thead><tr><th>Mobil</th><th>Jenis Dokumen</th><th>Nomor</th><th>Masa Berlaku</th><th>Status</th></tr></thead>
+        <tbody>
+          ${expDocs.map(d=>`
+            <tr>
+              <td>${escapeHtml(carLabel(d.carId))}</td>
+              <td>${escapeHtml(d.jenis)}</td>
+              <td>${escapeHtml(d.nomor||'-')}</td>
+              <td>${fmtDate(d.tglExpired)}</td>
+              <td>${d.sisaHari<0 ? `<span class="badge danger">Kedaluwarsa ${Math.abs(d.sisaHari)} hari lalu</span>` : `<span class="badge warn">${d.sisaHari} hari lagi</span>`}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>`}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Servis terakhir</h2></div>
+    <div class="panel-body">
+      ${recentServices.length === 0 ? emptyState('🔧','Belum ada riwayat servis yang tercatat.') : `
+      <div class="table-scroll"><table>
+        <thead><tr><th>Tanggal</th><th>Mobil</th><th>Jenis Servis</th><th>Bengkel</th><th>Biaya</th></tr></thead>
+        <tbody>
+          ${recentServices.map(s=>`
+            <tr>
+              <td>${fmtDate(s.tanggal)}</td>
+              <td>${escapeHtml(carLabel(s.carId))}</td>
+              <td>${escapeHtml(s.jenis)}</td>
+              <td>${escapeHtml(s.bengkel||'-')}</td>
+              <td>${fmtMoney(s.biaya)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>`}
+    </div>
+  </div>
+  `;
+  document.getElementById('content').innerHTML = html;
+}
+
+function emptyState(icon, text){
+  return `<div class="empty-state"><div class="ic">${icon}</div><p>${text}</p></div>`;
+}
+
+/* ========================================================================
+   MODUL 2: DATA MOBIL (CRUD)
+   ======================================================================== */
+function renderCars(){
+  document.getElementById('header-actions').innerHTML =
+    `<button class="btn btn-primary" id="btn-add-car">+ Tambah Mobil</button>`;
+  document.getElementById('btn-add-car').onclick = () => openCarModal();
+
+  let list = [...state.cars].sort((a,b)=> a.merk.localeCompare(b.merk));
+
+  const html = `
+    <div class="panel">
+      <div class="panel-body">
+        <div class="search-row">
+          <input type="text" id="car-search" placeholder="Cari merk, model, atau plat nomor...">
+        </div>
+        <div id="car-table-wrap"></div>
+      </div>
+    </div>
+  `;
+  document.getElementById('content').innerHTML = html;
+
+  function renderTable(items){
+    const wrap = document.getElementById('car-table-wrap');
+    if(items.length===0){
+      wrap.innerHTML = emptyState('🚚','Belum ada data mobil. Tambahkan mobil pertama Anda.');
+      return;
+    }
+    wrap.innerHTML = `
+      <div class="table-scroll"><table>
+        <thead><tr><th>Plat Nomor</th><th>Merk / Model</th><th>Tahun</th><th>Warna</th><th>Odometer</th><th>Status Saat Ini</th><th>Servis Berikutnya</th><th></th></tr></thead>
+        <tbody>
+          ${items.map(c=>{
+            const activeUsage = state.usage.find(u=>u.carId===c.id && u.status==='digunakan');
+            const reminder = serviceReminderInfo(c);
+            return `
+            <tr>
+              <td><span class="plate">${escapeHtml(c.plat)}</span></td>
+              <td>${escapeHtml(c.merk)} ${escapeHtml(c.modelMobil)}</td>
+              <td>${escapeHtml(c.tahun)}</td>
+              <td>${escapeHtml(c.warna)}</td>
+              <td>${c.odometerSaatIni!=null ? Number(c.odometerSaatIni).toLocaleString('id-ID')+' KM' : '-'}</td>
+              <td>${activeUsage ? `<span class="badge warn">Dipakai — ${escapeHtml(driverLabel(activeUsage.driverId, activeUsage.driver))}</span>` : `<span class="badge ok">Tersedia</span>`}</td>
+              <td>${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Pengingat nonaktif</span>`}</td>
+              <td style="text-align:right;white-space:nowrap;">
+                <button class="btn btn-ghost btn-sm" data-edit="${c.id}">Edit</button>
+                <button class="btn btn-danger btn-sm" data-del="${c.id}">Hapus</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table></div>
+    `;
+    wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openCarModal(b.dataset.edit));
+    wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteCar(b.dataset.del));
+  }
+  renderTable(list);
+
+  document.getElementById('car-search').addEventListener('input', (e)=>{
+    const q = e.target.value.trim().toLowerCase();
+    const filtered = list.filter(c =>
+      c.merk.toLowerCase().includes(q) || c.modelMobil.toLowerCase().includes(q) || c.plat.toLowerCase().includes(q)
+    );
+    renderTable(filtered);
+  });
+}
+
+function deleteCar(id){
+  const relatedUsage = state.usage.some(u=>u.carId===id);
+  const relatedService = state.services.some(s=>s.carId===id);
+  const relatedDocs = state.documents.some(d=>d.carId===id);
+  let warn = 'Hapus data mobil ini?';
+  if(relatedUsage || relatedService || relatedDocs){
+    warn += '\n\nPerhatian: mobil ini memiliki riwayat penggunaan/servis/dokumen terkait. Riwayat tersebut akan tetap ada namun akan ditandai "mobil telah dihapus".';
+  }
+  if(!confirm(warn)) return;
+  state.cars = state.cars.filter(c=>c.id!==id);
+  saveData();
+  showToast('Data mobil dihapus.');
+  renderCars();
+}
+
+function openCarModal(editId){
+  const editing = editId ? state.cars.find(c=>c.id===editId) : null;
+  const body = `
+    <div class="field" id="f-merk">
+      <label>Merk *</label>
+      <input type="text" id="in-merk" placeholder="Contoh: Mitsubishi" value="${editing?escapeHtml(editing.merk):''}">
+      <div class="err-msg">Merk wajib diisi.</div>
+    </div>
+    <div class="field" id="f-model">
+      <label>Model *</label>
+      <input type="text" id="in-model" placeholder="Contoh: L300" value="${editing?escapeHtml(editing.modelMobil):''}">
+      <div class="err-msg">Model wajib diisi.</div>
+    </div>
+    <div class="grid-2">
+      <div class="field" id="f-tahun">
+        <label>Tahun *</label>
+        <input type="number" id="in-tahun" placeholder="2022" min="1980" max="2100" value="${editing?editing.tahun:''}">
+        <div class="err-msg">Tahun tidak valid.</div>
+      </div>
+      <div class="field">
+        <label>Warna</label>
+        <input type="text" id="in-warna" placeholder="Putih" value="${editing?escapeHtml(editing.warna):''}">
+      </div>
+    </div>
+    <div class="field" id="f-plat">
+      <label>Plat Nomor *</label>
+      <input type="text" id="in-plat" placeholder="B 1234 ABC" value="${editing?escapeHtml(editing.plat):''}" style="text-transform:uppercase;">
+      <div class="err-msg">Plat nomor wajib diisi dan tidak boleh sama dengan mobil lain.</div>
+    </div>
+    <div class="field">
+      <label>Odometer Saat Ini (KM)</label>
+      <input type="text" inputmode="numeric" id="in-odo" placeholder="Contoh: 45.000" value="${editing?fmtRibuanInitial(editing.odometerSaatIni):''}">
+      <div class="hint">Terisi/terupdate otomatis tiap kali mobil ditandai "kembali", tapi bisa diedit manual di sini.</div>
+    </div>
+    <div class="panel-head" style="padding:0;border:none;margin:16px 0 8px 0;">
+      <h2 style="font-size:13px;">Pengingat Servis / Ganti Oli (opsional)</h2>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Interval Servis (KM)</label>
+        <input type="text" inputmode="numeric" id="in-interval-km" placeholder="Contoh: 5.000" value="${editing?fmtRibuanInitial(editing.intervalKm):''}">
+      </div>
+      <div class="field">
+        <label>Interval Servis (Bulan)</label>
+        <input type="number" id="in-interval-bulan" min="1" max="60" placeholder="Contoh: 6" value="${editing&&editing.intervalBulan?editing.intervalBulan:''}">
+      </div>
+    </div>
+    <div class="field"><div class="hint" style="margin-top:-6px;">Kosongkan kalau belum ingin pengingat aktif untuk mobil ini. Sistem memakai riwayat servis terakhir (menu Servis & Maintenance) sebagai acuan.</div></div>
+  `;
+  openModal({
+    title: editing ? 'Edit Data Mobil' : 'Tambah Mobil Baru',
+    body,
+    onSave: () => {
+      const merk = document.getElementById('in-merk').value.trim();
+      const modelMobil = document.getElementById('in-model').value.trim();
+      const tahun = document.getElementById('in-tahun').value.trim();
+      const warna = document.getElementById('in-warna').value.trim();
+      const plat = document.getElementById('in-plat').value.trim().toUpperCase();
+      const odoVal = getRibuanValue('in-odo');
+      const intervalKmVal = getRibuanValue('in-interval-km');
+      const intervalBulanVal = document.getElementById('in-interval-bulan').value;
+
+      let valid = true;
+      toggleFieldError('f-merk', !merk); if(!merk) valid=false;
+      toggleFieldError('f-model', !modelMobil); if(!modelMobil) valid=false;
+      const tahunNum = Number(tahun);
+      const tahunOk = tahun && tahunNum >= 1980 && tahunNum <= 2100;
+      toggleFieldError('f-tahun', !tahunOk); if(!tahunOk) valid=false;
+
+      const dupe = state.cars.some(c => c.plat === plat && c.id !== editId);
+      toggleFieldError('f-plat', !plat || dupe); if(!plat || dupe) valid=false;
+
+      if(!valid) return false;
+
+      const odometerSaatIni = odoVal === '' ? (editing?editing.odometerSaatIni ?? null : null) : Number(odoVal);
+      const intervalKm = intervalKmVal === '' ? null : Number(intervalKmVal);
+      const intervalBulan = intervalBulanVal === '' ? null : Number(intervalBulanVal);
+
+      if(editing){
+        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, odometerSaatIni, intervalKm, intervalBulan});
+        showToast('Data mobil diperbarui.');
+      } else {
+        state.cars.push({id: uid(), merk, modelMobil, tahun: tahunNum, warna, plat, odometerSaatIni, intervalKm, intervalBulan, createdAt: today(), petugas: currentAdmin});
+        showToast('Mobil baru ditambahkan.');
+      }
+      saveData();
+      renderCars();
+      return true;
+    }
+  });
+  attachRibuanInput('in-odo');
+  attachRibuanInput('in-interval-km');
+}
+
+/* ========================================================================
+   MODUL 3: DATA SOPIR (CRUD, master data untuk dropdown di Status Penggunaan)
+   ======================================================================== */
+function renderDrivers(){
+  document.getElementById('header-actions').innerHTML =
+    `<button class="btn btn-primary" id="btn-add-driver">+ Tambah Sopir</button>`;
+  document.getElementById('btn-add-driver').onclick = () => openDriverModal();
+
+  const items = [...state.drivers].sort((a,b)=> a.nama.localeCompare(b.nama));
+  let html = `<div class="panel"><div class="panel-body">`;
+  if(items.length===0){
+    html += emptyState('🧑\u200d✈️','Belum ada data sopir. Tambahkan sopir pertama.');
+  } else {
+    html += `
+      <div class="table-scroll"><table>
+        <thead><tr><th>Nama</th><th>No. SIM</th><th>No. HP</th><th>Alamat</th><th></th></tr></thead>
+        <tbody>
+          ${items.map(d=>`
+            <tr>
+              <td>${escapeHtml(d.nama)}</td>
+              <td>${escapeHtml(d.noSim||'-')}</td>
+              <td>${escapeHtml(d.noHp||'-')}</td>
+              <td>${escapeHtml(d.alamat||'-')}</td>
+              <td style="text-align:right;white-space:nowrap;">
+                <button class="btn btn-ghost btn-sm" data-edit="${d.id}">Edit</button>
+                <button class="btn btn-danger btn-sm" data-del="${d.id}">Hapus</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>
+    `;
+  }
+  html += `</div></div>`;
+  document.getElementById('content').innerHTML = html;
+
+  document.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openDriverModal(b.dataset.edit));
+  document.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteDriver(b.dataset.del));
+}
+
+function deleteDriver(id){
+  const usedInUsage = state.usage.some(u=>u.driverId===id);
+  let warn = 'Hapus data sopir ini?';
+  if(usedInUsage){
+    warn += '\n\nPerhatian: sopir ini pernah tercatat pada riwayat penggunaan mobil. Riwayat tersebut akan tetap ada namun akan ditandai "sopir telah dihapus".';
+  }
+  if(!confirm(warn)) return;
+  state.drivers = state.drivers.filter(d=>d.id!==id);
+  saveData();
+  showToast('Data sopir dihapus.');
+  renderDrivers();
+}
+
+function openDriverModal(editId){
+  const editing = editId ? state.drivers.find(d=>d.id===editId) : null;
+  const body = `
+    <div class="field" id="f-nama">
+      <label>Nama Sopir *</label>
+      <input type="text" id="in-nama" placeholder="Nama lengkap" value="${editing?escapeHtml(editing.nama):''}">
+      <div class="err-msg">Nama wajib diisi.</div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>No. SIM</label>
+        <input type="text" id="in-nosim" placeholder="Opsional" value="${editing?escapeHtml(editing.noSim||''):''}">
+      </div>
+      <div class="field">
+        <label>No. HP</label>
+        <input type="text" id="in-nohp" placeholder="Opsional" value="${editing?escapeHtml(editing.noHp||''):''}">
+      </div>
+    </div>
+    <div class="field">
+      <label>Alamat</label>
+      <textarea id="in-alamat" rows="2" placeholder="Opsional">${editing?escapeHtml(editing.alamat||''):''}</textarea>
+    </div>
+  `;
+  openModal({
+    title: editing ? 'Edit Data Sopir' : 'Tambah Sopir Baru',
+    body,
+    onSave: () => {
+      const nama = document.getElementById('in-nama').value.trim();
+      const noSim = document.getElementById('in-nosim').value.trim();
+      const noHp = document.getElementById('in-nohp').value.trim();
+      const alamat = document.getElementById('in-alamat').value.trim();
+
+      let valid = true;
+      toggleFieldError('f-nama', !nama); if(!nama) valid=false;
+      if(!valid) return false;
+
+      if(editing){
+        Object.assign(editing, {nama, noSim, noHp, alamat});
+        showToast('Data sopir diperbarui.');
+      } else {
+        state.drivers.push({id: uid(), nama, noSim, noHp, alamat, createdAt: today(), petugas: currentAdmin});
+        showToast('Sopir baru ditambahkan.');
+      }
+      saveData();
+      renderDrivers();
+      return true;
+    }
+  });
+}
+
+/* ========================================================================
+   MODUL 4: STATUS PENGGUNAAN (pemakaian mobil untuk pengiriman)
+   ======================================================================== */
+function renderUsage(){
+  document.getElementById('header-actions').innerHTML =
+    `<button class="btn btn-primary" id="btn-add-usage">+ Catat Penggunaan</button>`;
+  document.getElementById('btn-add-usage').onclick = () => openUsageModal();
+
+  const items = [...state.usage].sort((a,b)=> b.tglKeluar.localeCompare(a.tglKeluar));
+
+  let html = `<div class="panel"><div class="panel-body">`;
+  if(items.length===0){
+    html += emptyState('📍','Belum ada catatan penggunaan mobil.');
+  } else {
+    html += `
+      <div class="table-scroll"><table>
+        <thead><tr><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Kembali</th><th>Jarak Tempuh</th><th>Sisa Bensin</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          ${items.map(u=>{
+            const bensin = (u.sisaBensin===null || u.sisaBensin===undefined || u.sisaBensin==='') ? null : Number(u.sisaBensin);
+            let bensinBadge = '-';
+            if(bensin !== null && !isNaN(bensin)){
+              const cls = bensin <= 15 ? 'danger' : (bensin <= 35 ? 'warn' : 'ok');
+              bensinBadge = `<span class="badge ${cls}">${bensin}%</span>`;
+            }
+            const etoll = (u.saldoEtoll===null || u.saldoEtoll===undefined || u.saldoEtoll==='') ? null : Number(u.saldoEtoll);
+            const linkedCard = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
+            let jarakBadge = '-';
+            if(u.odoKeluar!=null && u.odoKembali!=null){
+              const jarak = u.odoKembali - u.odoKeluar;
+              jarakBadge = jarak >= 0 ? `${jarak.toLocaleString('id-ID')} KM` : `<span class="badge danger">Data tidak valid</span>`;
+            } else if(u.odoKeluar!=null){
+              jarakBadge = `<span class="badge neutral">Belum kembali</span>`;
+            }
+            return `
+            <tr>
+              <td>${escapeHtml(carLabel(u.carId))}</td>
+              <td>${escapeHtml(driverLabel(u.driverId, u.driver))}</td>
+              <td>${u.jenisPenggunaan==='pribadi' ? `<span class="badge neutral">Pribadi</span>` : `<span class="badge ok">Pengiriman</span>`}</td>
+              <td>${escapeHtml(u.tujuan)}</td>
+              <td>${fmtDate(u.tglKeluar)}</td>
+              <td>${u.tglKembali ? fmtDate(u.tglKembali) : '-'}</td>
+              <td>${jarakBadge}</td>
+              <td>${bensinBadge}</td>
+              <td>${linkedCard ? escapeHtml(linkedCard.nomorKartu) : '-'}</td>
+              <td>${etoll !== null && !isNaN(etoll) ? fmtMoney(etoll) : '-'}</td>
+              <td>${u.status==='digunakan' ? `<span class="badge warn">Digunakan</span>` : `<span class="badge ok">Selesai</span>`}</td>
+              <td style="text-align:right;white-space:nowrap;">
+                ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">Tandai Kembali</button>` : ''}
+                <button class="btn btn-danger btn-sm" data-del="${u.id}">Hapus</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table></div>
+    `;
+  }
+  html += `</div></div>`;
+  document.getElementById('content').innerHTML = html;
+
+  document.querySelectorAll('[data-return]').forEach(b=> b.onclick = ()=> markReturned(b.dataset.return));
+  document.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> {
+    if(!confirm('Hapus catatan penggunaan ini?')) return;
+    state.usage = state.usage.filter(u=>u.id!==b.dataset.del);
+    saveData(); showToast('Catatan penggunaan dihapus.'); renderUsage();
+  });
+}
+
+function markReturned(id){
+  const u = state.usage.find(x=>x.id===id);
+  if(!u) return;
+  const linkedCard = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
+  const body = `
+    <p style="font-size:13px;color:var(--muted);margin-top:0;">Perbarui kondisi mobil saat kembali (opsional).</p>
+    <div class="field" id="f-odo-kembali">
+      <label>Odometer Saat Kembali (KM)</label>
+      <input type="text" inputmode="numeric" id="in-odo-kembali" placeholder="Contoh: 45.230" value="${fmtRibuanInitial(u.odoKembali)}">
+      <div class="err-msg">Odometer kembali tidak boleh lebih kecil dari odometer keluar (${u.odoKeluar!=null ? Number(u.odoKeluar).toLocaleString('id-ID') : '-'} KM).</div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Sisa Bensin (%)</label>
+        <input type="number" id="in-bensin-kembali" min="0" max="100" placeholder="Contoh: 40" value="${u.sisaBensin ?? ''}">
+      </div>
+      <div class="field">
+        <label>Saldo E-Toll (Rp)</label>
+        <input type="text" inputmode="numeric" id="in-etoll-kembali" placeholder="Contoh: 50.000" value="${fmtRibuanInitial(u.saldoEtoll)}">
+        <div class="hint">${linkedCard ? `Terhubung ke kartu ${escapeHtml(linkedCard.nomorKartu)} — saldo di sini akan otomatis memperbarui saldo kartu tersebut.` : 'Perjalanan ini tidak terhubung ke kartu E-Toll manapun.'}</div>
+      </div>
+    </div>
+  `;
+  openModal({
+    title: 'Tandai Mobil Telah Kembali',
+    body,
+    onSave: () => {
+      const bensin = document.getElementById('in-bensin-kembali').value;
+      const etoll = getRibuanValue('in-etoll-kembali');
+      const odoKembaliVal = getRibuanValue('in-odo-kembali');
+      const odoKembali = odoKembaliVal === '' ? null : Number(odoKembaliVal);
+
+      const invalidOdo = odoKembali !== null && u.odoKeluar !== null && u.odoKeluar !== undefined && odoKembali < u.odoKeluar;
+      toggleFieldError('f-odo-kembali', invalidOdo);
+      if(invalidOdo) return false;
+
+      u.status = 'selesai';
+      u.tglKembali = today();
+      u.sisaBensin = bensin === '' ? u.sisaBensin ?? null : Number(bensin);
+      u.saldoEtoll = etoll === '' ? u.saldoEtoll ?? null : Number(etoll);
+      u.odoKembali = odoKembali === null ? (u.odoKembali ?? null) : odoKembali;
+
+      // Sinkronkan ke Odometer Saat Ini di Data Mobil, supaya pengingat servis
+      // & kolom odometer selalu mengikuti data perjalanan terbaru.
+      if(u.odoKembali != null){
+        const car = state.cars.find(c=>c.id===u.carId);
+        if(car){
+          car.odometerSaatIni = Math.max(car.odometerSaatIni||0, u.odoKembali);
+        }
+      }
+
+      // Sinkronkan saldo akhir perjalanan kembali ke Kartu E-Toll (kalau terhubung),
+      // supaya jejaknya berlanjut otomatis ke perjalanan berikutnya yang pakai kartu ini.
+      if(u.etollCardId && u.saldoEtoll != null){
+        const card = state.etollCards.find(c=>c.id===u.etollCardId);
+        if(card){
+          card.saldo = u.saldoEtoll;
+          card.updatedAt = today();
+        }
+      }
+
+      saveData();
+      showToast('Mobil ditandai telah kembali.');
+      renderUsage();
+      return true;
+    }
+  });
+  attachRibuanInput('in-etoll-kembali');
+  attachRibuanInput('in-odo-kembali');
+}
+
+function buildDriverOptions(selectedId){
+  return state.drivers.map(d=>`<option value="${d.id}" ${d.id===selectedId?'selected':''}>${escapeHtml(d.nama)}</option>`).join('')
+    + `<option value="__new__">+ Tambah sopir baru...</option>`;
+}
+
+function openUsageModal(){
+  const carOptions = state.cars.map(c=>{
+    const busy = state.usage.some(u=>u.carId===c.id && u.status==='digunakan');
+    return `<option value="${c.id}" ${busy?'disabled':''}>${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}${busy?' (sedang dipakai)':''}</option>`;
+  }).join('');
+
+  if(state.cars.length===0){
+    showToast('Tambahkan data mobil terlebih dahulu sebelum mencatat penggunaan.', true);
+    return;
+  }
+
+  const body = `
+    <div class="field" id="f-car">
+      <label>Mobil *</label>
+      <select id="in-car"><option value="">— pilih mobil —</option>${carOptions}</select>
+      <div class="err-msg">Pilih mobil yang tersedia.</div>
+    </div>
+    <div class="field" id="f-driver">
+      <label>Sopir *</label>
+      <select id="in-driver"><option value="">— pilih sopir —</option>${buildDriverOptions()}</select>
+      <div class="err-msg">Pilih sopir.</div>
+    </div>
+    <div class="field" id="f-jenis-pakai">
+      <label>Jenis Pemakaian *</label>
+      <select id="in-jenis-pakai">
+        <option value="pengiriman">Pengiriman (operasional)</option>
+        <option value="pribadi">Pribadi</option>
+      </select>
+    </div>
+    <div class="field" id="f-tujuan">
+      <label>Tujuan / Keperluan *</label>
+      <input type="text" id="in-tujuan" placeholder="Contoh: Gudang Surabaya - Toko A">
+      <div class="err-msg">Tujuan wajib diisi.</div>
+    </div>
+    <div class="field">
+      <label>Tanggal Keluar</label>
+      <input type="date" id="in-tglkeluar" value="${today()}">
+    </div>
+    <div class="field">
+      <label>Odometer Saat Keluar (KM)</label>
+      <input type="text" inputmode="numeric" id="in-odo-keluar" placeholder="Contoh: 45.000">
+      <div class="hint">Diisi supaya jarak tempuh perjalanan ini bisa dihitung otomatis.</div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Sisa Bensin Saat Keluar (%)</label>
+        <input type="number" id="in-bensin" min="0" max="100" placeholder="Contoh: 80">
+      </div>
+      <div class="field" id="f-etoll-card">
+        <label>Kartu E-Toll Dipakai</label>
+        <select id="in-etoll-card">
+          <option value="">— tidak pakai kartu / isi manual —</option>
+          ${state.etollCards.map(card=>`<option value="${card.id}">${escapeHtml(card.nomorKartu)}${card.mobilId?' — '+escapeHtml(carLabel(card.mobilId)):''} (saldo: ${fmtMoney(card.saldo)})</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Saldo E-Toll Saat Keluar (Rp)</label>
+      <input type="text" inputmode="numeric" id="in-etoll" placeholder="Contoh: 100.000">
+      <div class="hint" id="etoll-hint">Pilih kartu di atas supaya saldo terisi otomatis, atau isi manual kalau bayar tunai/kartu belum terdaftar.</div>
+    </div>
+  `;
+  openModal({
+    title: 'Catat Penggunaan Mobil',
+    body,
+    onSave: () => {
+      const carId = document.getElementById('in-car').value;
+      const driverId = document.getElementById('in-driver').value;
+      const jenisPenggunaan = document.getElementById('in-jenis-pakai').value;
+      const tujuan = document.getElementById('in-tujuan').value.trim();
+      const tglKeluar = document.getElementById('in-tglkeluar').value || today();
+      const odoKeluarVal = getRibuanValue('in-odo-keluar');
+      const bensinVal = document.getElementById('in-bensin').value;
+      const etollCardId = document.getElementById('in-etoll-card').value || null;
+      const etollVal = getRibuanValue('in-etoll');
+
+      let valid = true;
+      toggleFieldError('f-car', !carId); if(!carId) valid=false;
+      toggleFieldError('f-driver', !driverId || driverId==='__new__'); if(!driverId || driverId==='__new__') valid=false;
+      toggleFieldError('f-tujuan', !tujuan); if(!tujuan) valid=false;
+      if(!valid) return false;
+
+      state.usage.push({
+        id: uid(), carId, driverId, jenisPenggunaan, tujuan, tglKeluar, tglKembali:null,
+        status:'digunakan',
+        odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
+        odoKembali: null,
+        sisaBensin: bensinVal === '' ? null : Number(bensinVal),
+        etollCardId,
+        saldoEtoll: etollVal === '' ? null : Number(etollVal),
+        petugas: currentAdmin
+      });
+      saveData();
+      showToast('Penggunaan mobil dicatat.');
+      renderUsage();
+      return true;
+    }
+  });
+  attachRibuanInput('in-etoll');
+  attachRibuanInput('in-odo-keluar');
+
+  // Pilih kartu E-Toll → saldo saat ini otomatis tersalin ke field "Saldo Saat Keluar",
+  // supaya petugas tidak perlu ketik ulang (dan tetap bisa dikoreksi manual kalau beda).
+  document.getElementById('in-etoll-card').addEventListener('change', function(){
+    const card = state.etollCards.find(c=>c.id===this.value);
+    const etollInput = document.getElementById('in-etoll');
+    const hint = document.getElementById('etoll-hint');
+    if(card){
+      etollInput.value = Number(card.saldo||0).toLocaleString('id-ID');
+      hint.textContent = `Otomatis dari kartu ${card.nomorKartu}. Bisa diedit kalau saldo fisik berbeda.`;
+    } else {
+      hint.textContent = 'Pilih kartu di atas supaya saldo terisi otomatis, atau isi manual kalau bayar tunai/kartu belum terdaftar.';
+    }
+  });
+
+  // Wiring opsi "+ Tambah sopir baru..." langsung dari form ini,
+  // supaya petugas tidak perlu keluar-masuk menu Data Sopir untuk kasus mendadak.
+  const driverSelect = document.getElementById('in-driver');
+  driverSelect.addEventListener('change', function(){
+    if(this.value === '__new__'){
+      const nama = prompt('Nama sopir baru:');
+      if(nama && nama.trim()){
+        const newDriver = {id: uid(), nama: nama.trim(), noSim:'', noHp:'', alamat:'', createdAt: today(), petugas: currentAdmin};
+        state.drivers.push(newDriver);
+        saveData();
+        this.innerHTML = '<option value="">— pilih sopir —</option>' + buildDriverOptions(newDriver.id);
+      } else {
+        this.value = '';
+      }
+    }
+  });
+}
+
+/* ========================================================================
+   MODUL 5: SERVIS & MAINTENANCE
+   ======================================================================== */
+function renderService(){
+  document.getElementById('header-actions').innerHTML =
+    `<button class="btn btn-primary" id="btn-add-service">+ Catat Servis</button>`;
+  document.getElementById('btn-add-service').onclick = () => openServiceModal();
+
+  const items = [...state.services].sort((a,b)=> b.tanggal.localeCompare(a.tanggal));
+  let html = `<div class="panel"><div class="panel-body">`;
+  if(items.length===0){
+    html += emptyState('🔧','Belum ada riwayat servis. Tambahkan catatan servis pertama.');
+  } else {
+    html += `
+      <div class="table-scroll"><table>
+        <thead><tr><th>Tanggal</th><th>Mobil</th><th>Jenis Servis</th><th>Odometer</th><th>Bengkel</th><th>Biaya</th><th>Catatan</th><th></th></tr></thead>
+        <tbody>
+          ${items.map(s=>`
+            <tr>
+              <td>${fmtDate(s.tanggal)}</td>
+              <td>${escapeHtml(carLabel(s.carId))}</td>
+              <td>${escapeHtml(s.jenis)}</td>
+              <td>${s.odometer!=null ? Number(s.odometer).toLocaleString('id-ID')+' KM' : '-'}</td>
+              <td>${escapeHtml(s.bengkel||'-')}</td>
+              <td>${fmtMoney(s.biaya)}</td>
+              <td>${escapeHtml(s.catatan||'-')}</td>
+              <td style="text-align:right;"><button class="btn btn-danger btn-sm" data-del="${s.id}">Hapus</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>
+    `;
+  }
+  html += `</div></div>`;
+  document.getElementById('content').innerHTML = html;
+
+  document.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=>{
+    if(!confirm('Hapus catatan servis ini?')) return;
+    state.services = state.services.filter(s=>s.id!==b.dataset.del);
+    saveData(); showToast('Catatan servis dihapus.'); renderService();
+  });
+}
+
+function openServiceModal(){
+  if(state.cars.length===0){
+    showToast('Tambahkan data mobil terlebih dahulu sebelum mencatat servis.', true);
+    return;
+  }
+  const carOptions = state.cars.map(c=>`<option value="${c.id}">${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}</option>`).join('');
+  const body = `
+    <div class="field" id="f-car">
+      <label>Mobil *</label>
+      <select id="in-car"><option value="">— pilih mobil —</option>${carOptions}</select>
+      <div class="err-msg">Pilih mobil.</div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Tanggal Servis</label>
+        <input type="date" id="in-tanggal" value="${today()}">
+      </div>
+      <div class="field" id="f-jenis">
+        <label>Jenis Servis *</label>
+        <input type="text" id="in-jenis" placeholder="Ganti oli, tune-up, dll">
+        <div class="err-msg">Jenis servis wajib diisi.</div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Bengkel</label>
+        <input type="text" id="in-bengkel" placeholder="Nama bengkel">
+      </div>
+      <div class="field">
+        <label>Biaya (Rp)</label>
+        <input type="text" inputmode="numeric" id="in-biaya" placeholder="Contoh: 350.000">
+      </div>
+    </div>
+    <div class="field">
+      <label>Odometer Saat Servis (KM)</label>
+      <input type="text" inputmode="numeric" id="in-odo-servis" placeholder="Contoh: 45.000">
+      <div class="hint">Diisi supaya pengingat servis berikutnya (di Data Mobil) bisa dihitung otomatis.</div>
+    </div>
+    <div class="field">
+      <label>Catatan</label>
+      <textarea id="in-catatan" rows="2" placeholder="Catatan tambahan (opsional)"></textarea>
+    </div>
+  `;
+  openModal({
+    title: 'Catat Servis / Maintenance',
+    body,
+    onSave: () => {
+      const carId = document.getElementById('in-car').value;
+      const tanggal = document.getElementById('in-tanggal').value || today();
+      const jenis = document.getElementById('in-jenis').value.trim();
+      const bengkel = document.getElementById('in-bengkel').value.trim();
+      const biaya = getRibuanValue('in-biaya');
+      const odoServisVal = getRibuanValue('in-odo-servis');
+      const catatan = document.getElementById('in-catatan').value.trim();
+
+      let valid = true;
+      toggleFieldError('f-car', !carId); if(!carId) valid=false;
+      toggleFieldError('f-jenis', !jenis); if(!jenis) valid=false;
+      if(!valid) return false;
+
+      const odometer = odoServisVal === '' ? null : Number(odoServisVal);
+      state.services.push({id: uid(), carId, tanggal, jenis, bengkel, biaya: Number(biaya)||0, odometer, catatan, petugas: currentAdmin});
+
+      // Sinkronkan ke Odometer Saat Ini di Data Mobil kalau angkanya lebih baru/besar.
+      if(odometer != null){
+        const car = state.cars.find(c=>c.id===carId);
+        if(car) car.odometerSaatIni = Math.max(car.odometerSaatIni||0, odometer);
+      }
+
+      saveData();
+      showToast('Catatan servis ditambahkan.');
+      renderService();
+      return true;
+    }
+  });
+  attachRibuanInput('in-biaya');
+  attachRibuanInput('in-odo-servis');
+}
+
+/* ========================================================================
+   MODUL 6: DOKUMEN (STNK, Pajak, Asuransi)
+   ======================================================================== */
+function renderDocs(){
+  document.getElementById('header-actions').innerHTML =
+    `<button class="btn btn-primary" id="btn-add-doc">+ Tambah Dokumen</button>`;
+  document.getElementById('btn-add-doc').onclick = () => openDocModal();
+
+  const items = [...state.documents].sort((a,b)=> a.tglExpired.localeCompare(b.tglExpired));
+  let html = `<div class="panel"><div class="panel-body">`;
+  if(items.length===0){
+    html += emptyState('📄','Belum ada dokumen tercatat.');
+  } else {
+    html += `
+      <div class="table-scroll"><table>
+        <thead><tr><th>Mobil</th><th>Jenis</th><th>Nomor</th><th>Terbit</th><th>Masa Berlaku</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          ${items.map(d=>{
+            const sisa = daysBetween(d.tglExpired);
+            let badge;
+            if(sisa < 0) badge = `<span class="badge danger">Kedaluwarsa</span>`;
+            else if(sisa <= 30) badge = `<span class="badge warn">${sisa} hari lagi</span>`;
+            else badge = `<span class="badge ok">Berlaku</span>`;
+            return `
+            <tr>
+              <td>${escapeHtml(carLabel(d.carId))}</td>
+              <td>${escapeHtml(d.jenis)}</td>
+              <td>${escapeHtml(d.nomor||'-')}</td>
+              <td>${fmtDate(d.tglTerbit)}</td>
+              <td>${fmtDate(d.tglExpired)}</td>
+              <td>${badge}</td>
+              <td style="text-align:right;"><button class="btn btn-danger btn-sm" data-del="${d.id}">Hapus</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table></div>
+    `;
+  }
+  html += `</div></div>`;
+  document.getElementById('content').innerHTML = html;
+
+  document.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=>{
+    if(!confirm('Hapus dokumen ini?')) return;
+    state.documents = state.documents.filter(d=>d.id!==b.dataset.del);
+    saveData(); showToast('Dokumen dihapus.'); renderDocs();
+  });
+}
+
+function openDocModal(){
+  if(state.cars.length===0){
+    showToast('Tambahkan data mobil terlebih dahulu sebelum mencatat dokumen.', true);
+    return;
+  }
+  const carOptions = state.cars.map(c=>`<option value="${c.id}">${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}</option>`).join('');
+  const body = `
+    <div class="field" id="f-car">
+      <label>Mobil *</label>
+      <select id="in-car"><option value="">— pilih mobil —</option>${carOptions}</select>
+      <div class="err-msg">Pilih mobil.</div>
+    </div>
+    <div class="field" id="f-jenis">
+      <label>Jenis Dokumen *</label>
+      <select id="in-jenis">
+        <option value="">— pilih jenis —</option>
+        <option value="STNK">STNK</option>
+        <option value="Pajak Kendaraan">Pajak Kendaraan</option>
+        <option value="Asuransi">Asuransi</option>
+      </select>
+      <div class="err-msg">Pilih jenis dokumen.</div>
+    </div>
+    <div class="field">
+      <label>Nomor Dokumen</label>
+      <input type="text" id="in-nomor" placeholder="Nomor STNK/polis/dsb (opsional)">
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Tanggal Terbit</label>
+        <input type="date" id="in-terbit" value="${today()}">
+      </div>
+      <div class="field" id="f-expired">
+        <label>Masa Berlaku Sampai *</label>
+        <input type="date" id="in-expired">
+        <div class="err-msg">Tanggal masa berlaku wajib diisi.</div>
+      </div>
+    </div>
+  `;
+  openModal({
+    title: 'Tambah Dokumen Kendaraan',
+    body,
+    onSave: () => {
+      const carId = document.getElementById('in-car').value;
+      const jenis = document.getElementById('in-jenis').value;
+      const nomor = document.getElementById('in-nomor').value.trim();
+      const tglTerbit = document.getElementById('in-terbit').value || today();
+      const tglExpired = document.getElementById('in-expired').value;
+
+      let valid = true;
+      toggleFieldError('f-car', !carId); if(!carId) valid=false;
+      toggleFieldError('f-jenis', !jenis); if(!jenis) valid=false;
+      toggleFieldError('f-expired', !tglExpired); if(!tglExpired) valid=false;
+      if(!valid) return false;
+
+      state.documents.push({id: uid(), carId, jenis, nomor, tglTerbit, tglExpired, petugas: currentAdmin});
+      saveData();
+      showToast('Dokumen ditambahkan.');
+      renderDocs();
+      return true;
+    }
+  });
+}
+
+/* ========================================================================
+   MODUL 7: KARTU E-TOLL (master data kartu + saldo per mobil)
+   ======================================================================== */
+function renderEtollCards(){
+  document.getElementById('header-actions').innerHTML =
+    `<button class="btn btn-primary" id="btn-add-etoll">+ Tambah Kartu</button>`;
+  document.getElementById('btn-add-etoll').onclick = () => openEtollCardModal();
+
+  const items = [...state.etollCards].sort((a,b)=> a.nomorKartu.localeCompare(b.nomorKartu));
+  let html = `<div class="panel"><div class="panel-body">`;
+  if(items.length===0){
+    html += emptyState('💳','Belum ada kartu E-Toll terdaftar.');
+  } else {
+    html += `
+      <div class="table-scroll"><table>
+        <thead><tr><th>Nomor Kartu</th><th>Terpasang di Mobil</th><th>Saldo Saat Ini</th><th>Catatan</th><th></th></tr></thead>
+        <tbody>
+          ${items.map(card=>`
+            <tr>
+              <td><span class="plate">${escapeHtml(card.nomorKartu)}</span></td>
+              <td>${card.mobilId ? escapeHtml(carLabel(card.mobilId)) : '<span class="badge neutral">Tidak terpasang</span>'}</td>
+              <td>${fmtMoney(card.saldo)}</td>
+              <td>${escapeHtml(card.catatan||'-')}</td>
+              <td style="text-align:right;white-space:nowrap;">
+                <button class="btn btn-ghost btn-sm" data-topup="${card.id}">Top Up</button>
+                <button class="btn btn-ghost btn-sm" data-edit="${card.id}">Edit</button>
+                <button class="btn btn-danger btn-sm" data-del="${card.id}">Hapus</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>
+    `;
+  }
+  html += `</div></div>`;
+  document.getElementById('content').innerHTML = html;
+
+  document.querySelectorAll('[data-topup]').forEach(b=> b.onclick = ()=> topUpEtollCard(b.dataset.topup));
+  document.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openEtollCardModal(b.dataset.edit));
+  document.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteEtollCard(b.dataset.del));
+}
+
+function topUpEtollCard(id){
+  const card = state.etollCards.find(c=>c.id===id);
+  if(!card) return;
+  const input = prompt(`Top up kartu ${card.nomorKartu}\nSaldo saat ini: ${fmtMoney(card.saldo)}\n\nMasukkan nominal top up (Rp):`);
+  if(input === null) return; // dibatalkan
+  const nominal = Number(String(input).replace(/[^\d]/g,''));
+  if(!nominal || nominal <= 0){
+    showToast('Nominal top up tidak valid.', true);
+    return;
+  }
+  card.saldo = (Number(card.saldo)||0) + nominal;
+  card.updatedAt = today();
+  saveData();
+  showToast(`Top up berhasil. Saldo baru: ${fmtMoney(card.saldo)}`);
+  renderEtollCards();
+}
+
+function deleteEtollCard(id){
+  if(!confirm('Hapus kartu E-Toll ini? Saldo yang tercatat akan ikut terhapus.')) return;
+  state.etollCards = state.etollCards.filter(c=>c.id!==id);
+  saveData();
+  showToast('Kartu E-Toll dihapus.');
+  renderEtollCards();
+}
+
+function openEtollCardModal(editId){
+  const editing = editId ? state.etollCards.find(c=>c.id===editId) : null;
+  const carOptions = state.cars.map(c=>`<option value="${c.id}" ${editing&&editing.mobilId===c.id?'selected':''}>${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}</option>`).join('');
+  const body = `
+    <div class="field" id="f-nomor">
+      <label>Nomor Kartu *</label>
+      <input type="text" id="in-nomor" placeholder="Contoh: 6019xxxxxxxxxxxx" value="${editing?escapeHtml(editing.nomorKartu):''}">
+      <div class="err-msg">Nomor kartu wajib diisi dan tidak boleh sama dengan kartu lain.</div>
+    </div>
+    <div class="field">
+      <label>Terpasang di Mobil</label>
+      <select id="in-mobil">
+        <option value="">— tidak terpasang / kartu cadangan —</option>
+        ${carOptions}
+      </select>
+    </div>
+    <div class="field">
+      <label>${editing ? 'Saldo Saat Ini (Rp)' : 'Saldo Awal (Rp)'}</label>
+      <input type="text" inputmode="numeric" id="in-saldo" placeholder="Contoh: 100.000" value="${editing?fmtRibuanInitial(editing.saldo):''}">
+      <div class="hint">Untuk menambah saldo kartu yang sudah ada, gunakan tombol "Top Up" agar lebih cepat.</div>
+    </div>
+    <div class="field">
+      <label>Catatan</label>
+      <textarea id="in-catatan" rows="2" placeholder="Opsional">${editing?escapeHtml(editing.catatan||''):''}</textarea>
+    </div>
+  `;
+  openModal({
+    title: editing ? 'Edit Kartu E-Toll' : 'Tambah Kartu E-Toll',
+    body,
+    onSave: () => {
+      const nomorKartu = document.getElementById('in-nomor').value.trim();
+      const mobilId = document.getElementById('in-mobil').value || null;
+      const saldo = Number(getRibuanValue('in-saldo')) || 0;
+      const catatan = document.getElementById('in-catatan').value.trim();
+
+      const dupe = state.etollCards.some(c => c.nomorKartu === nomorKartu && c.id !== editId);
+      let valid = true;
+      toggleFieldError('f-nomor', !nomorKartu || dupe); if(!nomorKartu || dupe) valid=false;
+      if(!valid) return false;
+
+      if(editing){
+        Object.assign(editing, {nomorKartu, mobilId, saldo, catatan, updatedAt: today()});
+        showToast('Data kartu E-Toll diperbarui.');
+      } else {
+        state.etollCards.push({id: uid(), nomorKartu, mobilId, saldo, catatan, createdAt: today(), updatedAt: today(), petugas: currentAdmin});
+        showToast('Kartu E-Toll baru ditambahkan.');
+      }
+      saveData();
+      renderEtollCards();
+      return true;
+    }
+  });
+  attachRibuanInput('in-saldo');
+}
+
+/* ========================================================================
+   Modal engine (dipakai bersama oleh semua modul)
+   ======================================================================== */
+function toggleFieldError(fieldId, hasError){
+  const el = document.getElementById(fieldId);
+  if(el) el.classList.toggle('error', !!hasError);
+}
+
+function openModal({title, body, onSave}){
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-overlay" id="modal-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>${escapeHtml(title)}</h3>
+          <button class="modal-close" id="modal-close">✕</button>
+        </div>
+        <div class="modal-body">${body}</div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" id="modal-cancel">Batal</button>
+          <button class="btn btn-primary" id="modal-save">Simpan</button>
+        </div>
+      </div>
+    </div>
+  `;
+  const close = () => { root.innerHTML = ''; };
+  document.getElementById('modal-close').onclick = close;
+  document.getElementById('modal-cancel').onclick = close;
+  document.getElementById('modal-overlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'modal-overlay') close();
+  });
+  document.getElementById('modal-save').onclick = () => {
+    const ok = onSave();
+    if(ok !== false) close();
+  };
+}
+
+/* ========================================================================
+   Changelog popup
+   ======================================================================== */
+const CHANGELOG = [
+  {
+    v: '1.6.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Status Penggunaan: bisa pilih Kartu E-Toll saat catat penggunaan → saldo awal terisi otomatis dari saldo kartu saat ini.',
+      'Saat "Tandai Kembali", saldo akhir yang diinput otomatis memperbarui saldo Kartu E-Toll terkait — jejak saldo berlanjut ke perjalanan berikutnya tanpa input ulang.',
+      'Tabel Status Penggunaan menampilkan kolom Kartu E-Toll yang dipakai per perjalanan.',
+    ]
+  },
+  {
+    v: '1.5.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Data Mobil: tambah Odometer Saat Ini (otomatis update dari Status Penggunaan & Servis).',
+      'Data Mobil: tambah pengaturan Interval Servis (KM dan/atau Bulan) per mobil, opsional.',
+      'Pengingat Servis/Ganti Oli otomatis: badge status di Data Mobil + panel ringkasan di Dashboard.',
+      'Servis & Maintenance: tambah field Odometer Saat Servis (jadi acuan hitung pengingat).',
+      'Format ribuan diperluas ke semua field angka besar: Odometer, Biaya Servis, Interval KM.',
+    ]
+  },
+  {
+    v: '1.4.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Status Penggunaan: tambah pencatatan Odometer (KM) saat keluar & kembali → Jarak Tempuh dihitung otomatis.',
+      'Validasi: odometer saat kembali tidak boleh lebih kecil dari saat keluar.',
+      'Menu baru: Kartu E-Toll — data nomor kartu, mobil terpasang, saldo, dan tombol Top Up cepat.',
+      'Input Saldo E-Toll (di Status Penggunaan & Kartu E-Toll) kini otomatis berformat ribuan saat diketik (mis. 100.000).',
+    ]
+  },
+  {
+    v: '1.3.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Tampilan mobile: menu sidebar kini jadi laci geser (drawer), dibuka lewat tombol ☰.',
+      'Halaman utama tidak lagi bisa digeser kiri-kanan di layar HP (termasuk Samsung).',
+      'Tabel dengan kolom banyak (Status Penggunaan, dll) punya area geser sendiri di dalam kotaknya, tidak menggeser seluruh halaman.',
+      'Kartu ringkasan (KPI), form, dan modal menyesuaikan otomatis ke lebar layar HP.',
+      'Perbaikan: status "sedang dipakai" di Data Mobil kini menampilkan nama sopir dengan benar (mengikuti modul Data Sopir).',
+    ]
+  },
+  {
+    v: '1.2.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Menu baru: Data Sopir (master data — nama, No. SIM, No. HP, alamat).',
+      'Form Status Penggunaan kini memilih sopir dari daftar (dropdown), bukan ketik manual.',
+      'Bisa tambah sopir baru langsung dari form Status Penggunaan tanpa pindah menu.',
+      'Catatan penggunaan lama (format teks bebas) tetap tampil normal (kompatibel mundur).',
+    ]
+  },
+  {
+    v: '1.1.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Modul Status Penggunaan: tambah field "Jenis Pemakaian" (Pengiriman/Pribadi).',
+      'Modul Status Penggunaan: tambah pencatatan Sisa Bensin (%) saat keluar & saat kembali.',
+      'Modul Status Penggunaan: tambah pencatatan Saldo E-Toll (Rp) saat keluar & saat kembali.',
+      'Tandai Kembali kini membuka form singkat untuk update kondisi akhir mobil.',
+      'Peringatan visual otomatis jika sisa bensin ≤35% (kuning) atau ≤15% (merah).',
+    ]
+  },
+  {
+    v: '1.0.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Rilis pertama: Dashboard ringkasan armada.',
+      'Modul Data Mobil (tambah/edit/hapus, validasi plat unik).',
+      'Modul Status Penggunaan (catat pemakaian & driver per pengiriman).',
+      'Modul Servis & Maintenance (riwayat servis per mobil).',
+      'Modul Dokumen (STNK/Pajak/Asuransi + peringatan mendekati kedaluwarsa).',
+      'Multi-petugas sederhana (tanpa login/password).',
+    ]
+  }
+];
+
+document.getElementById('btn-changelog').onclick = () => {
+  const body = CHANGELOG.map(c => `
+    <div class="changelog-entry">
+      <span class="v">v${c.v}</span><span class="d">${c.date}</span>
+      <ul>${c.notes.map(n=>`<li>${escapeHtml(n)}</li>`).join('')}</ul>
+    </div>
+  `).join('');
+  openModal({
+    title: 'Changelog — FleetOps',
+    body,
+    onSave: () => true
+  });
+  // Untuk changelog, tombol "Simpan" tidak relevan → ubah labelnya jadi "Tutup"
+  const saveBtn = document.getElementById('modal-save');
+  if(saveBtn) saveBtn.textContent = 'Tutup';
+  const cancelBtn = document.getElementById('modal-cancel');
+  if(cancelBtn) cancelBtn.style.display = 'none';
+};
+
+/* ---------------- Init ---------------- */
+document.getElementById('btn-changelog').textContent = 'v' + APP_VERSION + ' · Lihat Changelog';
+renderPetugasSelect();
+navigate('dashboard');
+
+// Daftarkan service worker supaya bisa "diinstall" sebagai PWA & tetap bisa
+// dibuka saat koneksi lemah/putus. Dibungkus try/catch + pengecekan dukungan
+// browser (defensive) supaya tidak error di browser lama yang tidak support.
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch((err) => {
+      console.error('Gagal mendaftarkan service worker (PWA/offline tidak aktif):', err);
+    });
+  });
+}
+</script>
+</body>
+</html>
