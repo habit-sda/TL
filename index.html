@@ -501,6 +501,9 @@
     <div class="menu-item" data-route="service"><span class="ic">🔧</span>Servis &amp; Maintenance</div>
     <div class="menu-item" data-route="docs"><span class="ic">📄</span>Dokumen</div>
     <div class="menu-item" data-route="etoll"><span class="ic">💳</span>Kartu E-Toll</div>
+    <div class="menu-section-label">Lainnya</div>
+    <div class="menu-item" data-route="bbm"><span class="ic">⛽</span>BBM</div>
+    <div class="menu-item" data-route="settings"><span class="ic">⚙️</span>Pengaturan</div>
   </nav>
   <div id="petugas-box">
     <label for="petugas-select">Petugas aktif</label>
@@ -607,7 +610,7 @@
    ========================================================================= */
 
 const STORAGE_KEY = 'fleetops_data_v1';
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '3.0.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1162,6 +1165,44 @@ function getPercentValue(inputId){
   if(!el) return '';
   return el.value.replace(/[^\d]/g,'');
 }
+
+/* ---------------- Helper: field angka murni (tanpa titik/minus/huruf apapun) ----------------
+   Beda dari attachRibuanInput (yang menambahkan titik ribuan untuk tampilan),
+   ini untuk field yang memang harus bilangan bulat polos (tahun, interval
+   bulan, liter BBM) — setiap karakter selain 0-9 langsung dibuang saat diketik,
+   termasuk titik/koma yang biasanya lolos di <input type="number"> bawaan browser. */
+function attachIntegerOnlyInput(inputId){
+  const el = document.getElementById(inputId);
+  if(!el) return;
+  el.addEventListener('input', function(){
+    const digits = this.value.replace(/[^\d]/g,'');
+    if(digits !== this.value) this.value = digits;
+  });
+}
+
+/* ---------------- Kapitalisasi otomatis (huruf besar semua) di SEMUA field teks ----------------
+   Dipasang 1x sebagai event delegation di level document, bukan ditempel manual
+   di tiap field satu-satu (yang jumlahnya puluhan tersebar di banyak form) —
+   supaya otomatis berlaku juga untuk field baru yang ditambahkan nanti tanpa
+   perlu diingat-ingat lagi. Pakai posisi kursor tersimpan supaya tidak "loncat"
+   ke ujung seperti masalah yang pernah terjadi di field format ribuan/persen
+   (aman di sini karena ubah huruf besar/kecil tidak mengubah panjang teks).
+   Field angka (ribuan/persen/integer) otomatis aman karena isinya cuma digit
+   dan simbol, tidak ada huruf yang bisa diubah kapitalisasinya. */
+document.addEventListener('input', function(e){
+  const el = e.target;
+  if(!el || !el.tagName) return;
+  const isPlainTextField =
+    el.tagName === 'TEXTAREA' ||
+    (el.tagName === 'INPUT' && (el.type === 'text' || el.type === undefined));
+  if(!isPlainTextField) return;
+  if(el.value !== el.value.toUpperCase()){
+    const start = el.selectionStart, end = el.selectionEnd;
+    el.value = el.value.toUpperCase();
+    if(start!=null && end!=null) el.setSelectionRange(start, end);
+  }
+});
+
 function fmtPercentInitial(n){
   if(n===null || n===undefined || n==='') return '';
   return Number(n) + '%';
@@ -1235,6 +1276,31 @@ function driverLabel(driverId, legacyDriverText){
   }
   return legacyDriverText || '-';
 }
+/* ---------------- Kompatibilitas mundur: bensin keluar/kembali ----------------
+   Sebelum v2.9.2, hanya ada 1 field "sisaBensin" yang dipakai ulang (nilai
+   saat berangkat ketimpa nilai saat kembali) -- ini menghilangkan data
+   "sisa bensin saat berangkat" begitu mobil ditandai kembali, dan membuat
+   Kalkulator Rasio Konsumsi BBM tidak bisa dihitung akurat. Sekarang dipisah
+   jadi 2 field. Untuk catatan LAMA yang cuma punya field lama itu, dianggap
+   sebagai bacaan "saat berangkat" (perkiraan terbaik yang bisa dilakukan
+   tanpa data aslinya, karena field lama itu paling sering memang menyimpan
+   nilai keberangkatan kalau mobil belum sempat ditandai kembali). */
+function getBensinKeluar(u){
+  if(u.bensinKeluar!=null) return Number(u.bensinKeluar);
+  if(u.sisaBensin!=null) return Number(u.sisaBensin);
+  return null;
+}
+function getBensinKembali(u){
+  return u.bensinKembali!=null ? Number(u.bensinKembali) : null;
+}
+// Bacaan bensin PALING BARU yang diketahui untuk 1 perjalanan (dipakai untuk
+// status "sisa bensin saat ini" di peringatan & ringkasan -- bukan untuk
+// hitung konsumsi, yang butuh keduanya secara terpisah).
+function getBensinTerkini(u){
+  const k = getBensinKembali(u);
+  if(k!=null) return k;
+  return getBensinKeluar(u);
+}
 function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
@@ -1271,6 +1337,110 @@ function renderPetugasSelect(){
   };
 }
 
+/* ========================================================================
+   MODUL PENGATURAN (kelola nama petugas/admin)
+   ------------------------------------------------------------------------
+   Catatan jujur soal sinkron: daftar admin digabung antar-device dengan cara
+   sederhana (gabung nama unik), BUKAN pakai sistem tombstone seperti data
+   lain -- jadi kalau 1 nama dihapus di device A tapi device B belum sempat
+   sinkron sejak sebelum penghapusan, nama itu bisa "muncul lagi" saat kedua
+   device sinkron. Untuk data admin yang jarang berubah, ini risiko kecil;
+   kalau ke depannya sering terjadi, beri tahu saya untuk dibuatkan sistem
+   tombstone khusus seperti modul-modul lain.
+   ======================================================================== */
+function renderSettings(){
+  document.getElementById('header-actions').innerHTML =
+    `<button class="btn btn-primary" id="btn-add-admin">+ Tambah Petugas</button>`;
+  document.getElementById('btn-add-admin').onclick = () => openAdminModal();
+
+  const html = `
+    <div class="panel">
+      <div class="panel-head"><h2>Nama Petugas / Admin</h2></div>
+      <div class="panel-body" id="admin-list-wrap"></div>
+    </div>
+  `;
+  document.getElementById('content').innerHTML = html;
+  renderAdminList();
+}
+function renderAdminList(){
+  const wrap = document.getElementById('admin-list-wrap');
+  if(state.admins.length===0){
+    wrap.innerHTML = emptyState('⚙️','Belum ada petugas terdaftar.');
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="table-scroll"><table>
+      <thead><tr><th>Nama</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        ${state.admins.map(name=>`
+          <tr>
+            <td>${escapeHtml(name)}</td>
+            <td>${name===currentAdmin ? `<span class="badge ok">Sedang aktif</span>` : '-'}</td>
+            <td style="text-align:right;white-space:nowrap;">
+              <button class="btn btn-ghost btn-sm" data-edit-admin="${escapeHtml(name)}">Edit</button>
+              <button class="btn btn-danger btn-sm" data-del-admin="${escapeHtml(name)}">Hapus</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table></div>
+  `;
+  wrap.querySelectorAll('[data-edit-admin]').forEach(b=> b.onclick = ()=> openAdminModal(b.dataset.editAdmin));
+  wrap.querySelectorAll('[data-del-admin]').forEach(b=> b.onclick = ()=> deleteAdmin(b.dataset.delAdmin));
+}
+function deleteAdmin(name){
+  if(state.admins.length <= 1){
+    showToast('Tidak bisa menghapus — minimal harus ada 1 petugas terdaftar.', true);
+    return;
+  }
+  if(!confirm(`Hapus petugas "${name}"? Catatan lama yang sudah dibuat atas nama ini tidak akan berubah, hanya tidak bisa dipilih lagi ke depannya.`)) return;
+  state.admins = state.admins.filter(a=>a!==name);
+  if(currentAdmin === name){
+    currentAdmin = state.admins[0];
+    localStorage.setItem('fleetops_current_admin', currentAdmin);
+  }
+  saveData();
+  showToast('Petugas dihapus.');
+  renderAdminList();
+  renderPetugasSelect();
+}
+function openAdminModal(editName){
+  const body = `
+    <div class="field" id="f-admin-nama">
+      <label>Nama Petugas *</label>
+      <input type="text" id="in-admin-nama" placeholder="Contoh: Budi" value="${editName?escapeHtml(editName):''}">
+      <div class="err-msg">Nama wajib diisi dan tidak boleh sama dengan petugas lain.</div>
+    </div>
+  `;
+  openModal({
+    title: editName ? 'Edit Nama Petugas' : 'Tambah Petugas Baru',
+    body,
+    onSave: () => {
+      const nama = document.getElementById('in-admin-nama').value.trim();
+      const dupe = state.admins.some(a => a === nama && a !== editName);
+      let valid = true;
+      toggleFieldError('f-admin-nama', !nama || dupe); if(!nama || dupe) valid=false;
+      if(!valid) return false;
+
+      if(editName){
+        const idx = state.admins.indexOf(editName);
+        state.admins[idx] = nama;
+        if(currentAdmin === editName){
+          currentAdmin = nama;
+          localStorage.setItem('fleetops_current_admin', currentAdmin);
+        }
+        showToast('Nama petugas diperbarui.');
+      } else {
+        state.admins.push(nama);
+        showToast('Petugas baru ditambahkan.');
+      }
+      saveData();
+      renderAdminList();
+      renderPetugasSelect();
+      return true;
+    }
+  });
+}
+
 /* ---------------- Navigation ---------------- */
 const ROUTES = {
   dashboard: {title:'Dashboard', sub:'Ringkasan kondisi armada saat ini', render: renderDashboard},
@@ -1281,6 +1451,8 @@ const ROUTES = {
   service:   {title:'Servis & Maintenance', sub:'Riwayat servis dan perawatan kendaraan', render: renderService},
   docs:      {title:'Dokumen', sub:'STNK, pajak, dan asuransi kendaraan', render: renderDocs},
   etoll:     {title:'Kartu E-Toll', sub:'Data kartu E-Toll dan saldo per mobil', render: renderEtollCards},
+  bbm:       {title:'BBM', sub:'Tracking pembelian & pemakaian BBM per mobil', render: renderBBM},
+  settings:  {title:'Pengaturan', sub:'Kelola nama petugas/admin', render: renderSettings},
 };
 
 function navigate(route){
@@ -1340,6 +1512,16 @@ function computeAlerts(){
     const saldo = Number(card.saldo)||0;
     if(saldo < batas){
       alerts.push({ id:'etoll-'+card.id, route:'etoll', ic:'💳', level:'danger', judul:'Saldo E-Toll rendah', keterangan: `${card.nomorKartu} — ${fmtMoney(saldo)}` });
+    }
+  });
+  state.cars.forEach(c=>{
+    const latest = fuelLatestReading(c.id);
+    const sisaTerkini = latest ? getBensinTerkini(latest) : null;
+    if(sisaTerkini!=null){
+      const batas = fuelBatasFor(c);
+      if(sisaTerkini < batas){
+        alerts.push({ id:'bbm-'+c.id, route:'bbm', ic:'⛽', level: sisaTerkini<=batas/2?'danger':'warn', judul:'BBM menipis', keterangan: `${carLabel(c.id)} — sisa ${sisaTerkini}%` });
+      }
     }
   });
   alerts.sort((a,b)=> (a.level==='danger'?0:1) - (b.level==='danger'?0:1));
@@ -1750,7 +1932,7 @@ function openCarModal(editId){
     <div class="grid-2">
       <div class="field" id="f-tahun">
         <label>Tahun *</label>
-        <input type="number" id="in-tahun" placeholder="2022" min="1980" max="2100" value="${editing?editing.tahun:''}">
+        <input type="text" inputmode="numeric" id="in-tahun" placeholder="2022" value="${editing?editing.tahun:''}">
         <div class="err-msg">Tahun tidak valid.</div>
       </div>
       <div class="field">
@@ -1778,10 +1960,41 @@ function openCarModal(editId){
       </div>
       <div class="field">
         <label>Interval Servis (Bulan)</label>
-        <input type="number" id="in-interval-bulan" min="1" max="60" placeholder="Contoh: 6" value="${editing&&editing.intervalBulan?editing.intervalBulan:''}">
+        <input type="text" inputmode="numeric" id="in-interval-bulan" placeholder="Contoh: 6" value="${editing&&editing.intervalBulan?editing.intervalBulan:''}">
       </div>
     </div>
     <div class="field"><div class="hint" style="margin-top:-6px;">Kosongkan kalau belum ingin pengingat aktif untuk mobil ini. Sistem memakai riwayat servis terakhir (menu Servis & Maintenance) sebagai acuan.</div></div>
+    <div class="panel-head" style="padding:0;border:none;margin:16px 0 8px 0;">
+      <h2 style="font-size:13px;">Peringatan BBM Menipis (opsional)</h2>
+    </div>
+    <div class="field">
+      <label>Batas Minimum Sisa Bensin (%)</label>
+      <input type="text" inputmode="numeric" id="in-batas-bensin" placeholder="Contoh: 20" value="${editing&&editing.batasMinimumBensin!=null?editing.batasMinimumBensin:''}">
+      <div class="hint">Kalau sisa bensin (dicatat lewat Catat Perjalanan) di bawah angka ini, muncul peringatan di menu BBM &amp; Dashboard. Kosongkan untuk pakai standar 20%.</div>
+    </div>
+    <div class="panel-head" style="padding:0;border:none;margin:16px 0 8px 0;">
+      <h2 style="font-size:13px;">Kapasitas Tangki BBM (opsional)</h2>
+    </div>
+    <div class="field">
+      <label>Kapasitas Tangki (Liter)</label>
+      <input type="text" inputmode="numeric" id="in-kapasitas-tangki" placeholder="Contoh: 30" value="${editing&&editing.kapasitasTangkiLiter!=null?editing.kapasitasTangkiLiter:''}">
+      <div class="hint">Dipakai untuk menghitung perkiraan liter BBM yang terpakai per perjalanan (dari selisih % bensin keluar-kembali), di menu BBM. Kalau tidak tahu liternya persis, pakai kalkulator bantu di bawah.</div>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:8px;padding:12px;background:#FAFBFC;">
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--muted);">Kalkulator bantu: tidak tahu liternya, tapi tahu nilai Rupiah-nya?</div>
+      <div class="grid-2">
+        <div class="field" style="margin-bottom:8px;">
+          <label style="font-size:11.5px;">Nilai Tangki Penuh (Rp)</label>
+          <input type="text" inputmode="numeric" id="in-calc-nilai-penuh" placeholder="Contoh: 300.000">
+        </div>
+        <div class="field" style="margin-bottom:8px;">
+          <label style="font-size:11.5px;">Harga BBM per Liter (Rp)</label>
+          <input type="text" inputmode="numeric" id="in-calc-harga-liter" placeholder="Contoh: 10.000">
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-hitung-kapasitas">Hitung &amp; Isi Otomatis</button>
+      <div class="hint" style="margin-top:6px;">Kapasitas = Nilai Tangki Penuh ÷ Harga per Liter. Contoh: Rp 300.000 ÷ Rp 10.000/L = 30 Liter. Hasilnya cuma perkiraan (harga BBM berubah-ubah) — boleh disesuaikan manual di kolom Kapasitas Tangki di atas.</div>
+    </div>
   `;
   openModal({
     title: editing ? 'Edit Data Mobil' : 'Tambah Mobil Baru',
@@ -1795,6 +2008,8 @@ function openCarModal(editId){
       const odoVal = getRibuanValue('in-odo');
       const intervalKmVal = getRibuanValue('in-interval-km');
       const intervalBulanVal = document.getElementById('in-interval-bulan').value;
+      const batasBensinVal = document.getElementById('in-batas-bensin').value;
+      const kapasitasTangkiVal = document.getElementById('in-kapasitas-tangki').value;
 
       let valid = true;
       toggleFieldError('f-merk', !merk); if(!merk) valid=false;
@@ -1811,14 +2026,16 @@ function openCarModal(editId){
       const odometerSaatIni = odoVal === '' ? (editing?editing.odometerSaatIni ?? null : null) : Number(odoVal);
       const intervalKm = intervalKmVal === '' ? null : Number(intervalKmVal);
       const intervalBulan = intervalBulanVal === '' ? null : Number(intervalBulanVal);
+      const batasMinimumBensin = batasBensinVal === '' ? null : Number(batasBensinVal);
+      const kapasitasTangkiLiter = kapasitasTangkiVal === '' ? null : Number(kapasitasTangkiVal);
 
       if(editing){
-        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, odometerSaatIni, intervalKm, intervalBulan});
+        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter});
         touch(editing);
         logActivity('mobil', 'Edit data mobil', `${merk} ${modelMobil} — ${plat}`);
         showToast('Data mobil diperbarui.');
       } else {
-        state.cars.push(touch({id: uid(), merk, modelMobil, tahun: tahunNum, warna, plat, odometerSaatIni, intervalKm, intervalBulan, createdAt: today(), petugas: currentAdmin}));
+        state.cars.push(touch({id: uid(), merk, modelMobil, tahun: tahunNum, warna, plat, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, createdAt: today(), petugas: currentAdmin}));
         logActivity('mobil', 'Tambah mobil baru', `${merk} ${modelMobil} — ${plat}`);
         showToast('Mobil baru ditambahkan.');
       }
@@ -1829,6 +2046,23 @@ function openCarModal(editId){
   });
   attachRibuanInput('in-odo');
   attachRibuanInput('in-interval-km');
+  attachIntegerOnlyInput('in-tahun');
+  attachIntegerOnlyInput('in-interval-bulan');
+  attachIntegerOnlyInput('in-batas-bensin');
+  attachIntegerOnlyInput('in-kapasitas-tangki');
+  attachRibuanInput('in-calc-nilai-penuh');
+  attachRibuanInput('in-calc-harga-liter');
+  document.getElementById('btn-hitung-kapasitas').addEventListener('click', ()=>{
+    const nilaiPenuh = Number(getRibuanValue('in-calc-nilai-penuh'))||0;
+    const hargaLiter = Number(getRibuanValue('in-calc-harga-liter'))||0;
+    if(nilaiPenuh<=0 || hargaLiter<=0){
+      showToast('Isi dulu Nilai Tangki Penuh dan Harga per Liter untuk dihitung.', true);
+      return;
+    }
+    const kapasitas = Math.round(nilaiPenuh / hargaLiter); // dibulatkan ke Liter bulat, konsisten dengan field angka murni lainnya
+    document.getElementById('in-kapasitas-tangki').value = String(kapasitas);
+    showToast(`Perkiraan kapasitas: ${kapasitas} Liter. Silakan sesuaikan kalau perlu.`);
+  });
 }
 
 /* ========================================================================
@@ -2009,15 +2243,16 @@ function renderUsage(){
     }
     wrap.innerHTML = `
       <div class="table-scroll"><table>
-        <thead><tr><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Jam</th><th>Kembali</th><th>Jam</th><th>Jarak</th><th>BBM</th><th>Rasio</th><th>Sisa Bensin</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Biaya Operasional</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Jam</th><th>Kembali</th><th>Jam</th><th>Jarak</th><th>BBM Dibeli</th><th>Rasio</th><th>Bensin Keluar</th><th>Bensin Kembali</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Biaya Operasional</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${items.map(u=>{
-            const bensin = (u.sisaBensin===null || u.sisaBensin===undefined || u.sisaBensin==='') ? null : Number(u.sisaBensin);
-            let bensinBadge = '-';
-            if(bensin !== null && !isNaN(bensin)){
-              const cls = bensin <= 15 ? 'danger' : (bensin <= 35 ? 'warn' : 'ok');
-              bensinBadge = `<span class="badge ${cls}">${bensin}%</span>`;
+            function bensinBadgeFor(val){
+              if(val===null || val===undefined || isNaN(val)) return '-';
+              const cls = val <= 15 ? 'danger' : (val <= 35 ? 'warn' : 'ok');
+              return `<span class="badge ${cls}">${val}%</span>`;
             }
+            const bensinKeluarBadge = bensinBadgeFor(getBensinKeluar(u));
+            const bensinKembaliBadge = bensinBadgeFor(getBensinKembali(u));
             const etoll = (u.saldoEtoll===null || u.saldoEtoll===undefined || u.saldoEtoll==='') ? null : Number(u.saldoEtoll);
             const linkedCard = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
             let jarakBadge = '-';
@@ -2043,7 +2278,8 @@ function renderUsage(){
               <td>${jarakBadge}</td>
               <td>${bbmLabel}</td>
               <td>${ratioLabel(u)}</td>
-              <td>${bensinBadge}</td>
+              <td>${bensinKeluarBadge}</td>
+              <td>${bensinKembaliBadge}</td>
               <td>${linkedCard ? escapeHtml(linkedCard.nomorKartu) : '-'}</td>
               <td>${etoll !== null && !isNaN(etoll) ? fmtMoney(etoll) : '-'}</td>
               <td>${biayaOpTotal>0 ? fmtMoney(biayaOpTotal) : '-'}</td>
@@ -2105,7 +2341,7 @@ function markReturned(id){
     <div class="grid-2">
       <div class="field">
         <label>Sisa Bensin (%)</label>
-        <input type="text" inputmode="numeric" id="in-bensin-kembali" placeholder="Contoh: 40" value="${fmtPercentInitial(u.sisaBensin)}">
+        <input type="text" inputmode="numeric" id="in-bensin-kembali" placeholder="Contoh: 40" value="${fmtPercentInitial(getBensinKembali(u))}">
       </div>
       <div class="field">
         <label>Saldo E-Toll (Rp)</label>
@@ -2119,7 +2355,7 @@ function markReturned(id){
     <div class="grid-2">
       <div class="field">
         <label>Jumlah BBM (Liter)</label>
-        <input type="number" step="0.01" min="0" id="in-liter-bensin" placeholder="Contoh: 20" value="${u.literBensin ?? ''}">
+        <input type="text" inputmode="numeric" id="in-liter-bensin" placeholder="Contoh: 20" value="${u.literBensin ?? ''}">
       </div>
       <div class="field">
         <label>Biaya BBM (Rp)</label>
@@ -2146,7 +2382,7 @@ function markReturned(id){
       u.status = 'selesai';
       u.tglKembali = today();
       u.jamKembali = jamKembali || null;
-      u.sisaBensin = bensin === '' ? u.sisaBensin ?? null : Number(bensin);
+      u.bensinKembali = bensin === '' ? (u.bensinKembali ?? null) : Number(bensin);
       u.saldoEtoll = etoll === '' ? u.saldoEtoll ?? null : Number(etoll);
       u.odoKembali = odoKembali === null ? (u.odoKembali ?? null) : odoKembali;
       u.literBensin = literBensinVal === '' ? (u.literBensin ?? null) : Number(literBensinVal);
@@ -2188,6 +2424,7 @@ function markReturned(id){
   attachRibuanInput('in-etoll-kembali');
   attachRibuanInput('in-odo-kembali');
   attachRibuanInput('in-biaya-bensin');
+  attachIntegerOnlyInput('in-liter-bensin');
   attachPercentInput('in-bensin-kembali');
 }
 
@@ -2554,7 +2791,8 @@ function openUsageModal(){
         status:'digunakan',
         odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
         odoKembali: null,
-        sisaBensin: bensinVal === '' ? null : Number(bensinVal),
+        bensinKeluar: bensinVal === '' ? null : Number(bensinVal),
+        bensinKembali: null,
         literBensin: null, biayaBensin: null,
         etollCardId,
         saldoEtoll: etollVal === '' ? null : Number(etollVal),
@@ -2697,7 +2935,7 @@ function startTripFromBooking(id){
     id: uid(), carId: b.carId, driverId: b.driverId||null, jenisPenggunaan:'pengiriman',
     tujuan: b.tujuan, tglKeluar: today(), tglKembali: null,
     jamKeluar: new Date().toTimeString().slice(0,5), jamKembali: null,
-    status:'digunakan', odoKeluar:null, odoKembali:null, sisaBensin:null,
+    status:'digunakan', odoKeluar:null, odoKembali:null, bensinKeluar:null, bensinKembali:null,
     literBensin:null, biayaBensin:null, etollCardId:null, saldoEtoll:null,
     petugas: currentAdmin
   }));
@@ -3230,6 +3468,202 @@ function openDocModal(){
 /* ========================================================================
    MODUL 7: KARTU E-TOLL (master data kartu + saldo per mobil)
    ======================================================================== */
+/* ========================================================================
+   MODUL BBM (tracking pembelian & pemakaian per mobil + peringatan menipis)
+   ------------------------------------------------------------------------
+   Data BBM tidak dicatat sendiri di sini -- diambil dari catatan Liter/Biaya
+   BBM yang sudah diisi lewat Catat Perjalanan (menu Status Penggunaan), supaya
+   tidak ada input dobel dan satu sumber data yang sama. Menu ini murni
+   ringkasan + peringatan di atas data yang sudah ada.
+   ======================================================================== */
+function fuelBatasFor(car){
+  return car.batasMinimumBensin!=null ? Number(car.batasMinimumBensin) : 20;
+}
+// Estimasi liter BBM yang BENAR-BENAR terpakai di 1 perjalanan, dari selisih
+// persentase bensin (keluar - kembali) dikonversi pakai kapasitas tangki.
+// Kembalikan null kalau datanya tidak lengkap/tidak masuk akal, supaya
+// tidak menampilkan angka yang menyesatkan.
+function estimateLiterUsed(u, car){
+  if(!car || car.kapasitasTangkiLiter==null) return null;
+  const keluar = getBensinKeluar(u);
+  const kembali = getBensinKembali(u);
+  if(keluar==null || kembali==null) return null;
+  const drop = keluar - kembali;
+  if(drop <= 0) return null; // bensin "nambah" tanpa isi ulang tercatat -> data tidak konsisten, jangan dipaksa dihitung
+  return (drop/100) * Number(car.kapasitasTangkiLiter);
+}
+function fuelLatestReading(carId){
+  return state.usage
+    .filter(u=>u.carId===carId && getBensinTerkini(u)!=null)
+    .sort((a,b)=> (b.updatedAt||0)-(a.updatedAt||0))[0] || null;
+}
+
+function renderBBM(){
+  document.getElementById('header-actions').innerHTML = '';
+
+  const carSummaries = state.cars.map(c=>{
+    const trips = state.usage.filter(u=>u.carId===c.id);
+    const totalLiter = trips.reduce((sum,u)=> sum + (Number(u.literBensin)||0), 0);
+    const totalBiaya = trips.reduce((sum,u)=> sum + (Number(u.biayaBensin)||0), 0);
+    // Rata-rata efisiensi dihitung dari TOTAL jarak dibagi TOTAL liter (bukan
+    // rata-rata dari tiap rasio per-perjalanan) -- lebih akurat karena tidak
+    // bias ke perjalanan pendek yang kebetulan banyak jumlahnya.
+    const totalKmForRatio = trips.reduce((sum,u)=>{
+      if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) return sum + (u.odoKembali-u.odoKeluar);
+      return sum;
+    }, 0);
+    const avgRatio = (totalKmForRatio>0 && totalLiter>0) ? (totalKmForRatio/totalLiter) : null;
+    const latest = fuelLatestReading(c.id);
+    const sisaTerkini = latest ? getBensinTerkini(latest) : null;
+    const batas = fuelBatasFor(c);
+    return { car:c, totalLiter, totalBiaya, avgRatio, latest, sisaTerkini, batas };
+  });
+
+  const lowFuelCars = carSummaries.filter(s=> s.sisaTerkini!=null && s.sisaTerkini < s.batas);
+
+  const carsWithoutKapasitas = state.cars.filter(c=> c.kapasitasTangkiLiter==null);
+
+  const consumptionRows = [];
+  state.usage.forEach(u=>{
+    const car = state.cars.find(c=>c.id===u.carId);
+    const literTerpakai = estimateLiterUsed(u, car);
+    if(literTerpakai==null) return;
+    let jarak = null;
+    if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar){
+      jarak = u.odoKembali - u.odoKeluar;
+    }
+    const rasio = (jarak!=null && literTerpakai>0) ? (jarak/literTerpakai) : null;
+    consumptionRows.push({ u, keluar: getBensinKeluar(u), kembali: getBensinKembali(u), literTerpakai, jarak, rasio });
+  });
+  consumptionRows.sort((a,b)=> (b.u.updatedAt||0)-(a.u.updatedAt||0));
+
+  const rows = [];
+  state.usage.forEach(u=>{
+    if(u.literBensin || u.biayaBensin){
+      rows.push(u);
+    }
+  });
+  rows.sort((a,b)=> (b.updatedAt||0)-(a.updatedAt||0));
+
+  let html = `
+    <div class="panel">
+      <div class="panel-head"><h2>Peringatan BBM Menipis</h2></div>
+      <div class="panel-body">
+        ${lowFuelCars.length===0 ? emptyState('✅','Semua mobil dengan data terbaru masih di atas batas minimum bensin.') : `
+        <div class="table-scroll"><table>
+          <thead><tr><th>Mobil</th><th>Sisa Bensin Terakhir</th><th>Batas Minimum</th><th>Dicatat</th></tr></thead>
+          <tbody>
+            ${lowFuelCars.map(s=>`
+              <tr>
+                <td>${escapeHtml(carLabel(s.car.id))}</td>
+                <td><span class="badge ${s.sisaTerkini<=s.batas/2?'danger':'warn'}">${s.sisaTerkini}%</span></td>
+                <td>${s.batas}%</td>
+                <td>${fmtDate(s.latest.tglKeluar)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table></div>`}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Ringkasan per Mobil</h2></div>
+      <div class="panel-body">
+        <div class="table-scroll"><table>
+          <thead><tr><th>Mobil</th><th>Sisa Bensin Terakhir</th><th>Rata-rata Efisiensi</th><th>Total Liter Dibeli</th><th>Total Biaya BBM</th></tr></thead>
+          <tbody>
+            ${carSummaries.length===0 ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Belum ada data mobil.</td></tr>` : carSummaries.map(s=>{
+              let sisaBadge = '-';
+              if(s.sisaTerkini!=null){
+                const cls = s.sisaTerkini < s.batas ? (s.sisaTerkini<=s.batas/2?'danger':'warn') : 'ok';
+                sisaBadge = `<span class="badge ${cls}">${s.sisaTerkini}%</span>`;
+              }
+              return `
+              <tr>
+                <td>${escapeHtml(carLabel(s.car.id))}</td>
+                <td>${sisaBadge}</td>
+                <td>${s.avgRatio!=null ? s.avgRatio.toFixed(1)+' KM/L' : '-'}</td>
+                <td>${s.totalLiter.toLocaleString('id-ID')} L</td>
+                <td>${fmtMoney(s.totalBiaya)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Kalkulator Rasio Konsumsi BBM per Perjalanan</h2></div>
+      <div class="panel-body">
+        <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
+          Estimasi liter yang <b>benar-benar terpakai</b> di tiap perjalanan — dihitung dari selisih
+          persentase bensin saat berangkat dan kembali, dikonversi ke Liter pakai Kapasitas Tangki
+          mobil (diatur di Data Mobil). Ini beda dari "Liter Dibeli": liter dibeli itu catatan
+          <i>pengisian</i>, sedangkan ini catatan <i>pemakaian sesungguhnya</i> — dua hal itu tidak
+          selalu sama (mis. isi penuh untuk dipakai beberapa hari ke depan).
+        </p>
+        ${carsWithoutKapasitas.length>0 ? `
+        <div class="hint" style="background:var(--warn-bg);color:var(--amber);padding:8px 10px;border-radius:6px;margin-bottom:10px;">
+          ⚠️ ${carsWithoutKapasitas.length} mobil belum diatur Kapasitas Tangki-nya (${carsWithoutKapasitas.map(c=>carLabel(c.id)).join(', ')}) — perjalanan mobil itu belum bisa dihitung di sini. Atur di <b>Data Mobil → Edit → Kapasitas Tangki BBM</b>.
+        </div>` : ''}
+        ${consumptionRows.length===0 ? emptyState('🧮','Belum ada perjalanan yang bisa dihitung — butuh Kapasitas Tangki (di Data Mobil) DAN catatan bensin keluar+kembali (di Catat Perjalanan) untuk perjalanan yang sama.') : `
+        <div class="table-scroll"><table>
+          <thead><tr><th>Tanggal</th><th>Mobil</th><th>Jarak</th><th>Bensin Keluar</th><th>Bensin Kembali</th><th>Estimasi Liter Terpakai</th><th>Rasio</th></tr></thead>
+          <tbody>
+            ${consumptionRows.map(r=>`
+              <tr>
+                <td>${fmtDate(r.u.tglKeluar)}</td>
+                <td>${escapeHtml(carLabel(r.u.carId))}</td>
+                <td>${r.jarak!=null ? r.jarak.toLocaleString('id-ID')+' KM' : '-'}</td>
+                <td>${r.keluar}%</td>
+                <td>${r.kembali}%</td>
+                <td>${r.literTerpakai.toFixed(1)} L</td>
+                <td>${r.rasio!=null ? r.rasio.toFixed(1)+' KM/L' : '-'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table></div>`}
+      </div>
+    </div>
+
+    <div class="panel"><div class="panel-body">
+      <div class="search-row"><input type="text" id="bbm-search" placeholder="Cari mobil atau sopir..."></div>
+      <div id="bbm-table-wrap"></div>
+    </div></div>
+  `;
+  document.getElementById('content').innerHTML = html;
+
+  function renderTable(items){
+    const wrap = document.getElementById('bbm-table-wrap');
+    if(items.length===0){
+      wrap.innerHTML = emptyState('⛽','Belum ada riwayat pembelian BBM. Diisi lewat "Tandai Kembali" di menu Catat Perjalanan.');
+      return;
+    }
+    wrap.innerHTML = `
+      <div class="table-scroll"><table>
+        <thead><tr><th>Tanggal</th><th>Mobil</th><th>Driver</th><th>Liter</th><th>Biaya</th><th>Sisa Bensin Setelah Isi</th></tr></thead>
+        <tbody>
+          ${items.map(u=>`
+            <tr>
+              <td>${fmtDate(u.tglKembali||u.tglKeluar)}</td>
+              <td>${escapeHtml(carLabel(u.carId))}</td>
+              <td>${escapeHtml(driverLabel(u.driverId, u.driver))}</td>
+              <td>${u.literBensin ? Number(u.literBensin).toLocaleString('id-ID')+' L' : '-'}</td>
+              <td>${u.biayaBensin ? fmtMoney(u.biayaBensin) : '-'}</td>
+              <td>${getBensinKembali(u)!=null ? getBensinKembali(u)+'%' : '-'}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>
+    `;
+  }
+  renderTable(rows);
+
+  document.getElementById('bbm-search').addEventListener('input', (e)=>{
+    const q = e.target.value.trim().toLowerCase();
+    renderTable(rows.filter(u =>
+      carLabel(u.carId).toLowerCase().includes(q) || driverLabel(u.driverId, u.driver).toLowerCase().includes(q)
+    ));
+  });
+}
+
 function renderEtollCards(){
   document.getElementById('header-actions').innerHTML =
     `<button class="btn btn-primary" id="btn-add-etoll">+ Tambah Kartu</button>`;
@@ -3469,6 +3903,40 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.0.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Perbaikan struktur data penting: Sisa Bensin sekarang dipisah jadi "Bensin Keluar" dan "Bensin Kembali" (sebelumnya 1 kolom yang saling menimpa) — data lama tetap kompatibel.',
+      'Data Mobil: field baru Kapasitas Tangki (Liter), lengkap dengan kalkulator bantu (Nilai Tangki Penuh Rp ÷ Harga per Liter = Liter).',
+      'Menu BBM: panel baru "Kalkulator Rasio Konsumsi BBM per Perjalanan" — estimasi liter yang BENAR-benar terpakai per perjalanan (dari selisih % bensin keluar-kembali), beda dari "Liter Dibeli" yang cuma catatan pengisian.',
+      'Peringatan otomatis kalau ada mobil belum diatur Kapasitas Tangki-nya.',
+    ]
+  },
+  {
+    v: '2.9.2',
+    date: '20 Jul 2026',
+    notes: [
+      'Perbaikan akar masalah update terlambat/tidak muncul: index.html sekarang selalu ambil versi TERBARU dulu saat online (network-first), bukan tampilkan cache dulu (stale-while-revalidate) seperti sebelumnya. Ini penyebab sebenarnya kenapa perubahan baru terlihat setelah clear cache manual.',
+    ]
+  },
+  {
+    v: '2.9.1',
+    date: '20 Jul 2026',
+    notes: [
+      'Menu BBM: tambah kolom "Rata-rata Efisiensi (KM/L)" per mobil di tabel Ringkasan — dihitung dari total jarak dibagi total liter, bukan rata-rata tiap perjalanan (lebih akurat).',
+    ]
+  },
+  {
+    v: '2.9.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Semua field teks kini otomatis huruf besar saat diketik (di seluruh menu).',
+      'Menu baru "Pengaturan": kelola nama petugas/admin (tambah, edit, hapus) — sebelumnya cuma bisa tambah lewat dropdown.',
+      'Menu baru "BBM": ringkasan sisa bensin & total pembelian per mobil, riwayat lengkap, plus peringatan otomatis kalau bensin di bawah batas minimum (bisa diatur per mobil di Data Mobil).',
+      'Field angka (Tahun, Interval Bulan, Liter BBM) sekarang benar-benar menolak semua karakter selain digit 0-9 — termasuk titik/koma yang sebelumnya masih bisa lolos di field angka bawaan browser.',
+    ]
+  },
   {
     v: '2.8.0',
     date: '20 Jul 2026',

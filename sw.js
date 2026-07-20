@@ -1,10 +1,13 @@
 /* ============================================================
    Service Worker — FleetOps
    Cache app-shell dasar supaya bisa dibuka offline / lebih cepat.
-   Naikkan CACHE_VERSION setiap kali file HTML/CSS/JS utama diubah,
-   supaya pengguna otomatis dapat versi terbaru.
+   Naikkan CACHE_VERSION di SETIAP rilis APP_VERSION (bukan cuma kalau ada
+   perubahan teknis di file ini) -- ini yang memicu sistem popup "Versi Baru
+   Tersedia" di index.html. Sejak strategi HTML jadi network-first, isi situs
+   sendiri sudah otomatis fresh tanpa ini, TAPI popup notifikasi fitur baru
+   tetap butuh sw.js berubah supaya terdeteksi sebagai "ada update".
    ============================================================ */
-const CACHE_VERSION = "v5";
+const CACHE_VERSION = "v7";
 const CACHE_NAME = "fleetops-cache-" + CACHE_VERSION;
 // File same-origin yang wajib ada supaya app bisa dibuka offline.
 const CORE_ASSETS = [
@@ -60,13 +63,20 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-/* ---------- FETCH: stale-while-revalidate untuk same-origin ----------
-   Beda dari versi sebelumnya (cache-first murni): sekarang tetap tampilkan
-   versi cache dulu (supaya cepat/tetap bisa dibuka offline), TAPI sekaligus
-   selalu ambil salinan terbaru dari jaringan di belakang layar dan simpan
-   ke cache. Jadi cache tidak pernah "macet" di versi lama selama internet
-   masih menyala — beda dengan cache-first yang baru update kalau versi
-   Service Worker-nya sendiri berganti. */
+/* ---------- FETCH ----------
+   DUA strategi berbeda tergantung jenis file — ini perbaikan penting dari
+   versi sebelumnya:
+
+   1) HTML (index.html / navigasi halaman): NETWORK-FIRST. Selalu coba ambil
+      versi TERBARU dulu selama online; cache cuma jadi cadangan kalau
+      benar-benar offline. Sebelumnya HTML ikut strategi cache-dulu di bawah,
+      akibatnya pengguna selalu melihat versi "1 kunjungan ketinggalan" —
+      update baru kelihatan di kunjungan BERIKUTNYA, bukan saat itu juga.
+      Ini akar masalah kenapa popup update terasa telat/tidak muncul.
+
+   2) File lain (ikon, manifest, dll): tetap stale-while-revalidate (cache
+      dulu biar cepat, sambil diam-diam ambil versi baru buat nanti) —
+      karena file ini jarang berubah, kecepatan lebih penting di sini. */
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
@@ -75,10 +85,31 @@ self.addEventListener("fetch", (event) => {
   const isSameOrigin = url.origin === self.location.origin;
   if (!isSameOrigin) return; // biarkan lewat langsung (font Google, dll)
 
-  // Request khusus pengecekan update (dari getUpdateInfo() di index.html)
-  // sengaja DILEWATKAN dari cache sama sekali, supaya selalu ambil versi
-  // TERBARU dari jaringan — bukan versi lama yang kebetulan sudah tercache.
+  // Request khusus pengecekan update (dari getUpdateInfo()/forceCheckUpdate()
+  // di index.html) sengaja DILEWATKAN dari cache sama sekali.
   if (url.searchParams.has("_swbypass") || url.searchParams.has("_forcecheck")) return;
+
+  const isHTML =
+    req.mode === "navigate" ||
+    url.pathname === "/" ||
+    url.pathname.endsWith("/") ||
+    url.pathname.endsWith("index.html") ||
+    (req.headers.get("accept") || "").includes("text/html");
+
+  if (isHTML) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req)) // offline -> baru pakai cache sebagai cadangan
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(req).then((cached) => {
