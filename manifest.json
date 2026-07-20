@@ -2,7 +2,7 @@
   "name": "FleetOps - Manajemen Armada Pengiriman",
   "short_name": "FleetOps",
   "description": "Sistem internal pengelolaan armada mobil operasional pengiriman.",
-  "start_url": "./index.html",
+  "start_url": ".",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
