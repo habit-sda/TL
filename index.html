@@ -530,8 +530,9 @@
 
   <footer class="appfoot">
     <span>FleetOps — Sistem internal pengelolaan armada pengiriman</span>
-    <span style="display:flex;align-items:center;gap:10px;">
+    <span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span class="badge neutral" id="cloud-status" style="display:none;"></span>
+      <button class="ver-btn" id="btn-force-update">🔄 Cek Update</button>
       <button class="ver-btn" id="btn-changelog">Lihat Changelog</button>
     </span>
   </footer>
@@ -606,7 +607,7 @@
    ========================================================================= */
 
 const STORAGE_KEY = 'fleetops_data_v1';
-const APP_VERSION = '2.7.1';
+const APP_VERSION = '2.8.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3469,6 +3470,14 @@ function openModal({title, body, onSave}){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '2.8.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Tombol baru "🔄 Cek Update" di footer — solusi pasti kalau update otomatis tidak kunjung terdeteksi. Sekali tekan: cek versi terbaru ke server, bersihkan total cache & Service Worker lama kalau perlu, lalu muat ulang otomatis.',
+      'Tidak perlu lagi keluar-masuk aplikasi atau bersihkan data situs manual lewat pengaturan browser — cukup 1 tombol ini.',
+    ]
+  },
+  {
     v: '2.7.1',
     date: '20 Jul 2026',
     notes: [
@@ -3796,6 +3805,51 @@ if ('serviceWorker' in navigator) {
       return extractRemoteInfo(await res.text());
     }catch(e){ return null; }
   }
+
+  /* ---------------- Tombol "Cek Update" manual ----------------
+     Solusi paling PASTI: bukan menunggu deteksi otomatis (yang tergantung
+     banyak faktor di luar kendali kita — cache CDN, cache browser, timing
+     Service Worker), tapi petugas sendiri yang memicu pemeriksaan, dan kalau
+     memang ada versi baru, HAPUS TOTAL cache + Service Worker lama lalu
+     paksa muat ulang dengan alamat yang benar-benar baru. Ini menghilangkan
+     semua kemungkinan "nyangkut di versi lama" dalam satu langkah. */
+  async function forceCheckUpdate(){
+    const btn = document.getElementById('btn-force-update');
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Memeriksa...';
+    try{
+      const res = await fetch('index.html?_forcecheck=1&_t=' + Date.now(), { cache:'no-store' });
+      const info = extractRemoteInfo(await res.text());
+
+      if(info.version && info.version === APP_VERSION){
+        btn.textContent = '✅ Sudah versi terbaru';
+        setTimeout(()=>{ btn.textContent = original; btn.disabled = false; }, 2500);
+        return;
+      }
+
+      btn.textContent = '🧹 Membersihkan cache lama...';
+      if('caches' in window){
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k=>caches.delete(k)));
+      }
+      if('serviceWorker' in navigator){
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r=>r.unregister()));
+      }
+
+      btn.textContent = '🔄 Memuat versi baru...';
+      // Alamat baru + parameter unik -> tidak ada cache/CDN manapun yang bisa
+      // menyajikan salinan lama untuk alamat ini, karena alamatnya memang
+      // belum pernah diminta sebelumnya.
+      location.href = location.pathname + '?_refresh=' + Date.now();
+    }catch(e){
+      console.error('Gagal cek update:', e);
+      btn.textContent = '⚠️ Gagal, coba lagi';
+      setTimeout(()=>{ btn.textContent = original; btn.disabled = false; }, 2500);
+    }
+  }
+  document.getElementById('btn-force-update').addEventListener('click', forceCheckUpdate);
 
   function openPopupPending(newWorker, versionKey, items){
     pendingWorker = newWorker;

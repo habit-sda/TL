@@ -4,7 +4,7 @@
    Naikkan CACHE_VERSION setiap kali file HTML/CSS/JS utama diubah,
    supaya pengguna otomatis dapat versi terbaru.
    ============================================================ */
-const CACHE_VERSION = "v4";
+const CACHE_VERSION = "v5";
 const CACHE_NAME = "fleetops-cache-" + CACHE_VERSION;
 // File same-origin yang wajib ada supaya app bisa dibuka offline.
 const CORE_ASSETS = [
@@ -78,7 +78,7 @@ self.addEventListener("fetch", (event) => {
   // Request khusus pengecekan update (dari getUpdateInfo() di index.html)
   // sengaja DILEWATKAN dari cache sama sekali, supaya selalu ambil versi
   // TERBARU dari jaringan — bukan versi lama yang kebetulan sudah tercache.
-  if (url.searchParams.has("_swbypass")) return;
+  if (url.searchParams.has("_swbypass") || url.searchParams.has("_forcecheck")) return;
 
   event.respondWith(
     caches.match(req).then((cached) => {
