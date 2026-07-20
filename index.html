@@ -431,7 +431,8 @@
 
   <footer class="appfoot">
     <span>FleetOps — Sistem internal pengelolaan armada pengiriman</span>
-    <span>
+    <span style="display:flex;align-items:center;gap:10px;">
+      <span class="badge neutral" id="cloud-status" style="display:none;"></span>
       <button class="ver-btn" id="btn-changelog">Lihat Changelog</button>
     </span>
   </footer>
@@ -439,6 +440,39 @@
 
 <div id="modal-root"></div>
 <div class="toast-wrap" id="toast-wrap"></div>
+
+<div class="modal-overlay" id="gh-modal-overlay" style="display:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>🔗 Hubungkan Sinkronisasi GitHub</h3>
+      <button class="modal-close" id="gh-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12.5px;color:var(--muted);line-height:1.6;margin:0 0 14px 0;">
+        Token GitHub tidak diisi di sini — token disimpan aman sebagai <b>Secret
+        (GITHUB_TOKEN)</b> langsung di dasbor Cloudflare Worker. Isi 3 hal berikut,
+        semuanya cuma alamat/nama, bukan rahasia.
+      </p>
+      <div class="field">
+        <label>URL Cloudflare Worker</label>
+        <input type="text" id="gh-modal-workerurl" placeholder="https://fleetops-worker.namaanda.workers.dev">
+      </div>
+      <div class="field">
+        <label>Owner / Username GitHub</label>
+        <input type="text" id="gh-modal-owner" placeholder="mis. namaanda">
+      </div>
+      <div class="field">
+        <label>Nama Repository</label>
+        <input type="text" id="gh-modal-repo" placeholder="mis. fleetops-data">
+      </div>
+      <div id="gh-modal-status" class="hint"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="gh-modal-cancel">Batal</button>
+      <button class="btn btn-primary" id="gh-modal-connect-btn">Hubungkan</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /* =========================================================================
@@ -454,9 +488,47 @@
    ========================================================================= */
 
 const STORAGE_KEY = 'fleetops_data_v1';
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.9.0';
 
 /* ---------------- Defensive storage layer ---------------- */
+const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
+const SYNC_COLLECTIONS = ['cars','drivers','usage','services','documents','etollCards'];
+
+function defaultTombstones(){
+  return { cars:[], drivers:[], usage:[], services:[], documents:[], etollCards:[] };
+}
+function loadTombstones(){
+  try{
+    const raw = localStorage.getItem(TOMBSTONES_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    const base = defaultTombstones();
+    if(!parsed) return base;
+    SYNC_COLLECTIONS.forEach(k=>{ base[k] = Array.isArray(parsed[k]) ? parsed[k] : []; });
+    return base;
+  }catch(e){
+    console.error('Gagal membaca tombstones, memakai kosong.', e);
+    return defaultTombstones();
+  }
+}
+function saveTombstones(){
+  try{
+    localStorage.setItem(TOMBSTONES_KEY, JSON.stringify(tombstones));
+  }catch(e){
+    console.error('Gagal menyimpan tombstones', e);
+  }
+}
+// Menandai satu record sebagai "sudah dihapus" pada waktu tertentu, supaya saat
+// sinkron gabungan (merge) dengan device lain, penghapusan ini tidak "dihidupkan
+// lagi" oleh device lain yang datanya belum tahu record ini sudah dihapus.
+function markDeleted(collection, id){
+  if(!tombstones[collection]) tombstones[collection] = [];
+  tombstones[collection].push({ id, deletedAt: Date.now() });
+  saveTombstones();
+}
+// Menandai record baru/diedit dengan waktu terbaru, jadi acuan "versi mana yang
+// menang" saat data digabung dari beberapa device.
+function touch(obj){ obj.updatedAt = Date.now(); return obj; }
+
 function loadData(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -488,9 +560,331 @@ function saveData(){
     console.error('Gagal menyimpan data', e);
     showToast('Gagal menyimpan perubahan (penyimpanan browser penuh/diblokir).', true);
   }
+  scheduleCloudPush();
 }
 
+/* ============================================================================
+   SINKRONISASI KE GITHUB (lewat Cloudflare Worker) — mengikuti pola sistem
+   referensi milik pengguna (Maktabah Prayoga):
+   - Worker (file terpisah: cloudflare-worker/worker.js) jadi reverse-proxy
+     generik yang meniru struktur GitHub Contents API
+     (`/repos/:owner/:repo/contents/:path`). Browser TIDAK PERNAH menyimpan
+     atau mengirim token GitHub — token hanya ada sebagai Secret Env di Worker.
+   - Owner/repo diatur lewat modal "Hubungkan Sinkronisasi" (tersimpan di
+     localStorage), bukan ditulis permanen di kode, supaya gampang dipindah
+     ke repo lain tanpa edit ulang file aplikasi.
+   - Sinkron 2 arah pakai MERGE per-record berbasis `updatedAt` + tombstone
+     (penanda hapus), bukan "menang-menangan" berdasar file mana yang lebih
+     baru secara keseluruhan — supaya aman dipakai dari beberapa device
+     sekaligus tanpa saling menimpa perubahan device lain.
+   - localStorage tetap sumber data utama untuk pemakaian sehari-hari, supaya
+     aplikasi tetap 100% berfungsi walau offline / Worker belum diatur.
+   ============================================================================ */
+
+// Worker URL, Owner, dan Repo semuanya diisi lewat modal "Hubungkan Sinkronisasi"
+// di aplikasi (disimpan di localStorage) — TIDAK ADA yang perlu diedit di file
+// ini. Ini supaya proses "connect ke GitHub sync" murni upload/copy-paste file
+// + isi form di browser, tanpa perlu menyentuh kode sama sekali.
+const GH_CONFIG_KEY = 'fleetops_github_sync_config_v1';
+let ghConfig = null;
+
+function loadGhConfig(){
+  try{
+    const raw = localStorage.getItem(GH_CONFIG_KEY);
+    ghConfig = raw ? JSON.parse(raw) : null;
+  }catch(e){ ghConfig = null; }
+  renderSyncIndicator();
+}
+function saveGhConfig(cfg){
+  ghConfig = cfg;
+  localStorage.setItem(GH_CONFIG_KEY, JSON.stringify(cfg));
+}
+function isGhConnected(){
+  return !!(ghConfig && ghConfig.workerUrl && ghConfig.owner && ghConfig.repo);
+}
+
+function b64EncodeUtf8(str){
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (m,p1)=> String.fromCharCode('0x'+p1)));
+}
+function b64DecodeUtf8(str){
+  return decodeURIComponent(atob(str.replace(/\n/g,'')).split('').map(c=>
+    '%' + ('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+}
+function ghHeaders(){
+  // Tidak ada header Authorization di sini — token disisipkan oleh Worker.
+  return { 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28' };
+}
+function ghApiUrl(){
+  const cleanPath = String(ghConfig.path).replace(/^\/+/, '');
+  return `${ghConfig.workerUrl.replace(/\/$/,'')}/repos/${ghConfig.owner}/${ghConfig.repo}/contents/${cleanPath}`;
+}
+
+const LAST_SYNC_KEY = 'fleetops_last_sync_at';
+function markSyncedNow(){
+  localStorage.setItem(LAST_SYNC_KEY, String(Date.now()));
+  renderSyncIndicator();
+}
+function formatRelativeTime(ts){
+  const diffMin = Math.floor((Date.now()-ts)/60000);
+  if(diffMin < 1) return 'baru saja';
+  if(diffMin < 60) return diffMin + ' menit lalu';
+  const diffJam = Math.floor(diffMin/60);
+  if(diffJam < 24) return diffJam + ' jam lalu';
+  return Math.floor(diffJam/24) + ' hari lalu';
+}
+function renderSyncIndicator(){
+  const el = document.getElementById('cloud-status');
+  if(!el) return;
+  el.style.display = 'inline-flex';
+  if(isGhConnected()){
+    const lastRaw = localStorage.getItem(LAST_SYNC_KEY);
+    const lastTs = lastRaw ? parseInt(lastRaw,10) : null;
+    const lastText = (lastTs && !isNaN(lastTs)) ? ' · ' + formatRelativeTime(lastTs) : ' · belum pernah sinkron';
+    el.innerHTML = '☁️ Sinkron aktif' + lastText;
+    el.className = 'badge ok';
+  } else {
+    el.innerHTML = '📴 Sinkron tidak berjalan — <a href="#" id="openGhModalLink" style="color:inherit;text-decoration:underline;">atur repository</a>';
+    el.className = 'badge neutral';
+  }
+}
+document.addEventListener('click', (e)=>{
+  const link = e.target.closest('#openGhModalLink');
+  if(link){ e.preventDefault(); openGhModal(); }
+});
+setInterval(()=>{ if(!document.hidden) renderSyncIndicator(); }, 30000);
+
+/* ---------------- Merge cerdas berbasis updatedAt + tombstone ----------------
+   Prinsip: yang menang per-record adalah versi dengan updatedAt terbaru. Kalau
+   sebuah id punya tombstone (ditandai terhapus) yang lebih baru dari updatedAt
+   manapun untuk id itu, record dianggap tetap terhapus (tidak "dihidupkan lagi"
+   oleh device lain yang datanya belum tahu record itu sudah dihapus). */
+function mergeCollection(localArr, localTomb, remoteArr, remoteTomb){
+  const tombMap = new Map();
+  for(const t of [...(localTomb||[]), ...(remoteTomb||[])]){
+    if(!t || t.id==null) continue;
+    const prev = tombMap.get(t.id);
+    if(prev===undefined || t.deletedAt > prev) tombMap.set(t.id, t.deletedAt);
+  }
+  const itemMap = new Map();
+  for(const item of [...(remoteArr||[]), ...(localArr||[])]){
+    if(!item || item.id==null) continue;
+    const updatedAt = item.updatedAt || 0;
+    const delAt = tombMap.get(item.id);
+    if(delAt !== undefined && delAt >= updatedAt) continue;
+    const existing = itemMap.get(item.id);
+    if(!existing || updatedAt >= (existing.updatedAt||0)) itemMap.set(item.id, item);
+  }
+  const TTL_MS = 1000*60*60*24*180; // tombstone tidak perlu disimpan selamanya
+  const now = Date.now();
+  const mergedTomb = Array.from(tombMap.entries())
+    .filter(([,ts]) => (now-ts) < TTL_MS)
+    .map(([id,deletedAt]) => ({id, deletedAt}));
+  return { items: Array.from(itemMap.values()), tombstones: mergedTomb };
+}
+function canonicalize(arr){
+  return JSON.stringify([...(arr||[])].sort((a,b)=> String(a&&a.id).localeCompare(String(b&&b.id))));
+}
+function mergeAllCollections(remoteState, remoteTombstones){
+  const mergedState = {};
+  const mergedTombstones = {};
+  let remoteNeedsUpdate = false;
+  let localChanged = false;
+  SYNC_COLLECTIONS.forEach(key=>{
+    const localBefore = canonicalize(state[key]);
+    const r = mergeCollection(state[key]||[], (tombstones[key])||[], (remoteState&&remoteState[key])||[], (remoteTombstones&&remoteTombstones[key])||[]);
+    mergedState[key] = r.items;
+    mergedTombstones[key] = r.tombstones;
+    if(canonicalize(r.items) !== canonicalize((remoteState&&remoteState[key])||[])) remoteNeedsUpdate = true;
+    if(canonicalize(r.items) !== localBefore) localChanged = true;
+  });
+  // admins: gabung unik biasa (jarang berubah, tidak perlu merge per-timestamp)
+  mergedState.admins = Array.from(new Set([...(state.admins||[]), ...((remoteState&&remoteState.admins)||[])]));
+  return { mergedState, mergedTombstones, remoteNeedsUpdate, localChanged };
+}
+
+let ghAutoSyncTimer = null;
+const GH_AUTO_SYNC_INTERVAL_MS = 20000; // cek update dari GitHub tiap 20 detik
+
+function startAutoSync(){
+  if(ghAutoSyncTimer) clearInterval(ghAutoSyncTimer);
+  if(!isGhConnected()) return;
+  ghAutoSyncTimer = setInterval(()=>{
+    if(document.hidden) return; // jangan fetch selagi tab/app di background
+    fetchFromGithub();
+  }, GH_AUTO_SYNC_INTERVAL_MS);
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(!document.hidden && isGhConnected()) fetchFromGithub();
+});
+
+async function fetchFromGithub(){
+  if(!isGhConnected()) return;
+  try{
+    const res = await fetch(`${ghApiUrl()}?ref=${encodeURIComponent(ghConfig.branch)}&_=${Date.now()}`, { headers: ghHeaders(), cache:'no-store' });
+    if(res.status === 404){
+      // File belum ada di repo -> buat baru dari data lokal.
+      await pushToGithub();
+      return;
+    }
+    if(!res.ok){
+      const errBody = await res.json().catch(()=>({}));
+      throw new Error(errBody.message || ('HTTP ' + res.status));
+    }
+    const data = await res.json();
+    const parsed = JSON.parse(b64DecodeUtf8(data.content));
+    const remoteState = parsed.data || {};
+    const remoteTombstones = parsed.tombstones || {};
+
+    const { mergedState, mergedTombstones, remoteNeedsUpdate, localChanged } = mergeAllCollections(remoteState, remoteTombstones);
+
+    state = mergedState;
+    tombstones = mergedTombstones;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    saveTombstones();
+    if(localChanged){
+      renderPetugasSelect();
+      navigate(currentRoute);
+    }
+
+    ghConfig.sha = data.sha;
+    saveGhConfig(ghConfig);
+
+    if(remoteNeedsUpdate){
+      // Ada perubahan lokal yang belum ada di GitHub -> push balik hasil gabungannya.
+      await pushToGithub();
+      return;
+    }
+    markSyncedNow();
+  }catch(e){
+    console.error('Gagal mengambil data dari GitHub via Cloudflare Worker:', e);
+  }
+}
+
+async function pushToGithub(){
+  if(!isGhConnected()) return;
+  try{
+    const body = {
+      message: `Update data FleetOps oleh ${currentAdmin} — ${new Date().toISOString()}`,
+      content: b64EncodeUtf8(JSON.stringify({ data: state, tombstones }, null, 2)),
+      branch: ghConfig.branch,
+    };
+    if(ghConfig.sha) body.sha = ghConfig.sha;
+
+    let res = await fetch(ghApiUrl(), {
+      method: 'PUT',
+      headers: { ...ghHeaders(), 'Content-Type':'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if(!res.ok && (res.status === 409 || res.status === 422)){
+      // sha basi (ada perubahan lain menyusul) -> ambil sha terbaru, retry sekali.
+      const getRes = await fetch(`${ghApiUrl()}?ref=${encodeURIComponent(ghConfig.branch)}`, { headers: ghHeaders() });
+      if(getRes.ok){
+        const getData = await getRes.json();
+        body.sha = getData.sha;
+        res = await fetch(ghApiUrl(), {
+          method: 'PUT',
+          headers: { ...ghHeaders(), 'Content-Type':'application/json' },
+          body: JSON.stringify(body),
+        });
+      }
+    }
+    if(!res.ok){
+      const errBody = await res.json().catch(()=>({}));
+      throw new Error(errBody.message || ('HTTP ' + res.status));
+    }
+    const data = await res.json();
+    ghConfig.sha = data.content.sha;
+    saveGhConfig(ghConfig);
+    markSyncedNow();
+  }catch(e){
+    console.error('Gagal menyimpan data ke GitHub via Cloudflare Worker:', e);
+  }
+}
+
+let cloudPushTimer = null;
+function scheduleCloudPush(){
+  if(!isGhConnected()) return;
+  clearTimeout(cloudPushTimer);
+  // Debounce beberapa detik: kalau ada beberapa penyimpanan beruntun, digabung
+  // jadi satu commit saja, bukan spam commit di riwayat GitHub.
+  cloudPushTimer = setTimeout(pushToGithub, 3000);
+}
+
+/* ---------------- Modal "Hubungkan Sinkronisasi GitHub" ---------------- */
+function openGhModal(){
+  document.getElementById('gh-modal-workerurl').value = (ghConfig && ghConfig.workerUrl) || '';
+  document.getElementById('gh-modal-owner').value = (ghConfig && ghConfig.owner) || '';
+  document.getElementById('gh-modal-repo').value = (ghConfig && ghConfig.repo) || '';
+  const statusEl = document.getElementById('gh-modal-status');
+  statusEl.textContent = '';
+  statusEl.className = 'hint';
+  document.getElementById('gh-modal-overlay').style.display = 'flex';
+}
+function closeGhModal(){
+  document.getElementById('gh-modal-overlay').style.display = 'none';
+}
+async function connectGithub(){
+  const workerUrl = document.getElementById('gh-modal-workerurl').value.trim().replace(/\/+$/,'');
+  const owner = document.getElementById('gh-modal-owner').value.trim();
+  const repo = document.getElementById('gh-modal-repo').value.trim();
+  const statusEl = document.getElementById('gh-modal-status');
+  const btn = document.getElementById('gh-modal-connect-btn');
+
+  if(!workerUrl || !owner || !repo){
+    statusEl.textContent = 'URL Worker, Owner, dan Repository wajib diisi.';
+    statusEl.className = 'hint'; statusEl.style.color = 'var(--red)';
+    return;
+  }
+  if(!/^https?:\/\//i.test(workerUrl)){
+    statusEl.textContent = 'URL Worker harus diawali https:// (contoh: https://fleetops-worker.namaanda.workers.dev)';
+    statusEl.style.color = 'var(--red)';
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.style.color = 'var(--muted)';
+  statusEl.textContent = 'Menyimpan & memeriksa koneksi...';
+
+  saveGhConfig({ workerUrl, owner, repo, path: 'data/fleetops-data.json', branch: 'main', sha: null });
+
+  try{
+    const testRes = await fetch(`${ghApiUrl()}?ref=${encodeURIComponent(ghConfig.branch)}`, { headers: ghHeaders() });
+    if(testRes.status === 401 || testRes.status === 403){
+      throw new Error('Worker tidak punya akses ke repo ini (cek Variables ALLOWED_OWNER/ALLOWED_REPO/GITHUB_TOKEN di Worker).');
+    }
+    if(!testRes.ok && testRes.status !== 404){
+      const errBody = await testRes.json().catch(()=>({}));
+      throw new Error(errBody.message || errBody.error || ('HTTP ' + testRes.status));
+    }
+    statusEl.textContent = 'Menyinkronkan...';
+    await fetchFromGithub();
+    startAutoSync();
+    statusEl.textContent = '✔ Berhasil terhubung!';
+    statusEl.style.color = 'var(--green)';
+    renderSyncIndicator();
+    setTimeout(closeGhModal, 1200);
+  }catch(e){
+    localStorage.removeItem(GH_CONFIG_KEY);
+    loadGhConfig();
+    statusEl.textContent = 'Gagal terhubung: ' + e.message;
+    statusEl.style.color = 'var(--red)';
+  }finally{
+    btn.disabled = false;
+  }
+}
+document.getElementById('gh-modal-close').addEventListener('click', closeGhModal);
+document.getElementById('gh-modal-cancel').addEventListener('click', closeGhModal);
+document.getElementById('gh-modal-connect-btn').addEventListener('click', connectGithub);
+document.getElementById('gh-modal-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'gh-modal-overlay') closeGhModal();
+});
+document.getElementById('gh-modal-repo').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') connectGithub();
+});
+
 let state = loadData();
+let tombstones = loadTombstones();
 let currentAdmin = localStorage.getItem('fleetops_current_admin') || state.admins[0];
 let currentRoute = 'dashboard';
 
@@ -832,6 +1226,7 @@ function deleteCar(id){
     warn += '\n\nPerhatian: mobil ini memiliki riwayat penggunaan/servis/dokumen terkait. Riwayat tersebut akan tetap ada namun akan ditandai "mobil telah dihapus".';
   }
   if(!confirm(warn)) return;
+  markDeleted('cars', id);
   state.cars = state.cars.filter(c=>c.id!==id);
   saveData();
   showToast('Data mobil dihapus.');
@@ -918,9 +1313,10 @@ function openCarModal(editId){
 
       if(editing){
         Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, odometerSaatIni, intervalKm, intervalBulan});
+        touch(editing);
         showToast('Data mobil diperbarui.');
       } else {
-        state.cars.push({id: uid(), merk, modelMobil, tahun: tahunNum, warna, plat, odometerSaatIni, intervalKm, intervalBulan, createdAt: today(), petugas: currentAdmin});
+        state.cars.push(touch({id: uid(), merk, modelMobil, tahun: tahunNum, warna, plat, odometerSaatIni, intervalKm, intervalBulan, createdAt: today(), petugas: currentAdmin}));
         showToast('Mobil baru ditambahkan.');
       }
       saveData();
@@ -978,6 +1374,7 @@ function deleteDriver(id){
     warn += '\n\nPerhatian: sopir ini pernah tercatat pada riwayat penggunaan mobil. Riwayat tersebut akan tetap ada namun akan ditandai "sopir telah dihapus".';
   }
   if(!confirm(warn)) return;
+  markDeleted('drivers', id);
   state.drivers = state.drivers.filter(d=>d.id!==id);
   saveData();
   showToast('Data sopir dihapus.');
@@ -1022,9 +1419,10 @@ function openDriverModal(editId){
 
       if(editing){
         Object.assign(editing, {nama, noSim, noHp, alamat});
+        touch(editing);
         showToast('Data sopir diperbarui.');
       } else {
-        state.drivers.push({id: uid(), nama, noSim, noHp, alamat, createdAt: today(), petugas: currentAdmin});
+        state.drivers.push(touch({id: uid(), nama, noSim, noHp, alamat, createdAt: today(), petugas: currentAdmin}));
         showToast('Sopir baru ditambahkan.');
       }
       saveData();
@@ -1097,6 +1495,7 @@ function renderUsage(){
   document.querySelectorAll('[data-return]').forEach(b=> b.onclick = ()=> markReturned(b.dataset.return));
   document.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> {
     if(!confirm('Hapus catatan penggunaan ini?')) return;
+    markDeleted('usage', b.dataset.del);
     state.usage = state.usage.filter(u=>u.id!==b.dataset.del);
     saveData(); showToast('Catatan penggunaan dihapus.'); renderUsage();
   });
@@ -1143,6 +1542,7 @@ function markReturned(id){
       u.sisaBensin = bensin === '' ? u.sisaBensin ?? null : Number(bensin);
       u.saldoEtoll = etoll === '' ? u.saldoEtoll ?? null : Number(etoll);
       u.odoKembali = odoKembali === null ? (u.odoKembali ?? null) : odoKembali;
+      touch(u);
 
       // Sinkronkan ke Odometer Saat Ini di Data Mobil, supaya pengingat servis
       // & kolom odometer selalu mengikuti data perjalanan terbaru.
@@ -1150,6 +1550,7 @@ function markReturned(id){
         const car = state.cars.find(c=>c.id===u.carId);
         if(car){
           car.odometerSaatIni = Math.max(car.odometerSaatIni||0, u.odoKembali);
+          touch(car);
         }
       }
 
@@ -1159,7 +1560,7 @@ function markReturned(id){
         const card = state.etollCards.find(c=>c.id===u.etollCardId);
         if(card){
           card.saldo = u.saldoEtoll;
-          card.updatedAt = today();
+          touch(card);
         }
       }
 
@@ -1260,7 +1661,7 @@ function openUsageModal(){
       toggleFieldError('f-tujuan', !tujuan); if(!tujuan) valid=false;
       if(!valid) return false;
 
-      state.usage.push({
+      state.usage.push(touch({
         id: uid(), carId, driverId, jenisPenggunaan, tujuan, tglKeluar, tglKembali:null,
         status:'digunakan',
         odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
@@ -1269,7 +1670,7 @@ function openUsageModal(){
         etollCardId,
         saldoEtoll: etollVal === '' ? null : Number(etollVal),
         petugas: currentAdmin
-      });
+      }));
       saveData();
       showToast('Penggunaan mobil dicatat.');
       renderUsage();
@@ -1301,7 +1702,7 @@ function openUsageModal(){
       const nama = prompt('Nama sopir baru:');
       if(nama && nama.trim()){
         const newDriver = {id: uid(), nama: nama.trim(), noSim:'', noHp:'', alamat:'', createdAt: today(), petugas: currentAdmin};
-        state.drivers.push(newDriver);
+        state.drivers.push(touch(newDriver));
         saveData();
         this.innerHTML = '<option value="">— pilih sopir —</option>' + buildDriverOptions(newDriver.id);
       } else {
@@ -1348,6 +1749,7 @@ function renderService(){
 
   document.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=>{
     if(!confirm('Hapus catatan servis ini?')) return;
+    markDeleted('services', b.dataset.del);
     state.services = state.services.filter(s=>s.id!==b.dataset.del);
     saveData(); showToast('Catatan servis dihapus.'); renderService();
   });
@@ -1414,12 +1816,12 @@ function openServiceModal(){
       if(!valid) return false;
 
       const odometer = odoServisVal === '' ? null : Number(odoServisVal);
-      state.services.push({id: uid(), carId, tanggal, jenis, bengkel, biaya: Number(biaya)||0, odometer, catatan, petugas: currentAdmin});
+      state.services.push(touch({id: uid(), carId, tanggal, jenis, bengkel, biaya: Number(biaya)||0, odometer, catatan, petugas: currentAdmin}));
 
       // Sinkronkan ke Odometer Saat Ini di Data Mobil kalau angkanya lebih baru/besar.
       if(odometer != null){
         const car = state.cars.find(c=>c.id===carId);
-        if(car) car.odometerSaatIni = Math.max(car.odometerSaatIni||0, odometer);
+        if(car){ car.odometerSaatIni = Math.max(car.odometerSaatIni||0, odometer); touch(car); }
       }
 
       saveData();
@@ -1475,6 +1877,7 @@ function renderDocs(){
 
   document.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=>{
     if(!confirm('Hapus dokumen ini?')) return;
+    markDeleted('documents', b.dataset.del);
     state.documents = state.documents.filter(d=>d.id!==b.dataset.del);
     saveData(); showToast('Dokumen dihapus.'); renderDocs();
   });
@@ -1534,7 +1937,7 @@ function openDocModal(){
       toggleFieldError('f-expired', !tglExpired); if(!tglExpired) valid=false;
       if(!valid) return false;
 
-      state.documents.push({id: uid(), carId, jenis, nomor, tglTerbit, tglExpired, petugas: currentAdmin});
+      state.documents.push(touch({id: uid(), carId, jenis, nomor, tglTerbit, tglExpired, petugas: currentAdmin}));
       saveData();
       showToast('Dokumen ditambahkan.');
       renderDocs();
@@ -1595,7 +1998,7 @@ function topUpEtollCard(id){
     return;
   }
   card.saldo = (Number(card.saldo)||0) + nominal;
-  card.updatedAt = today();
+  touch(card);
   saveData();
   showToast(`Top up berhasil. Saldo baru: ${fmtMoney(card.saldo)}`);
   renderEtollCards();
@@ -1603,6 +2006,7 @@ function topUpEtollCard(id){
 
 function deleteEtollCard(id){
   if(!confirm('Hapus kartu E-Toll ini? Saldo yang tercatat akan ikut terhapus.')) return;
+  markDeleted('etollCards', id);
   state.etollCards = state.etollCards.filter(c=>c.id!==id);
   saveData();
   showToast('Kartu E-Toll dihapus.');
@@ -1650,10 +2054,11 @@ function openEtollCardModal(editId){
       if(!valid) return false;
 
       if(editing){
-        Object.assign(editing, {nomorKartu, mobilId, saldo, catatan, updatedAt: today()});
+        Object.assign(editing, {nomorKartu, mobilId, saldo, catatan});
+        touch(editing);
         showToast('Data kartu E-Toll diperbarui.');
       } else {
-        state.etollCards.push({id: uid(), nomorKartu, mobilId, saldo, catatan, createdAt: today(), updatedAt: today(), petugas: currentAdmin});
+        state.etollCards.push(touch({id: uid(), nomorKartu, mobilId, saldo, catatan, createdAt: today(), petugas: currentAdmin}));
         showToast('Kartu E-Toll baru ditambahkan.');
       }
       saveData();
@@ -1705,6 +2110,36 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '1.9.0',
+    date: '20 Jul 2026',
+    notes: [
+      'URL Cloudflare Worker kini juga diisi lewat modal "Hubungkan Sinkronisasi" (bukan diedit di kode) — proses connect sekarang murni upload file + isi form, tanpa edit kode sama sekali.',
+      'Validasi format URL Worker ditambahkan di form.',
+    ]
+  },
+  {
+    v: '1.8.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Sinkronisasi GitHub dirombak total mengikuti arsitektur yang lebih matang: Worker kini jadi reverse-proxy generik ke GitHub Contents API (bukan endpoint kustom), tidak perlu kode rahasia tambahan di aplikasi.',
+      'Owner/repo GitHub kini diatur lewat modal "Hubungkan Sinkronisasi" (tombol di footer), tidak perlu edit kode & redeploy tiap ganti repo.',
+      'Sinkron 2 arah pakai merge cerdas per-record (berdasarkan waktu edit + penanda hapus) — aman dipakai dari beberapa perangkat sekaligus tanpa saling menimpa data.',
+      'Auto-sync berjalan tiap 20 detik dan saat aplikasi/tab dibuka kembali, tanpa perlu refresh manual.',
+      'Worker dilengkapi daftar putih repo (ALLOWED_REPOS) supaya token tidak bisa disalahgunakan menulis ke repo lain.',
+    ]
+  },
+  {
+    v: '1.7.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Fitur baru: sinkronisasi data ke GitHub lewat Cloudflare Worker (file worker.js terpisah).',
+      'Setiap perubahan data otomatis jadi commit baru di GitHub → riwayat/jejak perubahan tersimpan.',
+      'Token GitHub disimpan sebagai secret di Cloudflare, tidak pernah ada di kode aplikasi.',
+      'localStorage tetap jadi cadangan utama — aplikasi tetap berfungsi penuh walau offline/cloud belum diatur.',
+      'Indikator status sinkron ditambahkan di footer.',
+    ]
+  },
   {
     v: '1.6.0',
     date: '20 Jul 2026',
@@ -1804,10 +2239,14 @@ document.getElementById('btn-changelog').onclick = () => {
 document.getElementById('btn-changelog').textContent = 'v' + APP_VERSION + ' · Lihat Changelog';
 renderPetugasSelect();
 navigate('dashboard');
+loadGhConfig();
+if(isGhConnected()){
+  fetchFromGithub();
+  startAutoSync();
+}
 
 // Daftarkan service worker supaya bisa "diinstall" sebagai PWA & tetap bisa
-// dibuka saat koneksi lemah/putus. Dibungkus try/catch + pengecekan dukungan
-// browser (defensive) supaya tidak error di browser lama yang tidak support.
+// dibuka saat koneksi lemah/putus.
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch((err) => {

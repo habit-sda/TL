@@ -1,0 +1,31 @@
+name: Deploy FleetOps to Cloudflare Pages
+
+# Jalan otomatis setiap ada push ke branch main, dan bisa dipicu manual
+# lewat tab "Actions" di GitHub (workflow_dispatch) kalau perlu deploy ulang
+# tanpa harus push commit baru.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@v4
+
+      - name: Deploy ke Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: fleetops
+          # Direktori yang di-deploy = root repo, karena index.html ada di root.
+          # Ganti kalau struktur folder Anda beda.
+          directory: .
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
