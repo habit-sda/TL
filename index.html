@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FleetOps — Manajemen Armada Pengiriman</title>
+<meta name="app-version" content="3.1.0">
+<!-- ^ Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
+     sederhana ini, bukan cuma parsing kode JavaScript mentah) -- lebih tahan
+     kalau struktur kode di bagian bawah suatu saat di-refactor. WAJIB
+     disamakan dengan variabel APP_VERSION di kode JavaScript setiap rilis. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -292,6 +297,26 @@
   }
   .notif-dismiss-btn:hover{background:#EEF0F3;color:var(--text);}
 
+  /* ---------------- Overlay transisi halus saat update diterapkan ----------------
+     Dipakai SEBELUM location.reload()/navigasi, supaya perpindahan ke versi
+     baru terasa mulus (fade + spinner singkat) -- bukan tiba-tiba "kedip"
+     berpindah halaman tanpa aba-aba. */
+  #updating-overlay{
+    position:fixed;inset:0;z-index:300;
+    background:var(--navy);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    opacity:0;pointer-events:none;
+    transition:opacity .35s ease;
+  }
+  #updating-overlay.show{opacity:1;pointer-events:all;}
+  #updating-overlay .spinner{
+    width:34px;height:34px;border-radius:50%;
+    border:3px solid rgba(255,255,255,0.2);border-top-color:#fff;
+    animation:spin .8s linear infinite;
+  }
+  #updating-overlay .msg{color:#fff;font-size:13.5px;font-weight:600;}
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
   /* ---------------- Ikon bulat berwarna (badge KPI ala mockup) ---------------- */
   .icon-badge{
     width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;
@@ -535,6 +560,7 @@
     <span>FleetOps — Sistem internal pengelolaan armada pengiriman</span>
     <span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span class="badge neutral" id="cloud-status" style="display:none;"></span>
+      <span id="last-check-indicator" style="font-size:10.5px;color:var(--muted);"></span>
       <button class="ver-btn" id="btn-force-update">🔄 Cek Update</button>
       <button class="ver-btn" id="btn-changelog">Lihat Changelog</button>
     </span>
@@ -544,6 +570,10 @@
 <div id="modal-root"></div>
 <div class="toast-wrap" id="toast-wrap"></div>
 <div id="print-holder" style="position:fixed;left:-9999px;top:0;"></div>
+<div id="updating-overlay">
+  <div class="spinner"></div>
+  <div class="msg" id="updating-overlay-msg">Memperbarui ke versi terbaru...</div>
+</div>
 
 <div class="modal-overlay" id="gh-modal-overlay" style="display:none;">
   <div class="modal">
@@ -610,7 +640,16 @@
    ========================================================================= */
 
 const STORAGE_KEY = 'fleetops_data_v1';
-const APP_VERSION = '3.0.0';
+/* ============================================================================
+   CHECKLIST WAJIB SETIAP RILIS VERSI BARU (jangan sampai ada yang terlewat):
+   1. Naikkan APP_VERSION di baris bawah ini
+   2. Samakan angkanya di <meta name="app-version"> pada <head>
+   3. Tambah 1 entri baru di CHANGELOG (paling atas array)
+   4. Naikkan CACHE_VERSION di file sw.js (WAJIB, walau sw.js sendiri tidak
+      ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
+   5. Cek sintaks (node --check) sebelum dikirim
+   ============================================================================ */
+const APP_VERSION = '3.1.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3904,6 +3943,16 @@ function openModal({title, body, onSave}){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '3.1.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Update kini tampil lebih halus: transisi fade + spinner sebelum reload, bukan langsung "berkedip" pindah halaman.',
+      'Indikator "Cek update: X menit lalu" di footer — supaya kalau sistem cek update diam-diam berhenti bekerja, langsung terlihat.',
+      'Deteksi versi diperkuat pakai tag khusus di HTML, tidak lagi cuma mengandalkan pembacaan kode mentah (lebih tahan kalau ada perubahan struktur kode ke depannya).',
+      'Ditambahkan checklist rilis permanen di kode, supaya langkah wajib (naikkan versi, sw.js, dll) tidak pernah terlewat lagi.',
+    ]
+  },
+  {
     v: '3.0.0',
     date: '20 Jul 2026',
     notes: [
@@ -4215,13 +4264,42 @@ if ('serviceWorker' in navigator) {
   let pendingWorker = null;
   let suppressNextReload = false; // dipakai saat update patch diterapkan diam-diam
 
+  // Transisi halus sebelum reload -- fade singkat + spinner, supaya perpindahan
+  // ke versi baru tidak terasa "kedip" tiba-tiba tanpa aba-aba.
+  function showUpdatingOverlay(msg, delayMs){
+    const overlay = document.getElementById('updating-overlay');
+    const msgEl = document.getElementById('updating-overlay-msg');
+    if(msgEl) msgEl.textContent = msg || 'Memperbarui ke versi terbaru...';
+    if(overlay) overlay.classList.add('show');
+    return new Promise(resolve => setTimeout(resolve, delayMs || 550));
+  }
+
+  // Indikator "terakhir dicek: X menit lalu" -- supaya kalau mekanisme cek
+  // update ini diam-diam berhenti bekerja (jaringan, dsb), TERLIHAT dari
+  // luar (bukan gagal senyap tanpa jejak).
+  const LAST_CHECK_KEY = 'fleetops_last_update_check_at';
+  function markCheckedNow(){
+    localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
+    renderLastCheckIndicator();
+  }
+  function renderLastCheckIndicator(){
+    const el = document.getElementById('last-check-indicator');
+    if(!el) return;
+    const raw = localStorage.getItem(LAST_CHECK_KEY);
+    if(!raw){ el.textContent = ''; return; }
+    const ts = parseInt(raw, 10);
+    if(isNaN(ts)){ el.textContent = ''; return; }
+    el.textContent = 'Cek update: ' + formatRelativeTime(ts);
+  }
+  renderLastCheckIndicator();
+
   // Reload cuma terjadi kalau USER yang minta (klik "Perbarui Sekarang"),
   // KECUALI ini update patch yang memang sengaja diterapkan diam-diam.
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshing) return;
     if (suppressNextReload){ suppressNextReload = false; return; }
     refreshing = true;
-    location.reload();
+    showUpdatingOverlay('Memperbarui ke versi terbaru...').then(()=> location.reload());
   });
 
   function closeUpdatePopup(){ updateOverlay.style.display = 'none'; }
@@ -4251,8 +4329,12 @@ if ('serviceWorker' in navigator) {
   // dikarang) — cari langsung dari teks mentahnya (bukan DOM, karena app ini
   // 100% render lewat JS, jadi tidak ada markup changelog statis untuk di-parse).
   function extractRemoteInfo(text){
-    const verMatch = text.match(/const APP_VERSION\s*=\s*'([\d.]+)'/);
-    const version = verMatch ? verMatch[1] : null;
+    // Utamakan baca dari <meta name="app-version"> (tahan-refactor). Kalau
+    // suatu saat tag itu terlewat/hilang, fallback ke cara lama (baca
+    // langsung dari deklarasi APP_VERSION di kode) supaya tetap jalan.
+    const metaMatch = text.match(/<meta\s+name=["']app-version["']\s+content=["']([\d.]+)["']/);
+    const constMatch = text.match(/const APP_VERSION\s*=\s*'([\d.]+)'/);
+    const version = metaMatch ? metaMatch[1] : (constMatch ? constMatch[1] : null);
     let items = [];
     const idx = text.indexOf('const CHANGELOG');
     if(idx !== -1){
@@ -4288,6 +4370,7 @@ if ('serviceWorker' in navigator) {
     btn.textContent = '⏳ Memeriksa...';
     try{
       const res = await fetch('index.html?_forcecheck=1&_t=' + Date.now(), { cache:'no-store' });
+      markCheckedNow();
       const info = extractRemoteInfo(await res.text());
 
       if(info.version && info.version === APP_VERSION){
@@ -4307,6 +4390,7 @@ if ('serviceWorker' in navigator) {
       }
 
       btn.textContent = '🔄 Memuat versi baru...';
+      await showUpdatingOverlay('Memuat versi terbaru...');
       // Alamat baru + parameter unik -> tidak ada cache/CDN manapun yang bisa
       // menyajikan salinan lama untuk alamat ini, karena alamatnya memang
       // belum pernah diminta sebelumnya.
@@ -4383,7 +4467,9 @@ if ('serviceWorker' in navigator) {
     // mengatasi keterlambatan deteksi update akibat file sw.js sempat
     // tersimpan di cache Cloudflare/browser dengan nama file yang sama persis.
     navigator.serviceWorker.register('./sw.js?v=' + APP_VERSION).then((reg) => {
-      const checkForUpdate = () => { reg.update().catch(()=>{}); };
+      const checkForUpdate = () => {
+        reg.update().catch(()=>{}).finally(markCheckedNow);
+      };
       setInterval(checkForUpdate, 5*60*1000);           // cek tiap 5 menit selama app terbuka
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') checkForUpdate(); // cek tiap kembali ke tab
@@ -4400,6 +4486,8 @@ if ('serviceWorker' in navigator) {
       if(reg.waiting && navigator.serviceWorker.controller){
         handleNewWorkerInstalled(reg.waiting);
       }
+      checkForUpdate(); // catat "baru saja dicek" begitu halaman selesai dimuat
+      setInterval(renderLastCheckIndicator, 30000); // perbarui tulisan "X menit lalu" tiap 30 detik
     }).catch(err=>{
       console.error('Service worker gagal didaftarkan (PWA/offline tidak aktif):', err);
     });
