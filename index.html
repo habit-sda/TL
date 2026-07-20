@@ -286,6 +286,11 @@
   .notif-item .txt{font-size:12.5px;line-height:1.5;}
   .notif-item .txt b{display:block;font-size:12.5px;margin-bottom:1px;}
   .notif-item .txt span{color:var(--muted);font-size:11.5px;}
+  .notif-dismiss-btn{
+    background:none;border:none;color:var(--muted);cursor:pointer;
+    font-size:13px;padding:2px 4px;flex-shrink:0;border-radius:5px;line-height:1;
+  }
+  .notif-dismiss-btn:hover{background:#EEF0F3;color:var(--text);}
 
   /* ---------------- Ikon bulat berwarna (badge KPI ala mockup) ---------------- */
   .icon-badge{
@@ -427,6 +432,18 @@
     header.topbar{padding:12px 16px;gap:10px;}
     header.topbar h1{font-size:16.5px;}
     header.topbar p{font-size:11.5px;}
+    /* Dropdown notifikasi: di desktop posisinya menempel di bawah tombol lonceng
+       (lebar tetap 320px). Di HP, lebar layar tidak cukup untuk itu -> ganti jadi
+       "fixed" mengambang mengikuti lebar LAYAR (bukan posisi tombol), supaya
+       tidak pernah terpotong di kiri/kanan berapa pun posisi tombolnya. */
+    .notif-dropdown{
+      position:fixed;
+      top:64px;
+      left:12px;
+      right:12px;
+      width:auto;
+      max-width:none;
+    }
     #content{padding:14px 14px 28px 14px;}
     .kpi-grid{grid-template-columns:1fr 1fr;gap:10px;}
     .kpi{padding:12px 14px;}
@@ -589,7 +606,7 @@
    ========================================================================= */
 
 const STORAGE_KEY = 'fleetops_data_v1';
-const APP_VERSION = '2.6.1';
+const APP_VERSION = '2.7.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1118,12 +1135,25 @@ function fmtRibuanInitial(n){
 function attachPercentInput(inputId){
   const el = document.getElementById(inputId);
   if(!el) return;
+  // Saat mulai fokus/edit: lepas dulu simbol "%" supaya yang diedit cuma
+  // angka polos -- ini yang mencegah kursor "loncat" ke ujung tiap ketik,
+  // yang sebelumnya bikin angka baru nyangkut SETELAH tanda %, bukan
+  // menggantikan angka lama.
+  el.addEventListener('focus', function(){
+    this.value = this.value.replace(/[^\d]/g,'');
+  });
   el.addEventListener('input', function(){
-    const digits = this.value.replace(/[^\d]/g,'');
+    let digits = this.value.replace(/[^\d]/g,'').slice(0,3); // maksimal 3 digit (0-100)
     if(digits === ''){ this.value = ''; return; }
     let num = parseInt(digits, 10);
     if(num > 100) num = 100;
-    this.value = num + '%';
+    this.value = String(num);
+  });
+  // Baru setelah selesai edit (pindah ke field lain), tempelkan "%" lagi
+  // supaya tetap jelas terbaca sebagai persentase.
+  el.addEventListener('blur', function(){
+    const digits = this.value.replace(/[^\d]/g,'');
+    this.value = digits === '' ? '' : digits + '%';
   });
 }
 function getPercentValue(inputId){
@@ -1291,6 +1321,7 @@ function computeAlerts(){
     const sisa = daysBetween(d.tglExpired);
     if(sisa <= 30){
       alerts.push({
+        id: 'doc-'+d.id,
         route:'docs', ic: sisa<0?'⛔':'📄', level: sisa<0?'danger':'warn',
         judul: `${d.jenis} ${sisa<0?'kedaluwarsa':'akan habis'}`,
         keterangan: `${carLabel(d.carId)} — ${sisa<0 ? Math.abs(sisa)+' hari lalu' : sisa+' hari lagi'}`
@@ -1300,37 +1331,104 @@ function computeAlerts(){
   state.cars.forEach(c=>{
     const r = serviceReminderInfo(c);
     if(r && (r.level==='warn' || r.level==='danger')){
-      alerts.push({ route:'cars', ic:'🔧', level:r.level, judul:'Servis/Ganti Oli', keterangan: `${carLabel(c.id)} — ${r.text}` });
+      alerts.push({ id:'svc-'+c.id, route:'cars', ic:'🔧', level:r.level, judul:'Servis/Ganti Oli', keterangan: `${carLabel(c.id)} — ${r.text}` });
     }
   });
   state.etollCards.forEach(card=>{
     const batas = card.batasMinimum!=null ? Number(card.batasMinimum) : 25000;
     const saldo = Number(card.saldo)||0;
     if(saldo < batas){
-      alerts.push({ route:'etoll', ic:'💳', level:'danger', judul:'Saldo E-Toll rendah', keterangan: `${card.nomorKartu} — ${fmtMoney(saldo)}` });
+      alerts.push({ id:'etoll-'+card.id, route:'etoll', ic:'💳', level:'danger', judul:'Saldo E-Toll rendah', keterangan: `${card.nomorKartu} — ${fmtMoney(saldo)}` });
     }
   });
   alerts.sort((a,b)=> (a.level==='danger'?0:1) - (b.level==='danger'?0:1));
   return alerts;
 }
+
+/* ---------------- Tandai-dibaca notifikasi (terpisah dari status masalah asli) ----------------
+   Panel "Perlu Perhatian" di Dashboard TETAP menampilkan semua masalah nyata
+   (supaya tidak ada yang terlewat), tapi badge lonceng cuma menghitung yang
+   BELUM ditandai dibaca -- keduanya sengaja dipisah: lonceng = "kotak masuk"
+   yang bisa dikosongkan, panel Dashboard = "status armada saat ini" yang
+   selalu akurat apa adanya. */
+const DISMISSED_ALERTS_KEY = 'fleetops_dismissed_alerts';
+function loadDismissedAlerts(){
+  try{
+    const raw = localStorage.getItem(DISMISSED_ALERTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+function saveDismissedAlerts(ids){
+  try{ localStorage.setItem(DISMISSED_ALERTS_KEY, JSON.stringify(ids)); }catch(e){}
+}
+function dismissAlert(id){
+  const ids = loadDismissedAlerts();
+  if(!ids.includes(id)) ids.push(id);
+  saveDismissedAlerts(ids);
+}
+function dismissAllAlerts(alerts){
+  const ids = loadDismissedAlerts();
+  alerts.forEach(a=>{ if(!ids.includes(a.id)) ids.push(a.id); });
+  saveDismissedAlerts(ids);
+}
+function computeUndismissedAlerts(){
+  const all = computeAlerts();
+  // Bersihkan id yang sudah tidak relevan (masalahnya sudah selesai sendiri),
+  // supaya daftar dismissed tidak membengkak terus tanpa batas.
+  const validIds = new Set(all.map(a=>a.id));
+  const dismissed = loadDismissedAlerts().filter(id=> validIds.has(id));
+  saveDismissedAlerts(dismissed);
+  const dismissedSet = new Set(dismissed);
+  return all.filter(a=> !dismissedSet.has(a.id));
+}
+
 function renderNotifBell(){
   const badge = document.getElementById('notif-count-badge');
   if(!badge) return;
-  const count = computeAlerts().length;
+  const count = computeUndismissedAlerts().length;
   if(count > 0){ badge.style.display='flex'; badge.textContent = count>9 ? '9+' : count; }
   else badge.style.display = 'none';
 }
 function toggleNotifDropdown(){
   const dd = document.getElementById('notif-dropdown');
   if(dd.style.display === 'block'){ dd.style.display = 'none'; return; }
-  const alerts = computeAlerts();
-  dd.innerHTML = `<div class="notif-dropdown-head">Notifikasi (${alerts.length})</div>` + (
-    alerts.length===0
-      ? `<div style="padding:22px 16px;text-align:center;color:var(--muted);font-size:12.5px;">Tidak ada notifikasi saat ini. ✅</div>`
-      : alerts.map(a=>`<div class="notif-item" data-route="${a.route}"><span class="ic">${a.ic}</span><span class="txt"><b>${escapeHtml(a.judul)}</b><span>${escapeHtml(a.keterangan)}</span></span></div>`).join('')
-  );
-  dd.querySelectorAll('.notif-item').forEach(el=> el.addEventListener('click', ()=>{ dd.style.display='none'; navigate(el.dataset.route); }));
+  renderNotifDropdownContent();
   dd.style.display = 'block';
+}
+function renderNotifDropdownContent(){
+  const dd = document.getElementById('notif-dropdown');
+  const alerts = computeUndismissedAlerts();
+  dd.innerHTML = `
+    <div class="notif-dropdown-head" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>Notifikasi (${alerts.length})</span>
+      ${alerts.length>0 ? `<button type="button" id="notif-dismiss-all" style="background:none;border:none;color:var(--blue);font-size:11.5px;font-weight:600;cursor:pointer;padding:0;">Tandai semua dibaca</button>` : ''}
+    </div>` + (
+    alerts.length===0
+      ? `<div style="padding:22px 16px;text-align:center;color:var(--muted);font-size:12.5px;">Tidak ada notifikasi baru. ✅</div>`
+      : alerts.map(a=>`
+        <div class="notif-item" data-route="${a.route}">
+          <span class="ic">${a.ic}</span>
+          <span class="txt"><b>${escapeHtml(a.judul)}</b><span>${escapeHtml(a.keterangan)}</span></span>
+          <button type="button" class="notif-dismiss-btn" data-dismiss="${a.id}" title="Tandai dibaca">✕</button>
+        </div>`).join('')
+  );
+  dd.querySelectorAll('.notif-item').forEach(el=> el.addEventListener('click', (e)=>{
+    if(e.target.closest('[data-dismiss]')) return; // klik tombol ✕ jangan ikut navigasi
+    dd.style.display='none'; navigate(el.dataset.route);
+  }));
+  dd.querySelectorAll('[data-dismiss]').forEach(btn=> btn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    dismissAlert(btn.dataset.dismiss);
+    renderNotifBell();
+    renderNotifDropdownContent(); // refresh isi dropdown di tempat, tanpa tutup-buka
+  }));
+  const dismissAllBtn = document.getElementById('notif-dismiss-all');
+  if(dismissAllBtn) dismissAllBtn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    dismissAllAlerts(alerts);
+    renderNotifBell();
+    dd.style.display = 'none';
+  });
 }
 document.getElementById('notif-bell-btn').addEventListener('click', (e)=>{ e.stopPropagation(); toggleNotifDropdown(); });
 document.addEventListener('click', (e)=>{
@@ -3370,6 +3468,22 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '2.7.1',
+    date: '20 Jul 2026',
+    notes: [
+      'Perbaikan bug: field Sisa Bensin (%) tidak lagi salah angka saat diedit ulang (sebelumnya kursor "loncat" ke ujung tiap ketik, bikin angka baru nyangkut setelah tanda %).',
+    ]
+  },
+  {
+    v: '2.7.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Perbaikan bug: kotak notifikasi di HP kini tidak lagi terpotong/tergeser ke kiri layar.',
+      'Fitur baru: tombol "Tandai dibaca" (per notifikasi atau "Tandai semua dibaca") — badge angka lonceng sekarang bisa dikosongkan manual.',
+      'Panel "Perlu Perhatian" di Dashboard tetap menampilkan SEMUA masalah nyata apa adanya (tidak terpengaruh status "sudah dibaca") — supaya tidak ada yang terlewat.',
+    ]
+  },
   {
     v: '2.6.1',
     date: '20 Jul 2026',
