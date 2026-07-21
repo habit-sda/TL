@@ -4,7 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FleetOps — Manajemen Armada Pengiriman</title>
-<meta name="app-version" content="3.3.1">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#161C27">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FleetOps">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="app-version" content="3.4.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -310,26 +318,28 @@
     display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;padding:0 4px;
   }
   .trip-bubble-panel{
-    position:absolute;bottom:calc(100% + 10px);right:0;width:300px;max-width:85vw;
-    background:#fff;border:1px solid var(--line);border-radius:12px;
-    box-shadow:0 16px 40px rgba(0,0,0,0.2);max-height:360px;overflow-y:auto;
+    position:absolute;bottom:calc(100% + 12px);right:0;width:360px;max-width:90vw;
+    background:#fff;border:1px solid var(--line);border-radius:14px;
+    box-shadow:0 18px 44px rgba(0,0,0,0.22);max-height:420px;overflow-y:auto;
   }
-  .trip-bubble-head{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:700;font-size:12.5px;background:#FAFBFC;}
-  .trip-card{padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .trip-bubble-head{padding:16px 18px;border-bottom:1px solid var(--line);font-weight:800;font-size:15px;background:#FAFBFC;}
+  .trip-card{padding:16px 18px;border-bottom:1px solid var(--line);cursor:pointer;}
   .trip-card:last-child{border-bottom:none;}
   .trip-card:hover{background:#FAFBFC;}
-  .trip-card b{display:block;font-size:12.5px;}
-  .trip-card .desc{font-size:11px;color:var(--muted);margin-top:2px;}
+  .trip-card b{display:block;font-size:15px;}
+  .trip-card .desc{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5;}
   .trip-action-menu{
-    position:fixed;background:#fff;border:1px solid var(--line);border-radius:10px;
-    box-shadow:0 14px 30px rgba(0,0,0,0.2);width:200px;z-index:250;overflow:hidden;
+    position:fixed;background:#fff;border:1px solid var(--line);border-radius:12px;
+    box-shadow:0 16px 36px rgba(0,0,0,0.22);width:230px;z-index:250;overflow:hidden;
   }
-  .trip-action-item{padding:10px 14px;font-size:12.5px;display:flex;align-items:center;gap:8px;cursor:pointer;}
+  .trip-action-item{padding:14px 16px;font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:10px;cursor:pointer;}
   .trip-action-item:hover{background:#F5F7FA;}
   .trip-action-item.danger{color:var(--red);}
   @media(max-width:768px){
-    #trip-bubble{bottom:14px;right:14px;}
-    .trip-bubble-panel{position:fixed;bottom:70px;left:12px;right:12px;width:auto;max-width:none;}
+    #trip-bubble{bottom:16px;right:16px;}
+    .trip-bubble-panel{position:fixed;bottom:78px;left:12px;right:12px;width:auto;max-width:none;max-height:60vh;}
+    .trip-action-menu{width:88vw;max-width:280px;}
+    .trip-action-item{padding:16px 18px;font-size:15px;}
   }
 
   /* ---------------- Overlay transisi halus saat update diterapkan ----------------
@@ -559,7 +569,7 @@
     <div class="menu-item" data-route="drivers"><span class="ic">🧑‍✈️</span>Data Sopir</div>
     <div class="menu-item" data-route="usage"><span class="ic"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.3"/><path d="M3.3 12h6.4M14.3 12h6.4M12 14.5v6.3"/></svg></span>Catat Perjalanan</div>
     <div class="menu-item" data-route="bookings"><span class="ic">📅</span>Booking Mobil</div>
-    <div class="menu-item" data-route="service"><span class="ic">🔧</span>Servis &amp; Maintenance</div>
+    <div class="menu-item" data-route="service"><span class="ic"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.5 4.9L3 17.4l2.6 2.6L11.8 14a4 4 0 0 0 4.9-5.5l-2.5 2.5-2-2z"/></svg></span>Servis &amp; Maintenance</div>
     <div class="menu-item" data-route="docs"><span class="ic">📄</span>Dokumen</div>
     <div class="menu-item" data-route="etoll"><span class="ic">💳</span>Kartu E-Toll</div>
     <div class="menu-section-label">Lainnya</div>
@@ -613,7 +623,22 @@
 
 <div id="trip-bubble" style="display:none;">
   <button class="trip-bubble-btn" id="trip-bubble-btn">
-    🚚 <span id="trip-bubble-text">Mobil Jalan</span> <span class="count-badge" id="trip-bubble-count">0</span>
+    <svg width="18" height="18" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;">
+    <path d="M50 6 C33 6 20 19 20 36 C20 56 50 90 50 90 C50 90 80 56 80 36 C80 19 67 6 50 6 Z" fill="#E5484D"/>
+    <circle cx="50" cy="35" r="22" fill="#fff"/>
+    <g transform="translate(50,35) scale(1.15)">
+      <path d="M-16 4 C-16 1 -14 -1 -12 -2 L-9 -8 C-8 -9.5 -6.5 -10.5 -4.5 -10.5 L4.5 -10.5 C6.5 -10.5 8 -9.5 9 -8 L12 -2 C14 -1 16 1 16 4 L16 7.5 C16 8.5 15.2 9.3 14.2 9.3 L12.5 9.3 C11.5 9.3 10.7 8.5 10.7 7.5 L10.7 6.5 L-10.7 6.5 L-10.7 7.5 C-10.7 8.5 -11.5 9.3 -12.5 9.3 L-14.2 9.3 C-15.2 9.3 -16 8.5 -16 7.5 Z" fill="#161C27"/>
+      <path d="M-7.5 -8 L-5 -3.5 L5 -3.5 L7.5 -8 C6.8 -9 5.7 -9.5 4.5 -9.5 L-4.5 -9.5 C-5.7 -9.5 -6.8 -9 -7.5 -8 Z" fill="#fff"/>
+      <line x1="0" y1="-3.5" x2="0" y2="-9.2" stroke="#161C27" stroke-width="0.8"/>
+      <circle cx="-9" cy="7.5" r="3.4" fill="#161C27"/>
+      <circle cx="-9" cy="7.5" r="1.4" fill="#fff"/>
+      <circle cx="9" cy="7.5" r="3.4" fill="#161C27"/>
+      <circle cx="9" cy="7.5" r="1.4" fill="#fff"/>
+    </g>
+    <rect x="2" y="88" width="96" height="11" rx="5.5" fill="#2B2F36"/>
+    <rect x="26" y="92" width="14" height="3" rx="1.5" fill="#fff"/>
+    <rect x="60" y="92" width="14" height="3" rx="1.5" fill="#fff"/>
+</svg> <span id="trip-bubble-text">Mobil Jalan</span> <span class="count-badge" id="trip-bubble-count">0</span>
   </button>
   <div class="trip-bubble-panel" id="trip-bubble-panel" style="display:none;"></div>
 </div>
@@ -692,7 +717,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.3.1';
+const APP_VERSION = '3.4.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1730,7 +1755,22 @@ function toggleTripBubblePanel(){
 function renderTripBubblePanelContent(){
   const panel = document.getElementById('trip-bubble-panel');
   const active = state.usage.filter(u=>u.status==='digunakan');
-  panel.innerHTML = `<div class="trip-bubble-head">🚚 Mobil Sedang Jalan (${active.length})</div>` +
+  panel.innerHTML = `<div class="trip-bubble-head" style="display:flex;align-items:center;gap:8px;"><svg width="18" height="18" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;">
+    <path d="M50 6 C33 6 20 19 20 36 C20 56 50 90 50 90 C50 90 80 56 80 36 C80 19 67 6 50 6 Z" fill="#E5484D"/>
+    <circle cx="50" cy="35" r="22" fill="#fff"/>
+    <g transform="translate(50,35) scale(1.15)">
+      <path d="M-16 4 C-16 1 -14 -1 -12 -2 L-9 -8 C-8 -9.5 -6.5 -10.5 -4.5 -10.5 L4.5 -10.5 C6.5 -10.5 8 -9.5 9 -8 L12 -2 C14 -1 16 1 16 4 L16 7.5 C16 8.5 15.2 9.3 14.2 9.3 L12.5 9.3 C11.5 9.3 10.7 8.5 10.7 7.5 L10.7 6.5 L-10.7 6.5 L-10.7 7.5 C-10.7 8.5 -11.5 9.3 -12.5 9.3 L-14.2 9.3 C-15.2 9.3 -16 8.5 -16 7.5 Z" fill="#161C27"/>
+      <path d="M-7.5 -8 L-5 -3.5 L5 -3.5 L7.5 -8 C6.8 -9 5.7 -9.5 4.5 -9.5 L-4.5 -9.5 C-5.7 -9.5 -6.8 -9 -7.5 -8 Z" fill="#fff"/>
+      <line x1="0" y1="-3.5" x2="0" y2="-9.2" stroke="#161C27" stroke-width="0.8"/>
+      <circle cx="-9" cy="7.5" r="3.4" fill="#161C27"/>
+      <circle cx="-9" cy="7.5" r="1.4" fill="#fff"/>
+      <circle cx="9" cy="7.5" r="3.4" fill="#161C27"/>
+      <circle cx="9" cy="7.5" r="1.4" fill="#fff"/>
+    </g>
+    <rect x="2" y="88" width="96" height="11" rx="5.5" fill="#2B2F36"/>
+    <rect x="26" y="92" width="14" height="3" rx="1.5" fill="#fff"/>
+    <rect x="60" y="92" width="14" height="3" rx="1.5" fill="#fff"/>
+</svg> Mobil Sedang Jalan (${active.length})</div>` +
     (active.length===0 ? `<div style="padding:18px;text-align:center;color:var(--muted);font-size:12px;">Tidak ada mobil yang sedang jalan.</div>` :
     active.map(u=>`
       <div class="trip-card" data-trip="${u.id}">
@@ -1759,9 +1799,10 @@ function openTripActionMenu(usageId, anchorEl){
   document.body.appendChild(menu);
 
   const rect = anchorEl.getBoundingClientRect();
-  let top = Math.min(rect.top, window.innerHeight - 180);
-  let left = rect.left - 208;
-  if(left < 8) left = Math.min(rect.right + 8, window.innerWidth - 208);
+  const menuWidth = Math.min(230, window.innerWidth - 16);
+  let top = Math.min(rect.top, window.innerHeight - 250);
+  let left = rect.left - menuWidth - 8;
+  if(left < 8) left = Math.min(rect.right + 8, window.innerWidth - menuWidth - 8);
   menu.style.top = Math.max(8, top) + 'px';
   menu.style.left = Math.max(8, left) + 'px';
 
@@ -1985,7 +2026,7 @@ function renderDashboard(){
         <button class="quick-action-btn" data-action="car"><span class="ic icon-badge blue">🚚</span>Tambah Mobil</button>
         <button class="quick-action-btn" data-action="driver"><span class="ic icon-badge green">🧑‍✈️</span>Tambah Sopir</button>
         <button class="quick-action-btn" data-action="usage"><span class="ic icon-badge amber"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.3"/><path d="M3.3 12h6.4M14.3 12h6.4M12 14.5v6.3"/></svg></span>Catat Perjalanan</button>
-        <button class="quick-action-btn" data-action="service"><span class="ic icon-badge red">🔧</span>Catat Servis</button>
+        <button class="quick-action-btn" data-action="service"><span class="ic icon-badge red"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.5 4.9L3 17.4l2.6 2.6L11.8 14a4 4 0 0 0 4.9-5.5l-2.5 2.5-2-2z"/></svg></span>Catat Servis</button>
         <button class="quick-action-btn" data-action="doc"><span class="ic icon-badge purple">📄</span>Tambah Dokumen</button>
         <button class="quick-action-btn" data-action="etoll"><span class="ic icon-badge blue">💳</span>Kartu E-Toll</button>
         <button class="quick-action-btn" data-action="booking"><span class="ic icon-badge amber">📅</span>Buat Booking</button>
@@ -2471,7 +2512,7 @@ function renderUsage(){
                 <button class="btn btn-ghost btn-sm" data-edit="${u.id}">Edit</button>
                 ${isOperasional ? `<button class="btn btn-ghost btn-sm" data-biayaop="${u.id}">Biaya Operasional</button>` : ''}
                 ${biayaOpTotal>0 ? `<button class="btn btn-ghost btn-sm" data-share="${u.id}">📤 Bagikan</button><button class="btn btn-ghost btn-sm" data-copy-img="${u.id}">📋 Salin Gambar</button>` : ''}
-                ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">Tandai Kembali</button>` : ''}
+                ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">Tandai Kembali</button>` : `<button class="btn btn-ghost btn-sm" data-return="${u.id}">Edit Data Kembali</button>`}
                 <button class="btn btn-danger btn-sm" data-del="${u.id}">Hapus</button>
               </td>
             </tr>`;
@@ -2542,7 +2583,7 @@ function markReturned(id){
     </div>
   `;
   openModal({
-    title: 'Tandai Mobil Telah Kembali',
+    title: u.status==='digunakan' ? 'Tandai Mobil Telah Kembali' : 'Edit Data Kembali',
     body,
     onSave: () => {
       const bensin = getPercentValue('in-bensin-kembali');
@@ -4116,6 +4157,22 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.4.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Perjalanan yang sudah "Tandai Kembali" kini punya tombol "Edit Data Kembali" — bisa koreksi odometer/bensin/jam kembali kalau ada salah input, tidak cuma tombol Edit untuk data keberangkatan.',
+      'Perbaikan: ikon Servis & Maintenance di sidebar sempat nyaris tak terlihat di latar putih — diganti ikon SVG kunci pas yang jelas kontrasnya.',
+      'Ikon bubble "Mobil Jalan" diganti jadi ikon pin lokasi + mobil + jalan aspal (desain orisinal, sesuai referensi yang diminta).',
+    ]
+  },
+  {
+    v: '3.3.2',
+    date: '20 Jul 2026',
+    notes: [
+      'Bubble "Mobil Jalan" diperbesar: tombol, panel daftar, dan menu aksi (Edit/Biaya Operasional/dst) sekarang lebih besar dan lebih mudah dibaca/disentuh, terutama di HP.',
+    ]
+  },
   {
     v: '3.3.1',
     date: '20 Jul 2026',
