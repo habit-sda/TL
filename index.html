@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FleetOps — Manajemen Armada Pengiriman</title>
-<meta name="app-version" content="3.1.0">
-<!-- ^ Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
-     sederhana ini, bukan cuma parsing kode JavaScript mentah) -- lebih tahan
-     kalau struktur kode di bagian bawah suatu saat di-refactor. WAJIB
+<meta name="app-version" content="3.3.1">
+<!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
+     sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
+     kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
      disamakan dengan variabel APP_VERSION di kode JavaScript setiap rilis. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -49,38 +49,39 @@
   #sidebar{
     width:230px;
     flex-shrink:0;
-    background:var(--navy);
-    color:#D7DCE5;
+    background:#fff;
+    color:var(--text);
     display:flex;
     flex-direction:column;
     position:sticky;
     top:0;
     height:100vh;
+    border-right:1px solid var(--line);
   }
   .brand{
     padding:18px 20px 18px 20px;
-    border-bottom:1px solid rgba(255,255,255,0.08);
+    border-bottom:1px solid var(--line);
     display:flex;
     align-items:center;
     gap:11px;
   }
   .brand-logo{
     width:36px;height:36px;flex-shrink:0;
-    background:#fff;border-radius:10px;
+    background:#fff;border:1px solid var(--line);border-radius:10px;
     display:flex;align-items:center;justify-content:center;
   }
-  .brand-logo img{width:24px;height:24px;display:block;}
+  .brand-logo img{width:22px;height:22px;display:block;}
   .brand-title{
     font-weight:800;
     font-size:17px;
-    color:#fff;
+    color:var(--text);
   }
   .brand-sub{
     font-size:9.5px;
-    color:#8993A4;
+    color:var(--blue);
     letter-spacing:0.1em;
     text-transform:uppercase;
-    font-weight:600;
+    font-weight:700;
     margin-top:1px;
   }
   nav.menu{flex:1;padding:14px 10px;}
@@ -92,7 +93,7 @@
     border-radius:8px;
     font-size:13.5px;
     font-weight:500;
-    color:#B9C0CE;
+    color:#4B5563;
     cursor:pointer;
     margin-bottom:2px;
     user-select:none;
@@ -100,33 +101,33 @@
   }
   .menu-item .ic{font-size:15px;width:18px;text-align:center;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
   .menu-item .ic svg{width:15px;height:15px;}
-  .menu-item:hover{background:rgba(255,255,255,0.06);color:#fff;}
-  .menu-item.active{background:var(--blue);color:#fff;}
+  .menu-item:hover{background:#F4F6F9;color:var(--text);}
+  .menu-item.active{background:#EEF3FF;color:var(--blue);font-weight:700;}
   .menu-section-label{
     font-size:10.5px;
     text-transform:uppercase;
     letter-spacing:.08em;
-    color:#5C6577;
+    color:#9AA2AF;
     padding:14px 12px 6px 12px;
     font-weight:700;
   }
   #petugas-box{
     padding:14px 16px;
-    border-top:1px solid rgba(255,255,255,0.08);
+    border-top:1px solid var(--line);
   }
   #petugas-box label{
     font-size:10.5px;
     text-transform:uppercase;
     letter-spacing:.06em;
-    color:#8993A4;
+    color:var(--muted);
     display:block;
     margin-bottom:6px;
   }
   #petugas-select{
     width:100%;
-    background:#0F141C;
-    color:#fff;
-    border:1px solid rgba(255,255,255,0.12);
+    background:#F7F8FA;
+    color:var(--text);
+    border:1px solid var(--line);
     border-radius:7px;
     padding:7px 8px;
     font-size:12.5px;
@@ -171,9 +172,9 @@
   .kpi{
     background:var(--card);
     border:1px solid var(--line);
-    border-radius:14px;
+    border-left:3px solid var(--blue);
+    border-radius:10px;
     padding:16px 18px;
-    box-shadow:0 1px 2px rgba(16,24,40,0.04);
   }
   .kpi .label{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
   .kpi .value{font-size:28px;font-weight:800;margin-top:6px;font-family:'JetBrains Mono',monospace;}
@@ -184,14 +185,14 @@
   .panel{
     background:var(--card);
     border:1px solid var(--line);
-    border-radius:14px;
+    border-radius:10px;
     margin-bottom:20px;
     overflow:hidden;
-    box-shadow:0 1px 2px rgba(16,24,40,0.04);
   }
   .panel-head{
     padding:14px 18px;
     border-bottom:1px solid var(--line);
+    background:#FAFBFC;
     display:flex;
     align-items:center;
     justify-content:space-between;
@@ -296,6 +297,40 @@
     font-size:13px;padding:2px 4px;flex-shrink:0;border-radius:5px;line-height:1;
   }
   .notif-dismiss-btn:hover{background:#EEF0F3;color:var(--text);}
+
+  /* ---------------- Bubble melayang: indikator mobil sedang dalam perjalanan ---------------- */
+  #trip-bubble{position:fixed;bottom:20px;right:20px;z-index:150;}
+  .trip-bubble-btn{
+    background:var(--navy);color:#fff;border:none;border-radius:26px;
+    padding:11px 16px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px;
+    box-shadow:0 10px 24px rgba(0,0,0,0.22);cursor:pointer;font-family:inherit;
+  }
+  .trip-bubble-btn .count-badge{
+    background:var(--amber);color:#161C27;min-width:18px;height:18px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;padding:0 4px;
+  }
+  .trip-bubble-panel{
+    position:absolute;bottom:calc(100% + 10px);right:0;width:300px;max-width:85vw;
+    background:#fff;border:1px solid var(--line);border-radius:12px;
+    box-shadow:0 16px 40px rgba(0,0,0,0.2);max-height:360px;overflow-y:auto;
+  }
+  .trip-bubble-head{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:700;font-size:12.5px;background:#FAFBFC;}
+  .trip-card{padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .trip-card:last-child{border-bottom:none;}
+  .trip-card:hover{background:#FAFBFC;}
+  .trip-card b{display:block;font-size:12.5px;}
+  .trip-card .desc{font-size:11px;color:var(--muted);margin-top:2px;}
+  .trip-action-menu{
+    position:fixed;background:#fff;border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 14px 30px rgba(0,0,0,0.2);width:200px;z-index:250;overflow:hidden;
+  }
+  .trip-action-item{padding:10px 14px;font-size:12.5px;display:flex;align-items:center;gap:8px;cursor:pointer;}
+  .trip-action-item:hover{background:#F5F7FA;}
+  .trip-action-item.danger{color:var(--red);}
+  @media(max-width:768px){
+    #trip-bubble{bottom:14px;right:14px;}
+    .trip-bubble-panel{position:fixed;bottom:70px;left:12px;right:12px;width:auto;max-width:none;}
+  }
 
   /* ---------------- Overlay transisi halus saat update diterapkan ----------------
      Dipakai SEBELUM location.reload()/navigasi, supaya perpindahan ke versi
@@ -450,6 +485,7 @@
       transform:translateX(-100%);
       transition:transform .22s ease;
       z-index:150;
+      box-shadow:0 0 40px rgba(0,0,0,0.15);
     }
     #sidebar.open{transform:translateX(0);}
     #drawer-overlay.open{display:block;}
@@ -575,6 +611,13 @@
   <div class="msg" id="updating-overlay-msg">Memperbarui ke versi terbaru...</div>
 </div>
 
+<div id="trip-bubble" style="display:none;">
+  <button class="trip-bubble-btn" id="trip-bubble-btn">
+    🚚 <span id="trip-bubble-text">Mobil Jalan</span> <span class="count-badge" id="trip-bubble-count">0</span>
+  </button>
+  <div class="trip-bubble-panel" id="trip-bubble-panel" style="display:none;"></div>
+</div>
+
 <div class="modal-overlay" id="gh-modal-overlay" style="display:none;">
   <div class="modal">
     <div class="modal-head">
@@ -589,15 +632,15 @@
       </p>
       <div class="field">
         <label>URL Cloudflare Worker</label>
-        <input type="text" id="gh-modal-workerurl" placeholder="https://fleetops-worker.namaanda.workers.dev">
+        <input type="text" id="gh-modal-workerurl" data-no-uppercase="1" placeholder="https://fleetops-worker.namaanda.workers.dev">
       </div>
       <div class="field">
         <label>Owner / Username GitHub</label>
-        <input type="text" id="gh-modal-owner" placeholder="mis. namaanda">
+        <input type="text" id="gh-modal-owner" data-no-uppercase="1" placeholder="mis. namaanda">
       </div>
       <div class="field">
         <label>Nama Repository</label>
-        <input type="text" id="gh-modal-repo" placeholder="mis. fleetops-data">
+        <input type="text" id="gh-modal-repo" data-no-uppercase="1" placeholder="mis. fleetops-data">
       </div>
       <div id="gh-modal-status" class="hint"></div>
     </div>
@@ -649,7 +692,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.3.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1231,6 +1274,7 @@ function attachIntegerOnlyInput(inputId){
 document.addEventListener('input', function(e){
   const el = e.target;
   if(!el || !el.tagName) return;
+  if(el.dataset && el.dataset.noUppercase) return; // field case-sensitive (URL, owner/repo GitHub, dll)
   const isPlainTextField =
     el.tagName === 'TEXTAREA' ||
     (el.tagName === 'INPUT' && (el.type === 'text' || el.type === undefined));
@@ -1505,6 +1549,7 @@ function navigate(route){
   r.render();
   closeDrawer();
   renderNotifBell();
+  renderActiveTripBubble();
 }
 
 document.querySelectorAll('.menu-item').forEach(el=>{
@@ -1656,6 +1701,105 @@ document.getElementById('notif-bell-btn').addEventListener('click', (e)=>{ e.sto
 document.addEventListener('click', (e)=>{
   const dd = document.getElementById('notif-dropdown');
   if(dd && dd.style.display==='block' && !dd.contains(e.target) && e.target.id!=='notif-bell-btn'){ dd.style.display = 'none'; }
+});
+
+/* ---------------- Bubble melayang: indikator mobil sedang dalam perjalanan ----------------
+   Muncul di SEMUA halaman (mirip lonceng notifikasi), supaya kapan pun bisa
+   langsung lihat/kelola mobil yang sedang jalan tanpa perlu pindah ke menu
+   Catat Perjalanan dulu. */
+function renderActiveTripBubble(){
+  const bubble = document.getElementById('trip-bubble');
+  const countEl = document.getElementById('trip-bubble-count');
+  if(!bubble) return;
+  const active = state.usage.filter(u=>u.status==='digunakan');
+  if(active.length===0){
+    bubble.style.display = 'none';
+    const panel = document.getElementById('trip-bubble-panel');
+    if(panel) panel.style.display = 'none';
+    return;
+  }
+  bubble.style.display = 'block';
+  countEl.textContent = active.length;
+}
+function toggleTripBubblePanel(){
+  const panel = document.getElementById('trip-bubble-panel');
+  if(panel.style.display === 'block'){ panel.style.display = 'none'; return; }
+  renderTripBubblePanelContent();
+  panel.style.display = 'block';
+}
+function renderTripBubblePanelContent(){
+  const panel = document.getElementById('trip-bubble-panel');
+  const active = state.usage.filter(u=>u.status==='digunakan');
+  panel.innerHTML = `<div class="trip-bubble-head">🚚 Mobil Sedang Jalan (${active.length})</div>` +
+    (active.length===0 ? `<div style="padding:18px;text-align:center;color:var(--muted);font-size:12px;">Tidak ada mobil yang sedang jalan.</div>` :
+    active.map(u=>`
+      <div class="trip-card" data-trip="${u.id}">
+        <b>${escapeHtml(carLabel(u.carId))}</b>
+        <div class="desc">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${escapeHtml(u.tujuan||'-')}${u.jamKeluar?' · sejak '+u.jamKeluar:''}</div>
+      </div>`).join(''));
+  panel.querySelectorAll('[data-trip]').forEach(el=>{
+    el.addEventListener('click', (e)=> openTripActionMenu(el.dataset.trip, e.currentTarget));
+  });
+}
+// Menu 4-aksi (Edit / Biaya Operasional / Tandai Kembali / Hapus) muncul dekat
+// kartu yang diklik, mengambang di atas semua elemen lain (position:fixed).
+function openTripActionMenu(usageId, anchorEl){
+  document.querySelectorAll('.trip-action-menu').forEach(m=>m.remove());
+  const u = state.usage.find(x=>x.id===usageId);
+  if(!u) return;
+
+  const menu = document.createElement('div');
+  menu.className = 'trip-action-menu';
+  menu.innerHTML = `
+    <div class="trip-action-item" data-act="edit">✏️ Edit</div>
+    <div class="trip-action-item" data-act="biayaop">🧾 Biaya Operasional</div>
+    <div class="trip-action-item" data-act="return">✅ Tandai Kembali</div>
+    <div class="trip-action-item danger" data-act="delete">🗑️ Hapus</div>
+  `;
+  document.body.appendChild(menu);
+
+  const rect = anchorEl.getBoundingClientRect();
+  let top = Math.min(rect.top, window.innerHeight - 180);
+  let left = rect.left - 208;
+  if(left < 8) left = Math.min(rect.right + 8, window.innerWidth - 208);
+  menu.style.top = Math.max(8, top) + 'px';
+  menu.style.left = Math.max(8, left) + 'px';
+
+  menu.querySelectorAll('[data-act]').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      menu.remove();
+      document.getElementById('trip-bubble-panel').style.display = 'none';
+      const act = item.dataset.act;
+      if(act==='edit') openUsageModal(u.id);
+      else if(act==='biayaop') openBiayaOperasionalModal(u.id);
+      else if(act==='return') markReturned(u.id);
+      else if(act==='delete') deleteUsage(u.id);
+    });
+  });
+  setTimeout(()=>{
+    document.addEventListener('click', function closeMenu(e){
+      if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('click', closeMenu); }
+    });
+  }, 0);
+}
+// Dipakai bersama oleh tombol hapus di tabel Catat Perjalanan DAN menu bubble ini.
+function deleteUsage(id){
+  if(!confirm('Hapus catatan penggunaan ini?')) return;
+  const u = state.usage.find(x=>x.id===id);
+  markDeleted('usage', id);
+  state.usage = state.usage.filter(x=>x.id!==id);
+  if(u) logActivity('penggunaan', 'Hapus catatan penggunaan', `${carLabel(u.carId)} — ${u.tujuan||''}`);
+  saveData();
+  showToast('Catatan penggunaan dihapus.');
+  renderActiveTripBubble();
+  if(currentRoute==='usage') renderUsage();
+}
+document.getElementById('trip-bubble-btn').addEventListener('click', (e)=>{ e.stopPropagation(); toggleTripBubblePanel(); });
+document.addEventListener('click', (e)=>{
+  const panel = document.getElementById('trip-bubble-panel');
+  if(panel && panel.style.display==='block' && !panel.contains(e.target) && !e.target.closest('#trip-bubble-btn')){
+    panel.style.display = 'none';
+  }
 });
 
 /* ---------------- Statistik bulanan (untuk badge tren ↑↓ di Dashboard) ---------------- */
@@ -2324,6 +2468,7 @@ function renderUsage(){
               <td>${biayaOpTotal>0 ? fmtMoney(biayaOpTotal) : '-'}</td>
               <td>${u.status==='digunakan' ? `<span class="badge warn">Digunakan</span>` : `<span class="badge ok">Selesai</span>`}</td>
               <td style="text-align:right;white-space:nowrap;">
+                <button class="btn btn-ghost btn-sm" data-edit="${u.id}">Edit</button>
                 ${isOperasional ? `<button class="btn btn-ghost btn-sm" data-biayaop="${u.id}">Biaya Operasional</button>` : ''}
                 ${biayaOpTotal>0 ? `<button class="btn btn-ghost btn-sm" data-share="${u.id}">📤 Bagikan</button><button class="btn btn-ghost btn-sm" data-copy-img="${u.id}">📋 Salin Gambar</button>` : ''}
                 ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">Tandai Kembali</button>` : ''}
@@ -2334,18 +2479,12 @@ function renderUsage(){
         </tbody>
       </table></div>
     `;
+    wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openUsageModal(b.dataset.edit));
     wrap.querySelectorAll('[data-biayaop]').forEach(b=> b.onclick = ()=> openBiayaOperasionalModal(b.dataset.biayaop));
     wrap.querySelectorAll('[data-share]').forEach(b=> b.onclick = ()=> shareUsageReport(b.dataset.share));
     wrap.querySelectorAll('[data-copy-img]').forEach(b=> b.onclick = ()=> copyUsageReportToClipboard(b.dataset.copyImg));
     wrap.querySelectorAll('[data-return]').forEach(b=> b.onclick = ()=> markReturned(b.dataset.return));
-    wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> {
-      if(!confirm('Hapus catatan penggunaan ini?')) return;
-      const u = state.usage.find(x=>x.id===b.dataset.del);
-      markDeleted('usage', b.dataset.del);
-      state.usage = state.usage.filter(u=>u.id!==b.dataset.del);
-      if(u) logActivity('penggunaan', 'Hapus catatan penggunaan', `${carLabel(u.carId)} — ${u.tujuan||''}`);
-      saveData(); showToast('Catatan penggunaan dihapus.'); renderUsage();
-    });
+    wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteUsage(b.dataset.del));
   }
   renderTable(allItems);
 
@@ -2456,6 +2595,7 @@ function markReturned(id){
       saveData();
       logActivity('penggunaan', 'Mobil kembali', `${carLabel(u.carId)} — ${u.tujuan||''}`);
       showToast('Mobil ditandai telah kembali.');
+      renderActiveTripBubble();
       renderUsage();
       return true;
     }
@@ -2486,6 +2626,9 @@ function openBiayaOperasionalModal(usageId){
   const body = `
     <p style="font-size:12.5px;color:var(--muted);margin-top:0;">
       ${escapeHtml(carLabel(u.carId))} — ${escapeHtml(u.tujuan||'')}
+    </p>
+    <p style="font-size:11.5px;color:var(--muted);margin-top:-8px;margin-bottom:14px;">
+      💡 Kategori <b>"Isi BBM"</b> otomatis dijumlahkan (kalau diisi lebih dari 1 baris) ke field Biaya BBM perjalanan ini — tidak perlu dicatat dua kali.
     </p>
     <div id="biayaop-items-wrap"></div>
     <button type="button" class="btn btn-ghost btn-sm" id="btn-add-biayaop-item" style="margin-bottom:10px;">+ Tambah Item</button>
@@ -2573,10 +2716,23 @@ function openBiayaOperasionalModal(usageId){
         .filter(it => it.kategori && it.nominal > 0);
 
       u.biayaOperasional = validItems;
+
+      // Auto-akumulasi: kalau ada item berkategori "Isi BBM" (bisa lebih dari
+      // 1 baris), jumlahkan semua dan isi otomatis ke field "Biaya BBM" di
+      // perjalanan ini -- supaya tidak perlu dicatat dua kali secara manual.
+      const totalBbmDariOperasional = validItems
+        .filter(it => it.kategori === 'Isi BBM')
+        .reduce((sum, it) => sum + it.nominal, 0);
+      if(totalBbmDariOperasional > 0){
+        u.biayaBensin = totalBbmDariOperasional;
+      }
+
       touch(u);
       saveData();
       logActivity('penggunaan', 'Catat biaya operasional', `${carLabel(u.carId)} — ${fmtMoney(usageBiayaOpTotal(u))}`);
-      showToast('Biaya operasional disimpan.');
+      showToast(totalBbmDariOperasional>0
+        ? `Biaya operasional disimpan. Biaya BBM otomatis terisi ${fmtMoney(totalBbmDariOperasional)}.`
+        : 'Biaya operasional disimpan.');
       renderUsage();
       return true;
     }
@@ -2735,10 +2891,13 @@ function buildDriverOptions(selectedId){
     + `<option value="__new__">+ Tambah sopir baru...</option>`;
 }
 
-function openUsageModal(){
+function openUsageModal(editId){
+  const editing = editId ? state.usage.find(u=>u.id===editId) : null;
   const carOptions = state.cars.map(c=>{
-    const busy = state.usage.some(u=>u.carId===c.id && u.status==='digunakan');
-    return `<option value="${c.id}" ${busy?'disabled':''}>${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}${busy?' (sedang dipakai)':''}</option>`;
+    // Mobil yang lagi dipakai tetap dikunci dipilih, KECUALI itu mobil yang
+    // sudah dipakai di catatan yang sedang diedit sekarang (jangan mengunci diri sendiri).
+    const busy = state.usage.some(u=>u.carId===c.id && u.status==='digunakan' && u.id!==editId);
+    return `<option value="${c.id}" ${busy?'disabled':''} ${editing&&editing.carId===c.id?'selected':''}>${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}${busy?' (sedang dipakai)':''}</option>`;
   }).join('');
 
   if(state.cars.length===0){
@@ -2754,57 +2913,57 @@ function openUsageModal(){
     </div>
     <div class="field" id="f-driver">
       <label>Sopir *</label>
-      <select id="in-driver"><option value="">— pilih sopir —</option>${buildDriverOptions()}</select>
+      <select id="in-driver"><option value="">— pilih sopir —</option>${buildDriverOptions(editing?editing.driverId:null)}</select>
       <div class="err-msg">Pilih sopir.</div>
     </div>
     <div class="field" id="f-jenis-pakai">
       <label>Jenis Pemakaian *</label>
       <select id="in-jenis-pakai">
-        <option value="pengiriman">Pengiriman (operasional)</option>
-        <option value="pribadi">Pribadi</option>
+        <option value="pengiriman" ${editing&&editing.jenisPenggunaan==='pengiriman'?'selected':''}>Pengiriman (operasional)</option>
+        <option value="pribadi" ${editing&&editing.jenisPenggunaan==='pribadi'?'selected':''}>Pribadi</option>
       </select>
     </div>
     <div class="field" id="f-tujuan">
       <label>Tujuan / Keperluan *</label>
-      <input type="text" id="in-tujuan" placeholder="Contoh: Gudang Surabaya - Toko A" autocomplete="off">
+      <input type="text" id="in-tujuan" placeholder="Contoh: Gudang Surabaya - Toko A" autocomplete="off" value="${editing?escapeHtml(editing.tujuan||''):''}">
       <div class="err-msg">Tujuan wajib diisi.</div>
     </div>
     <div class="grid-2">
       <div class="field">
         <label>Tanggal Keluar</label>
-        <input type="date" id="in-tglkeluar" value="${today()}">
+        <input type="date" id="in-tglkeluar" value="${editing?editing.tglKeluar:today()}">
       </div>
       <div class="field">
         <label>Jam Berangkat</label>
-        <input type="time" id="in-jam-keluar" value="${new Date().toTimeString().slice(0,5)}">
+        <input type="time" id="in-jam-keluar" value="${editing&&editing.jamKeluar?editing.jamKeluar:new Date().toTimeString().slice(0,5)}">
       </div>
     </div>
     <div class="field">
       <label>Odometer Saat Keluar (KM)</label>
-      <input type="text" inputmode="numeric" id="in-odo-keluar" placeholder="Contoh: 45.000">
+      <input type="text" inputmode="numeric" id="in-odo-keluar" placeholder="Contoh: 45.000" value="${editing?fmtRibuanInitial(editing.odoKeluar):''}">
       <div class="hint">Diisi supaya jarak tempuh perjalanan ini bisa dihitung otomatis.</div>
     </div>
     <div class="grid-2">
       <div class="field">
         <label>Sisa Bensin Saat Keluar (%)</label>
-        <input type="text" inputmode="numeric" id="in-bensin" placeholder="Contoh: 80">
+        <input type="text" inputmode="numeric" id="in-bensin" placeholder="Contoh: 80" value="${editing?fmtPercentInitial(getBensinKeluar(editing)):''}">
       </div>
       <div class="field" id="f-etoll-card">
         <label>Kartu E-Toll Dipakai</label>
         <select id="in-etoll-card">
           <option value="">— tidak pakai kartu / isi manual —</option>
-          ${state.etollCards.map(card=>`<option value="${card.id}">${escapeHtml(card.nomorKartu)}${card.mobilId?' — '+escapeHtml(carLabel(card.mobilId)):''} (saldo: ${fmtMoney(card.saldo)})</option>`).join('')}
+          ${state.etollCards.map(card=>`<option value="${card.id}" ${editing&&editing.etollCardId===card.id?'selected':''}>${escapeHtml(card.nomorKartu)}${card.mobilId?' — '+escapeHtml(carLabel(card.mobilId)):''} (saldo: ${fmtMoney(card.saldo)})</option>`).join('')}
         </select>
       </div>
     </div>
     <div class="field">
       <label>Saldo E-Toll Saat Keluar (Rp)</label>
-      <input type="text" inputmode="numeric" id="in-etoll" placeholder="Contoh: 100.000">
+      <input type="text" inputmode="numeric" id="in-etoll" placeholder="Contoh: 100.000" value="${editing?fmtRibuanInitial(editing.saldoEtoll):''}">
       <div class="hint" id="etoll-hint">Pilih kartu di atas supaya saldo terisi otomatis, atau isi manual kalau bayar tunai/kartu belum terdaftar.</div>
     </div>
   `;
   openModal({
-    title: 'Catat Penggunaan Mobil',
+    title: editing ? 'Edit Penggunaan Mobil' : 'Catat Penggunaan Mobil',
     body,
     onSave: () => {
       const carId = document.getElementById('in-car').value;
@@ -2824,23 +2983,38 @@ function openUsageModal(){
       toggleFieldError('f-tujuan', !tujuan); if(!tujuan) valid=false;
       if(!valid) return false;
 
-      state.usage.push(touch({
-        id: uid(), carId, driverId, jenisPenggunaan, tujuan, tglKeluar, tglKembali:null,
-        jamKeluar, jamKembali: null,
-        status:'digunakan',
-        odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
-        odoKembali: null,
-        bensinKeluar: bensinVal === '' ? null : Number(bensinVal),
-        bensinKembali: null,
-        literBensin: null, biayaBensin: null,
-        etollCardId,
-        saldoEtoll: etollVal === '' ? null : Number(etollVal),
-        petugas: currentAdmin
-      }));
-      saveData();
-      logActivity('penggunaan', 'Catat penggunaan mobil', `${carLabel(carId)} — ${tujuan}`);
-      showToast('Penggunaan mobil dicatat.');
-      renderUsage();
+      if(editing){
+        Object.assign(editing, {
+          carId, driverId, jenisPenggunaan, tujuan, tglKeluar, jamKeluar,
+          odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
+          bensinKeluar: bensinVal === '' ? null : Number(bensinVal),
+          etollCardId,
+          saldoEtoll: etollVal === '' ? null : Number(etollVal),
+        });
+        touch(editing);
+        saveData();
+        logActivity('penggunaan', 'Edit catatan penggunaan', `${carLabel(carId)} — ${tujuan}`);
+        showToast('Perubahan disimpan.');
+      } else {
+        state.usage.push(touch({
+          id: uid(), carId, driverId, jenisPenggunaan, tujuan, tglKeluar, tglKembali:null,
+          jamKeluar, jamKembali: null,
+          status:'digunakan',
+          odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
+          odoKembali: null,
+          bensinKeluar: bensinVal === '' ? null : Number(bensinVal),
+          bensinKembali: null,
+          literBensin: null, biayaBensin: null,
+          etollCardId,
+          saldoEtoll: etollVal === '' ? null : Number(etollVal),
+          petugas: currentAdmin
+        }));
+        saveData();
+        logActivity('penggunaan', 'Catat penggunaan mobil', `${carLabel(carId)} — ${tujuan}`);
+        showToast('Penggunaan mobil dicatat.');
+      }
+      renderActiveTripBubble();
+      if(currentRoute==='usage') renderUsage();
       return true;
     }
   });
@@ -3942,6 +4116,33 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.3.1',
+    date: '20 Jul 2026',
+    notes: [
+      'Perbaikan: logo dikembalikan ke warna navy asli (sempat tanpa sengaja terbalik jadi putih saat sidebar diubah).',
+    ]
+  },
+  {
+    v: '3.3.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Sidebar diubah dari navy gelap jadi putih bersih — lebih simple, elegan, dan profesional.',
+      'Menu aktif kini berwarna biru muda + teks biru (bukan blok biru solid).',
+      'Logo tetap dalam kotak navy supaya kontras tetap jelas di latar putih.',
+    ]
+  },
+  {
+    v: '3.2.0',
+    date: '20 Jul 2026',
+    notes: [
+      'Bubble melayang baru di pojok layar: menunjukkan jumlah mobil yang sedang dalam perjalanan, klik untuk lihat daftar & kelola langsung (Edit, Biaya Operasional, Tandai Kembali, Hapus) tanpa perlu pindah menu.',
+      'Menu Catat Perjalanan kini bisa di-Edit (sebelumnya cuma bisa dibuat baru).',
+      'Tampilan panel diperhalus: aksen garis biru di kartu statistik, kepala panel dengan tona lembut — lebih bersih dan konsisten.',
+      'Biaya Operasional: kategori "Isi BBM" otomatis terjumlah ke field Biaya BBM perjalanan (kalau diisi lebih dari 1 baris, otomatis diakumulasi).',
+      'Perbaikan: field URL Worker/Owner/Repo di pengaturan sinkron GitHub tidak lagi otomatis huruf besar (URL & username itu case-sensitive).',
+    ]
+  },
   {
     v: '3.1.0',
     date: '20 Jul 2026',
