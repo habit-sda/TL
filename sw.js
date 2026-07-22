@@ -7,7 +7,7 @@
    sendiri sudah otomatis fresh tanpa ini, TAPI popup notifikasi fitur baru
    tetap butuh sw.js berubah supaya terdeteksi sebagai "ada update".
    ============================================================ */
-const CACHE_VERSION = "v27";
+const CACHE_VERSION = "v31";
 const CACHE_NAME = "fleetops-cache-" + CACHE_VERSION;
 // File same-origin yang wajib ada supaya app bisa dibuka offline.
 const CORE_ASSETS = [
