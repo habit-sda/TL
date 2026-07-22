@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.16.0">
+<meta name="app-version" content="3.17.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -234,6 +234,16 @@
     padding:2px 8px;
     letter-spacing:.03em;
   }
+  .code-badge{
+    display:inline-flex;align-items:center;gap:4px;
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;font-size:11.5px;
+    background:#EEF3FF;color:var(--blue-dark);
+    border:1px dashed var(--blue);border-radius:6px;
+    padding:3px 8px;cursor:pointer;
+  }
+  .code-badge:hover{background:#E0EBFF;}
+  .code-badge .copy-ic{font-size:10px;opacity:.8;}
 
   .badge{
     display:inline-flex;
@@ -643,6 +653,7 @@
     <div class="menu-item" data-route="etoll"><span class="ic">💳</span>Kartu E-Toll</div>
     <div class="menu-section-label">Lainnya</div>
     <div class="menu-item" data-route="bbm"><span class="ic">⛽</span>BBM</div>
+    <div class="menu-item" data-route="hapusdata"><span class="ic">🗑️</span>Hapus Data</div>
     <div class="menu-item" data-route="settings"><span class="ic">⚙️</span>Pengaturan</div>
   </nav>
   <div id="petugas-box">
@@ -786,7 +797,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.16.0';
+const APP_VERSION = '3.17.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -930,7 +941,27 @@ function loadData(){
   }
 }
 function defaultData(){
-  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], admins: ['Admin 1','Admin 2'] };
+  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0 };
+}
+// Kode unik Mobil & Perjalanan -- dipakai KHUSUS untuk menu "Hapus Data"
+// (lihat konsep di bawah). Format sengaja pendek & mudah dibaca/disalin,
+// BUKAN id internal (uid()) yang panjang dan rawan salah ketik/tempel.
+function nextCarCode(){
+  state.carCodeSeq = (state.carCodeSeq||0) + 1;
+  return 'MBL-' + String(state.carCodeSeq).padStart(4,'0');
+}
+function nextUsageCode(){
+  state.usageCodeSeq = (state.usageCodeSeq||0) + 1;
+  return 'PJL-' + String(state.usageCodeSeq).padStart(5,'0');
+}
+// Kompatibilitas mundur: data mobil/perjalanan LAMA (dibuat sebelum fitur
+// ini ada) belum punya kode -- diberi kode begitu ketahuan kosong, lalu
+// disimpan, supaya tiap catatan cuma dapat 1 kode permanen seumur hidup.
+function ensureCodesAssigned(){
+  let changed = false;
+  state.cars.forEach(c=>{ if(!c.kode){ c.kode = nextCarCode(); changed = true; } });
+  state.usage.forEach(u=>{ if(!u.kode){ u.kode = nextUsageCode(); changed = true; } });
+  if(changed) saveData();
 }
 function saveData(){
   try{
@@ -1527,6 +1558,26 @@ function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+// Tampilan kode Mobil/Perjalanan + tombol salin -- dipakai di Data Mobil &
+// Catat Perjalanan, khusus supaya gampang disalin ke menu "Hapus Data"
+// tanpa perlu ketik manual (rawan salah ketik/tempel).
+function codeBadgeHtml(kode){
+  if(!kode) return '-';
+  return `<span class="code-badge" data-copy-code="${escapeHtml(kode)}" title="Klik untuk salin">${escapeHtml(kode)} <span class="copy-ic">📋</span></span>`;
+}
+// Delegasi 1x di seluruh dokumen -- supaya tidak perlu wiring ulang tiap
+// kali tabel/kartu di-render ulang.
+document.addEventListener('click', (e)=>{
+  const el = e.target.closest('[data-copy-code]');
+  if(!el) return;
+  const kode = el.dataset.copyCode;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(kode).then(()=> showToast(`Kode ${kode} disalin.`)).catch(()=> showToast('Gagal menyalin, salin manual: '+kode, true));
+  } else {
+    showToast('Salin manual: '+kode, true);
+  }
+});
+
 function showToast(msg, isErr){
   const wrap = document.getElementById('toast-wrap');
   const el = document.createElement('div');
@@ -1570,10 +1621,101 @@ function renderPetugasSelect(){
    kalau ke depannya sering terjadi, beri tahu saya untuk dibuatkan sistem
    tombstone khusus seperti modul-modul lain.
    ======================================================================== */
+/* ========================================================================
+   MODUL: HAPUS DATA (khusus Mobil & Perjalanan)
+   Konsep: kedua data ini SENGAJA tidak lagi bisa dihapus dari halaman
+   masing-masing (Data Mobil / Catat Perjalanan) -- supaya tidak
+   kepencet/lalai tidak sengaja. Satu-satunya jalan hapus adalah di sini,
+   pakai KODE unik yang ditampilkan di halaman aslinya (tinggal disalin).
+   ======================================================================== */
+function renderHapusData(){
+  document.getElementById('header-actions').innerHTML = '';
+  document.getElementById('content').innerHTML = `
+    <div class="panel">
+      <div class="panel-head"><h2>⚠️ Hapus Data Mobil</h2></div>
+      <div class="panel-body">
+        <p class="hint" style="margin-top:0;">Tempel/ketik Kode Mobil (format <code>MBL-0001</code>) yang tertera di halaman Data Mobil.</p>
+        <div class="field">
+          <label>Kode Mobil</label>
+          <input type="text" id="in-hapus-kode-mobil" placeholder="Contoh: MBL-0001" style="text-transform:uppercase;">
+        </div>
+        <div id="preview-hapus-mobil"></div>
+        <button class="btn btn-danger" id="btn-hapus-mobil" style="margin-top:10px;" disabled>🗑️ Hapus Mobil Ini</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>⚠️ Hapus Data Perjalanan</h2></div>
+      <div class="panel-body">
+        <p class="hint" style="margin-top:0;">Tempel/ketik Kode Perjalanan (format <code>PJL-00001</code>) yang tertera di halaman Catat Perjalanan. Untuk menghapus item Biaya Operasional, tetap lewat menu Catat Perjalanan seperti biasa — bukan di sini.</p>
+        <div class="field">
+          <label>Kode Perjalanan</label>
+          <input type="text" id="in-hapus-kode-pjl" placeholder="Contoh: PJL-00001" style="text-transform:uppercase;">
+        </div>
+        <div id="preview-hapus-pjl"></div>
+        <button class="btn btn-danger" id="btn-hapus-pjl" style="margin-top:10px;" disabled>🗑️ Hapus Perjalanan Ini</button>
+      </div>
+    </div>
+  `;
+
+  const inMobil = document.getElementById('in-hapus-kode-mobil');
+  const previewMobil = document.getElementById('preview-hapus-mobil');
+  const btnMobil = document.getElementById('btn-hapus-mobil');
+  let matchedCar = null;
+  inMobil.addEventListener('input', ()=>{
+    const kode = inMobil.value.trim().toUpperCase();
+    matchedCar = kode ? state.cars.find(c=> (c.kode||'').toUpperCase() === kode) : null;
+    if(!kode){ previewMobil.innerHTML = ''; btnMobil.disabled = true; return; }
+    if(matchedCar){
+      previewMobil.innerHTML = `<div class="hint" style="background:#EEF3FF;color:var(--blue-dark);padding:8px 10px;border-radius:6px;">✅ Ditemukan: <b>${escapeHtml(matchedCar.merk)} ${escapeHtml(matchedCar.modelMobil)} — ${escapeHtml(matchedCar.plat)}</b></div>`;
+      btnMobil.disabled = false;
+    } else {
+      previewMobil.innerHTML = `<div class="hint" style="background:var(--red-bg);color:var(--red);padding:8px 10px;border-radius:6px;">❌ Kode tidak ditemukan.</div>`;
+      btnMobil.disabled = true;
+    }
+  });
+  btnMobil.addEventListener('click', ()=>{
+    if(!matchedCar) return;
+    deleteCar(matchedCar.id);
+    if(!state.cars.some(c=>c.id===matchedCar.id)){ // benar-benar terhapus (bukan dibatalkan lewat confirm)
+      inMobil.value = ''; previewMobil.innerHTML = ''; btnMobil.disabled = true; matchedCar = null;
+    }
+  });
+
+  const inPjl = document.getElementById('in-hapus-kode-pjl');
+  const previewPjl = document.getElementById('preview-hapus-pjl');
+  const btnPjl = document.getElementById('btn-hapus-pjl');
+  let matchedUsage = null;
+  inPjl.addEventListener('input', ()=>{
+    const kode = inPjl.value.trim().toUpperCase();
+    matchedUsage = kode ? state.usage.find(u=> (u.kode||'').toUpperCase() === kode) : null;
+    if(!kode){ previewPjl.innerHTML = ''; btnPjl.disabled = true; return; }
+    if(matchedUsage){
+      previewPjl.innerHTML = `<div class="hint" style="background:#EEF3FF;color:var(--blue-dark);padding:8px 10px;border-radius:6px;">✅ Ditemukan: <b>${escapeHtml(carLabel(matchedUsage.carId))}</b> — ${escapeHtml(matchedUsage.tujuan||'-')} · ${fmtDate(matchedUsage.tglKeluar)}</div>`;
+      btnPjl.disabled = false;
+    } else {
+      previewPjl.innerHTML = `<div class="hint" style="background:var(--red-bg);color:var(--red);padding:8px 10px;border-radius:6px;">❌ Kode tidak ditemukan.</div>`;
+      btnPjl.disabled = true;
+    }
+  });
+  btnPjl.addEventListener('click', ()=>{
+    if(!matchedUsage) return;
+    deleteUsage(matchedUsage.id);
+    if(!state.usage.some(u=>u.id===matchedUsage.id)){
+      inPjl.value = ''; previewPjl.innerHTML = ''; btnPjl.disabled = true; matchedUsage = null;
+    }
+  });
+}
+
 function renderSettings(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-admin">+ Tambah Petugas</button>`;
+    `<button class="btn btn-primary" id="btn-add-admin">+ Tambah Petugas</button>${exportBtnHtml('btn-export-admin')}`;
   document.getElementById('btn-add-admin').onclick = () => openAdminModal();
+  document.getElementById('btn-export-admin').onclick = () => {
+    exportToExcel('petugas', 'Petugas', state.admins.map(name=>({
+      Nama: name, Status: name===currentAdmin?'Sedang aktif':'-', Terlindungi: ADMIN_NAMES_DILINDUNGI.includes(name)?'Ya':'Tidak',
+    })));
+  };
 
   const html = `
     <div class="panel">
@@ -1695,6 +1837,7 @@ const ROUTES = {
   docs:      {title:'Dokumen', sub:'STNK, pajak, dan asuransi kendaraan', render: renderDocs},
   etoll:     {title:'Kartu E-Toll', sub:'Data kartu E-Toll dan saldo per mobil', render: renderEtollCards},
   bbm:       {title:'BBM', sub:'Tracking pembelian & pemakaian BBM per mobil', render: renderBBM},
+  hapusdata: {title:'Hapus Data', sub:'Hapus Data Mobil / Perjalanan pakai kode khusus', render: renderHapusData},
   settings:  {title:'Pengaturan', sub:'Kelola nama petugas/admin', render: renderSettings},
 };
 
@@ -1991,7 +2134,6 @@ function openTripActionMenu(usageId, anchorEl){
     <div class="trip-action-item" data-act="edit">✏️ Edit</div>
     <div class="trip-action-item" data-act="biayaop">🧾 Biaya Operasional</div>
     <div class="trip-action-item" data-act="return">✅ Tandai Kembali</div>
-    <div class="trip-action-item danger" data-act="delete">🗑️ Hapus</div>
   `;
   document.body.appendChild(menu);
 
@@ -2260,8 +2402,14 @@ function emptyState(icon, text){
    ======================================================================== */
 function renderCars(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-car">+ Tambah Mobil</button>`;
+    `<button class="btn btn-primary" id="btn-add-car">+ Tambah Mobil</button>${exportBtnHtml('btn-export-car')}`;
   document.getElementById('btn-add-car').onclick = () => openCarModal();
+  document.getElementById('btn-export-car').onclick = () => {
+    exportToExcel('data-mobil', 'Data Mobil', state.cars.map(c=>({
+      Kode: c.kode||'', Plat: c.plat, Merk: c.merk, Model: c.modelMobil, Tahun: c.tahun, Warna: c.warna,
+      'Odometer (KM)': c.odometerSaatIni||'', 'Kapasitas Tangki (L)': c.kapasitasTangkiLiter||'',
+    })));
+  };
 
   let list = [...state.cars].sort((a,b)=> a.merk.localeCompare(b.merk));
 
@@ -2285,13 +2433,14 @@ function renderCars(){
     }
     wrap.innerHTML = `
       <div class="table-scroll desktop-data-table"><table>
-        <thead><tr><th>Plat Nomor</th><th>Merk / Model</th><th>Tahun</th><th>Warna</th><th>Odometer</th><th>Status Saat Ini</th><th>Servis Berikutnya</th><th></th></tr></thead>
+        <thead><tr><th>Kode</th><th>Plat Nomor</th><th>Merk / Model</th><th>Tahun</th><th>Warna</th><th>Odometer</th><th>Status Saat Ini</th><th>Servis Berikutnya</th><th></th></tr></thead>
         <tbody>
           ${items.map(c=>{
             const activeUsage = state.usage.find(u=>u.carId===c.id && u.status==='digunakan');
             const reminder = serviceReminderInfo(c);
             return `
             <tr>
+              <td>${codeBadgeHtml(c.kode)}</td>
               <td><span class="plate">${escapeHtml(c.plat)}</span></td>
               <td>${escapeHtml(c.merk)} ${escapeHtml(c.modelMobil)}</td>
               <td>${escapeHtml(c.tahun)}</td>
@@ -2301,7 +2450,6 @@ function renderCars(){
               <td>${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Pengingat nonaktif</span>`}</td>
               <td style="text-align:right;white-space:nowrap;">
                 <button class="btn btn-ghost btn-sm" data-edit="${c.id}">Edit</button>
-                <button class="btn btn-danger btn-sm" data-del="${c.id}">Hapus</button>
               </td>
             </tr>`;
           }).join('')}
@@ -2317,6 +2465,7 @@ function renderCars(){
               <span>${escapeHtml(c.merk)} ${escapeHtml(c.modelMobil)}</span>
               <span class="plate">${escapeHtml(c.plat)}</span>
             </div>
+            <div class="data-card-row"><span class="k">Kode</span><span class="v">${codeBadgeHtml(c.kode)}</span></div>
             <div class="data-card-row"><span class="k">Tahun</span><span class="v">${escapeHtml(c.tahun)}</span></div>
             <div class="data-card-row"><span class="k">Warna</span><span class="v">${escapeHtml(c.warna)}</span></div>
             <div class="data-card-row"><span class="k">Odometer</span><span class="v">${c.odometerSaatIni!=null ? Number(c.odometerSaatIni).toLocaleString('id-ID')+' KM' : '-'}</span></div>
@@ -2324,7 +2473,6 @@ function renderCars(){
             <div class="data-card-row"><span class="k">Servis Berikutnya</span><span class="v">${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Nonaktif</span>`}</span></div>
             <div class="data-card-actions">
               <button class="btn btn-ghost btn-sm" data-edit="${c.id}">✏️ Edit</button>
-              <button class="btn btn-danger btn-sm" data-del="${c.id}">🗑️ Hapus</button>
             </div>
           </div>`;
         }).join('')}
@@ -2359,7 +2507,7 @@ function deleteCar(id){
   logActivity('mobil', 'Hapus data mobil', carName);
   saveData();
   showToast('Data mobil dihapus.');
-  renderCars();
+  if(currentRoute==='cars') renderCars();
 }
 
 function openCarModal(editId){
@@ -2506,7 +2654,7 @@ function openCarModal(editId){
         logActivity('mobil', 'Edit data mobil', `${merk} ${modelMobil} — ${plat}`);
         showToast('Data mobil diperbarui.');
       } else {
-        state.cars.push(touch({id: uid(), merk, modelMobil, tahun: tahunNum, warna, plat, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, createdAt: today(), petugas: currentAdmin}));
+        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, createdAt: today(), petugas: currentAdmin}));
         logActivity('mobil', 'Tambah mobil baru', `${merk} ${modelMobil} — ${plat}`);
         showToast('Mobil baru ditambahkan.');
       }
@@ -2547,8 +2695,13 @@ function openCarModal(editId){
    ======================================================================== */
 function renderDrivers(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-driver">+ Tambah Sopir</button>`;
+    `<button class="btn btn-primary" id="btn-add-driver">+ Tambah Sopir</button>${exportBtnHtml('btn-export-driver')}`;
   document.getElementById('btn-add-driver').onclick = () => openDriverModal();
+  document.getElementById('btn-export-driver').onclick = () => {
+    exportToExcel('data-sopir', 'Data Sopir', state.drivers.map(d=>({
+      Nama: d.nama, 'No. SIM': d.noSim||'', 'No. HP': d.noHp||'', Alamat: d.alamat||'',
+    })));
+  };
 
   const allItems = [...state.drivers].sort((a,b)=> a.nama.localeCompare(b.nama));
   const html = `<div class="panel"><div class="panel-body">
@@ -2681,8 +2834,20 @@ function openDriverModal(editId){
    ======================================================================== */
 function renderUsage(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-usage">+ Catat Penggunaan</button>`;
+    `<button class="btn btn-primary" id="btn-add-usage">+ Catat Penggunaan</button>${exportBtnHtml('btn-export-usage')}`;
   document.getElementById('btn-add-usage').onclick = () => openUsageModal();
+  document.getElementById('btn-export-usage').onclick = () => {
+    exportToExcel('catat-perjalanan', 'Catat Perjalanan', state.usage.map(u=>{
+      const jarak = (u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) ? (u.odoKembali-u.odoKeluar) : '';
+      return {
+        Kode: u.kode||'', Mobil: carLabel(u.carId), Driver: driverLabel(u.driverId,u.driver),
+        Jenis: u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman', Tujuan: u.tujuan||'',
+        Keluar: u.tglKeluar||'', 'Jam Keluar': u.jamKeluar||'', Kembali: u.tglKembali||'', 'Jam Kembali': u.jamKembali||'',
+        'Jarak (KM)': jarak, 'Liter BBM': u.literBensin||'', 'Biaya BBM': u.biayaBensin||'',
+        Status: u.status==='digunakan'?'Digunakan':'Selesai',
+      };
+    }));
+  };
 
   const allItems = [...state.usage].sort((a,b)=> b.tglKeluar.localeCompare(a.tglKeluar));
 
@@ -2761,7 +2926,6 @@ function renderUsage(){
         ${isOperasional ? `<button class="btn btn-ghost btn-sm" data-biayaop="${u.id}">🧾 Biaya Operasional</button>` : ''}
         ${biayaOpTotal>0 ? `<button class="btn btn-ghost btn-sm" data-share="${u.id}">📤 Bagikan</button><button class="btn btn-ghost btn-sm" data-copy-img="${u.id}">📋 Salin Gambar</button>` : ''}
         ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Tandai Kembali</button>` : `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✏️ Edit Data Kembali</button>`}
-        <button class="btn btn-danger btn-sm" data-del="${u.id}">🗑️ Hapus</button>
       `;
       return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, linkedCard, jarakBadge, bbmLabel, biayaOpTotal, isOperasional, actionButtonsHtml };
     });
@@ -2769,12 +2933,13 @@ function renderUsage(){
     // ---------- Versi TABEL (desktop, layar lebar) ----------
     const tableHtml = `
       <div class="table-scroll desktop-usage-table"><table>
-        <thead><tr><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Jam</th><th>Kembali</th><th>Jam</th><th>Jarak</th><th>BBM Dibeli</th><th>Rasio</th><th>Bensin Keluar</th><th>Bensin Kembali</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Biaya Operasional</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Kode</th><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Jam</th><th>Kembali</th><th>Jam</th><th>Jarak</th><th>BBM Dibeli</th><th>Rasio</th><th>Bensin Keluar</th><th>Bensin Kembali</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Biaya Operasional</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${rows.map(r=>{
             const u = r.u;
             return `
             <tr>
+              <td>${codeBadgeHtml(u.kode)}</td>
               <td>${escapeHtml(carLabel(u.carId))}</td>
               <td>${escapeHtml(driverLabel(u.driverId, u.driver))}</td>
               <td>${u.jenisPenggunaan==='pribadi' ? `<span class="badge neutral">Pribadi</span>` : `<span class="badge ok">Pengiriman</span>`}</td>
@@ -2812,6 +2977,7 @@ function renderUsage(){
             </div>
             <div class="usage-card-tujuan">📍 ${escapeHtml(u.tujuan)}</div>
             <div class="usage-card-meta">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${fmtDate(u.tglKeluar)}${u.tglKembali?' → '+fmtDate(u.tglKembali):''}</div>
+            <div style="margin-top:6px;">${codeBadgeHtml(u.kode)}</div>
             <div class="usage-card-detail-toggle" data-toggle="${idx}">▾ Lihat detail (Jarak, BBM, Rasio, dst)</div>
             <div class="usage-card-detail" id="usage-card-detail-${idx}" style="display:none;">
               <div class="usage-card-detail-grid">
@@ -3122,6 +3288,42 @@ function isBiayaOpCategory(v){ return BIAYA_OP_CATEGORIES.includes(v); }
    normal; fitur "bagikan gambar" ini sendiri butuh internet karena tujuannya
    memang mengirim ke WhatsApp). */
 let html2canvasLoading = null;
+/* ---------------- Export Excel (generik, dipakai semua menu) ----------------
+   Pakai SheetJS, dimuat sekali saat dibutuhkan (pola sama seperti
+   html2canvas untuk laporan gambar) -- supaya tidak membebani waktu buka
+   aplikasi kalau fiturnya tidak dipakai. */
+let xlsxLoading = null;
+function loadXLSX(){
+  if(window.XLSX) return Promise.resolve();
+  if(xlsxLoading) return xlsxLoading;
+  xlsxLoading = new Promise((resolve, reject)=>{
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Gagal memuat pustaka Excel (perlu koneksi internet).'));
+    document.head.appendChild(script);
+  });
+  return xlsxLoading;
+}
+// rows: array of plain objects -- key jadi header kolom, urutan key jadi urutan kolom.
+async function exportToExcel(filename, sheetName, rows){
+  if(!rows || rows.length===0){ showToast('Tidak ada data untuk di-export.', true); return; }
+  try{
+    await loadXLSX();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0,31)); // nama sheet Excel maks 31 karakter
+    XLSX.writeFile(wb, filename.endsWith('.xlsx') ? filename : filename+'.xlsx');
+    showToast('File Excel berhasil diunduh.');
+  }catch(e){
+    console.error('Gagal export Excel:', e);
+    showToast(e.message || 'Gagal export Excel.', true);
+  }
+}
+function exportBtnHtml(id){
+  return `<button class="btn btn-ghost" id="${id}">📊 Export Excel</button>`;
+}
+
 function loadHtml2Canvas(){
   if(window.html2canvas) return Promise.resolve();
   if(html2canvasLoading) return html2canvasLoading;
@@ -3515,7 +3717,7 @@ function openUsageModal(editId){
         showToast('Perubahan disimpan.');
       } else {
         state.usage.push(touch({
-          id: uid(), carId, driverId, jenisPenggunaan, tujuan, tglKeluar, tglKembali:null,
+          id: uid(), kode: nextUsageCode(), carId, driverId, jenisPenggunaan, tujuan, tglKeluar, tglKembali:null,
           jamKeluar, jamKembali: null,
           status:'digunakan',
           odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
@@ -3624,8 +3826,15 @@ function bookingStatusBadge(b){
 
 function renderBookings(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-booking">+ Buat Booking</button>`;
+    `<button class="btn btn-primary" id="btn-add-booking">+ Buat Booking</button>${exportBtnHtml('btn-export-booking')}`;
   document.getElementById('btn-add-booking').onclick = () => openBookingModal();
+  document.getElementById('btn-export-booking').onclick = () => {
+    exportToExcel('booking-mobil', 'Booking Mobil', state.bookings.map(b=>({
+      Mobil: carLabel(b.carId), Sopir: b.driverId?driverLabel(b.driverId):'', Tujuan: b.tujuan||'',
+      Mulai: b.tglMulai||'', 'Jam Mulai': b.jamMulai||'', Selesai: b.tglSelesai||'', 'Jam Selesai': b.jamSelesai||'',
+      Status: b.status||'',
+    })));
+  };
 
   const allItems = [...state.bookings].sort((a,b)=> bookingDT(a.tglMulai,a.jamMulai).localeCompare(bookingDT(b.tglMulai,b.jamMulai)));
   const html = `<div class="panel"><div class="panel-body">
@@ -3706,7 +3915,7 @@ function startTripFromBooking(id){
   if(!confirm(`Mulai perjalanan sekarang?\n\nMobil: ${carLabel(b.carId)}\nTujuan: ${b.tujuan}\n\nAkan otomatis dibuat catatan baru di Catat Perjalanan.`)) return;
 
   state.usage.push(touch({
-    id: uid(), carId: b.carId, driverId: b.driverId||null, jenisPenggunaan:'pengiriman',
+    id: uid(), kode: nextUsageCode(), carId: b.carId, driverId: b.driverId||null, jenisPenggunaan:'pengiriman',
     tujuan: b.tujuan, tglKeluar: today(), tglKembali: null,
     jamKeluar: new Date().toTimeString().slice(0,5), jamKembali: null,
     status:'digunakan', odoKeluar:null, odoKembali:null, bensinKeluar:null, bensinKembali:null,
@@ -3937,7 +4146,7 @@ function computeServiceAnomalies(){
    ======================================================================== */
 function renderService(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-service">+ Catat Servis</button>`;
+    `<button class="btn btn-primary" id="btn-add-service">+ Catat Servis</button>${exportBtnHtml('btn-export-service')}`;
   document.getElementById('btn-add-service').onclick = () => openServiceModal();
 
   // Ditampilkan per-ITEM (bukan per-kunjungan), diurutkan terbaru dulu, supaya
@@ -3948,6 +4157,14 @@ function renderService(){
     serviceItems(s).forEach(it=> rows.push({ service: s, item: it }));
   });
   rows.sort((a,b)=> b.service.tanggal.localeCompare(a.service.tanggal));
+
+  document.getElementById('btn-export-service').onclick = () => {
+    exportToExcel('servis-maintenance', 'Servis', rows.map(r=>({
+      Tanggal: r.service.tanggal||'', Mobil: carLabel(r.service.carId), Kategori: r.item.kategori||'',
+      'Odometer (KM)': r.service.odometer||'', Bengkel: r.service.bengkel||'', Biaya: r.item.biaya||0,
+      Catatan: r.item.catatan||'',
+    })));
+  };
 
   const categoriesInUse = Array.from(new Set(rows.map(r=>r.item.kategori).filter(Boolean))).sort();
 
@@ -4228,8 +4445,14 @@ function openServiceModal(){
    ======================================================================== */
 function renderDocs(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-doc">+ Tambah Dokumen</button>`;
+    `<button class="btn btn-primary" id="btn-add-doc">+ Tambah Dokumen</button>${exportBtnHtml('btn-export-doc')}`;
   document.getElementById('btn-add-doc').onclick = () => openDocModal();
+  document.getElementById('btn-export-doc').onclick = () => {
+    exportToExcel('dokumen', 'Dokumen', state.documents.map(d=>({
+      Mobil: carLabel(d.carId), Jenis: d.jenis||'', Nomor: d.nomor||'',
+      Terbit: d.tglTerbit||'', 'Masa Berlaku': d.tglExpired||'',
+    })));
+  };
 
   const allItems = [...state.documents].sort((a,b)=> a.tglExpired.localeCompare(b.tglExpired));
   const html = `<div class="panel"><div class="panel-body">
@@ -4494,7 +4717,7 @@ function computeBbmAnomalies(){
 }
 
 function renderBBM(){
-  document.getElementById('header-actions').innerHTML = '';
+  document.getElementById('header-actions').innerHTML = exportBtnHtml('btn-export-bbm');
 
   const carSummaries = state.cars.map(c=>{
     const trips = state.usage.filter(u=>u.carId===c.id);
@@ -4539,6 +4762,13 @@ function renderBBM(){
     }
   });
   rows.sort((a,b)=> (b.updatedAt||0)-(a.updatedAt||0));
+
+  document.getElementById('btn-export-bbm').onclick = () => {
+    exportToExcel('bbm', 'Riwayat BBM', rows.map(u=>({
+      Tanggal: u.tglKembali||u.tglKeluar||'', Mobil: carLabel(u.carId), Driver: driverLabel(u.driverId,u.driver),
+      'Liter': u.literBensin||'', Biaya: u.biayaBensin||'',
+    })));
+  };
 
   // Anomali cuma dihitung & dirender kalau insight sedang terbuka -- kalau
   // terkunci, panelnya TIDAK ADA SAMA SEKALI di halaman (bukan cuma
@@ -4735,8 +4965,14 @@ function renderBBM(){
 
 function renderEtollCards(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-etoll">+ Tambah Kartu</button>`;
+    `<button class="btn btn-primary" id="btn-add-etoll">+ Tambah Kartu</button>${exportBtnHtml('btn-export-etoll')}`;
   document.getElementById('btn-add-etoll').onclick = () => openEtollCardModal();
+  document.getElementById('btn-export-etoll').onclick = () => {
+    exportToExcel('kartu-etoll', 'Kartu E-Toll', state.etollCards.map(card=>({
+      'Nomor Kartu': card.nomorKartu||'', Mobil: card.mobilId?carLabel(card.mobilId):'',
+      Saldo: card.saldo||0, 'Batas Minimum': card.batasMinimum!=null?card.batasMinimum:25000, Catatan: card.catatan||'',
+    })));
+  };
 
   const allItems = [...state.etollCards].sort((a,b)=> a.nomorKartu.localeCompare(b.nomorKartu));
   const html = `<div class="panel"><div class="panel-body">
@@ -5009,6 +5245,15 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.17.0',
+    date: '22 Jul 2026',
+    notes: [
+      'Fitur baru: Kode unik untuk tiap Mobil (MBL-0001) dan Perjalanan (PJL-00001) — tampil sebagai badge, klik untuk salin.',
+      'Menu baru "Hapus Data" — SATU-SATUNYA tempat menghapus Data Mobil & Catat Perjalanan sekarang, pakai kode di atas. Tombol Hapus di halaman Data Mobil & Catat Perjalanan dihilangkan untuk mencegah salah hapus (Biaya Operasional tidak terpengaruh, tetap seperti biasa).',
+      'Tombol "📊 Export Excel" ditambahkan di semua menu (kecuali Dashboard & Hapus Data) — Data Mobil, Data Sopir, Catat Perjalanan, Booking Mobil, Servis & Maintenance, Dokumen, Kartu E-Toll, BBM, Pengaturan.',
+    ]
+  },
   {
     v: '3.16.0',
     date: '22 Jul 2026',
@@ -5527,6 +5772,7 @@ try{
   const savedRoute = localStorage.getItem('fleetops_last_route');
   if(savedRoute && ROUTES[savedRoute]) startRoute = savedRoute;
 }catch(e){}
+ensureCodesAssigned();
 navigate(startRoute);
 
 /* ---------------- Tombol "Kembali" HP/browser ----------------
