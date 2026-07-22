@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.14.0">
+<meta name="app-version" content="3.14.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -776,7 +776,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.14.0';
+const APP_VERSION = '3.14.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -4976,6 +4976,13 @@ function openModal({title, body, onSave}){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '3.14.1',
+    date: '22 Jul 2026',
+    notes: [
+      'Perbaikan bug: tombol "Kembali" fisik HP sempat langsung keluar aplikasi tanpa konfirmasi (khusus mode PWA ter-install) — sekarang alamat riwayat dibuat benar-benar unik tiap langkah, supaya tombol kembali selalu tertangkap dengan benar.',
+    ]
+  },
+  {
     v: '3.14.0',
     date: '22 Jul 2026',
     notes: [
@@ -5479,14 +5486,25 @@ navigate(startRoute);
    - Kalau SUDAH di Dashboard (tidak ada lagi tempat "dalam app" untuk
      kembali) -> baru tanyakan konfirmasi mau keluar aplikasi atau tidak. */
 let exitConfirmed = false;
-history.pushState({fleetops:true}, '', location.href);
+// PENTING: alamat yang disimpan di tiap pushState HARUS beda dari sebelumnya
+// (pakai tanda #nav + angka penghitung) -- kalau alamatnya identik terus,
+// sebagian HP/browser (terutama saat app sudah ter-install sebagai PWA)
+// tidak menganggapnya "langkah baru" di riwayat, dan tombol kembali fisik
+// langsung menembus ke luar aplikasi tanpa sempat memicu popstate sama sekali.
+let navGuardCounter = 0;
+function pushNavGuard(){
+  navGuardCounter++;
+  const base = location.href.split('#')[0];
+  history.pushState({fleetops:true}, '', base + '#nav' + navGuardCounter);
+}
+pushNavGuard();
 window.addEventListener('popstate', ()=>{
   if(exitConfirmed) return; // user sudah pilih "Iya" -> biarkan browser keluar secara alami
   if(currentRoute !== 'dashboard'){
-    history.pushState({fleetops:true}, '', location.href);
+    pushNavGuard();
     navigate('dashboard');
   } else {
-    history.pushState({fleetops:true}, '', location.href);
+    pushNavGuard();
     openExitConfirmModal();
   }
 });
