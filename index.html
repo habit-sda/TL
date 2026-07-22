@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.19.1">
+<meta name="app-version" content="3.20.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -798,7 +798,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.19.1';
+const APP_VERSION = '3.20.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1430,9 +1430,19 @@ function fmtPercentInitial(n){
    Sudah diverifikasi round-trip konsisten (Bar->Persen->Bar selalu balik
    ke angka Bar yang sama) untuk skala umum (4/7/8 bar dst) pakai
    pembulatan standar (round-half-up). */
+// PENTING: TIDAK dibulatkan. Pembacaan "X Bar" itu sendiri sudah eksak
+// (bukan hasil pengukuran kontinu), jadi X/maxBar*100 adalah nilai
+// sebenarnya -- bukan estimasi yang perlu dibulatkan. Membulatkannya ke
+// bilangan bulat (versi lama pakai Math.round) menambahkan bias sistematis
+// ±0,5 titik persen ke SETIAP pembacaan dengan jumlah bar ganjil, yang lalu
+// menumpuk jadi bias nyata di hasil "BBM Digunakan" & Rasio (neraca tangki
+// dihitung dari SELISIH dua pembacaan). Nilai persen boleh mengandung
+// desimal (mis. 62.5) -- ini valid dan dipakai apa adanya untuk kalkulasi.
+// Untuk TAMPILAN ke pengguna, bulatkan di sisi caller (lihat buildBarOptions
+// & wireBarPickerWidget), bukan di sini.
 function convertBarToPercent(barCount, maxBar){
   if(barCount==null || barCount==='' || !maxBar) return null;
-  return Math.round((Number(barCount) / Number(maxBar)) * 100);
+  return (Number(barCount) / Number(maxBar)) * 100;
 }
 function convertPercentToBar(percent, maxBar){
   if(percent==null || percent==='' || !maxBar) return null;
@@ -1456,8 +1466,8 @@ function buildBarOptions(maxBar, currentPercentValue){
   const currentBar = currentPercentValue!=null ? convertPercentToBar(currentPercentValue, maxBar) : null;
   let options = `<option value="">— pilih —</option>`;
   for(let i = maxBar; i >= 0; i--){
-    const pct = convertBarToPercent(i, maxBar);
-    options += `<option value="${pct}" ${currentBar===i?'selected':''}>${i} Bar (${pct}%)</option>`;
+    const pct = convertBarToPercent(i, maxBar); // nilai eksak (bisa desimal) -- ini yang disimpan
+    options += `<option value="${pct}" ${currentBar===i?'selected':''}>${i} Bar (${Math.round(pct)}%)</option>`;
   }
   return options;
 }
@@ -1827,9 +1837,33 @@ const ROUTES = {
   settings:  {title:'Pengaturan', sub:'Kelola nama petugas/admin', render: renderSettings},
 };
 
-function navigate(route){
+// Stack menu yang PERNAH dikunjungi dalam sesi ini (bukan cuma "1 menu
+// terakhir") -- dipakai tombol Kembali fisik supaya balik ke menu SEBELUMNYA
+// yang sesungguhnya (seperti kebanyakan aplikasi lain), bukan selalu lompat
+// ke Dashboard. Disimpan di memori saja (bukan localStorage/sessionStorage)
+// karena cuma relevan selama aplikasi masih terbuka & berjalan.
+let navHistory = [];
+const NAV_HISTORY_MAX = 50; // jaga-jaga supaya tidak membengkak tanpa batas
+
+function navigate(route, opts){
+  opts = opts || {};
+  // Catat route SEBELUMNYA ke stack -- KECUALI kalau navigasi ini dipicu oleh
+  // tombol Kembali (fromBack) atau route-nya sama dengan yang sekarang (mis.
+  // re-render setelah simpan data), supaya stack tidak salah/duplikat.
+  if(!opts.fromBack && currentRoute && currentRoute !== route){
+    navHistory.push(currentRoute);
+    if(navHistory.length > NAV_HISTORY_MAX) navHistory.shift();
+  }
   currentRoute = route;
-  try{ localStorage.setItem('fleetops_last_route', route); }catch(e){}
+  // PENTING: pakai sessionStorage (bukan localStorage). sessionStorage ikut
+  // hilang begitu aplikasi BENAR-BENAR ditutup (proses/tab dimatikan), tapi
+  // TETAP ada kalau HP cuma dikunci/layar dimatikan (proses tetap hidup di
+  // belakang layar, cuma "tidur") -- jadi:
+  //   - Layar mati/HP dikunci lalu dibuka lagi -> BUKAN penutupan aplikasi,
+  //     otomatis lanjut di menu yang sama (proses JS tidak pernah berhenti).
+  //   - Aplikasi benar-benar ditutup (swipe dari recent apps / force close)
+  //     lalu dibuka lagi -> dianggap "sesi baru", kembali ke Dashboard.
+  try{ sessionStorage.setItem('fleetops_last_route', route); }catch(e){}
   document.querySelectorAll('.menu-item').forEach(el=>{
     el.classList.toggle('active', el.dataset.route === route);
   });
@@ -3589,7 +3623,7 @@ function wireBarPickerWidget(widgetSelector, inputId, onChangeCallback){
   const maxBar = Number(widget.dataset.maxbar);
 
   function updateVisual(bar){
-    const pct = convertBarToPercent(bar, maxBar);
+    const pct = convertBarToPercent(bar, maxBar); // nilai eksak (bisa desimal) -- disimpan apa adanya
     const color = bensinLevelColor(pct);
     // PENTING: bersihkan warna SEMUA tombol dulu tiap kali ganti pilihan --
     // sebelumnya warna yang pernah dipilih menempel permanen di tombolnya
@@ -3607,9 +3641,9 @@ function wireBarPickerWidget(widgetSelector, inputId, onChangeCallback){
     ).join('');
     widget.querySelector('[data-role="label"]').textContent = `${bar} / ${maxBar} Bar`;
     const percentEl = widget.querySelector('[data-role="percent"]');
-    percentEl.textContent = pct + '%';
+    percentEl.textContent = Math.round(pct) + '%'; // label dibulatkan biar enak dibaca
     percentEl.style.color = color;
-    hiddenInput.value = pct;
+    hiddenInput.value = pct; // nilai TERSIMPAN tetap eksak, tidak dibulatkan
   }
 
   widget.querySelectorAll('.bar-picker-btn').forEach(btn=>{
@@ -5333,6 +5367,14 @@ function openModal({title, body, onSave}){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '3.20.0',
+    date: '23 Jul 2026',
+    notes: [
+      'Tombol "Kembali" HP/browser sekarang benar-benar mengingat riwayat menu dalam 1 sesi pemakaian — kembali ke menu SEBELUMNYA yang sesungguhnya (seperti kebanyakan aplikasi lain), bukan selalu lompat ke Dashboard. Kalau riwayatnya sudah habis, baru jatuh ke Dashboard, lalu ke konfirmasi keluar.',
+      'Menu terakhir yang dibuka kini hanya diingat SELAMA aplikasi belum benar-benar ditutup. Layar mati/HP dikunci lalu dibuka lagi TETAP lanjut di menu yang sama (bukan dianggap menutup aplikasi). Tapi kalau aplikasi benar-benar ditutup (mis. di-swipe dari daftar aplikasi terbuka) lalu dibuka lagi, sekarang otomatis mulai dari Dashboard — sesuai kebiasaan kebanyakan aplikasi lain.',
+    ]
+  },
+  {
     v: '3.19.1',
     date: '22 Jul 2026',
     notes: [
@@ -5887,13 +5929,18 @@ document.getElementById('btn-changelog').onclick = () => {
 /* ---------------- Init ---------------- */
 document.getElementById('btn-changelog').textContent = 'v' + APP_VERSION + ' · Lihat Changelog';
 renderPetugasSelect();
-// Buka kembali halaman TERAKHIR yang dikunjungi (bukan selalu Dashboard),
-// supaya refresh/reload tidak memutus pekerjaan yang sedang dilihat.
+// Buka kembali halaman TERAKHIR yang dikunjungi DALAM SESI YANG SAMA (bukan
+// selalu Dashboard), supaya screen mati/HP terkunci lalu dibuka lagi (BUKAN
+// menutup aplikasi) tidak memutus pekerjaan yang sedang dilihat. Sengaja
+// pakai sessionStorage (bukan localStorage): begitu aplikasi BENAR-BENAR
+// ditutup (proses dimatikan, bukan cuma layar mati), sessionStorage ikut
+// hilang, sehingga pembukaan berikutnya otomatis dianggap sesi baru dan
+// mulai dari Dashboard -- sesuai perilaku standar kebanyakan aplikasi.
 // Validasi dulu route-nya masih ada di ROUTES -- kalau tidak (mis. hapus
 // menu di versi lama), aman jatuh ke 'dashboard'.
 let startRoute = 'dashboard';
 try{
-  const savedRoute = localStorage.getItem('fleetops_last_route');
+  const savedRoute = sessionStorage.getItem('fleetops_last_route');
   if(savedRoute && ROUTES[savedRoute]) startRoute = savedRoute;
 }catch(e){}
 ensureCodesAssigned();
@@ -5920,11 +5967,18 @@ function pushNavGuard(){
 pushNavGuard();
 window.addEventListener('popstate', ()=>{
   if(exitConfirmed) return; // user sudah pilih "Iya" -> biarkan browser keluar secara alami
-  if(currentRoute !== 'dashboard'){
-    pushNavGuard();
-    navigate('dashboard');
+  pushNavGuard();
+  if(navHistory.length > 0){
+    // Ada menu sebelumnya yang tercatat dalam sesi ini -> kembali ke situ,
+    // persis seperti tombol Kembali di kebanyakan aplikasi lain.
+    const prevRoute = navHistory.pop();
+    navigate(prevRoute, {fromBack:true});
+  } else if(currentRoute !== 'dashboard'){
+    // Tidak ada riwayat tercatat (mis. baru buka aplikasi langsung ke menu
+    // ini lewat sessionStorage) -> jatuhkan ke Dashboard dulu, jangan
+    // langsung keluar aplikasi.
+    navigate('dashboard', {fromBack:true});
   } else {
-    pushNavGuard();
     openExitConfirmModal();
   }
 });
