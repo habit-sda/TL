@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.18.0">
+<meta name="app-version" content="3.18.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -798,7 +798,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.18.0';
+const APP_VERSION = '3.18.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3221,7 +3221,7 @@ function openBiayaOperasionalModal(usageId){
     const wrap = document.getElementById('biayaop-items-wrap');
     if(!wrap) return;
     wrap.innerHTML = formItems.map(it=>`
-      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;">
+      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:#FAFBFC;">
         <div class="grid-2">
           <div class="field" style="margin-bottom:8px;">
             <label>Kategori</label>
@@ -4363,7 +4363,7 @@ function openServiceModal(){
     const wrap = document.getElementById('service-items-wrap');
     if(!wrap) return;
     wrap.innerHTML = formItems.map(it=>`
-      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;">
+      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:#FAFBFC;">
         <div class="grid-2">
           <div class="field" style="margin-bottom:8px;">
             <label>Kategori *</label>
@@ -5273,6 +5273,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.18.1',
+    date: '22 Jul 2026',
+    notes: [
+      'Kotak tiap item di modal Biaya Operasional dan Catat Servis diberi latar abu-abu tipis — lebih rapi dan jelas terlihat sebagai kelompok terpisah.',
+    ]
+  },
   {
     v: '3.18.0',
     date: '22 Jul 2026',
