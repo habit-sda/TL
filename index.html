@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.14.1">
+<meta name="app-version" content="3.16.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -348,6 +348,29 @@
   .usage-card-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid #F0F1F3;}
   .usage-card-actions .btn{font-size:10.5px;padding:6px 9px;}
 
+  /* ---------------- Kartu data GENERIK (dipakai semua menu di HP) ---------------- */
+  .data-card-list{display:none;}
+  .data-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fff;}
+  .data-card-title{font-weight:800;font-size:13.5px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .data-card-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;}
+  .data-card-row .k{color:var(--muted);flex-shrink:0;}
+  .data-card-row .v{font-weight:600;text-align:right;}
+  .data-card-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0F1F3;}
+  .data-card-actions .btn{font-size:10.5px;padding:6px 9px;}
+
+  /* ---------------- Daftar peringatan/alert bertumpuk (Dashboard, BBM, Servis) ---------------- */
+  .alert-list-item{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--line);}
+  .alert-list-item:last-child{border-bottom:none;}
+  .alert-list-item .ic{font-size:16px;flex-shrink:0;margin-top:1px;}
+  .alert-list-item .body{flex:1;min-width:0;}
+  .alert-list-item .body b{display:block;font-size:12.5px;margin-bottom:4px;}
+  .alert-list-item .body .desc{font-size:11.5px;color:var(--muted);line-height:1.5;}
+
+  @media(max-width:768px){
+    .desktop-data-table{display:none;}
+    .data-card-list{display:block;}
+  }
+
   /* ---------------- Bubble melayang: indikator mobil sedang dalam perjalanan ---------------- */
   #trip-bubble{position:fixed;bottom:20px;right:20px;z-index:150;}
   .trip-bubble-btn{
@@ -667,19 +690,6 @@
   <div class="msg" id="updating-overlay-msg">Memperbarui ke versi terbaru...</div>
 </div>
 
-<div id="camera-overlay" style="display:none;position:fixed;inset:0;z-index:400;background:#000;">
-  <video id="camera-video" autoplay playsinline muted style="width:100%;height:100%;object-fit:contain;background:#000;"></video>
-  <canvas id="camera-canvas" style="display:none;"></canvas>
-  <div style="position:absolute;top:16px;left:16px;right:16px;color:#fff;font-size:12.5px;text-align:center;background:rgba(0,0,0,0.45);padding:8px 12px;border-radius:8px;">
-    Arahkan ke angka Odometer di dashboard, lalu tekan tombol putih
-  </div>
-  <div style="position:absolute;bottom:28px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:28px;">
-    <button id="camera-cancel" type="button" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);color:#fff;border:none;font-size:18px;cursor:pointer;">✕</button>
-    <button id="camera-shutter" type="button" style="width:66px;height:66px;border-radius:50%;background:#fff;border:4px solid rgba(255,255,255,0.5);cursor:pointer;"></button>
-    <div style="width:44px;"></div>
-  </div>
-</div>
-
 <div id="trip-bubble" style="display:none;">
   <button class="trip-bubble-btn" id="trip-bubble-btn">
     <svg width="18" height="18" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;">
@@ -776,7 +786,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.14.1';
+const APP_VERSION = '3.16.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1581,7 +1591,7 @@ function renderAdminList(){
     return;
   }
   wrap.innerHTML = `
-    <div class="table-scroll"><table>
+    <div class="table-scroll desktop-data-table"><table>
       <thead><tr><th>Nama</th><th>Status</th><th></th></tr></thead>
       <tbody>
         ${state.admins.map(name=>`
@@ -1598,6 +1608,20 @@ function renderAdminList(){
           </tr>`).join('')}
       </tbody>
     </table></div>
+    <div class="data-card-list">
+      ${state.admins.map(name=>`
+        <div class="data-card">
+          <div class="data-card-title">
+            <span>${escapeHtml(name)}</span>
+            ${name===currentAdmin ? `<span class="badge ok">Aktif</span>` : ''}
+          </div>
+          ${ADMIN_NAMES_DILINDUNGI.includes(name) ? `<div class="data-card-row"><span class="k">Status</span><span class="v"><span class="badge neutral">🔒 Terlindungi</span></span></div>` : ''}
+          <div class="data-card-actions">
+            <button class="btn btn-ghost btn-sm" data-edit-admin="${escapeHtml(name)}">✏️ Edit</button>
+            ${ADMIN_NAMES_DILINDUNGI.includes(name) ? '' : `<button class="btn btn-danger btn-sm" data-del-admin="${escapeHtml(name)}">🗑️ Hapus</button>`}
+          </div>
+        </div>`).join('')}
+    </div>
   `;
   wrap.querySelectorAll('[data-edit-admin]').forEach(b=> b.onclick = ()=> openAdminModal(b.dataset.editAdmin));
   wrap.querySelectorAll('[data-del-admin]').forEach(b=> b.onclick = ()=> deleteAdmin(b.dataset.delAdmin));
@@ -2134,17 +2158,16 @@ function renderDashboard(){
     </div>
     <div class="panel-body">
       ${alerts.length === 0 ? emptyState('✅','Semua aman — tidak ada dokumen, servis, atau saldo E-Toll yang perlu segera ditangani.') : `
-      <div class="table-scroll"><table>
-        <thead><tr><th></th><th>Perihal</th><th>Keterangan</th></tr></thead>
-        <tbody>
-          ${alerts.slice(0,8).map(a=>`
-            <tr>
-              <td style="font-size:16px;">${a.ic}</td>
-              <td>${escapeHtml(a.judul)}</td>
-              <td><span class="badge ${a.level}">${escapeHtml(a.keterangan)}</span></td>
-            </tr>`).join('')}
-        </tbody>
-      </table></div>`}
+      <div class="alert-list">
+        ${alerts.slice(0,8).map(a=>`
+          <div class="alert-list-item">
+            <div class="ic">${a.ic}</div>
+            <div class="body">
+              <b>${escapeHtml(a.judul)}</b>
+              <div class="desc"><span class="badge ${a.level}">${escapeHtml(a.keterangan)}</span></div>
+            </div>
+          </div>`).join('')}
+      </div>`}
     </div>
   </div>
 
@@ -2261,7 +2284,7 @@ function renderCars(){
       return;
     }
     wrap.innerHTML = `
-      <div class="table-scroll"><table>
+      <div class="table-scroll desktop-data-table"><table>
         <thead><tr><th>Plat Nomor</th><th>Merk / Model</th><th>Tahun</th><th>Warna</th><th>Odometer</th><th>Status Saat Ini</th><th>Servis Berikutnya</th><th></th></tr></thead>
         <tbody>
           ${items.map(c=>{
@@ -2284,6 +2307,28 @@ function renderCars(){
           }).join('')}
         </tbody>
       </table></div>
+      <div class="data-card-list">
+        ${items.map(c=>{
+          const activeUsage = state.usage.find(u=>u.carId===c.id && u.status==='digunakan');
+          const reminder = serviceReminderInfo(c);
+          return `
+          <div class="data-card">
+            <div class="data-card-title">
+              <span>${escapeHtml(c.merk)} ${escapeHtml(c.modelMobil)}</span>
+              <span class="plate">${escapeHtml(c.plat)}</span>
+            </div>
+            <div class="data-card-row"><span class="k">Tahun</span><span class="v">${escapeHtml(c.tahun)}</span></div>
+            <div class="data-card-row"><span class="k">Warna</span><span class="v">${escapeHtml(c.warna)}</span></div>
+            <div class="data-card-row"><span class="k">Odometer</span><span class="v">${c.odometerSaatIni!=null ? Number(c.odometerSaatIni).toLocaleString('id-ID')+' KM' : '-'}</span></div>
+            <div class="data-card-row"><span class="k">Status</span><span class="v">${activeUsage ? `<span class="badge warn">Dipakai</span>` : `<span class="badge ok">Tersedia</span>`}</span></div>
+            <div class="data-card-row"><span class="k">Servis Berikutnya</span><span class="v">${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Nonaktif</span>`}</span></div>
+            <div class="data-card-actions">
+              <button class="btn btn-ghost btn-sm" data-edit="${c.id}">✏️ Edit</button>
+              <button class="btn btn-danger btn-sm" data-del="${c.id}">🗑️ Hapus</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
     `;
     wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openCarModal(b.dataset.edit));
     wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteCar(b.dataset.del));
@@ -2519,7 +2564,7 @@ function renderDrivers(){
       return;
     }
     wrap.innerHTML = `
-      <div class="table-scroll"><table>
+      <div class="table-scroll desktop-data-table"><table>
         <thead><tr><th>Nama</th><th>No. SIM</th><th>No. HP</th><th>Alamat</th><th></th></tr></thead>
         <tbody>
           ${items.map(d=>`
@@ -2535,6 +2580,19 @@ function renderDrivers(){
             </tr>`).join('')}
         </tbody>
       </table></div>
+      <div class="data-card-list">
+        ${items.map(d=>`
+          <div class="data-card">
+            <div class="data-card-title"><span>${escapeHtml(d.nama)}</span></div>
+            <div class="data-card-row"><span class="k">No. SIM</span><span class="v">${escapeHtml(d.noSim||'-')}</span></div>
+            <div class="data-card-row"><span class="k">No. HP</span><span class="v">${escapeHtml(d.noHp||'-')}</span></div>
+            <div class="data-card-row"><span class="k">Alamat</span><span class="v">${escapeHtml(d.alamat||'-')}</span></div>
+            <div class="data-card-actions">
+              <button class="btn btn-ghost btn-sm" data-edit="${d.id}">✏️ Edit</button>
+              <button class="btn btn-danger btn-sm" data-del="${d.id}">🗑️ Hapus</button>
+            </div>
+          </div>`).join('')}
+      </div>
     `;
     wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openDriverModal(b.dataset.edit));
     wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteDriver(b.dataset.del));
@@ -2815,11 +2873,7 @@ function markReturned(id){
     <div class="grid-2">
       <div class="field" id="f-odo-kembali">
         <label>Odometer Saat Kembali (KM)</label>
-        <div style="display:flex;gap:8px;">
-          <input type="text" inputmode="numeric" id="in-odo-kembali" placeholder="Contoh: 45.230" value="${fmtRibuanInitial(u.odoKembali)}" style="flex:1;">
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-foto-odo-kembali" style="flex-shrink:0;">📷</button>
-        </div>
-        <input type="file" accept="image/*" capture="environment" id="file-odo-kembali" style="display:none;">
+        <input type="text" inputmode="numeric" id="in-odo-kembali" placeholder="Contoh: 45.230" value="${fmtRibuanInitial(u.odoKembali)}">
         <div class="err-msg">Odometer kembali tidak boleh lebih kecil dari odometer keluar (${u.odoKeluar!=null ? Number(u.odoKeluar).toLocaleString('id-ID') : '-'} KM).</div>
       </div>
       <div class="field">
@@ -2912,7 +2966,6 @@ function markReturned(id){
   });
   attachRibuanInput('in-etoll-kembali');
   attachRibuanInput('in-odo-kembali');
-  wireOdoPhotoButton('btn-foto-odo-kembali', 'file-odo-kembali', 'in-odo-kembali');
   attachRibuanInput('in-biaya-bensin');
   attachIntegerOnlyInput('in-liter-bensin');
   const barWidgetKembali = document.querySelector('#box-bensin-kembali .bar-picker-widget');
@@ -3120,139 +3173,6 @@ function buildReceiptElement(u){
 
 // Menghasilkan gambar PNG dari laporan (dipakai bersama oleh tombol "Bagikan"
 // dan "Salin Gambar" — supaya logika "potret" laporannya cuma ditulis sekali).
-/* ---------------- Baca Odometer dari Foto (OCR) ----------------
-   Pakai Tesseract.js (dimuat sekali saat dibutuhkan, sama seperti pola
-   html2canvas untuk laporan gambar) -- HANYA proses angka dari foto di
-   memori browser, foto TIDAK PERNAH ditulis ke state/localStorage/GitHub.
-   Variabel `file` cuma dipakai sesaat lalu otomatis lepas dari memori
-   setelah fungsi ini selesai (tidak ada referensi yang disimpan).
-   Hasil baca WAJIB dicek manual oleh petugas -- field tetap bebas diedit,
-   ini cuma bantuan awal, bukan angka final yang dipercaya mutlak. */
-let tesseractLoading = null;
-function loadTesseract(){
-  if(window.Tesseract) return Promise.resolve();
-  if(tesseractLoading) return tesseractLoading;
-  tesseractLoading = new Promise((resolve, reject)=>{
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js';
-    script.onload = resolve;
-    script.onerror = () => reject(new Error('Gagal memuat pembaca foto (perlu koneksi internet).'));
-    document.head.appendChild(script);
-  });
-  return tesseractLoading;
-}
-
-let cameraActiveStream = null;
-function wireOdoPhotoButton(btnId, fileInputId, targetInputId){
-  const btn = document.getElementById(btnId);
-  const fileInput = document.getElementById(fileInputId);
-  if(!btn || !fileInput) return;
-
-  btn.addEventListener('click', ()=> openCameraCapture(targetInputId, btn, fileInput));
-
-  // Cadangan: kalau kamera in-app gagal/tidak didukung, tetap bisa lewat
-  // file-picker bawaan HP (capture="environment" di elemen ini).
-  fileInput.addEventListener('change', async ()=>{
-    const file = fileInput.files[0];
-    fileInput.value = '';
-    if(!file) return;
-    await readOdometerFromPhoto(file, targetInputId, btn);
-  });
-}
-
-// Kamera langsung di dalam aplikasi -- supaya bisa MINTA resolusi setinggi
-// mungkin (tidak diserahkan ke pengaturan default app kamera HP), dan minta
-// mode fokus kontinu KALAU didukung perangkat/browser-nya. Safari iPhone
-// misalnya tidak mendukung kontrol fokus lewat kode sama sekali -- di situ
-// fokus tetap sepenuhnya otomatis dari hardware, itu wajar bukan bug.
-async function openCameraCapture(targetInputId, triggerBtn, fallbackFileInput){
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    fallbackFileInput.click(); // browser lama -> langsung ke cara lama
-    return;
-  }
-  const overlay = document.getElementById('camera-overlay');
-  const video = document.getElementById('camera-video');
-  try{
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 3840 },   // minta resolusi setinggi mungkin (4K kalau kamera mendukung)
-        height: { ideal: 2160 },
-        advanced: [{ focusMode: 'continuous' }] // diabaikan otomatis kalau browser tidak mendukung
-      }
-    });
-    cameraActiveStream = stream;
-    video.srcObject = stream;
-    overlay.style.display = 'block';
-    overlay.dataset.targetInput = targetInputId;
-    overlay.dataset.btnId = triggerBtn.id;
-  }catch(e){
-    console.error('Kamera in-app gagal dibuka:', e);
-    fallbackFileInput.click(); // izin ditolak / kamera tidak tersedia -> cadangan ke file-picker HP
-  }
-}
-function closeCameraCapture(){
-  const overlay = document.getElementById('camera-overlay');
-  overlay.style.display = 'none';
-  if(cameraActiveStream){
-    cameraActiveStream.getTracks().forEach(t=> t.stop()); // matikan kamera, lepas dari memori
-    cameraActiveStream = null;
-  }
-}
-async function captureCameraFrame(){
-  const overlay = document.getElementById('camera-overlay');
-  const video = document.getElementById('camera-video');
-  const canvas = document.getElementById('camera-canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-
-  const targetInputId = overlay.dataset.targetInput;
-  const btn = document.getElementById(overlay.dataset.btnId);
-  closeCameraCapture(); // kamera langsung dimatikan begitu foto diambil
-
-  canvas.toBlob(async (blob)=>{
-    if(!blob){ showToast('Gagal mengambil foto.', true); return; }
-    await readOdometerFromPhoto(blob, targetInputId, btn);
-    // Bersihkan kanvas setelah dipakai -- gambarnya tidak disimpan di manapun.
-    canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
-  }, 'image/jpeg', 0.92);
-}
-document.getElementById('camera-shutter').addEventListener('click', captureCameraFrame);
-document.getElementById('camera-cancel').addEventListener('click', closeCameraCapture);
-
-async function readOdometerFromPhoto(file, targetInputId, btn){
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '⏳';
-  showToast('Membaca angka odometer dari foto...');
-  try{
-    await loadTesseract();
-    const worker = await Tesseract.createWorker('eng');
-    await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
-    const { data: { text } } = await worker.recognize(file);
-    await worker.terminate();
-    // Titik ini: `file` sudah selesai dipakai, tidak disimpan di manapun --
-    // cukup keluar dari fungsi ini, referensinya otomatis dibuang oleh browser.
-
-    const digitGroups = text.match(/\d+/g) || [];
-    const bestGuess = digitGroups.sort((a,b)=> b.length-a.length)[0] || '';
-    if(bestGuess.length < 3){
-      showToast('Tidak berhasil membaca angka yang jelas dari foto — coba foto lebih dekat/terang, atau isi manual.', true);
-    } else {
-      const target = document.getElementById(targetInputId);
-      target.value = Number(bestGuess).toLocaleString('id-ID');
-      target.focus();
-      showToast(`⚠️ Terbaca: ${bestGuess} KM — CEK dulu angkanya, koreksi manual kalau kurang tepat, baru Simpan.`);
-    }
-  }catch(e){
-    console.error('Gagal membaca foto odometer:', e);
-    showToast(e.message || 'Gagal membaca foto.', true);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
-  }
-}
 
 async function generateUsageReportBlob(u){
   await loadHtml2Canvas();
@@ -3538,12 +3458,8 @@ function openUsageModal(editId){
     </div>
     <div class="field">
       <label>Odometer Saat Keluar (KM)</label>
-      <div style="display:flex;gap:8px;">
-        <input type="text" inputmode="numeric" id="in-odo-keluar" placeholder="Contoh: 45.000" value="${editing?fmtRibuanInitial(editing.odoKeluar):''}" style="flex:1;">
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-foto-odo-keluar" style="flex-shrink:0;">📷 Foto</button>
-      </div>
-      <input type="file" accept="image/*" capture="environment" id="file-odo-keluar" style="display:none;">
-      <div class="hint">Diisi supaya jarak tempuh perjalanan ini bisa dihitung otomatis. Bisa juga difoto dashboard — hasil baca otomatis <b>wajib dicek dulu</b> sebelum Simpan.</div>
+      <input type="text" inputmode="numeric" id="in-odo-keluar" placeholder="Contoh: 45.000" value="${editing?fmtRibuanInitial(editing.odoKeluar):''}">
+      <div class="hint">Diisi supaya jarak tempuh perjalanan ini bisa dihitung otomatis.</div>
     </div>
     <div class="grid-2">
       <div class="field" id="box-bensin-keluar">
@@ -3623,7 +3539,6 @@ function openUsageModal(editId){
   attachRibuanInput('in-etoll');
   attachAutocomplete('in-tujuan', () => state.usage.map(u=>u.tujuan));
   attachRibuanInput('in-odo-keluar');
-  wireOdoPhotoButton('btn-foto-odo-keluar', 'file-odo-keluar', 'in-odo-keluar');
 
   // Field bensin menyesuaikan otomatis (Persen <-> Bar) setiap kali pilihan
   // mobil berganti -- bukan cuma dirender sekali di awal, karena di form
@@ -3726,7 +3641,7 @@ function renderBookings(){
       return;
     }
     wrap.innerHTML = `
-      <div class="table-scroll"><table>
+      <div class="table-scroll desktop-data-table"><table>
         <thead><tr><th>Mobil</th><th>Sopir</th><th>Tujuan</th><th>Mulai</th><th>Selesai</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${items.map(b=>`
@@ -3746,6 +3661,22 @@ function renderBookings(){
             </tr>`).join('')}
         </tbody>
       </table></div>
+      <div class="data-card-list">
+        ${items.map(b=>`
+          <div class="data-card">
+            <div class="data-card-title"><span>${escapeHtml(carLabel(b.carId))}</span>${bookingStatusBadge(b)}</div>
+            <div class="data-card-row"><span class="k">Sopir</span><span class="v">${b.driverId ? escapeHtml(driverLabel(b.driverId)) : '-'}</span></div>
+            <div class="data-card-row"><span class="k">Tujuan</span><span class="v">${escapeHtml(b.tujuan)}</span></div>
+            <div class="data-card-row"><span class="k">Mulai</span><span class="v">${fmtDate(b.tglMulai)} ${b.jamMulai||''}</span></div>
+            <div class="data-card-row"><span class="k">Selesai</span><span class="v">${fmtDate(b.tglSelesai)} ${b.jamSelesai||''}</span></div>
+            <div class="data-card-actions">
+              ${b.status==='dipesan' ? `<button class="btn btn-primary btn-sm" data-start="${b.id}">▶️ Mulai</button>
+              <button class="btn btn-ghost btn-sm" data-edit="${b.id}">✏️ Edit</button>
+              <button class="btn btn-ghost btn-sm" data-cancel="${b.id}">✕ Batalkan</button>` : ''}
+              <button class="btn btn-danger btn-sm" data-del="${b.id}">🗑️ Hapus</button>
+            </div>
+          </div>`).join('')}
+      </div>
     `;
     wrap.querySelectorAll('[data-start]').forEach(b=> b.onclick = ()=> startTripFromBooking(b.dataset.start));
     wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openBookingModal(b.dataset.edit));
@@ -4032,17 +3963,13 @@ function renderService(){
           Biaya dibandingkan rata-rata riwayat KATEGORI yang sama (bukan campur semua kategori). Ini bahan cek awal, bukan vonis otomatis.
         </p>
         ${serviceAnomalies.length===0 ? emptyState('✅','Tidak ada pola yang mencurigakan dari riwayat servis sejauh ini.') : `
-        <div class="table-scroll"><table>
-          <thead><tr><th></th><th>Jenis</th><th>Keterangan</th></tr></thead>
-          <tbody>
-            ${serviceAnomalies.map(a=>`
-              <tr>
-                <td>${a.level==='danger'?'🔴':'🟡'}</td>
-                <td>${escapeHtml(a.judul)}</td>
-                <td>${a.detail}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table></div>`}
+        <div class="alert-list">
+          ${serviceAnomalies.map(a=>`
+            <div class="alert-list-item">
+              <div class="ic">${a.level==='danger'?'🔴':'🟡'}</div>
+              <div class="body"><b>${escapeHtml(a.judul)}</b><div class="desc">${a.detail}</div></div>
+            </div>`).join('')}
+        </div>`}
       </div>
     </div>
   `;
@@ -4066,7 +3993,7 @@ function renderService(){
       return;
     }
     wrap.innerHTML = `
-      <div class="table-scroll"><table>
+      <div class="table-scroll desktop-data-table"><table>
         <thead><tr><th>Tanggal</th><th>Mobil</th><th>Kategori</th><th>Odometer</th><th>Bengkel</th><th>Biaya</th><th>Catatan</th><th></th></tr></thead>
         <tbody>
           ${list.map(r=>`
@@ -4082,6 +4009,18 @@ function renderService(){
             </tr>`).join('')}
         </tbody>
       </table></div>
+      <div class="data-card-list">
+        ${list.map(r=>`
+          <div class="data-card">
+            <div class="data-card-title"><span>${escapeHtml(carLabel(r.service.carId))}</span><span class="badge neutral">${escapeHtml(r.item.kategori)}</span></div>
+            <div class="data-card-row"><span class="k">Tanggal</span><span class="v">${fmtDate(r.service.tanggal)}</span></div>
+            <div class="data-card-row"><span class="k">Odometer</span><span class="v">${r.service.odometer!=null ? Number(r.service.odometer).toLocaleString('id-ID')+' KM' : '-'}</span></div>
+            <div class="data-card-row"><span class="k">Bengkel</span><span class="v">${escapeHtml(r.service.bengkel||'-')}</span></div>
+            <div class="data-card-row"><span class="k">Biaya</span><span class="v">${fmtMoney(r.item.biaya)}</span></div>
+            ${r.item.catatan ? `<div class="data-card-row"><span class="k">Catatan</span><span class="v">${escapeHtml(r.item.catatan)}</span></div>` : ''}
+            <div class="data-card-actions"><button class="btn btn-danger btn-sm" data-del="${r.service.id}">🗑️ Hapus</button></div>
+          </div>`).join('')}
+      </div>
     `;
     wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=>{
       const s = state.services.find(x=>x.id===b.dataset.del);
@@ -4306,7 +4245,7 @@ function renderDocs(){
       return;
     }
     wrap.innerHTML = `
-      <div class="table-scroll"><table>
+      <div class="table-scroll desktop-data-table"><table>
         <thead><tr><th>Mobil</th><th>Jenis</th><th>Nomor</th><th>Terbit</th><th>Masa Berlaku</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${items.map(d=>{
@@ -4328,6 +4267,23 @@ function renderDocs(){
           }).join('')}
         </tbody>
       </table></div>
+      <div class="data-card-list">
+        ${items.map(d=>{
+          const sisa = daysBetween(d.tglExpired);
+          let badge;
+          if(sisa < 0) badge = `<span class="badge danger">Kedaluwarsa</span>`;
+          else if(sisa <= 30) badge = `<span class="badge warn">${sisa} hari lagi</span>`;
+          else badge = `<span class="badge ok">Berlaku</span>`;
+          return `
+          <div class="data-card">
+            <div class="data-card-title"><span>${escapeHtml(d.jenis)} — ${escapeHtml(carLabel(d.carId))}</span>${badge}</div>
+            <div class="data-card-row"><span class="k">Nomor</span><span class="v">${escapeHtml(d.nomor||'-')}</span></div>
+            <div class="data-card-row"><span class="k">Terbit</span><span class="v">${fmtDate(d.tglTerbit)}</span></div>
+            <div class="data-card-row"><span class="k">Masa Berlaku</span><span class="v">${fmtDate(d.tglExpired)}</span></div>
+            <div class="data-card-actions"><button class="btn btn-danger btn-sm" data-del="${d.id}">🗑️ Hapus</button></div>
+          </div>`;
+        }).join('')}
+      </div>
     `;
     wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=>{
       if(!confirm('Hapus dokumen ini?')) return;
@@ -4600,17 +4556,13 @@ function renderBBM(){
           adil untuk tiap karakter mobil. Ini bahan cek awal, bukan bukti kecurangan otomatis.
         </p>
         ${anomalies.length===0 ? emptyState('✅','Tidak ada pola yang mencurigakan dari data yang tercatat sejauh ini.') : `
-        <div class="table-scroll"><table>
-          <thead><tr><th></th><th>Jenis</th><th>Keterangan</th></tr></thead>
-          <tbody>
-            ${anomalies.map(a=>`
-              <tr>
-                <td>${a.level==='danger'?'🔴':'🟡'}</td>
-                <td>${escapeHtml(a.judul)}</td>
-                <td>${escapeHtml(a.detail)}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table></div>`}
+        <div class="alert-list">
+          ${anomalies.map(a=>`
+            <div class="alert-list-item">
+              <div class="ic">${a.level==='danger'?'🔴':'🟡'}</div>
+              <div class="body"><b>${escapeHtml(a.judul)}</b><div class="desc">${escapeHtml(a.detail)}</div></div>
+            </div>`).join('')}
+        </div>`}
       </div>
     </div>
   `;
@@ -4620,18 +4572,19 @@ function renderBBM(){
       <div class="panel-head"><h2>Peringatan BBM Menipis</h2></div>
       <div class="panel-body">
         ${lowFuelCars.length===0 ? emptyState('✅','Semua mobil dengan data terbaru masih di atas batas minimum bensin.') : `
-        <div class="table-scroll"><table>
-          <thead><tr><th>Mobil</th><th>Sisa Bensin Terakhir</th><th>Batas Minimum</th><th>Dicatat</th></tr></thead>
-          <tbody>
-            ${lowFuelCars.map(s=>`
-              <tr>
-                <td>${escapeHtml(carLabel(s.car.id))}</td>
-                <td><span class="badge ${s.sisaTerkini<=s.batas/2?'danger':'warn'}">${formatBensinDisplay(s.sisaTerkini, s.car)}</span></td>
-                <td>${formatBensinDisplay(s.batas, s.car)}</td>
-                <td>${fmtDate(s.latest.tglKeluar)}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table></div>`}
+        <div class="alert-list">
+          ${lowFuelCars.map(s=>`
+            <div class="alert-list-item">
+              <div class="ic">⛽</div>
+              <div class="body">
+                <b>${escapeHtml(carLabel(s.car.id))}</b>
+                <div class="desc">
+                  <span class="badge ${s.sisaTerkini<=s.batas/2?'danger':'warn'}">${formatBensinDisplay(s.sisaTerkini, s.car)}</span>
+                  dari batas ${formatBensinDisplay(s.batas, s.car)} · dicatat ${fmtDate(s.latest.tglKeluar)}
+                </div>
+              </div>
+            </div>`).join('')}
+        </div>`}
       </div>
     </div>
 
@@ -4640,10 +4593,11 @@ function renderBBM(){
     <div class="panel">
       <div class="panel-head"><h2>Ringkasan per Mobil</h2></div>
       <div class="panel-body">
-        <div class="table-scroll"><table>
+        ${carSummaries.length===0 ? emptyState('🚚','Belum ada data mobil.') : `
+        <div class="table-scroll desktop-data-table"><table>
           <thead><tr><th>Mobil</th><th>Sisa Bensin Terakhir</th><th>Rata-rata Efisiensi</th><th>Total Liter Dibeli</th><th>Total Biaya BBM</th></tr></thead>
           <tbody>
-            ${carSummaries.length===0 ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Belum ada data mobil.</td></tr>` : carSummaries.map(s=>{
+            ${carSummaries.map(s=>{
               let sisaBadge = '-';
               if(s.sisaTerkini!=null){
                 const cls = s.sisaTerkini < s.batas ? (s.sisaTerkini<=s.batas/2?'danger':'warn') : 'ok';
@@ -4660,6 +4614,23 @@ function renderBBM(){
             }).join('')}
           </tbody>
         </table></div>
+        <div class="data-card-list">
+          ${carSummaries.map(s=>{
+            let sisaBadge = '-';
+            if(s.sisaTerkini!=null){
+              const cls = s.sisaTerkini < s.batas ? (s.sisaTerkini<=s.batas/2?'danger':'warn') : 'ok';
+              sisaBadge = `<span class="badge ${cls}">${formatBensinDisplay(s.sisaTerkini, s.car)}</span>`;
+            }
+            return `
+            <div class="data-card">
+              <div class="data-card-title"><span>${escapeHtml(carLabel(s.car.id))}</span></div>
+              <div class="data-card-row"><span class="k">Sisa Bensin Terakhir</span><span class="v">${sisaBadge}</span></div>
+              <div class="data-card-row"><span class="k">Rata-rata Efisiensi</span><span class="v">${s.avgRatio!=null ? s.avgRatio.toFixed(1)+' KM/L' : '-'}</span></div>
+              <div class="data-card-row"><span class="k">Total Liter Dibeli</span><span class="v">${s.totalLiter.toLocaleString('id-ID')} L</span></div>
+              <div class="data-card-row"><span class="k">Total Biaya BBM</span><span class="v">${fmtMoney(s.totalBiaya)}</span></div>
+            </div>`;
+          }).join('')}
+        </div>`}
       </div>
     </div>
 
@@ -4678,7 +4649,7 @@ function renderBBM(){
           ⚠️ ${carsWithoutKapasitas.length} mobil belum diatur Kapasitas Tangki-nya (${carsWithoutKapasitas.map(c=>carLabel(c.id)).join(', ')}) — perjalanan mobil itu belum bisa dihitung di sini. Atur di <b>Data Mobil → Edit → Kapasitas Tangki BBM</b>.
         </div>` : ''}
         ${consumptionRows.length===0 ? emptyState('🧮','Belum ada perjalanan yang bisa dihitung — butuh Kapasitas Tangki (di Data Mobil) DAN catatan bensin keluar+kembali (di Catat Perjalanan) untuk perjalanan yang sama.') : `
-        <div class="table-scroll"><table>
+        <div class="table-scroll desktop-data-table"><table>
           <thead><tr><th>Tanggal</th><th>Mobil</th><th>Jarak</th><th>Bensin Keluar</th><th>Bensin Kembali</th><th>Estimasi Liter Terpakai</th><th>Rasio</th></tr></thead>
           <tbody>
             ${consumptionRows.map(r=>`
@@ -4692,7 +4663,22 @@ function renderBBM(){
                 <td>${r.rasio!=null ? r.rasio.toFixed(1)+' KM/L' : '-'}</td>
               </tr>`).join('')}
           </tbody>
-        </table></div>`}
+        </table></div>
+        <div class="data-card-list">
+          ${consumptionRows.map(r=>{
+            const carForRow = state.cars.find(c=>c.id===r.u.carId);
+            return `
+            <div class="data-card">
+              <div class="data-card-title"><span>${escapeHtml(carLabel(r.u.carId))}</span></div>
+              <div class="data-card-row"><span class="k">Tanggal</span><span class="v">${fmtDate(r.u.tglKeluar)}</span></div>
+              <div class="data-card-row"><span class="k">Jarak</span><span class="v">${r.jarak!=null ? r.jarak.toLocaleString('id-ID')+' KM' : '-'}</span></div>
+              <div class="data-card-row"><span class="k">Bensin Keluar</span><span class="v">${formatBensinDisplay(r.keluar, carForRow)}</span></div>
+              <div class="data-card-row"><span class="k">Bensin Kembali</span><span class="v">${formatBensinDisplay(r.kembali, carForRow)}</span></div>
+              <div class="data-card-row"><span class="k">Estimasi Liter Terpakai</span><span class="v">${r.literTerpakai.toFixed(1)} L</span></div>
+              <div class="data-card-row"><span class="k">Rasio</span><span class="v">${r.rasio!=null ? r.rasio.toFixed(1)+' KM/L' : '-'}</span></div>
+            </div>`;
+          }).join('')}
+        </div>`}
       </div>
     </div>
 
@@ -4710,7 +4696,7 @@ function renderBBM(){
       return;
     }
     wrap.innerHTML = `
-      <div class="table-scroll"><table>
+      <div class="table-scroll desktop-data-table"><table>
         <thead><tr><th>Tanggal</th><th>Mobil</th><th>Driver</th><th>Liter</th><th>Biaya</th><th>Sisa Bensin Setelah Isi</th></tr></thead>
         <tbody>
           ${items.map(u=>`
@@ -4724,6 +4710,17 @@ function renderBBM(){
             </tr>`).join('')}
         </tbody>
       </table></div>
+      <div class="data-card-list">
+        ${items.map(u=>`
+          <div class="data-card">
+            <div class="data-card-title"><span>${escapeHtml(carLabel(u.carId))}</span></div>
+            <div class="data-card-row"><span class="k">Tanggal</span><span class="v">${fmtDate(u.tglKembali||u.tglKeluar)}</span></div>
+            <div class="data-card-row"><span class="k">Driver</span><span class="v">${escapeHtml(driverLabel(u.driverId, u.driver))}</span></div>
+            <div class="data-card-row"><span class="k">Liter</span><span class="v">${u.literBensin ? Number(u.literBensin).toLocaleString('id-ID')+' L' : '-'}</span></div>
+            <div class="data-card-row"><span class="k">Biaya</span><span class="v">${u.biayaBensin ? fmtMoney(u.biayaBensin) : '-'}</span></div>
+            <div class="data-card-row"><span class="k">Sisa Bensin Setelah Isi</span><span class="v">${formatBensinDisplay(getBensinKembali(u), state.cars.find(c=>c.id===u.carId)) || '-'}</span></div>
+          </div>`).join('')}
+      </div>
     `;
   }
   renderTable(rows);
@@ -4755,7 +4752,7 @@ function renderEtollCards(){
       return;
     }
     wrap.innerHTML = `
-      <div class="table-scroll"><table>
+      <div class="table-scroll desktop-data-table"><table>
         <thead><tr><th>Nomor Kartu</th><th>Terpasang di Mobil</th><th>Saldo Saat Ini</th><th>Batas Minimum</th><th>Catatan</th><th></th></tr></thead>
         <tbody>
           ${items.map(card=>{
@@ -4782,6 +4779,30 @@ function renderEtollCards(){
           }).join('')}
         </tbody>
       </table></div>
+      <div class="data-card-list">
+        ${items.map(card=>{
+          const batas = card.batasMinimum!=null ? Number(card.batasMinimum) : 25000;
+          const saldo = Number(card.saldo)||0;
+          let saldoBadge;
+          if(saldo < batas) saldoBadge = `<span class="badge danger">${fmtMoney(saldo)}</span>`;
+          else if(saldo < batas*2) saldoBadge = `<span class="badge warn">${fmtMoney(saldo)}</span>`;
+          else saldoBadge = `<span class="badge ok">${fmtMoney(saldo)}</span>`;
+          return `
+          <div class="data-card">
+            <div class="data-card-title"><span class="plate">${escapeHtml(card.nomorKartu)}</span></div>
+            <div class="data-card-row"><span class="k">Mobil</span><span class="v">${card.mobilId ? escapeHtml(carLabel(card.mobilId)) : '<span class="badge neutral">Tidak terpasang</span>'}</span></div>
+            <div class="data-card-row"><span class="k">Saldo</span><span class="v">${saldoBadge}</span></div>
+            <div class="data-card-row"><span class="k">Batas Minimum</span><span class="v">${fmtMoney(batas)}</span></div>
+            ${card.catatan ? `<div class="data-card-row"><span class="k">Catatan</span><span class="v">${escapeHtml(card.catatan)}</span></div>` : ''}
+            <div class="data-card-actions">
+              <button class="btn btn-ghost btn-sm" data-topup="${card.id}">💰 Top Up</button>
+              <button class="btn btn-ghost btn-sm" data-riwayat="${card.id}">📜 Riwayat</button>
+              <button class="btn btn-ghost btn-sm" data-edit="${card.id}">✏️ Edit</button>
+              <button class="btn btn-danger btn-sm" data-del="${card.id}">🗑️ Hapus</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
     `;
     wrap.querySelectorAll('[data-topup]').forEach(b=> b.onclick = ()=> topUpEtollCard(b.dataset.topup));
     wrap.querySelectorAll('[data-riwayat]').forEach(b=> b.onclick = ()=> openEtollHistoryModal(b.dataset.riwayat));
@@ -4806,7 +4827,7 @@ function openEtollHistoryModal(cardId){
     .sort((a,b)=> (b.updatedAt||0)-(a.updatedAt||0));
   const body = trx.length===0
     ? emptyState('🧾','Belum ada riwayat transaksi untuk kartu ini.')
-    : `<div class="table-scroll"><table>
+    : `<div class="table-scroll desktop-data-table"><table>
         <thead><tr><th>Tanggal</th><th>Jenis</th><th>Nominal</th><th>Saldo Sesudah</th><th>Keterangan</th><th>Petugas</th></tr></thead>
         <tbody>
           ${trx.map(t=>`
@@ -4819,7 +4840,20 @@ function openEtollHistoryModal(cardId){
               <td>${escapeHtml(t.petugas||'-')}</td>
             </tr>`).join('')}
         </tbody>
-      </table></div>`;
+      </table></div>
+      <div class="data-card-list">
+        ${trx.map(t=>`
+          <div class="data-card">
+            <div class="data-card-title">
+              <span>${fmtDate(t.tanggal)}</span>
+              ${t.jenis==='topup' ? `<span class="badge ok">Top Up</span>` : t.jenis==='pemakaian' ? `<span class="badge warn">Pemakaian</span>` : `<span class="badge neutral">Penyesuaian</span>`}
+            </div>
+            <div class="data-card-row"><span class="k">Nominal</span><span class="v">${t.nominal>=0?'+':''}${fmtMoney(t.nominal)}</span></div>
+            <div class="data-card-row"><span class="k">Saldo Sesudah</span><span class="v">${fmtMoney(t.saldoSesudah)}</span></div>
+            <div class="data-card-row"><span class="k">Keterangan</span><span class="v">${escapeHtml(t.keterangan||'-')}</span></div>
+            <div class="data-card-row"><span class="k">Petugas</span><span class="v">${escapeHtml(t.petugas||'-')}</span></div>
+          </div>`).join('')}
+      </div>`;
   openModal({
     title: `Riwayat Transaksi — ${card.nomorKartu}`,
     body,
@@ -4975,6 +5009,22 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.16.0',
+    date: '22 Jul 2026',
+    notes: [
+      'Fitur "Baca Odometer dari Foto" (OCR) dihapus — lambat (perlu unduh library tiap dipakai) dan sering salah baca angka digital 7-segmen di dashboard mobil. Field Odometer kembali ke input manual biasa.',
+    ]
+  },
+  {
+    v: '3.15.0',
+    date: '22 Jul 2026',
+    notes: [
+      'SEMUA tabel di aplikasi kini jadi kartu di tampilan HP — tidak ada lagi yang perlu digeser kanan-kiri: Data Mobil, Data Sopir, Booking Mobil, Servis & Maintenance, Dokumen, Kartu E-Toll, semua panel BBM, Riwayat Transaksi E-Toll, dan Kelola Petugas.',
+      'Panel peringatan/anomali (Dashboard, BBM, Servis) diubah jadi daftar bertumpuk, bukan tabel — lebih ringkas dibaca di layar sempit.',
+      'Tampilan desktop/layar lebar tidak berubah sama sekali, tetap tabel seperti sebelumnya.',
+    ]
+  },
   {
     v: '3.14.1',
     date: '22 Jul 2026',
