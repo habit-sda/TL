@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.18.1">
+<meta name="app-version" content="3.19.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -798,7 +798,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.18.1';
+const APP_VERSION = '3.19.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1633,76 +1633,63 @@ function renderHapusData(){
   document.getElementById('header-actions').innerHTML = '';
   document.getElementById('content').innerHTML = `
     <div class="panel">
-      <div class="panel-head"><h2>⚠️ Hapus Data Mobil</h2></div>
+      <div class="panel-head"><h2>⚠️ Hapus Data (Mobil / Perjalanan)</h2></div>
       <div class="panel-body">
-        <p class="hint" style="margin-top:0;">Tempel/ketik Kode Mobil (format <code>MBL-0001</code>) yang tertera di halaman Data Mobil.</p>
+        <p class="hint" style="margin-top:0;">
+          Tempel/ketik Kode Mobil (<code>MBL-0001</code>) ATAU Kode Perjalanan (<code>PJL-00001</code>) — sistem otomatis
+          kenali jenisnya dari awalan kode. Untuk menghapus item Biaya Operasional, tetap lewat menu Catat Perjalanan
+          seperti biasa — bukan di sini.
+        </p>
         <div class="field">
-          <label>Kode Mobil</label>
-          <input type="text" id="in-hapus-kode-mobil" placeholder="Contoh: MBL-0001" style="text-transform:uppercase;">
+          <label>Kode Mobil atau Perjalanan</label>
+          <input type="text" id="in-hapus-kode" placeholder="Contoh: MBL-0001 atau PJL-00001" style="text-transform:uppercase;">
         </div>
-        <div id="preview-hapus-mobil"></div>
-        <button class="btn btn-danger" id="btn-hapus-mobil" style="margin-top:10px;" disabled>🗑️ Hapus Mobil Ini</button>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head"><h2>⚠️ Hapus Data Perjalanan</h2></div>
-      <div class="panel-body">
-        <p class="hint" style="margin-top:0;">Tempel/ketik Kode Perjalanan (format <code>PJL-00001</code>) yang tertera di halaman Catat Perjalanan. Untuk menghapus item Biaya Operasional, tetap lewat menu Catat Perjalanan seperti biasa — bukan di sini.</p>
-        <div class="field">
-          <label>Kode Perjalanan</label>
-          <input type="text" id="in-hapus-kode-pjl" placeholder="Contoh: PJL-00001" style="text-transform:uppercase;">
-        </div>
-        <div id="preview-hapus-pjl"></div>
-        <button class="btn btn-danger" id="btn-hapus-pjl" style="margin-top:10px;" disabled>🗑️ Hapus Perjalanan Ini</button>
+        <div id="preview-hapus"></div>
+        <button class="btn btn-danger" id="btn-hapus" style="margin-top:10px;" disabled>🗑️ Hapus Data Ini</button>
       </div>
     </div>
   `;
 
-  const inMobil = document.getElementById('in-hapus-kode-mobil');
-  const previewMobil = document.getElementById('preview-hapus-mobil');
-  const btnMobil = document.getElementById('btn-hapus-mobil');
-  let matchedCar = null;
-  inMobil.addEventListener('input', ()=>{
-    const kode = inMobil.value.trim().toUpperCase();
-    matchedCar = kode ? state.cars.find(c=> (c.kode||'').toUpperCase() === kode) : null;
-    if(!kode){ previewMobil.innerHTML = ''; btnMobil.disabled = true; return; }
-    if(matchedCar){
-      previewMobil.innerHTML = `<div class="hint" style="background:#EEF3FF;color:var(--blue-dark);padding:8px 10px;border-radius:6px;">✅ Ditemukan: <b>${escapeHtml(matchedCar.merk)} ${escapeHtml(matchedCar.modelMobil)} — ${escapeHtml(matchedCar.plat)}</b></div>`;
-      btnMobil.disabled = false;
-    } else {
-      previewMobil.innerHTML = `<div class="hint" style="background:var(--red-bg);color:var(--red);padding:8px 10px;border-radius:6px;">❌ Kode tidak ditemukan.</div>`;
-      btnMobil.disabled = true;
+  const inKode = document.getElementById('in-hapus-kode');
+  const preview = document.getElementById('preview-hapus');
+  const btn = document.getElementById('btn-hapus');
+  let matched = null; // {type:'car'|'usage', data}
+
+  inKode.addEventListener('input', ()=>{
+    const kode = inKode.value.trim().toUpperCase();
+    matched = null;
+    if(!kode){ preview.innerHTML = ''; btn.disabled = true; return; }
+
+    if(kode.startsWith('MBL-')){
+      const c = state.cars.find(x=> (x.kode||'').toUpperCase() === kode);
+      if(c) matched = { type:'car', data:c };
+    } else if(kode.startsWith('PJL-')){
+      const u = state.usage.find(x=> (x.kode||'').toUpperCase() === kode);
+      if(u) matched = { type:'usage', data:u };
     }
-  });
-  btnMobil.addEventListener('click', ()=>{
-    if(!matchedCar) return;
-    deleteCar(matchedCar.id, ()=>{
-      inMobil.value = ''; previewMobil.innerHTML = ''; btnMobil.disabled = true; matchedCar = null;
-    });
+
+    if(matched && matched.type==='car'){
+      const c = matched.data;
+      preview.innerHTML = `<div class="hint" style="background:#EEF3FF;color:var(--blue-dark);padding:8px 10px;border-radius:6px;">✅ Mobil ditemukan: <b>${escapeHtml(c.merk)} ${escapeHtml(c.modelMobil)} — ${escapeHtml(c.plat)}</b></div>`;
+      btn.textContent = '🗑️ Hapus Mobil Ini';
+      btn.disabled = false;
+    } else if(matched && matched.type==='usage'){
+      const u = matched.data;
+      preview.innerHTML = `<div class="hint" style="background:#EEF3FF;color:var(--blue-dark);padding:8px 10px;border-radius:6px;">✅ Perjalanan ditemukan: <b>${escapeHtml(carLabel(u.carId))}</b> — ${escapeHtml(u.tujuan||'-')} · ${fmtDate(u.tglKeluar)}</div>`;
+      btn.textContent = '🗑️ Hapus Perjalanan Ini';
+      btn.disabled = false;
+    } else {
+      preview.innerHTML = `<div class="hint" style="background:var(--red-bg);color:var(--red);padding:8px 10px;border-radius:6px;">❌ Kode tidak ditemukan. Pastikan awalan <code>MBL-</code> atau <code>PJL-</code> dan angkanya benar.</div>`;
+      btn.textContent = '🗑️ Hapus Data Ini';
+      btn.disabled = true;
+    }
   });
 
-  const inPjl = document.getElementById('in-hapus-kode-pjl');
-  const previewPjl = document.getElementById('preview-hapus-pjl');
-  const btnPjl = document.getElementById('btn-hapus-pjl');
-  let matchedUsage = null;
-  inPjl.addEventListener('input', ()=>{
-    const kode = inPjl.value.trim().toUpperCase();
-    matchedUsage = kode ? state.usage.find(u=> (u.kode||'').toUpperCase() === kode) : null;
-    if(!kode){ previewPjl.innerHTML = ''; btnPjl.disabled = true; return; }
-    if(matchedUsage){
-      previewPjl.innerHTML = `<div class="hint" style="background:#EEF3FF;color:var(--blue-dark);padding:8px 10px;border-radius:6px;">✅ Ditemukan: <b>${escapeHtml(carLabel(matchedUsage.carId))}</b> — ${escapeHtml(matchedUsage.tujuan||'-')} · ${fmtDate(matchedUsage.tglKeluar)}</div>`;
-      btnPjl.disabled = false;
-    } else {
-      previewPjl.innerHTML = `<div class="hint" style="background:var(--red-bg);color:var(--red);padding:8px 10px;border-radius:6px;">❌ Kode tidak ditemukan.</div>`;
-      btnPjl.disabled = true;
-    }
-  });
-  btnPjl.addEventListener('click', ()=>{
-    if(!matchedUsage) return;
-    deleteUsage(matchedUsage.id, ()=>{
-      inPjl.value = ''; previewPjl.innerHTML = ''; btnPjl.disabled = true; matchedUsage = null;
-    });
+  btn.addEventListener('click', ()=>{
+    if(!matched) return;
+    const resetForm = ()=>{ inKode.value = ''; preview.innerHTML = ''; btn.disabled = true; matched = null; };
+    if(matched.type==='car') deleteCar(matched.data.id, resetForm);
+    else deleteUsage(matched.data.id, resetForm);
   });
 }
 
@@ -5273,6 +5260,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.19.0',
+    date: '22 Jul 2026',
+    notes: [
+      'Menu Hapus Data disederhanakan jadi 1 form saja (sebelumnya 2 panel terpisah) — cukup tempel kode apa pun (Mobil atau Perjalanan), sistem otomatis kenali jenisnya dari awalan kode.',
+    ]
+  },
   {
     v: '3.18.1',
     date: '22 Jul 2026',
