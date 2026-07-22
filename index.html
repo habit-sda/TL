@@ -2917,13 +2917,14 @@ function renderUsage(){
 
     // Syarat rumus riil: kedua bacaan indikator ada, dan mobil punya kapasitas tangki.
     if(bensinKeluar!=null && bensinKembali!=null && car && car.kapasitasTangkiLiter){
-      const selisihPersen = bensinKeluar - bensinKembali;
-      const literTangkiSelisih = (selisihPersen/100) * Number(car.kapasitasTangkiLiter);
-      const literTerbakarRiil = literTangkiSelisih + literBeli;
+      // literTerbakarRiil dihitung lewat estimateLiterUsed() -- SATU fungsi
+      // yang sama dipakai juga oleh Kalkulator Rasio Konsumsi & Ringkasan
+      // per Mobil, supaya ketiganya selalu konsisten.
+      const literTerbakarRiil = estimateLiterUsed(u, car);
 
-      // literTerbakarRiil <= 0 (bacaan tidak wajar) -> tampilkan '-', BUKAN fallback,
+      // literTerbakarRiil null/<=0 (bacaan tidak wajar) -> tampilkan '-', BUKAN fallback,
       // supaya tidak menyembunyikan data indikator yang perlu dicek ulang petugas.
-      if(literTerbakarRiil <= 0) return '-';
+      if(literTerbakarRiil==null || literTerbakarRiil <= 0) return '-';
 
       const rasio = jarak / literTerbakarRiil;
       if(!isFinite(rasio) || rasio<=0) return '-';
@@ -2970,6 +2971,11 @@ function renderUsage(){
         jarakBadge = `<span class="badge neutral">Belum kembali</span>`;
       }
       const bbmLabel = (u.literBensin || u.biayaBensin) ? `${u.literBensin?Number(u.literBensin).toLocaleString('id-ID')+' L':''}${u.biayaBensin?' / '+fmtMoney(u.biayaBensin):''}` : '-';
+      // BBM Digunakan (Riil): estimasi liter yang benar-benar terpakai di
+      // perjalanan ini, rumus sama dengan kolom Rasio & Kalkulator Rasio
+      // Konsumsi di menu BBM (neraca tangki, bukan sekadar liter dibeli).
+      const literTerpakaiVal = carForRow ? estimateLiterUsed(u, carForRow) : null;
+      const literTerpakaiLabel = literTerpakaiVal!=null ? literTerpakaiVal.toFixed(1)+' L' : '-';
       const biayaOpTotal = usageBiayaOpTotal(u);
       const isOperasional = u.jenisPenggunaan !== 'pribadi';
       const actionButtonsHtml = `
@@ -2978,13 +2984,13 @@ function renderUsage(){
         ${biayaOpTotal>0 ? `<button class="btn btn-ghost btn-sm" data-share="${u.id}">📤 Bagikan</button><button class="btn btn-ghost btn-sm" data-copy-img="${u.id}">📋 Salin Gambar</button>` : ''}
         ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Tandai Kembali</button>` : `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✏️ Edit Data Kembali</button>`}
       `;
-      return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, linkedCard, jarakBadge, bbmLabel, biayaOpTotal, isOperasional, actionButtonsHtml };
+      return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, isOperasional, actionButtonsHtml };
     });
 
     // ---------- Versi TABEL (desktop, layar lebar) ----------
     const tableHtml = `
       <div class="table-scroll desktop-usage-table"><table>
-        <thead><tr><th>Kode</th><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Jam</th><th>Kembali</th><th>Jam</th><th>Jarak</th><th>BBM Dibeli</th><th>Rasio</th><th>Bensin Keluar</th><th>Bensin Kembali</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Biaya Operasional</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Kode</th><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Jam</th><th>Kembali</th><th>Jam</th><th>Jarak</th><th>BBM Dibeli</th><th>BBM Digunakan</th><th>Rasio</th><th>Bensin Keluar</th><th>Bensin Kembali</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Biaya Operasional</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${rows.map(r=>{
             const u = r.u;
@@ -3001,6 +3007,7 @@ function renderUsage(){
               <td>${u.jamKembali || '-'}</td>
               <td>${r.jarakBadge}</td>
               <td>${r.bbmLabel}</td>
+              <td>${r.literTerpakaiLabel}</td>
               <td>${ratioLabel(u)}</td>
               <td>${r.bensinKeluarBadge}</td>
               <td>${r.bensinKembaliBadge}</td>
@@ -3037,6 +3044,7 @@ function renderUsage(){
                 <div><span class="k">Jam</span> <span class="v">${u.jamKeluar||'-'} → ${u.jamKembali||'-'}</span></div>
                 <div><span class="k">Rasio</span> <span class="v">${ratioLabel(u)}</span></div>
                 <div><span class="k">BBM Dibeli</span> <span class="v">${r.bbmLabel}</span></div>
+                <div><span class="k">BBM Digunakan</span> <span class="v">${r.literTerpakaiLabel}</span></div>
                 <div><span class="k">Biaya Operasional</span> <span class="v">${r.biayaOpTotal>0?fmtMoney(r.biayaOpTotal):'-'}</span></div>
                 <div><span class="k">Bensin Keluar</span> <span class="v">${r.bensinKeluarBadge}</span></div>
                 <div><span class="k">Bensin Kembali</span> <span class="v">${r.bensinKembaliBadge}</span></div>
@@ -3629,14 +3637,18 @@ function calcFuelRangeEstimate(carId, bensinPercent){
   if(!car.kapasitasTangkiLiter) return { estimatedKm:null, reason:'Atur Kapasitas Tangki mobil ini dulu (Data Mobil) untuk mengaktifkan estimasi jarak.' };
 
   const trips = state.usage.filter(u=>u.carId===carId);
-  const totalLiter = trips.reduce((sum,u)=> sum + (Number(u.literBensin)||0), 0);
-  const totalKm = trips.reduce((sum,u)=>{
-    if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) return sum + (u.odoKembali-u.odoKeluar);
-    return sum;
-  }, 0);
-  if(totalLiter<=0 || totalKm<=0) return { estimatedKm:null, reason:'Belum ada cukup riwayat perjalanan (jarak + liter BBM) untuk mobil ini, jadi efisiensinya belum bisa dihitung.' };
+  let totalKm = 0, totalLiterTerpakai = 0;
+  trips.forEach(u=>{
+    const lt = estimateLiterUsed(u, car);
+    if(lt==null || lt<=0) return;
+    if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar){
+      totalKm += (u.odoKembali-u.odoKeluar);
+      totalLiterTerpakai += lt;
+    }
+  });
+  if(totalLiterTerpakai<=0 || totalKm<=0) return { estimatedKm:null, reason:'Belum ada cukup riwayat perjalanan (jarak + liter BBM) untuk mobil ini, jadi efisiensinya belum bisa dihitung.' };
 
-  const avgRatio = totalKm / totalLiter; // KM per Liter, dari riwayat nyata
+  const avgRatio = totalKm / totalLiterTerpakai; // KM per Liter, dari riwayat nyata (neraca tangki)
   const litersRemaining = (bensinPercent/100) * Number(car.kapasitasTangkiLiter);
   const estimatedKm = avgRatio * litersRemaining;
   return { estimatedKm, avgRatio, litersRemaining, reason:null };
@@ -4656,18 +4668,29 @@ function openDocModal(){
 function fuelBatasFor(car){
   return car.batasMinimumBensin!=null ? Number(car.batasMinimumBensin) : 20;
 }
-// Estimasi liter BBM yang BENAR-BENAR terpakai di 1 perjalanan, dari selisih
-// persentase bensin (keluar - kembali) dikonversi pakai kapasitas tangki.
-// Kembalikan null kalau datanya tidak lengkap/tidak masuk akal, supaya
-// tidak menampilkan angka yang menyesatkan.
+// Estimasi liter BBM yang BENAR-BENAR terpakai di 1 perjalanan -- rumus
+// NERACA TANGKI, SAMA PERSIS dengan yang dipakai kolom "Rasio" di Catat
+// Perjalanan (ratioLabel):
+//   literTerbakarRiil = (bensinKeluar% - bensinKembali%)/100 * kapasitasTangki + literBeli
+// PENTING: liter yang DIBELI (u.literBensin) WAJIB ikut ditambahkan. Kalau
+// selisih % bensin negatif (bensin kembali > bensin keluar, artinya sempat
+// isi ulang di tengah jalan), justru literBeli itulah yang menutup selisih
+// itu -- bukan tanda data tidak valid. Versi lama sempat lupa menambahkan
+// literBeli & malah menolak kasus isi-di-jalan sebagai "tidak konsisten",
+// sehingga banyak perjalanan valid tidak terhitung di sini padahal
+// terhitung normal di kolom Rasio. Kembalikan null kalau datanya tidak
+// lengkap/hasil akhirnya tidak masuk akal (<=0), supaya tidak menampilkan
+// angka yang menyesatkan.
 function estimateLiterUsed(u, car){
   if(!car || car.kapasitasTangkiLiter==null) return null;
   const keluar = getBensinKeluar(u);
   const kembali = getBensinKembali(u);
   if(keluar==null || kembali==null) return null;
-  const drop = keluar - kembali;
-  if(drop <= 0) return null; // bensin "nambah" tanpa isi ulang tercatat -> data tidak konsisten, jangan dipaksa dihitung
-  return (drop/100) * Number(car.kapasitasTangkiLiter);
+  const literBeli = u.literBensin ? Number(u.literBensin) : 0;
+  const selisihPersen = keluar - kembali; // bisa negatif kalau isi ulang di jalan
+  const literTerbakarRiil = (selisihPersen/100) * Number(car.kapasitasTangkiLiter) + literBeli;
+  if(literTerbakarRiil <= 0) return null; // hasil tidak wajar -> jangan dipaksa dihitung
+  return literTerbakarRiil;
 }
 function fuelLatestReading(carId){
   return state.usage
@@ -4774,18 +4797,29 @@ function renderBBM(){
     const trips = state.usage.filter(u=>u.carId===c.id);
     const totalLiter = trips.reduce((sum,u)=> sum + (Number(u.literBensin)||0), 0);
     const totalBiaya = trips.reduce((sum,u)=> sum + (Number(u.biayaBensin)||0), 0);
-    // Rata-rata efisiensi dihitung dari TOTAL jarak dibagi TOTAL liter (bukan
-    // rata-rata dari tiap rasio per-perjalanan) -- lebih akurat karena tidak
-    // bias ke perjalanan pendek yang kebetulan banyak jumlahnya.
-    const totalKmForRatio = trips.reduce((sum,u)=>{
-      if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) return sum + (u.odoKembali-u.odoKeluar);
-      return sum;
-    }, 0);
-    const avgRatio = (totalKmForRatio>0 && totalLiter>0) ? (totalKmForRatio/totalLiter) : null;
+    // Rata-rata efisiensi & Total BBM Digunakan dihitung dari METODE RIIL
+    // yang SAMA dengan kolom "Rasio" di Catat Perjalanan & Kalkulator Rasio
+    // Konsumsi (neraca tangki: selisih % bensin + liter dibeli) -- BUKAN
+    // cuma total jarak ÷ total liter dibeli seperti sebelumnya. Dua metode
+    // beda itu yang membuat angka di sini terlihat "salah"/tidak cocok
+    // dibanding kolom Rasio per perjalanan, padahal keduanya cuma beda cara
+    // hitung. Perjalanan tanpa data bensin keluar+kembali (atau tanpa
+    // Kapasitas Tangki) otomatis tidak ikut dihitung di sini (estimateLiterUsed
+    // mengembalikan null), sama seperti di Kalkulator.
+    let totalKmForRatio = 0, totalLiterTerpakai = 0;
+    trips.forEach(u=>{
+      const lt = estimateLiterUsed(u, c);
+      if(lt==null || lt<=0) return;
+      if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar){
+        totalKmForRatio += (u.odoKembali-u.odoKeluar);
+        totalLiterTerpakai += lt;
+      }
+    });
+    const avgRatio = (totalKmForRatio>0 && totalLiterTerpakai>0) ? (totalKmForRatio/totalLiterTerpakai) : null;
     const latest = fuelLatestReading(c.id);
     const sisaTerkini = latest ? getBensinTerkini(latest) : null;
     const batas = fuelBatasFor(c);
-    return { car:c, totalLiter, totalBiaya, avgRatio, latest, sisaTerkini, batas };
+    return { car:c, totalLiter, totalBiaya, totalLiterTerpakai, avgRatio, latest, sisaTerkini, batas };
   });
 
   const lowFuelCars = carSummaries.filter(s=> s.sisaTerkini!=null && s.sisaTerkini < s.batas);
@@ -4876,7 +4910,7 @@ function renderBBM(){
       <div class="panel-body">
         ${carSummaries.length===0 ? emptyState('🚚','Belum ada data mobil.') : `
         <div class="table-scroll desktop-data-table"><table>
-          <thead><tr><th>Mobil</th><th>Sisa Bensin Terakhir</th><th>Rata-rata Efisiensi</th><th>Total Liter Dibeli</th><th>Total Biaya BBM</th></tr></thead>
+          <thead><tr><th>Mobil</th><th>Sisa Bensin Terakhir</th><th>Rata-rata Efisiensi</th><th>Total Liter Dibeli</th><th>Total BBM Digunakan</th><th>Total Biaya BBM</th></tr></thead>
           <tbody>
             ${carSummaries.map(s=>{
               let sisaBadge = '-';
@@ -4890,6 +4924,7 @@ function renderBBM(){
                 <td>${sisaBadge}</td>
                 <td>${s.avgRatio!=null ? s.avgRatio.toFixed(1)+' KM/L' : '-'}</td>
                 <td>${s.totalLiter.toLocaleString('id-ID')} L</td>
+                <td>${s.totalLiterTerpakai>0 ? s.totalLiterTerpakai.toFixed(1)+' L' : '-'}</td>
                 <td>${fmtMoney(s.totalBiaya)}</td>
               </tr>`;
             }).join('')}
@@ -4908,6 +4943,7 @@ function renderBBM(){
               <div class="data-card-row"><span class="k">Sisa Bensin Terakhir</span><span class="v">${sisaBadge}</span></div>
               <div class="data-card-row"><span class="k">Rata-rata Efisiensi</span><span class="v">${s.avgRatio!=null ? s.avgRatio.toFixed(1)+' KM/L' : '-'}</span></div>
               <div class="data-card-row"><span class="k">Total Liter Dibeli</span><span class="v">${s.totalLiter.toLocaleString('id-ID')} L</span></div>
+              <div class="data-card-row"><span class="k">Total BBM Digunakan</span><span class="v">${s.totalLiterTerpakai>0 ? s.totalLiterTerpakai.toFixed(1)+' L' : '-'}</span></div>
               <div class="data-card-row"><span class="k">Total Biaya BBM</span><span class="v">${fmtMoney(s.totalBiaya)}</span></div>
             </div>`;
           }).join('')}
