@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.17.0">
+<meta name="app-version" content="3.18.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -379,6 +379,7 @@
   @media(max-width:768px){
     .desktop-data-table{display:none;}
     .data-card-list{display:block;}
+    .export-excel-btn{display:none;}
   }
 
   /* ---------------- Bubble melayang: indikator mobil sedang dalam perjalanan ---------------- */
@@ -653,7 +654,7 @@
     <div class="menu-item" data-route="etoll"><span class="ic">💳</span>Kartu E-Toll</div>
     <div class="menu-section-label">Lainnya</div>
     <div class="menu-item" data-route="bbm"><span class="ic">⛽</span>BBM</div>
-    <div class="menu-item" data-route="hapusdata"><span class="ic">🗑️</span>Hapus Data</div>
+    <div class="menu-item" data-route="hapusdata"><span class="ic" style="color:var(--red);"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span>Hapus Data</div>
     <div class="menu-item" data-route="settings"><span class="ic">⚙️</span>Pengaturan</div>
   </nav>
   <div id="petugas-box">
@@ -797,7 +798,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.17.0';
+const APP_VERSION = '3.18.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1676,10 +1677,9 @@ function renderHapusData(){
   });
   btnMobil.addEventListener('click', ()=>{
     if(!matchedCar) return;
-    deleteCar(matchedCar.id);
-    if(!state.cars.some(c=>c.id===matchedCar.id)){ // benar-benar terhapus (bukan dibatalkan lewat confirm)
+    deleteCar(matchedCar.id, ()=>{
       inMobil.value = ''; previewMobil.innerHTML = ''; btnMobil.disabled = true; matchedCar = null;
-    }
+    });
   });
 
   const inPjl = document.getElementById('in-hapus-kode-pjl');
@@ -1700,10 +1700,9 @@ function renderHapusData(){
   });
   btnPjl.addEventListener('click', ()=>{
     if(!matchedUsage) return;
-    deleteUsage(matchedUsage.id);
-    if(!state.usage.some(u=>u.id===matchedUsage.id)){
+    deleteUsage(matchedUsage.id, ()=>{
       inPjl.value = ''; previewPjl.innerHTML = ''; btnPjl.disabled = true; matchedUsage = null;
-    }
+    });
   });
 }
 
@@ -2084,6 +2083,31 @@ function refreshInsightPanels(){
   if(currentRoute==='bbm') renderBBM();
   if(currentRoute==='service') renderService();
 }
+// Modal konfirmasi custom (Iya/Tidak) -- dipakai khusus untuk aksi hapus
+// yang butuh penekanan ekstra (mis. Hapus Data), menggantikan window.confirm
+// bawaan browser yang tampilannya polos & tidak konsisten dengan gaya app.
+function openConfirmModal(message, onConfirm){
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.cssText = 'display:flex;';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:320px;">
+      <div style="padding:26px 20px 22px 20px;text-align:center;">
+        <p style="font-size:15px;font-weight:700;margin:0 0 22px 0;color:var(--text);">${message}</p>
+        <div style="display:flex;gap:14px;justify-content:center;">
+          <button id="confirm-yes-btn" type="button" class="btn btn-danger">Iya</button>
+          <button id="confirm-no-btn" type="button" class="btn btn-ghost">Tidak</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const close = ()=> overlay.remove();
+  document.getElementById('confirm-no-btn').addEventListener('click', close);
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
+  document.getElementById('confirm-yes-btn').addEventListener('click', ()=>{ close(); onConfirm(); });
+}
+
 function openInsightPinModal(){
   const body = `
     <p style="font-size:12.5px;color:var(--muted);margin-top:0;">Masukkan PIN untuk membuka panel Insight/Anomali di menu BBM &amp; Servis.</p>
@@ -2164,16 +2188,18 @@ function openTripActionMenu(usageId, anchorEl){
   }, 0);
 }
 // Dipakai bersama oleh tombol hapus di tabel Catat Perjalanan DAN menu bubble ini.
-function deleteUsage(id){
-  if(!confirm('Hapus catatan penggunaan ini?')) return;
-  const u = state.usage.find(x=>x.id===id);
-  markDeleted('usage', id);
-  state.usage = state.usage.filter(x=>x.id!==id);
-  if(u) logActivity('penggunaan', 'Hapus catatan penggunaan', `${carLabel(u.carId)} — ${u.tujuan||''}`);
-  saveData();
-  showToast('Catatan penggunaan dihapus.');
-  renderActiveTripBubble();
-  if(currentRoute==='usage') renderUsage();
+function deleteUsage(id, onDeleted){
+  openConfirmModal('Yakin hapus data perjalanan ini?', ()=>{
+    const u = state.usage.find(x=>x.id===id);
+    markDeleted('usage', id);
+    state.usage = state.usage.filter(x=>x.id!==id);
+    if(u) logActivity('penggunaan', 'Hapus catatan penggunaan', `${carLabel(u.carId)} — ${u.tujuan||''}`);
+    saveData();
+    showToast('Catatan penggunaan dihapus.');
+    renderActiveTripBubble();
+    if(currentRoute==='usage') renderUsage();
+    if(onDeleted) onDeleted();
+  });
 }
 document.getElementById('trip-bubble-btn').addEventListener('click', (e)=>{ e.stopPropagation(); toggleTripBubblePanel(); });
 document.addEventListener('click', (e)=>{
@@ -2492,22 +2518,24 @@ function renderCars(){
   });
 }
 
-function deleteCar(id){
+function deleteCar(id, onDeleted){
   const relatedUsage = state.usage.some(u=>u.carId===id);
   const relatedService = state.services.some(s=>s.carId===id);
   const relatedDocs = state.documents.some(d=>d.carId===id);
-  let warn = 'Hapus data mobil ini?';
+  let warn = 'Yakin hapus data mobil ini?';
   if(relatedUsage || relatedService || relatedDocs){
-    warn += '\n\nPerhatian: mobil ini memiliki riwayat penggunaan/servis/dokumen terkait. Riwayat tersebut akan tetap ada namun akan ditandai "mobil telah dihapus".';
+    warn += '<br><br><span style="font-size:12px;font-weight:400;color:var(--muted);">Perhatian: mobil ini memiliki riwayat penggunaan/servis/dokumen terkait. Riwayat tersebut akan tetap ada namun akan ditandai "mobil telah dihapus".</span>';
   }
-  if(!confirm(warn)) return;
-  const carName = carLabel(id);
-  markDeleted('cars', id);
-  state.cars = state.cars.filter(c=>c.id!==id);
-  logActivity('mobil', 'Hapus data mobil', carName);
-  saveData();
-  showToast('Data mobil dihapus.');
-  if(currentRoute==='cars') renderCars();
+  openConfirmModal(warn, ()=>{
+    const carName = carLabel(id);
+    markDeleted('cars', id);
+    state.cars = state.cars.filter(c=>c.id!==id);
+    logActivity('mobil', 'Hapus data mobil', carName);
+    saveData();
+    showToast('Data mobil dihapus.');
+    if(currentRoute==='cars') renderCars();
+    if(onDeleted) onDeleted();
+  });
 }
 
 function openCarModal(editId){
@@ -3321,7 +3349,7 @@ async function exportToExcel(filename, sheetName, rows){
   }
 }
 function exportBtnHtml(id){
-  return `<button class="btn btn-ghost" id="${id}">📊 Export Excel</button>`;
+  return `<button class="btn btn-ghost export-excel-btn" id="${id}">📊 Export Excel</button>`;
 }
 
 function loadHtml2Canvas(){
@@ -5245,6 +5273,21 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.18.0',
+    date: '22 Jul 2026',
+    notes: [
+      'Menu Hapus Data: konfirmasi hapus sekarang pakai pop-up khusus "Yakin hapus data?" dengan tombol Iya/Tidak (menggantikan kotak konfirmasi bawaan browser yang polos).',
+    ]
+  },
+  {
+    v: '3.17.1',
+    date: '22 Jul 2026',
+    notes: [
+      'Ikon menu "Hapus Data" di sidebar sekarang berwarna merah, konsisten dengan warna Hapus lainnya.',
+      'Tombol "Export Excel" disembunyikan di tampilan HP (tetap ada di desktop/layar lebar).',
+    ]
+  },
   {
     v: '3.17.0',
     date: '22 Jul 2026',
