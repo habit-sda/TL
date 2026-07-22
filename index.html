@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.19.0">
+<meta name="app-version" content="3.19.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -798,7 +798,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.19.0';
+const APP_VERSION = '3.19.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2897,10 +2897,46 @@ function renderUsage(){
   </div></div>`;
   document.getElementById('content').innerHTML = html;
 
+  // ---------------- Rasio Mesin Riil (v3.19.1) ----------------
+  // Rumus lama menganggap SEMUA BBM yang dibeli (u.literBensin) langsung
+  // habis terbakar di perjalanan itu -- padahal kalau tangki belum kosong
+  // saat isi ulang, sebagian BBM yang dibeli cuma mengendap di tangki untuk
+  // perjalanan berikutnya. Neraca tangki di bawah ini mengoreksi itu:
+  //   literTerbakarRiil = (bensinKeluar% - bensinKembali%)/100 * kapasitasTangki + literBeli
+  // Kasus khusus bensinKeluar=bensinKembali=100% (isi penuh di kedua ujung)
+  // otomatis meniadakan koreksi tangki -> setara metode "Full-to-Full",
+  // metode paling akurat menurut standar industri fleet management.
   function ratioLabel(u){
-    if(u.odoKeluar==null || u.odoKembali==null || u.odoKembali<u.odoKeluar || !u.literBensin) return '-';
+    if(u.odoKeluar==null || u.odoKembali==null || u.odoKembali<u.odoKeluar) return '-';
     const jarak = u.odoKembali - u.odoKeluar;
-    const rasio = jarak / Number(u.literBensin);
+    const literBeli = u.literBensin ? Number(u.literBensin) : 0;
+
+    const bensinKeluar = getBensinKeluar(u);
+    const bensinKembali = getBensinKembali(u);
+    const car = state.cars.find(c=>c.id===u.carId);
+
+    // Syarat rumus riil: kedua bacaan indikator ada, dan mobil punya kapasitas tangki.
+    if(bensinKeluar!=null && bensinKembali!=null && car && car.kapasitasTangkiLiter){
+      const selisihPersen = bensinKeluar - bensinKembali;
+      const literTangkiSelisih = (selisihPersen/100) * Number(car.kapasitasTangkiLiter);
+      const literTerbakarRiil = literTangkiSelisih + literBeli;
+
+      // literTerbakarRiil <= 0 (bacaan tidak wajar) -> tampilkan '-', BUKAN fallback,
+      // supaya tidak menyembunyikan data indikator yang perlu dicek ulang petugas.
+      if(literTerbakarRiil <= 0) return '-';
+
+      const rasio = jarak / literTerbakarRiil;
+      if(!isFinite(rasio) || rasio<=0) return '-';
+
+      const isFullToFull = bensinKeluar===100 && bensinKembali===100;
+      const badgeCls = isFullToFull ? 'ok' : 'warn';
+      const badgeText = isFullToFull ? 'Full-to-Full' : 'Estimasi';
+      return `${rasio.toFixed(1)} KM/L <span class="badge ${badgeCls}">${badgeText}</span>`;
+    }
+
+    // Fallback: data indikator/kapasitas tangki tidak lengkap -> rumus lama.
+    if(!literBeli) return '-';
+    const rasio = jarak / literBeli;
     if(!isFinite(rasio) || rasio<=0) return '-';
     return rasio.toFixed(1) + ' KM/L';
   }
@@ -5260,6 +5296,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.19.1',
+    date: '22 Jul 2026',
+    notes: [
+      'Kolom "Rasio" di Catat Perjalanan sekarang pakai Rasio Mesin Riil: memperhitungkan selisih indikator Bensin Keluar vs Bensin Kembali (bukan cuma BBM yang dibeli), sehingga BBM yang belum sempat terbakar dan masih mengendap di tangki tidak lagi ikut dihitung.',
+      'Ditambah label kecil di kolom Rasio: "Full-to-Full" (paling akurat, kalau tangki penuh di kedua ujung) atau "Estimasi" (dari pembacaan indikator). Perjalanan dengan data indikator belum lengkap tetap pakai rumus lama (Jarak ÷ BBM Dibeli) tanpa label.',
+    ]
+  },
   {
     v: '3.19.0',
     date: '22 Jul 2026',
