@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.12.4">
+<meta name="app-version" content="3.12.5">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -755,7 +755,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.12.4';
+const APP_VERSION = '3.12.5';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1882,7 +1882,7 @@ function renderTripBubblePanelContent(){
    tidak sengaja -- BUKAN keamanan tingkat tinggi (orang yang paham teknis
    & sabar tetap bisa mencoba membobolnya lewat DevTools). Cocok untuk
    internal tim kecil, bukan untuk data yang betul-betul rahasia. */
-const INSIGHT_PIN_HASH = 'a78b7c21dc8ed6694424e4afcd8ccc7e45f9b454f2deec3e84bbb1befe1baeb9';
+const INSIGHT_PIN_HASH = '13af54b2ccc64ee1ab317abddcb23d15d8a82b33d2aa58ba331131c2b1a0ffcb';
 const INSIGHT_UNLOCK_SESSION_KEY = 'fleetops_insight_unlocked';
 let insightUnlocked = false;
 try{ insightUnlocked = sessionStorage.getItem(INSIGHT_UNLOCK_SESSION_KEY) === '1'; }catch(e){}
@@ -4898,6 +4898,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.12.5',
+    date: '21 Jul 2026',
+    notes: [
+      'Pembaruan konfigurasi internal.',
+    ]
+  },
   {
     v: '3.12.4',
     date: '21 Jul 2026',
