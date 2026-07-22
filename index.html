@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.12.3">
+<meta name="app-version" content="3.12.4">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -628,7 +628,7 @@
   <div id="content"></div>
 
   <footer class="appfoot">
-    <span>FleetOps — Sistem internal pengelolaan armada pengiriman <span id="insight-pin-trigger" style="cursor:pointer;opacity:0.35;padding:0 2px;" title="">·</span></span>
+    <span>FleetOps — Sistem internal pengelolaan armada pengiriman <span id="insight-pin-trigger" style="cursor:pointer;opacity:0.35;padding:8px 10px;margin:-8px -10px;display:inline-block;font-size:16px;font-weight:800;" title="">·</span></span>
     <span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span class="badge neutral" id="cloud-status" style="display:none;"></span>
       <span id="last-check-indicator" style="font-size:10.5px;color:var(--muted);"></span>
@@ -755,7 +755,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.12.3';
+const APP_VERSION = '3.12.4';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -4898,6 +4898,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.12.4',
+    date: '21 Jul 2026',
+    notes: [
+      'Area sentuh titik pembuka Insight di footer diperbesar (tampilannya tetap samar seperti sebelumnya) — lebih mudah diketuk, terutama di HP.',
+    ]
+  },
   {
     v: '3.12.3',
     date: '21 Jul 2026',
