@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.25.0">
+<meta name="app-version" content="3.27.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -809,7 +809,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.25.0';
+const APP_VERSION = '3.27.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -945,6 +945,11 @@ function loadData(){
       activityLog: Array.isArray(parsed.activityLog) ? parsed.activityLog : [],
       bookings: Array.isArray(parsed.bookings) ? parsed.bookings : [],
       admins: Array.isArray(parsed.admins) && parsed.admins.length ? parsed.admins : defaultData().admins,
+      // Toleransi jarak "hilang" (gap odometer) antar-trip per HARI yang
+      // dianggap wajar/tidak perlu ditandai (mis. bolak-balik ke masjid,
+      // beli makan dekat, dll yang memang sengaja tidak dicatat sebagai
+      // trip terpisah). Default 15 KM. Lihat buildFuelChain().
+      toleransiGapKm: (typeof parsed.toleransiGapKm === 'number' && parsed.toleransiGapKm >= 0) ? parsed.toleransiGapKm : 15,
     };
   }catch(e){
     console.error('Gagal membaca data tersimpan, memakai data kosong.', e);
@@ -953,7 +958,7 @@ function loadData(){
   }
 }
 function defaultData(){
-  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0 };
+  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, toleransiGapKm: 15 };
 }
 // Kode unik Mobil & Perjalanan -- dipakai KHUSUS untuk menu "Hapus Data"
 // (lihat konsep di bawah). Format sengaja pendek & mudah dibaca/disalin,
@@ -1577,6 +1582,15 @@ const SERVICE_CATEGORIES = ['Ganti Oli','Servis Berkala / Tune Up','Rem','Ban & 
 const BIAYA_OP_CATEGORIES = ['Isi BBM','Isi E-Toll','Makan','Parkir','Tol Tunai','Lainnya'];
 function usageBiayaOpItems(u){ return Array.isArray(u.biayaOperasional) ? u.biayaOperasional : []; }
 function usageBiayaOpTotal(u){ return usageBiayaOpItems(u).reduce((sum,it)=> sum + (Number(it.nominal)||0), 0); }
+// Total Biaya E-Toll (Rp E-Toll, gross yang dibayar -- BUKAN nilai bersih
+// setelah biaya admin) khusus untuk 1 perjalanan, diambil dari item Biaya
+// Operasional berkategori "Isi E-Toll". Dipakai untuk tampilkan rincian
+// pengeluaran e-toll per trip di tabel Catat Perjalanan.
+function usageEtollBiayaTotal(u){
+  return usageBiayaOpItems(u)
+    .filter(it=> it.kategori === 'Isi E-Toll')
+    .reduce((sum,it)=> sum + (Number(it.nominal)||0), 0);
+}
 
 // Kompatibilitas mundur: catatan servis versi lama menyimpan {jenis, biaya}
 // langsung (belum ada multi-item). Fungsi ini menyeragamkan keduanya jadi
@@ -1833,11 +1847,37 @@ function renderSettings(){
 
   const html = `
     <div class="panel">
+      <div class="panel-head"><h2>Toleransi Gap Odometer Tak Tercatat</h2></div>
+      <div class="panel-body">
+        <p style="color:var(--muted);margin:0 0 12px;">
+          Jarak antar-trip (mobil sama) yang tidak nyambung akan dianggap
+          errand harian wajar (mis. ke masjid, beli makan dekat) dan
+          otomatis disertakan ke perhitungan Rasio &amp; BBM Digunakan --
+          bukan ditandai sebagai "Belum Teralokasi" -- selama tidak melebihi
+          angka di bawah ini. Gap yang LEBIH BESAR dari angka ini tetap
+          ditandai merah untuk dicek manual (kemungkinan trip pengiriman
+          yang lupa dicatat).
+        </p>
+        <div class="field" style="max-width:220px;">
+          <label>Toleransi Gap (KM)</label>
+          <input type="text" id="in-toleransi-gap" value="${state.toleransiGapKm}">
+        </div>
+        <button class="btn btn-primary" id="btn-save-toleransi-gap" style="margin-top:8px;">Simpan</button>
+      </div>
+    </div>
+    <div class="panel">
       <div class="panel-head"><h2>Nama Petugas / Admin</h2></div>
       <div class="panel-body" id="admin-list-wrap"></div>
     </div>
   `;
   document.getElementById('content').innerHTML = html;
+  attachIntegerOnlyInput('in-toleransi-gap');
+  document.getElementById('btn-save-toleransi-gap').onclick = () => {
+    const val = Number(document.getElementById('in-toleransi-gap').value || 0);
+    state.toleransiGapKm = val >= 0 ? val : 0;
+    saveData();
+    showToast('Toleransi gap disimpan.');
+  };
   renderAdminList();
 }
 function renderAdminList(){
@@ -3072,13 +3112,24 @@ function renderUsage(){
 
     const entry = getChainFor(u.carId).get(u.id);
 
-    // Gap odometer (trip sebelumnya tidak nyambung ke trip ini, mobil sama)
-    // -- KEMUNGKINAN ada perjalanan yang lupa dicatat. Ini cuma PENANDA
-    // transparansi (rekonsiliasi), tidak menghalangi/mengubah perhitungan
-    // atau data apa pun -- histori tetap apa adanya.
-    const gapBadge = (entry && entry.gapKm)
-      ? ` <span class="badge danger" title="Odometer Keluar trip ini tidak nyambung dengan Odometer Kembali trip sebelumnya (mobil yang sama) -- selisih ${Math.abs(entry.gapKm).toLocaleString('id-ID')} KM tidak tercatat di mana pun. Kemungkinan ada perjalanan yang lupa dicatat. Data historis TIDAK diubah, ini cuma penanda untuk dicek ulang.">⚠️ Belum Teralokasi</span>`
-      : '';
+    // Gap odometer (trip sebelumnya tidak nyambung ke trip ini, mobil sama).
+    // DUA kondisi beda, DUA tampilan beda:
+    //  - Gap KECIL (<= toleransi, lihat state.toleransiGapKm di Pengaturan):
+    //    dianggap errand harian wajar (mis. ke masjid, beli makan dekat)
+    //    yang memang sengaja tidak dicatat -- KM *dan* BBM-nya sudah
+    //    otomatis digabung ke perhitungan Rasio (lihat buildFuelChain), jadi
+    //    cukup ditandai badge NETRAL (bukan alarm) supaya tetap transparan
+    //    tanpa bikin was-was tiap hari.
+    //  - Gap BESAR (> toleransi): kemungkinan trip (pengiriman) yang lupa
+    //    dicatat -- TIDAK digabung otomatis (supaya biaya/e-toll yang
+    //    mungkin ikut hilang tidak "tertutupi" diam-diam), tetap ditandai
+    //    merah untuk dicek manual. Data historis tetap TIDAK diubah.
+    let gapBadge = '';
+    if(entry && entry.gapTolerated){
+      gapBadge = ` <span class="badge neutral" title="Selisih ${Math.abs(entry.gapKm).toLocaleString('id-ID')} KM dari trip sebelumnya (mobil yang sama) dianggap jarak harian wajar yang memang tidak dicatat (mis. ke masjid, beli makan dekat) -- KM & estimasi BBM-nya sudah otomatis disertakan ke perhitungan Rasio di trip ini. Ambang toleransi bisa diatur di menu Pengaturan.">↔️ Gap Kecil (Disertakan)</span>`;
+    } else if(entry && entry.gapFlagged){
+      gapBadge = ` <span class="badge danger" title="Odometer Keluar trip ini tidak nyambung dengan Odometer Kembali trip sebelumnya (mobil yang sama) -- selisih ${Math.abs(entry.gapKm).toLocaleString('id-ID')} KM tidak tercatat di mana pun & melebihi ambang toleransi. Kemungkinan ada perjalanan yang lupa dicatat. Data historis TIDAK diubah, ini cuma penanda untuk dicek ulang.">⚠️ Belum Teralokasi</span>`;
+    }
 
     if(entry && entry.resolved){
       const isFullToFull = getBensinKeluar(u)===100 && getBensinKembali(u)===100;
@@ -3140,6 +3191,7 @@ function renderUsage(){
       const literTerpakaiVal = carForRow ? estimateLiterUsed(u, carForRow) : null;
       const literTerpakaiLabel = literTerpakaiVal!=null ? literTerpakaiVal.toFixed(1)+' L' : '-';
       const biayaOpTotal = usageBiayaOpTotal(u);
+      const etollBiayaTotal = usageEtollBiayaTotal(u);
       const isOperasional = u.jenisPenggunaan !== 'pribadi';
       const actionButtonsHtml = `
         <button class="btn btn-ghost btn-sm" data-edit="${u.id}">✏️ Edit</button>
@@ -3147,7 +3199,7 @@ function renderUsage(){
         ${biayaOpTotal>0 ? `<button class="btn btn-ghost btn-sm" data-share="${u.id}">📤 Bagikan</button><button class="btn btn-ghost btn-sm" data-copy-img="${u.id}">📋 Salin Gambar</button>` : ''}
         ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Tandai Kembali</button>` : `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✏️ Edit Data Kembali</button>`}
       `;
-      return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, isOperasional, actionButtonsHtml };
+      return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, etollBiayaTotal, isOperasional, actionButtonsHtml };
     });
 
     // ---------- Versi TABEL (desktop, layar lebar) ----------
@@ -3176,7 +3228,7 @@ function renderUsage(){
               <td>${r.bensinKembaliBadge}</td>
               <td>${r.linkedCard ? escapeHtml(r.linkedCard.nomorKartu) : '-'}</td>
               <td>${r.etoll !== null && !isNaN(r.etoll) ? fmtMoney(r.etoll) : '-'}</td>
-              <td>${r.biayaOpTotal>0 ? fmtMoney(r.biayaOpTotal) : '-'}</td>
+              <td>${r.biayaOpTotal>0 ? fmtMoney(r.biayaOpTotal) : '-'}${r.etollBiayaTotal>0 ? `<div style="font-size:10.5px;color:var(--muted);white-space:nowrap;">🛣️ E-Toll: ${fmtMoney(r.etollBiayaTotal)}</div>` : ''}</td>
               <td>${u.status==='digunakan' ? `<span class="badge warn">Digunakan</span>` : `<span class="badge ok">Selesai</span>`}</td>
               <td style="text-align:right;white-space:nowrap;">${r.actionButtonsHtml}</td>
             </tr>`;
@@ -3208,7 +3260,7 @@ function renderUsage(){
                 <div><span class="k">Rasio</span> <span class="v">${ratioLabel(u)}</span></div>
                 <div><span class="k">BBM Dibeli</span> <span class="v">${r.bbmLabel}</span></div>
                 <div><span class="k">BBM Digunakan</span> <span class="v">${r.literTerpakaiLabel}</span></div>
-                <div><span class="k">Biaya Operasional</span> <span class="v">${r.biayaOpTotal>0?fmtMoney(r.biayaOpTotal):'-'}</span></div>
+                <div><span class="k">Biaya Operasional</span> <span class="v">${r.biayaOpTotal>0?fmtMoney(r.biayaOpTotal):'-'}${r.etollBiayaTotal>0?` <span style="font-size:11px;color:var(--muted);">(🛣️ E-Toll: ${fmtMoney(r.etollBiayaTotal)})</span>`:''}</span></div>
                 <div><span class="k">Bensin Keluar</span> <span class="v">${r.bensinKeluarBadge}</span></div>
                 <div><span class="k">Bensin Kembali</span> <span class="v">${r.bensinKembaliBadge}</span></div>
                 <div><span class="k">Kartu E-Toll</span> <span class="v">${r.linkedCard?escapeHtml(r.linkedCard.nomorKartu):'-'}</span></div>
@@ -3370,8 +3422,8 @@ function openBiayaOperasionalModal(usageId){
   if(!u) return;
 
   let formItems = usageBiayaOpItems(u).length > 0
-    ? usageBiayaOpItems(u).map(it=>({ id: it.id||uid(), kategori: it.kategori, kategoriCustom: isBiayaOpCategory(it.kategori)?'':it.kategori, nominal: it.nominal, catatan: it.catatan||'' }))
-    : [{ id: uid(), kategori:'', kategoriCustom:'', nominal:'', catatan:'' }];
+    ? usageBiayaOpItems(u).map(it=>({ id: it.id||uid(), kategori: it.kategori, kategoriCustom: isBiayaOpCategory(it.kategori)?'':it.kategori, nominal: it.nominal, biayaAdmin: it.biayaAdmin||'', catatan: it.catatan||'' }))
+    : [{ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'' }];
   // Normalisasi: kalau kategori tersimpan bukan salah satu dari daftar baku, anggap "Lainnya" + custom.
   formItems = formItems.map(it=>{
     if(it.kategori && !BIAYA_OP_CATEGORIES.includes(it.kategori)){
@@ -3399,10 +3451,12 @@ function openBiayaOperasionalModal(usageId){
     formItems.forEach(it=>{
       const katEl = document.getElementById('bo-kat-'+it.id);
       const katCustomEl = document.getElementById('bo-katcustom-'+it.id);
+      const adminEl = document.getElementById('bo-biayaadmin-'+it.id);
       const catatanEl = document.getElementById('bo-catatan-'+it.id);
       if(katEl) it.kategori = katEl.value;
       if(katCustomEl) it.kategoriCustom = katCustomEl.value;
       it.nominal = getRibuanValue('bo-nominal-'+it.id);
+      if(adminEl) it.biayaAdmin = getRibuanValue('bo-biayaadmin-'+it.id);
       if(catatanEl) it.catatan = catatanEl.value;
     });
   }
@@ -3410,6 +3464,20 @@ function openBiayaOperasionalModal(usageId){
     const total = formItems.reduce((sum,it)=> sum + (Number(getRibuanValue('bo-nominal-'+it.id))||0), 0);
     const el = document.getElementById('biayaop-total');
     if(el) el.textContent = fmtMoney(total);
+  }
+  // Info SAJA (tidak menyimpan/mengubah data apa pun) -- supaya admin bisa
+  // langsung lihat berapa yang bersih masuk ke saldo kartu setelah dipotong
+  // biaya admin, tanpa perlu hitung manual. Rp E-Toll (nominal) tetap yang
+  // dihitung sebagai pengeluaran trip ini -- biaya admin bukan pengeluaran
+  // terpisah, cuma potongan dari situ.
+  function updateEtollNetInfo(itemId){
+    const infoEl = document.getElementById('bo-etollnet-'+itemId);
+    if(!infoEl) return;
+    const rpEtoll = Number(getRibuanValue('bo-nominal-'+itemId)) || 0;
+    const biayaAdmin = Number(getRibuanValue('bo-biayaadmin-'+itemId)) || 0;
+    if(rpEtoll<=0){ infoEl.textContent = ''; return; }
+    const net = rpEtoll - biayaAdmin;
+    infoEl.textContent = `Bersih masuk saldo kartu: ${fmtMoney(net)}`;
   }
   function renderItems(){
     const wrap = document.getElementById('biayaop-items-wrap');
@@ -3435,6 +3503,12 @@ function openBiayaOperasionalModal(usageId){
           <label>Nama Kategori Lain</label>
           <input type="text" id="bo-katcustom-${it.id}" placeholder="Contoh: Tiket tol darurat" value="${escapeHtml(it.kategoriCustom||'')}" autocomplete="off">
         </div>` : ''}
+        ${it.kategori==='Isi E-Toll' ? `
+        <div class="field" style="margin-bottom:8px;">
+          <label>Biaya Admin (opsional)</label>
+          <input type="text" inputmode="numeric" id="bo-biayaadmin-${it.id}" placeholder="Contoh: 1.500" value="${fmtRibuanInitial(it.biayaAdmin)}">
+          <div class="hint" id="bo-etollnet-${it.id}"></div>
+        </div>` : ''}
         <div class="field" style="margin-bottom:${formItems.length>1?'8px':'0'};">
           <label>Catatan (opsional)</label>
           <input type="text" id="bo-catatan-${it.id}" value="${escapeHtml(it.catatan||'')}" placeholder="Detail tambahan">
@@ -3448,7 +3522,13 @@ function openBiayaOperasionalModal(usageId){
       if(katEl) katEl.addEventListener('change', ()=>{ syncFromDom(); renderItems(); });
       attachRibuanInput('bo-nominal-'+it.id);
       const nomEl = document.getElementById('bo-nominal-'+it.id);
-      if(nomEl) nomEl.addEventListener('input', updateTotal);
+      if(nomEl) nomEl.addEventListener('input', ()=>{ updateTotal(); updateEtollNetInfo(it.id); });
+      if(it.kategori==='Isi E-Toll'){
+        attachRibuanInput('bo-biayaadmin-'+it.id);
+        const adminEl = document.getElementById('bo-biayaadmin-'+it.id);
+        if(adminEl) adminEl.addEventListener('input', ()=> updateEtollNetInfo(it.id));
+        updateEtollNetInfo(it.id);
+      }
     });
     wrap.querySelectorAll('[data-remove-boitem]').forEach(b=> b.onclick = ()=>{
       syncFromDom();
@@ -3468,6 +3548,7 @@ function openBiayaOperasionalModal(usageId){
           id: it.id,
           kategori: (it.kategori === '__lainnya__' ? it.kategoriCustom.trim() : it.kategori),
           nominal: Number(it.nominal)||0,
+          biayaAdmin: it.kategori==='Isi E-Toll' ? (Number(it.biayaAdmin)||0) : undefined,
           catatan: (it.catatan||'').trim()
         }))
         .filter(it => it.kategori && it.nominal > 0);
@@ -3498,7 +3579,7 @@ function openBiayaOperasionalModal(usageId){
   renderItems();
   document.getElementById('btn-add-biayaop-item').addEventListener('click', ()=>{
     syncFromDom();
-    formItems.push({ id: uid(), kategori:'', kategoriCustom:'', nominal:'', catatan:'' });
+    formItems.push({ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'' });
     renderItems();
   });
 }
@@ -4888,6 +4969,11 @@ function buildFuelChain(carId){
   const result = new Map(); // usage.id -> hasil rantai untuk trip itu
   if(!car) return result;
 
+  // Ambang gap yang dianggap wajar & TIDAK ditandai sebagai "lupa dicatat"
+  // -- mis. bolak-balik ke masjid, beli makan dekat, dll yang memang
+  // sengaja tidak dicatat sebagai trip terpisah. Bisa diatur di Pengaturan.
+  const toleransiGapKm = (typeof state.toleransiGapKm === 'number') ? state.toleransiGapKm : 15;
+
   const trips = state.usage
     .filter(u=> u.carId===carId && u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar)
     .sort((a,b)=>{
@@ -4896,36 +4982,66 @@ function buildFuelChain(carId){
     });
 
   let pendingKm = 0;
+  let pendingLiter = 0; // BBM dari gap kecil yang ditoleransi, ikut diakumulasi berbarengan dgn KM-nya
   let prevOdoKembali = null;
+  let prevBensinKembali = null; // % bensin saat trip SEBELUMNYA berakhir -- dasar hitung BBM selama gap
   trips.forEach(u=>{
     const ownKm = u.odoKembali - u.odoKeluar;
     const keluar = getBensinKeluar(u);
     const kembali = getBensinKembali(u);
     const punyaIndikator = keluar!=null && kembali!=null && car.kapasitasTangkiLiter!=null;
 
-    // gapKm !== 0 -> ada jarak "hilang" antar trip (kemungkinan lupa dicatat).
-    // Cuma DITANDAI (rekonsiliasi), bukan menghalangi perhitungan trip ini.
+    // gapKm > 0 -> ada jarak "hilang" antar trip (mobil sama). Dua kemungkinan:
+    //  (a) gap KECIL (<= toleransi) -> errand harian wajar yang memang tidak
+    //      dicatat -- diam-diam DIGABUNG ke perhitungan (KM *dan* BBM-nya
+    //      sekaligus, supaya rasio tidak bias), tidak perlu ditandai merah.
+    //  (b) gap BESAR (> toleransi) -> kemungkinan trip (pengiriman) yang
+    //      lupa dicatat -- CUMA ditandai untuk dicek manual, TIDAK digabung
+    //      otomatis (supaya biaya/e-toll trip yg hilang itu tidak "hilang
+    //      diam-diam" dari rekonsiliasi).
     const gapKm = (prevOdoKembali!=null) ? (u.odoKeluar - prevOdoKembali) : 0;
+    const gapTolerated = gapKm > 0 && gapKm <= toleransiGapKm;
+    const gapFlagged = gapKm > toleransiGapKm;
+
+    if(gapTolerated && keluar!=null && prevBensinKembali!=null && car.kapasitasTangkiLiter!=null){
+      // Estimasi BBM yang terpakai SELAMA gap kecil ini, dari selisih %
+      // bensin akhir trip sebelumnya vs awal trip ini -- rumus neraca
+      // tangki yang sama dipakai di dalam 1 trip (lihat estimateLiterUsed).
+      const gapSelisihPersen = prevBensinKembali - keluar;
+      let gapLiter = (gapSelisihPersen/100) * Number(car.kapasitasTangkiLiter);
+      // Kalau bensin malah NAIK antar-trip (sempat diisi ulang tanpa
+      // tercatat) -> tidak bisa dihitung akurat, jangan dipaksa (anggap 0
+      // supaya tidak membuat BBM "berkurang" secara tidak wajar).
+      if(gapLiter < 0) gapLiter = 0;
+      pendingKm += gapKm;
+      pendingLiter += gapLiter;
+    }
+
     prevOdoKembali = u.odoKembali;
+    prevBensinKembali = kembali;
+
+    // Badge transparansi utk gap BESAR (tidak digabung otomatis).
+    const gapBadgeInfo = gapFlagged ? { gapKm } : null;
 
     if(!punyaIndikator){
       // Tidak ada data indikator sama sekali -> di luar rantai, pakai
       // fallback lama (jarak/literBeli) sendiri-sendiri, tidak menyentuh pendingKm.
-      result.set(u.id, { resolved:false, method:'fallback', ownKm, carriedInKm:0, gapKm });
+      result.set(u.id, { resolved:false, method:'fallback', ownKm, carriedInKm:0, gapKm, gapFlagged, gapTolerated });
       return;
     }
 
     const lt = estimateLiterUsed(u, car); // null berarti belum "resolve" (indikator belum sempat bergerak)
     if(lt==null){
       pendingKm += ownKm;
-      result.set(u.id, { resolved:false, method:'pending', ownKm, carriedInKm:0, pendingSoFar:pendingKm, gapKm });
+      result.set(u.id, { resolved:false, method:'pending', ownKm, carriedInKm:0, pendingSoFar:pendingKm, gapKm, gapFlagged, gapTolerated });
       return;
     }
 
     const carriedInKm = pendingKm;
     const effectiveKm = ownKm + pendingKm;
-    pendingKm = 0; // "dilunasi" ke trip ini
-    result.set(u.id, { resolved:true, method:'indikator', ownKm, effectiveKm, carriedInKm, literTerbakarRiil:lt, ratio: effectiveKm/lt, gapKm });
+    const effectiveLiter = lt + pendingLiter;
+    pendingKm = 0; pendingLiter = 0; // "dilunasi" ke trip ini
+    result.set(u.id, { resolved:true, method:'indikator', ownKm, effectiveKm, carriedInKm, literTerbakarRiil:effectiveLiter, ratio: effectiveKm/effectiveLiter, gapKm, gapFlagged, gapTolerated });
   });
 
   return result;
@@ -5699,6 +5815,22 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.27.0',
+    date: '23 Jul 2026',
+    notes: [
+      'Deteksi Gap Odometer sekarang punya "Toleransi Gap" yang bisa diatur (menu Pengaturan, default 15 KM) — gap kecil antar-trip (mobil sama) di bawah ambang ini dianggap errand harian wajar (mis. ke masjid, beli makan dekat) yang memang sengaja tidak dicatat, dan ditandai badge netral "↔️ Gap Kecil (Disertakan)", BUKAN alarm merah lagi.',
+      'Gap kecil yang ditoleransi itu sekarang benar-benar ikut dihitung ke Rasio & BBM Digunakan — bukan cuma KM-nya, tapi estimasi BBM selama gap itu juga (dari selisih bensin akhir trip sebelumnya vs awal trip ini), supaya rasio tidak bias jadi terlihat lebih irit dari kenyataan. Gap yang MELEBIHI toleransi tetap ditandai merah "⚠️ Belum Teralokasi" seperti sebelumnya dan tidak digabung otomatis (supaya trip pengiriman yang mungkin lupa dicatat, beserta biaya/e-toll-nya, tidak tertutupi diam-diam).',
+    ]
+  },
+  {
+    v: '3.26.0',
+    date: '23 Jul 2026',
+    notes: [
+      'Kategori "Isi E-Toll" di Biaya Operasional sekarang punya field tambahan "Biaya Admin" (opsional) — sistem otomatis tampilkan info "Bersih masuk saldo kartu" (Rp E-Toll dikurangi Biaya Admin) sebagai catatan, tanpa mengubah saldo Kartu E-Toll manapun.',
+      'Kolom "Biaya Operasional" di Catat Perjalanan sekarang menampilkan rincian kecil "🛣️ E-Toll: Rp X" kalau perjalanan itu punya item Isi E-Toll — supaya total pengeluaran e-toll per perjalanan langsung kelihatan tanpa buka detail.',
+    ]
+  },
   {
     v: '3.25.0',
     date: '23 Jul 2026',
