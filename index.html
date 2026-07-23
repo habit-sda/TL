@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.19.0">
+<meta name="app-version" content="3.20.2">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -798,7 +798,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.19.0';
+const APP_VERSION = '3.20.2';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1375,7 +1375,13 @@ function attachPercentInput(inputId){
 function getPercentValue(inputId){
   const el = document.getElementById(inputId);
   if(!el) return '';
-  return el.value.replace(/[^\d]/g,'');
+  // PENTING: titik desimal WAJIB dipertahankan (bukan cuma buang selain 0-9).
+  // Widget Bar menyimpan nilai persen eksak yang seringkali desimal (mis.
+  // maxBar=8 -> 1 bar = 12.5%). Regex lama /[^\d]/g ikut membuang titik itu,
+  // jadi "62.5" (5 Bar dari skala 8) berubah jadi teks "625" -- tersimpan
+  // sebagai 625%, lalu terbaca balik sebagai 50 Bar. Bug ini sudah lama ada,
+  // ketahuan sekarang karena baru dites di mobil dengan skala bar non-bulat.
+  return el.value.replace(/[^\d.]/g,'');
 }
 
 /* ---------------- Helper: field angka murni (tanpa titik/minus/huruf apapun) ----------------
@@ -1430,13 +1436,58 @@ function fmtPercentInitial(n){
    Sudah diverifikasi round-trip konsisten (Bar->Persen->Bar selalu balik
    ke angka Bar yang sama) untuk skala umum (4/7/8 bar dst) pakai
    pembulatan standar (round-half-up). */
+// PENTING: TIDAK dibulatkan. Pembacaan "X Bar" itu sendiri sudah eksak
+// (bukan hasil pengukuran kontinu), jadi X/maxBar*100 adalah nilai
+// sebenarnya -- bukan estimasi yang perlu dibulatkan. Membulatkannya ke
+// bilangan bulat (versi lama pakai Math.round) menambahkan bias sistematis
+// ±0,5 titik persen ke SETIAP pembacaan dengan jumlah bar ganjil, yang lalu
+// menumpuk jadi bias nyata di hasil "BBM Digunakan" & Rasio (neraca tangki
+// dihitung dari SELISIH dua pembacaan). Nilai persen boleh mengandung
+// desimal (mis. 62.5) -- ini valid dan dipakai apa adanya untuk kalkulasi.
+// Untuk TAMPILAN ke pengguna, bulatkan di sisi caller (lihat buildBarOptions
+// & wireBarPickerWidget), bukan di sini.
 function convertBarToPercent(barCount, maxBar){
   if(barCount==null || barCount==='' || !maxBar) return null;
-  return Math.round((Number(barCount) / Number(maxBar)) * 100);
+  return (Number(barCount) / Number(maxBar)) * 100;
 }
 function convertPercentToBar(percent, maxBar){
   if(percent==null || percent==='' || !maxBar) return null;
   return Math.round((Number(percent) / 100) * Number(maxBar));
+}
+/* ---------------- Migrasi satu-kali: perbaiki data Bensin rusak (bug v3.20.0 ke bawah) ----------------
+   Sebelum v3.20.1, getPercentValue() membuang titik desimal saat membaca nilai dari widget Bar.
+   Untuk mobil dengan skala Bar yang persen-per-barnya desimal (mis. skala 8 -> 1 Bar=12.5%), ini
+   membuat nilai tersimpan salah (5 Bar -> 62.5% -> titik dibuang -> tersimpan sebagai 625%).
+   Fungsi ini MEMBALIK bug tsb: untuk tiap kemungkinan Bar (0..maxBar), simulasikan persis bug yang
+   sama (buang titik dari representasi string persennya), lalu cocokkan dengan nilai yang tersimpan
+   sekarang. Kalau cocok PERSIS SATU kemungkinan, berarti bar itu bisa dipastikan sebagai nilai asli.
+   Kalau cocok 0 atau lebih dari 1 kemungkinan (ambigu), TIDAK ditebak -- dibiarkan untuk dikoreksi
+   manual, supaya tidak ada data yang "diperbaiki" jadi angka yang salah. */
+function findCorruptedBensinEntries(){
+  const results = [];
+  state.usage.forEach(u=>{
+    const car = state.cars.find(c=>c.id===u.carId);
+    if(!car || car.tipeIndikatorBbm !== 'bar') return; // bug ini spesifik mobil bertipe Bar
+    const maxBar = car.maxBarBbm || 8;
+
+    ['bensinKeluar','bensinKembali'].forEach(field=>{
+      const val = u[field];
+      if(val==null || val<=100) return; // persen valid maksimal 100 -- di atas itu pasti bekas bug
+
+      const matches = [];
+      for(let bar=0; bar<=maxBar; bar++){
+        const correctPercent = convertBarToPercent(bar, maxBar);
+        const buggedString = String(correctPercent).replace(/[^\d]/g,'');
+        if(buggedString !== '' && Number(buggedString) === Number(val)) matches.push({ bar, correctPercent });
+      }
+      if(matches.length === 1){
+        results.push({ usage:u, car, field, oldValue:val, newValue:matches[0].correctPercent, newBar:matches[0].bar, resolved:true });
+      } else {
+        results.push({ usage:u, car, field, oldValue:val, newValue:null, newBar:null, resolved:false });
+      }
+    });
+  });
+  return results;
 }
 // Dipakai di SEMUA titik tampilan (tabel, notifikasi, laporan, BBM) supaya
 // mobil bertipe Bar SELALU tampil sebagai "6 Bar", tidak pernah sebagai
@@ -1456,8 +1507,8 @@ function buildBarOptions(maxBar, currentPercentValue){
   const currentBar = currentPercentValue!=null ? convertPercentToBar(currentPercentValue, maxBar) : null;
   let options = `<option value="">— pilih —</option>`;
   for(let i = maxBar; i >= 0; i--){
-    const pct = convertBarToPercent(i, maxBar);
-    options += `<option value="${pct}" ${currentBar===i?'selected':''}>${i} Bar (${pct}%)</option>`;
+    const pct = convertBarToPercent(i, maxBar); // nilai eksak (bisa desimal) -- ini yang disimpan
+    options += `<option value="${pct}" ${currentBar===i?'selected':''}>${i} Bar (${Math.round(pct)}%)</option>`;
   }
   return options;
 }
@@ -1827,9 +1878,33 @@ const ROUTES = {
   settings:  {title:'Pengaturan', sub:'Kelola nama petugas/admin', render: renderSettings},
 };
 
-function navigate(route){
+// Stack menu yang PERNAH dikunjungi dalam sesi ini (bukan cuma "1 menu
+// terakhir") -- dipakai tombol Kembali fisik supaya balik ke menu SEBELUMNYA
+// yang sesungguhnya (seperti kebanyakan aplikasi lain), bukan selalu lompat
+// ke Dashboard. Disimpan di memori saja (bukan localStorage/sessionStorage)
+// karena cuma relevan selama aplikasi masih terbuka & berjalan.
+let navHistory = [];
+const NAV_HISTORY_MAX = 50; // jaga-jaga supaya tidak membengkak tanpa batas
+
+function navigate(route, opts){
+  opts = opts || {};
+  // Catat route SEBELUMNYA ke stack -- KECUALI kalau navigasi ini dipicu oleh
+  // tombol Kembali (fromBack) atau route-nya sama dengan yang sekarang (mis.
+  // re-render setelah simpan data), supaya stack tidak salah/duplikat.
+  if(!opts.fromBack && currentRoute && currentRoute !== route){
+    navHistory.push(currentRoute);
+    if(navHistory.length > NAV_HISTORY_MAX) navHistory.shift();
+  }
   currentRoute = route;
-  try{ localStorage.setItem('fleetops_last_route', route); }catch(e){}
+  // PENTING: pakai sessionStorage (bukan localStorage). sessionStorage ikut
+  // hilang begitu aplikasi BENAR-BENAR ditutup (proses/tab dimatikan), tapi
+  // TETAP ada kalau HP cuma dikunci/layar dimatikan (proses tetap hidup di
+  // belakang layar, cuma "tidur") -- jadi:
+  //   - Layar mati/HP dikunci lalu dibuka lagi -> BUKAN penutupan aplikasi,
+  //     otomatis lanjut di menu yang sama (proses JS tidak pernah berhenti).
+  //   - Aplikasi benar-benar ditutup (swipe dari recent apps / force close)
+  //     lalu dibuka lagi -> dianggap "sesi baru", kembali ke Dashboard.
+  try{ sessionStorage.setItem('fleetops_last_route', route); }catch(e){}
   document.querySelectorAll('.menu-item').forEach(el=>{
     el.classList.toggle('active', el.dataset.route === route);
   });
@@ -2897,10 +2972,47 @@ function renderUsage(){
   </div></div>`;
   document.getElementById('content').innerHTML = html;
 
+  // ---------------- Rasio Mesin Riil (v3.19.1) ----------------
+  // Rumus lama menganggap SEMUA BBM yang dibeli (u.literBensin) langsung
+  // habis terbakar di perjalanan itu -- padahal kalau tangki belum kosong
+  // saat isi ulang, sebagian BBM yang dibeli cuma mengendap di tangki untuk
+  // perjalanan berikutnya. Neraca tangki di bawah ini mengoreksi itu:
+  //   literTerbakarRiil = (bensinKeluar% - bensinKembali%)/100 * kapasitasTangki + literBeli
+  // Kasus khusus bensinKeluar=bensinKembali=100% (isi penuh di kedua ujung)
+  // otomatis meniadakan koreksi tangki -> setara metode "Full-to-Full",
+  // metode paling akurat menurut standar industri fleet management.
   function ratioLabel(u){
-    if(u.odoKeluar==null || u.odoKembali==null || u.odoKembali<u.odoKeluar || !u.literBensin) return '-';
+    if(u.odoKeluar==null || u.odoKembali==null || u.odoKembali<u.odoKeluar) return '-';
     const jarak = u.odoKembali - u.odoKeluar;
-    const rasio = jarak / Number(u.literBensin);
+    const literBeli = u.literBensin ? Number(u.literBensin) : 0;
+
+    const bensinKeluar = getBensinKeluar(u);
+    const bensinKembali = getBensinKembali(u);
+    const car = state.cars.find(c=>c.id===u.carId);
+
+    // Syarat rumus riil: kedua bacaan indikator ada, dan mobil punya kapasitas tangki.
+    if(bensinKeluar!=null && bensinKembali!=null && car && car.kapasitasTangkiLiter){
+      // literTerbakarRiil dihitung lewat estimateLiterUsed() -- SATU fungsi
+      // yang sama dipakai juga oleh Kalkulator Rasio Konsumsi & Ringkasan
+      // per Mobil, supaya ketiganya selalu konsisten.
+      const literTerbakarRiil = estimateLiterUsed(u, car);
+
+      // literTerbakarRiil null/<=0 (bacaan tidak wajar) -> tampilkan '-', BUKAN fallback,
+      // supaya tidak menyembunyikan data indikator yang perlu dicek ulang petugas.
+      if(literTerbakarRiil==null || literTerbakarRiil <= 0) return '-';
+
+      const rasio = jarak / literTerbakarRiil;
+      if(!isFinite(rasio) || rasio<=0) return '-';
+
+      const isFullToFull = bensinKeluar===100 && bensinKembali===100;
+      const badgeCls = isFullToFull ? 'ok' : 'warn';
+      const badgeText = isFullToFull ? 'Full-to-Full' : 'Estimasi';
+      return `${rasio.toFixed(1)} KM/L <span class="badge ${badgeCls}">${badgeText}</span>`;
+    }
+
+    // Fallback: data indikator/kapasitas tangki tidak lengkap -> rumus lama.
+    if(!literBeli) return '-';
+    const rasio = jarak / literBeli;
     if(!isFinite(rasio) || rasio<=0) return '-';
     return rasio.toFixed(1) + ' KM/L';
   }
@@ -2934,6 +3046,11 @@ function renderUsage(){
         jarakBadge = `<span class="badge neutral">Belum kembali</span>`;
       }
       const bbmLabel = (u.literBensin || u.biayaBensin) ? `${u.literBensin?Number(u.literBensin).toLocaleString('id-ID')+' L':''}${u.biayaBensin?' / '+fmtMoney(u.biayaBensin):''}` : '-';
+      // BBM Digunakan (Riil): estimasi liter yang benar-benar terpakai di
+      // perjalanan ini, rumus sama dengan kolom Rasio & Kalkulator Rasio
+      // Konsumsi di menu BBM (neraca tangki, bukan sekadar liter dibeli).
+      const literTerpakaiVal = carForRow ? estimateLiterUsed(u, carForRow) : null;
+      const literTerpakaiLabel = literTerpakaiVal!=null ? literTerpakaiVal.toFixed(1)+' L' : '-';
       const biayaOpTotal = usageBiayaOpTotal(u);
       const isOperasional = u.jenisPenggunaan !== 'pribadi';
       const actionButtonsHtml = `
@@ -2942,13 +3059,13 @@ function renderUsage(){
         ${biayaOpTotal>0 ? `<button class="btn btn-ghost btn-sm" data-share="${u.id}">📤 Bagikan</button><button class="btn btn-ghost btn-sm" data-copy-img="${u.id}">📋 Salin Gambar</button>` : ''}
         ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Tandai Kembali</button>` : `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✏️ Edit Data Kembali</button>`}
       `;
-      return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, linkedCard, jarakBadge, bbmLabel, biayaOpTotal, isOperasional, actionButtonsHtml };
+      return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, isOperasional, actionButtonsHtml };
     });
 
     // ---------- Versi TABEL (desktop, layar lebar) ----------
     const tableHtml = `
       <div class="table-scroll desktop-usage-table"><table>
-        <thead><tr><th>Kode</th><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Jam</th><th>Kembali</th><th>Jam</th><th>Jarak</th><th>BBM Dibeli</th><th>Rasio</th><th>Bensin Keluar</th><th>Bensin Kembali</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Biaya Operasional</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Kode</th><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Jam</th><th>Kembali</th><th>Jam</th><th>Jarak</th><th>BBM Dibeli</th><th>BBM Digunakan</th><th>Rasio</th><th>Bensin Keluar</th><th>Bensin Kembali</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Biaya Operasional</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${rows.map(r=>{
             const u = r.u;
@@ -2965,6 +3082,7 @@ function renderUsage(){
               <td>${u.jamKembali || '-'}</td>
               <td>${r.jarakBadge}</td>
               <td>${r.bbmLabel}</td>
+              <td>${r.literTerpakaiLabel}</td>
               <td>${ratioLabel(u)}</td>
               <td>${r.bensinKeluarBadge}</td>
               <td>${r.bensinKembaliBadge}</td>
@@ -3001,6 +3119,7 @@ function renderUsage(){
                 <div><span class="k">Jam</span> <span class="v">${u.jamKeluar||'-'} → ${u.jamKembali||'-'}</span></div>
                 <div><span class="k">Rasio</span> <span class="v">${ratioLabel(u)}</span></div>
                 <div><span class="k">BBM Dibeli</span> <span class="v">${r.bbmLabel}</span></div>
+                <div><span class="k">BBM Digunakan</span> <span class="v">${r.literTerpakaiLabel}</span></div>
                 <div><span class="k">Biaya Operasional</span> <span class="v">${r.biayaOpTotal>0?fmtMoney(r.biayaOpTotal):'-'}</span></div>
                 <div><span class="k">Bensin Keluar</span> <span class="v">${r.bensinKeluarBadge}</span></div>
                 <div><span class="k">Bensin Kembali</span> <span class="v">${r.bensinKembaliBadge}</span></div>
@@ -3545,7 +3664,7 @@ function wireBarPickerWidget(widgetSelector, inputId, onChangeCallback){
   const maxBar = Number(widget.dataset.maxbar);
 
   function updateVisual(bar){
-    const pct = convertBarToPercent(bar, maxBar);
+    const pct = convertBarToPercent(bar, maxBar); // nilai eksak (bisa desimal) -- disimpan apa adanya
     const color = bensinLevelColor(pct);
     // PENTING: bersihkan warna SEMUA tombol dulu tiap kali ganti pilihan --
     // sebelumnya warna yang pernah dipilih menempel permanen di tombolnya
@@ -3563,9 +3682,9 @@ function wireBarPickerWidget(widgetSelector, inputId, onChangeCallback){
     ).join('');
     widget.querySelector('[data-role="label"]').textContent = `${bar} / ${maxBar} Bar`;
     const percentEl = widget.querySelector('[data-role="percent"]');
-    percentEl.textContent = pct + '%';
+    percentEl.textContent = Math.round(pct) + '%'; // label dibulatkan biar enak dibaca
     percentEl.style.color = color;
-    hiddenInput.value = pct;
+    hiddenInput.value = pct; // nilai TERSIMPAN tetap eksak, tidak dibulatkan
   }
 
   widget.querySelectorAll('.bar-picker-btn').forEach(btn=>{
@@ -3593,14 +3712,18 @@ function calcFuelRangeEstimate(carId, bensinPercent){
   if(!car.kapasitasTangkiLiter) return { estimatedKm:null, reason:'Atur Kapasitas Tangki mobil ini dulu (Data Mobil) untuk mengaktifkan estimasi jarak.' };
 
   const trips = state.usage.filter(u=>u.carId===carId);
-  const totalLiter = trips.reduce((sum,u)=> sum + (Number(u.literBensin)||0), 0);
-  const totalKm = trips.reduce((sum,u)=>{
-    if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) return sum + (u.odoKembali-u.odoKeluar);
-    return sum;
-  }, 0);
-  if(totalLiter<=0 || totalKm<=0) return { estimatedKm:null, reason:'Belum ada cukup riwayat perjalanan (jarak + liter BBM) untuk mobil ini, jadi efisiensinya belum bisa dihitung.' };
+  let totalKm = 0, totalLiterTerpakai = 0;
+  trips.forEach(u=>{
+    const lt = estimateLiterUsed(u, car);
+    if(lt==null || lt<=0) return;
+    if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar){
+      totalKm += (u.odoKembali-u.odoKeluar);
+      totalLiterTerpakai += lt;
+    }
+  });
+  if(totalLiterTerpakai<=0 || totalKm<=0) return { estimatedKm:null, reason:'Belum ada cukup riwayat perjalanan (jarak + liter BBM) untuk mobil ini, jadi efisiensinya belum bisa dihitung.' };
 
-  const avgRatio = totalKm / totalLiter; // KM per Liter, dari riwayat nyata
+  const avgRatio = totalKm / totalLiterTerpakai; // KM per Liter, dari riwayat nyata (neraca tangki)
   const litersRemaining = (bensinPercent/100) * Number(car.kapasitasTangkiLiter);
   const estimatedKm = avgRatio * litersRemaining;
   return { estimatedKm, avgRatio, litersRemaining, reason:null };
@@ -4620,18 +4743,29 @@ function openDocModal(){
 function fuelBatasFor(car){
   return car.batasMinimumBensin!=null ? Number(car.batasMinimumBensin) : 20;
 }
-// Estimasi liter BBM yang BENAR-BENAR terpakai di 1 perjalanan, dari selisih
-// persentase bensin (keluar - kembali) dikonversi pakai kapasitas tangki.
-// Kembalikan null kalau datanya tidak lengkap/tidak masuk akal, supaya
-// tidak menampilkan angka yang menyesatkan.
+// Estimasi liter BBM yang BENAR-BENAR terpakai di 1 perjalanan -- rumus
+// NERACA TANGKI, SAMA PERSIS dengan yang dipakai kolom "Rasio" di Catat
+// Perjalanan (ratioLabel):
+//   literTerbakarRiil = (bensinKeluar% - bensinKembali%)/100 * kapasitasTangki + literBeli
+// PENTING: liter yang DIBELI (u.literBensin) WAJIB ikut ditambahkan. Kalau
+// selisih % bensin negatif (bensin kembali > bensin keluar, artinya sempat
+// isi ulang di tengah jalan), justru literBeli itulah yang menutup selisih
+// itu -- bukan tanda data tidak valid. Versi lama sempat lupa menambahkan
+// literBeli & malah menolak kasus isi-di-jalan sebagai "tidak konsisten",
+// sehingga banyak perjalanan valid tidak terhitung di sini padahal
+// terhitung normal di kolom Rasio. Kembalikan null kalau datanya tidak
+// lengkap/hasil akhirnya tidak masuk akal (<=0), supaya tidak menampilkan
+// angka yang menyesatkan.
 function estimateLiterUsed(u, car){
   if(!car || car.kapasitasTangkiLiter==null) return null;
   const keluar = getBensinKeluar(u);
   const kembali = getBensinKembali(u);
   if(keluar==null || kembali==null) return null;
-  const drop = keluar - kembali;
-  if(drop <= 0) return null; // bensin "nambah" tanpa isi ulang tercatat -> data tidak konsisten, jangan dipaksa dihitung
-  return (drop/100) * Number(car.kapasitasTangkiLiter);
+  const literBeli = u.literBensin ? Number(u.literBensin) : 0;
+  const selisihPersen = keluar - kembali; // bisa negatif kalau isi ulang di jalan
+  const literTerbakarRiil = (selisihPersen/100) * Number(car.kapasitasTangkiLiter) + literBeli;
+  if(literTerbakarRiil <= 0) return null; // hasil tidak wajar -> jangan dipaksa dihitung
+  return literTerbakarRiil;
 }
 function fuelLatestReading(carId){
   return state.usage
@@ -4738,18 +4872,29 @@ function renderBBM(){
     const trips = state.usage.filter(u=>u.carId===c.id);
     const totalLiter = trips.reduce((sum,u)=> sum + (Number(u.literBensin)||0), 0);
     const totalBiaya = trips.reduce((sum,u)=> sum + (Number(u.biayaBensin)||0), 0);
-    // Rata-rata efisiensi dihitung dari TOTAL jarak dibagi TOTAL liter (bukan
-    // rata-rata dari tiap rasio per-perjalanan) -- lebih akurat karena tidak
-    // bias ke perjalanan pendek yang kebetulan banyak jumlahnya.
-    const totalKmForRatio = trips.reduce((sum,u)=>{
-      if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) return sum + (u.odoKembali-u.odoKeluar);
-      return sum;
-    }, 0);
-    const avgRatio = (totalKmForRatio>0 && totalLiter>0) ? (totalKmForRatio/totalLiter) : null;
+    // Rata-rata efisiensi & Total BBM Digunakan dihitung dari METODE RIIL
+    // yang SAMA dengan kolom "Rasio" di Catat Perjalanan & Kalkulator Rasio
+    // Konsumsi (neraca tangki: selisih % bensin + liter dibeli) -- BUKAN
+    // cuma total jarak ÷ total liter dibeli seperti sebelumnya. Dua metode
+    // beda itu yang membuat angka di sini terlihat "salah"/tidak cocok
+    // dibanding kolom Rasio per perjalanan, padahal keduanya cuma beda cara
+    // hitung. Perjalanan tanpa data bensin keluar+kembali (atau tanpa
+    // Kapasitas Tangki) otomatis tidak ikut dihitung di sini (estimateLiterUsed
+    // mengembalikan null), sama seperti di Kalkulator.
+    let totalKmForRatio = 0, totalLiterTerpakai = 0;
+    trips.forEach(u=>{
+      const lt = estimateLiterUsed(u, c);
+      if(lt==null || lt<=0) return;
+      if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar){
+        totalKmForRatio += (u.odoKembali-u.odoKeluar);
+        totalLiterTerpakai += lt;
+      }
+    });
+    const avgRatio = (totalKmForRatio>0 && totalLiterTerpakai>0) ? (totalKmForRatio/totalLiterTerpakai) : null;
     const latest = fuelLatestReading(c.id);
     const sisaTerkini = latest ? getBensinTerkini(latest) : null;
     const batas = fuelBatasFor(c);
-    return { car:c, totalLiter, totalBiaya, avgRatio, latest, sisaTerkini, batas };
+    return { car:c, totalLiter, totalBiaya, totalLiterTerpakai, avgRatio, latest, sisaTerkini, batas };
   });
 
   const lowFuelCars = carSummaries.filter(s=> s.sisaTerkini!=null && s.sisaTerkini < s.batas);
@@ -4812,7 +4957,35 @@ function renderBBM(){
     </div>
   `;
 
+  const corruptedEntries = findCorruptedBensinEntries();
+  const resolvedFixes = corruptedEntries.filter(e=>e.resolved);
+  const unresolvedFixes = corruptedEntries.filter(e=>!e.resolved);
+  const corruptionPanel = corruptedEntries.length===0 ? '' : `
+    <div class="panel">
+      <div class="panel-head">
+        <h2>⚠️ Data Bensin Perlu Diperbaiki</h2>
+        <span class="badge danger">${corruptedEntries.length} ditemukan</span>
+      </div>
+      <div class="panel-body">
+        <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
+          Terdeteksi Bensin Keluar/Kembali di atas 100% — bekas bug pembulatan Bar yang sudah diperbaiki di v3.20.1 (lihat Changelog).
+          ${resolvedFixes.length>0?` <b>${resolvedFixes.length} data</b> bisa dipastikan nilai Bar aslinya dan diperbaiki otomatis.`:''}
+          ${unresolvedFixes.length>0?` <b>${unresolvedFixes.length} data</b> tidak bisa dipastikan otomatis (ambigu) — perlu dikoreksi manual lewat Edit di Catat Perjalanan.`:''}
+        </p>
+        ${resolvedFixes.length>0?`<button class="btn btn-primary" id="btn-fix-corrupted-bensin" type="button">Perbaiki ${resolvedFixes.length} Data Otomatis</button>`:''}
+        ${unresolvedFixes.length>0?`
+        <div class="table-scroll" style="margin-top:12px;"><table>
+          <thead><tr><th>Kode</th><th>Mobil</th><th>Field</th><th>Nilai Tersimpan</th></tr></thead>
+          <tbody>
+            ${unresolvedFixes.map(e=>`<tr><td>${escapeHtml(e.usage.kode||'-')}</td><td>${escapeHtml(carLabel(e.car.id))}</td><td>${e.field==='bensinKeluar'?'Bensin Keluar':'Bensin Kembali'}</td><td>${e.oldValue}%</td></tr>`).join('')}
+          </tbody>
+        </table></div>`:''}
+      </div>
+    </div>
+  `;
+
   let html = `
+    ${corruptionPanel}
     <div class="panel">
       <div class="panel-head"><h2>Peringatan BBM Menipis</h2></div>
       <div class="panel-body">
@@ -4840,7 +5013,7 @@ function renderBBM(){
       <div class="panel-body">
         ${carSummaries.length===0 ? emptyState('🚚','Belum ada data mobil.') : `
         <div class="table-scroll desktop-data-table"><table>
-          <thead><tr><th>Mobil</th><th>Sisa Bensin Terakhir</th><th>Rata-rata Efisiensi</th><th>Total Liter Dibeli</th><th>Total Biaya BBM</th></tr></thead>
+          <thead><tr><th>Mobil</th><th>Sisa Bensin Terakhir</th><th>Rata-rata Efisiensi</th><th>Total Liter Dibeli</th><th>Total BBM Digunakan</th><th>Total Biaya BBM</th></tr></thead>
           <tbody>
             ${carSummaries.map(s=>{
               let sisaBadge = '-';
@@ -4854,6 +5027,7 @@ function renderBBM(){
                 <td>${sisaBadge}</td>
                 <td>${s.avgRatio!=null ? s.avgRatio.toFixed(1)+' KM/L' : '-'}</td>
                 <td>${s.totalLiter.toLocaleString('id-ID')} L</td>
+                <td>${s.totalLiterTerpakai>0 ? s.totalLiterTerpakai.toFixed(1)+' L' : '-'}</td>
                 <td>${fmtMoney(s.totalBiaya)}</td>
               </tr>`;
             }).join('')}
@@ -4872,6 +5046,7 @@ function renderBBM(){
               <div class="data-card-row"><span class="k">Sisa Bensin Terakhir</span><span class="v">${sisaBadge}</span></div>
               <div class="data-card-row"><span class="k">Rata-rata Efisiensi</span><span class="v">${s.avgRatio!=null ? s.avgRatio.toFixed(1)+' KM/L' : '-'}</span></div>
               <div class="data-card-row"><span class="k">Total Liter Dibeli</span><span class="v">${s.totalLiter.toLocaleString('id-ID')} L</span></div>
+              <div class="data-card-row"><span class="k">Total BBM Digunakan</span><span class="v">${s.totalLiterTerpakai>0 ? s.totalLiterTerpakai.toFixed(1)+' L' : '-'}</span></div>
               <div class="data-card-row"><span class="k">Total Biaya BBM</span><span class="v">${fmtMoney(s.totalBiaya)}</span></div>
             </div>`;
           }).join('')}
@@ -4933,6 +5108,45 @@ function renderBBM(){
     </div></div>
   `;
   document.getElementById('content').innerHTML = html;
+
+  const btnFixCorrupted = document.getElementById('btn-fix-corrupted-bensin');
+  if(btnFixCorrupted){
+    btnFixCorrupted.addEventListener('click', ()=>{
+      const body = `
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
+          Berikut ${resolvedFixes.length} data yang akan diperbaiki. Nilai Bar aslinya dipastikan
+          lewat penelusuran balik (bukan tebakan), jadi aman diterapkan. Aksi ini tercatat di Log Aktivitas.
+        </p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Kode</th><th>Mobil</th><th>Field</th><th>Sebelum</th><th>Sesudah</th></tr></thead>
+          <tbody>
+            ${resolvedFixes.map(e=>`<tr>
+              <td>${escapeHtml(e.usage.kode||'-')}</td>
+              <td>${escapeHtml(carLabel(e.car.id))}</td>
+              <td>${e.field==='bensinKeluar'?'Bensin Keluar':'Bensin Kembali'}</td>
+              <td>${e.oldValue}%</td>
+              <td>${formatBensinDisplay(e.newValue, e.car)} (${e.newValue}%)</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      `;
+      openModal({
+        title: `Konfirmasi Perbaikan ${resolvedFixes.length} Data Bensin`,
+        body,
+        onSave: () => {
+          resolvedFixes.forEach(e=>{
+            e.usage[e.field] = e.newValue;
+            touch(e.usage);
+          });
+          saveData();
+          logActivity('penggunaan', 'Perbaiki data Bensin rusak (bug Bar v3.20.1)', `${resolvedFixes.length} catatan diperbaiki otomatis`);
+          showToast(`${resolvedFixes.length} data Bensin berhasil diperbaiki.`);
+          if(currentRoute==='bbm') renderBBM();
+          return true;
+        }
+      });
+    });
+  }
 
   function renderTable(items){
     const wrap = document.getElementById('bbm-table-wrap');
@@ -5260,6 +5474,37 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.20.2',
+    date: '23 Jul 2026',
+    notes: [
+      'Menu BBM: ditambah alat "Perbaiki Data Bensin Rusak" — otomatis mendeteksi catatan Bensin Keluar/Kembali di atas 100% (bekas bug pembulatan Bar di versi sebelumnya) dan menawarkan perbaikan ke nilai Bar aslinya. Hanya memperbaiki data yang bisa dipastikan dengan pasti (bukan tebakan); yang meragukan tetap diminta dikoreksi manual lewat Edit. Perlu konfirmasi eksplisit sebelum diterapkan, dan tercatat di Log Aktivitas.',
+    ]
+  },
+  {
+    v: '3.20.1',
+    date: '23 Jul 2026',
+    notes: [
+      'Perbaikan bug penting: untuk mobil dengan skala Bar yang setiap barnya tidak bulat persen (mis. skala 8 Bar, 1 Bar = 12.5%), memilih Bar tertentu di Bensin Keluar/Kembali bisa tersimpan salah (mis. 5 Bar tersimpan jadi 50 Bar / 625%), yang ikut membuat "BBM Digunakan" dan "Rasio" salah hitung. Sekarang nilainya tersimpan dan terbaca dengan benar.',
+      'Catatan: perjalanan yang SUDAH TERLANJUR tersimpan sebelum perbaikan ini (dengan Bensin Keluar/Kembali di atas 100%, seperti contoh 625%) datanya masih perlu dikoreksi manual lewat Edit — perbaikan ini hanya mencegah kesalahan baru, bukan mengoreksi data lama secara otomatis.',
+    ]
+  },
+  {
+    v: '3.20.0',
+    date: '23 Jul 2026',
+    notes: [
+      'Tombol "Kembali" HP/browser sekarang benar-benar mengingat riwayat menu dalam 1 sesi pemakaian — kembali ke menu SEBELUMNYA yang sesungguhnya (seperti kebanyakan aplikasi lain), bukan selalu lompat ke Dashboard. Kalau riwayatnya sudah habis, baru jatuh ke Dashboard, lalu ke konfirmasi keluar.',
+      'Menu terakhir yang dibuka kini hanya diingat SELAMA aplikasi belum benar-benar ditutup. Layar mati/HP dikunci lalu dibuka lagi TETAP lanjut di menu yang sama (bukan dianggap menutup aplikasi). Tapi kalau aplikasi benar-benar ditutup (mis. di-swipe dari daftar aplikasi terbuka) lalu dibuka lagi, sekarang otomatis mulai dari Dashboard — sesuai kebiasaan kebanyakan aplikasi lain.',
+    ]
+  },
+  {
+    v: '3.19.1',
+    date: '22 Jul 2026',
+    notes: [
+      'Kolom "Rasio" di Catat Perjalanan sekarang pakai Rasio Mesin Riil: memperhitungkan selisih indikator Bensin Keluar vs Bensin Kembali (bukan cuma BBM yang dibeli), sehingga BBM yang belum sempat terbakar dan masih mengendap di tangki tidak lagi ikut dihitung.',
+      'Ditambah label kecil di kolom Rasio: "Full-to-Full" (paling akurat, kalau tangki penuh di kedua ujung) atau "Estimasi" (dari pembacaan indikator). Perjalanan dengan data indikator belum lengkap tetap pakai rumus lama (Jarak ÷ BBM Dibeli) tanpa label.',
+    ]
+  },
   {
     v: '3.19.0',
     date: '22 Jul 2026',
@@ -5807,13 +6052,18 @@ document.getElementById('btn-changelog').onclick = () => {
 /* ---------------- Init ---------------- */
 document.getElementById('btn-changelog').textContent = 'v' + APP_VERSION + ' · Lihat Changelog';
 renderPetugasSelect();
-// Buka kembali halaman TERAKHIR yang dikunjungi (bukan selalu Dashboard),
-// supaya refresh/reload tidak memutus pekerjaan yang sedang dilihat.
+// Buka kembali halaman TERAKHIR yang dikunjungi DALAM SESI YANG SAMA (bukan
+// selalu Dashboard), supaya screen mati/HP terkunci lalu dibuka lagi (BUKAN
+// menutup aplikasi) tidak memutus pekerjaan yang sedang dilihat. Sengaja
+// pakai sessionStorage (bukan localStorage): begitu aplikasi BENAR-BENAR
+// ditutup (proses dimatikan, bukan cuma layar mati), sessionStorage ikut
+// hilang, sehingga pembukaan berikutnya otomatis dianggap sesi baru dan
+// mulai dari Dashboard -- sesuai perilaku standar kebanyakan aplikasi.
 // Validasi dulu route-nya masih ada di ROUTES -- kalau tidak (mis. hapus
 // menu di versi lama), aman jatuh ke 'dashboard'.
 let startRoute = 'dashboard';
 try{
-  const savedRoute = localStorage.getItem('fleetops_last_route');
+  const savedRoute = sessionStorage.getItem('fleetops_last_route');
   if(savedRoute && ROUTES[savedRoute]) startRoute = savedRoute;
 }catch(e){}
 ensureCodesAssigned();
@@ -5840,11 +6090,18 @@ function pushNavGuard(){
 pushNavGuard();
 window.addEventListener('popstate', ()=>{
   if(exitConfirmed) return; // user sudah pilih "Iya" -> biarkan browser keluar secara alami
-  if(currentRoute !== 'dashboard'){
-    pushNavGuard();
-    navigate('dashboard');
+  pushNavGuard();
+  if(navHistory.length > 0){
+    // Ada menu sebelumnya yang tercatat dalam sesi ini -> kembali ke situ,
+    // persis seperti tombol Kembali di kebanyakan aplikasi lain.
+    const prevRoute = navHistory.pop();
+    navigate(prevRoute, {fromBack:true});
+  } else if(currentRoute !== 'dashboard'){
+    // Tidak ada riwayat tercatat (mis. baru buka aplikasi langsung ke menu
+    // ini lewat sessionStorage) -> jatuhkan ke Dashboard dulu, jangan
+    // langsung keluar aplikasi.
+    navigate('dashboard', {fromBack:true});
   } else {
-    pushNavGuard();
     openExitConfirmModal();
   }
 });
