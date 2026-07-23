@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.20.2">
+<meta name="app-version" content="3.25.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -497,6 +497,17 @@
   .field.error .err-msg{display:block;}
   .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 
+  /* Uppercase VISUAL saja (v3.24.0) -- nilai ASLI field baru benar-benar
+     diubah huruf besar saat blur (lihat listener document 'blur' di JS).
+     Selektor ini SENGAJA dicerminkan persis dari kondisi isPlainTextField
+     di JS: input type=text/tanpa type, atau textarea, KECUALI yang ditandai
+     data-no-uppercase (URL, dll). */
+  .field input[type="text"]:not([data-no-uppercase]),
+  .field input:not([type]):not([data-no-uppercase]),
+  .field textarea:not([data-no-uppercase]){
+    text-transform:uppercase;
+  }
+
   .toast-wrap{position:fixed;bottom:20px;right:20px;z-index:200;display:flex;flex-direction:column;gap:8px;}
   .toast{
     background:var(--navy);color:#fff;padding:11px 16px;border-radius:8px;
@@ -798,7 +809,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.20.2';
+const APP_VERSION = '3.25.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1407,7 +1418,21 @@ function attachIntegerOnlyInput(inputId){
    (aman di sini karena ubah huruf besar/kecil tidak mengubah panjang teks).
    Field angka (ribuan/persen/integer) otomatis aman karena isinya cuma digit
    dan simbol, tidak ada huruf yang bisa diubah kapitalisasinya. */
-document.addEventListener('input', function(e){
+/* Field teks di-uppercase-kan OTOMATIS -- tapi PENTING (v3.24.0): pemicunya
+   'blur' (setelah selesai mengetik), BUKAN 'input' (tiap ketikan) seperti
+   sebelumnya. Memaksa reset el.value di tengah proses mengetik terbukti
+   merusak Spasi di banyak keyboard Android (Gboard/Samsung Keyboard) --
+   Spasi sering dipakai keyboard itu untuk menyelesaikan prediksi kata, dan
+   kalau value field direset paksa di tengah proses itu, Spasi-nya "ditelan"
+   / tidak masuk. Tampilan tetap terlihat uppercase SAAT mengetik lewat CSS
+   (text-transform:uppercase di style.css bagian bawah) -- nilai ASLI-nya
+   baru benar-benar diubah huruf besar begitu field ditinggalkan (blur),
+   saat pengguna sudah selesai mengetik dan tidak sedang berinteraksi dengan
+   keyboard/IME lagi, jadi aman.
+   CATATAN: 'blur' TIDAK bubbling seperti event lain -- listener di document
+   WAJIB pakai capture:true (parameter ke-3 = true), kalau tidak, event dari
+   field manapun tidak akan pernah sampai ke listener ini. */
+document.addEventListener('blur', function(e){
   const el = e.target;
   if(!el || !el.tagName) return;
   if(el.dataset && el.dataset.noUppercase) return; // field case-sensitive (URL, owner/repo GitHub, dll)
@@ -1416,11 +1441,9 @@ document.addEventListener('input', function(e){
     (el.tagName === 'INPUT' && (el.type === 'text' || el.type === undefined));
   if(!isPlainTextField) return;
   if(el.value !== el.value.toUpperCase()){
-    const start = el.selectionStart, end = el.selectionEnd;
     el.value = el.value.toUpperCase();
-    if(start!=null && end!=null) el.setSelectionRange(start, end);
   }
-});
+}, true);
 
 function fmtPercentInitial(n){
   if(n===null || n===undefined || n==='') return '';
@@ -1608,6 +1631,60 @@ function getBensinTerkini(u){
 }
 function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+// Tombol "📍 Navigasi" -- dipakai di 3 tempat (tabel Catat Perjalanan, tabel
+// Booking Mobil, bubble perjalanan aktif) supaya SATU markup/gaya yang sama,
+// bukan ditulis ulang 3x. Kembalikan string kosong kalau mapsLink kosong,
+// jadi caller cukup taruh hasilnya langsung tanpa perlu cek null sendiri.
+function mapsNavButtonHtml(mapsLink){
+  if(!mapsLink || !/^https?:\/\//i.test(mapsLink.trim())) return ''; // jaga-jaga: tolak skema selain http(s), mis. javascript:
+  // stopPropagation: beberapa tempat pemasangan (mis. trip-card di bubble)
+  // punya klik-handler sendiri di elemen pembungkusnya -- tanpa ini, klik
+  // tombol ini akan IKUT memicu handler pembungkus itu (mis. buka menu aksi)
+  // di atas navigasi yang sebenarnya dituju.
+  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="badge ok" style="text-decoration:none;white-space:nowrap;">📍 Navigasi</a>`;
+}
+
+// Cari Link Maps dari riwayat TUJUAN YANG SAMA PERSIS (case-insensitive) --
+// diambil dari catatan TERBARU (Catat Perjalanan atau Booking), supaya admin
+// tidak perlu tempel ulang link yang sama untuk tujuan langganan (Gudang
+// Utama, Toko Jaya, dll). excludeId: supaya saat EDIT, catatan itu sendiri
+// tidak ikut jadi sumber (biar tidak "menemukan" link dirinya sendiri).
+function findMapsLinkForTujuan(tujuanText, excludeId){
+  const needle = (tujuanText||'').trim().toLowerCase();
+  if(!needle) return null;
+
+  const candidates = [];
+  state.usage.forEach(u=>{
+    if(u.id===excludeId) return;
+    if(u.mapsLink && (u.tujuan||'').trim().toLowerCase()===needle){
+      candidates.push({ mapsLink:u.mapsLink, sortKey:(u.tglKeluar||'')+(u.jamKeluar||'') });
+    }
+  });
+  state.bookings.forEach(b=>{
+    if(b.id===excludeId) return;
+    if(b.mapsLink && (b.tujuan||'').trim().toLowerCase()===needle){
+      candidates.push({ mapsLink:b.mapsLink, sortKey:(b.tglMulai||'')+(b.jamMulai||'') });
+    }
+  });
+  if(candidates.length===0) return null;
+  candidates.sort((a,b)=> b.sortKey.localeCompare(a.sortKey)); // terbaru dulu
+  return candidates[0].mapsLink;
+}
+
+// Wire autofill di 1 field tujuan + 1 field maps-link -- dipakai bareng oleh
+// openUsageModal & openBookingModal supaya tidak ditulis ulang 2x. TIDAK
+// menimpa kalau field Link Maps sudah diisi manual oleh admin.
+function wireMapsAutofill(tujuanInputId, mapsLinkInputId, excludeId){
+  const tujuanEl = document.getElementById(tujuanInputId);
+  const mapsEl = document.getElementById(mapsLinkInputId);
+  if(!tujuanEl || !mapsEl) return;
+  tujuanEl.addEventListener('input', ()=>{
+    if(mapsEl.value.trim()) return; // sudah diisi manual -> jangan ditimpa
+    const found = findMapsLinkForTujuan(tujuanEl.value, excludeId);
+    if(found) mapsEl.value = found;
+  });
 }
 
 // Tampilan kode Mobil/Perjalanan + tombol salin -- dipakai di Data Mobil &
@@ -2115,7 +2192,7 @@ function renderTripBubblePanelContent(){
     active.map(u=>`
       <div class="trip-card" data-trip="${u.id}">
         <b>${escapeHtml(carLabel(u.carId))}</b>
-        <div class="desc">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${escapeHtml(u.tujuan||'-')}${u.jamKeluar?' · sejak '+u.jamKeluar:''}</div>
+        <div class="desc">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${escapeHtml(u.tujuan||'-')}${u.jamKeluar?' · sejak '+u.jamKeluar:''} ${mapsNavButtonHtml(u.mapsLink)}</div>
       </div>`).join(''));
   panel.querySelectorAll('[data-trip]').forEach(el=>{
     el.addEventListener('click', (e)=> openTripActionMenu(el.dataset.trip, e.currentTarget));
@@ -2972,49 +3049,60 @@ function renderUsage(){
   </div></div>`;
   document.getElementById('content').innerHTML = html;
 
-  // ---------------- Rasio Mesin Riil (v3.19.1) ----------------
+  // ---------------- Rasio Mesin Riil + Akumulasi Jarak Tertunda (v3.22.0) ----------------
   // Rumus lama menganggap SEMUA BBM yang dibeli (u.literBensin) langsung
   // habis terbakar di perjalanan itu -- padahal kalau tangki belum kosong
   // saat isi ulang, sebagian BBM yang dibeli cuma mengendap di tangki untuk
-  // perjalanan berikutnya. Neraca tangki di bawah ini mengoreksi itu:
-  //   literTerbakarRiil = (bensinKeluar% - bensinKembali%)/100 * kapasitasTangki + literBeli
-  // Kasus khusus bensinKeluar=bensinKembali=100% (isi penuh di kedua ujung)
-  // otomatis meniadakan koreksi tangki -> setara metode "Full-to-Full",
-  // metode paling akurat menurut standar industri fleet management.
+  // perjalanan berikutnya. Neraca tangki (di estimateLiterUsed) mengoreksi
+  // itu. Di atasnya, buildFuelChain() mengoreksi 1 lapis lagi: trip pendek
+  // yang jaraknya belum cukup untuk menggerakkan indikator TIDAK dibuang,
+  // tapi ditunda & digabung ke trip berikutnya yang akhirnya "resolve".
+  // chainCache: 1 rantai per mobil, dibangun SEKALI per render (bukan per
+  // baris) -- supaya tidak menghitung ulang riwayat mobil yang sama berkali-
+  // kali kalau mobil itu punya banyak trip di tabel ini.
+  const chainCache = new Map();
+  function getChainFor(carId){
+    if(!chainCache.has(carId)) chainCache.set(carId, buildFuelChain(carId));
+    return chainCache.get(carId);
+  }
   function ratioLabel(u){
     if(u.odoKeluar==null || u.odoKembali==null || u.odoKembali<u.odoKeluar) return '-';
-    const jarak = u.odoKembali - u.odoKeluar;
-    const literBeli = u.literBensin ? Number(u.literBensin) : 0;
-
-    const bensinKeluar = getBensinKeluar(u);
-    const bensinKembali = getBensinKembali(u);
     const car = state.cars.find(c=>c.id===u.carId);
+    if(!car) return '-';
 
-    // Syarat rumus riil: kedua bacaan indikator ada, dan mobil punya kapasitas tangki.
-    if(bensinKeluar!=null && bensinKembali!=null && car && car.kapasitasTangkiLiter){
-      // literTerbakarRiil dihitung lewat estimateLiterUsed() -- SATU fungsi
-      // yang sama dipakai juga oleh Kalkulator Rasio Konsumsi & Ringkasan
-      // per Mobil, supaya ketiganya selalu konsisten.
-      const literTerbakarRiil = estimateLiterUsed(u, car);
+    const entry = getChainFor(u.carId).get(u.id);
 
-      // literTerbakarRiil null/<=0 (bacaan tidak wajar) -> tampilkan '-', BUKAN fallback,
-      // supaya tidak menyembunyikan data indikator yang perlu dicek ulang petugas.
-      if(literTerbakarRiil==null || literTerbakarRiil <= 0) return '-';
+    // Gap odometer (trip sebelumnya tidak nyambung ke trip ini, mobil sama)
+    // -- KEMUNGKINAN ada perjalanan yang lupa dicatat. Ini cuma PENANDA
+    // transparansi (rekonsiliasi), tidak menghalangi/mengubah perhitungan
+    // atau data apa pun -- histori tetap apa adanya.
+    const gapBadge = (entry && entry.gapKm)
+      ? ` <span class="badge danger" title="Odometer Keluar trip ini tidak nyambung dengan Odometer Kembali trip sebelumnya (mobil yang sama) -- selisih ${Math.abs(entry.gapKm).toLocaleString('id-ID')} KM tidak tercatat di mana pun. Kemungkinan ada perjalanan yang lupa dicatat. Data historis TIDAK diubah, ini cuma penanda untuk dicek ulang.">⚠️ Belum Teralokasi</span>`
+      : '';
 
-      const rasio = jarak / literTerbakarRiil;
-      if(!isFinite(rasio) || rasio<=0) return '-';
-
-      const isFullToFull = bensinKeluar===100 && bensinKembali===100;
+    if(entry && entry.resolved){
+      const isFullToFull = getBensinKeluar(u)===100 && getBensinKembali(u)===100;
       const badgeCls = isFullToFull ? 'ok' : 'warn';
       const badgeText = isFullToFull ? 'Full-to-Full' : 'Estimasi';
-      return `${rasio.toFixed(1)} KM/L <span class="badge ${badgeCls}">${badgeText}</span>`;
+      const titleAttr = entry.carriedInKm>0
+        ? ` title="Termasuk ${entry.carriedInKm.toLocaleString('id-ID')} KM dari trip sebelumnya yang belum sempat terdeteksi indikator"`
+        : '';
+      return `<span${titleAttr}>${entry.ratio.toFixed(1)} KM/L</span> <span class="badge ${badgeCls}">${badgeText}</span>${gapBadge}`;
+    }
+
+    if(entry && entry.method==='pending'){
+      // Jujur ke petugas: BUKAN "tidak ada data", tapi "belum cukup untuk
+      // dihitung sendiri -- akan digabung ke trip berikutnya yang resolve".
+      return `<span class="badge neutral" title="Jarak ${entry.ownKm.toLocaleString('id-ID')} KM ditunda, akan otomatis digabung ke perjalanan berikutnya (mobil yang sama) yang indikatornya sudah sempat bergerak">Menunggu Akumulasi</span>${gapBadge}`;
     }
 
     // Fallback: data indikator/kapasitas tangki tidak lengkap -> rumus lama.
-    if(!literBeli) return '-';
+    const jarak = u.odoKembali - u.odoKeluar;
+    const literBeli = u.literBensin ? Number(u.literBensin) : 0;
+    if(!literBeli) return `-${gapBadge}`;
     const rasio = jarak / literBeli;
-    if(!isFinite(rasio) || rasio<=0) return '-';
-    return rasio.toFixed(1) + ' KM/L';
+    if(!isFinite(rasio) || rasio<=0) return `-${gapBadge}`;
+    return `${rasio.toFixed(1)} KM/L${gapBadge}`;
   }
 
   function renderTable(items){
@@ -3075,7 +3163,7 @@ function renderUsage(){
               <td>${escapeHtml(carLabel(u.carId))}</td>
               <td>${escapeHtml(driverLabel(u.driverId, u.driver))}</td>
               <td>${u.jenisPenggunaan==='pribadi' ? `<span class="badge neutral">Pribadi</span>` : `<span class="badge ok">Pengiriman</span>`}</td>
-              <td>${escapeHtml(u.tujuan)}</td>
+              <td>${escapeHtml(u.tujuan)} ${mapsNavButtonHtml(u.mapsLink)}</td>
               <td>${fmtDate(u.tglKeluar)}</td>
               <td>${u.jamKeluar || '-'}</td>
               <td>${u.tglKembali ? fmtDate(u.tglKembali) : '-'}</td>
@@ -3108,7 +3196,7 @@ function renderUsage(){
               <span class="usage-card-mobil">${escapeHtml(carLabel(u.carId))}</span>
               ${u.status==='digunakan' ? `<span class="badge warn">Digunakan</span>` : `<span class="badge ok">Selesai</span>`}
             </div>
-            <div class="usage-card-tujuan">📍 ${escapeHtml(u.tujuan)}</div>
+            <div class="usage-card-tujuan">📍 ${escapeHtml(u.tujuan)} ${mapsNavButtonHtml(u.mapsLink)}</div>
             <div class="usage-card-meta">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${fmtDate(u.tglKeluar)}${u.tglKembali?' → '+fmtDate(u.tglKembali):''}</div>
             <div style="margin-top:6px;">${codeBadgeHtml(u.kode)}</div>
             <div class="usage-card-detail-toggle" data-toggle="${idx}">▾ Lihat detail (Jarak, BBM, Rasio, dst)</div>
@@ -3711,19 +3799,9 @@ function calcFuelRangeEstimate(carId, bensinPercent){
   if(bensinPercent==null) return { estimatedKm:null, reason:null };
   if(!car.kapasitasTangkiLiter) return { estimatedKm:null, reason:'Atur Kapasitas Tangki mobil ini dulu (Data Mobil) untuk mengaktifkan estimasi jarak.' };
 
-  const trips = state.usage.filter(u=>u.carId===carId);
-  let totalKm = 0, totalLiterTerpakai = 0;
-  trips.forEach(u=>{
-    const lt = estimateLiterUsed(u, car);
-    if(lt==null || lt<=0) return;
-    if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar){
-      totalKm += (u.odoKembali-u.odoKeluar);
-      totalLiterTerpakai += lt;
-    }
-  });
-  if(totalLiterTerpakai<=0 || totalKm<=0) return { estimatedKm:null, reason:'Belum ada cukup riwayat perjalanan (jarak + liter BBM) untuk mobil ini, jadi efisiensinya belum bisa dihitung.' };
+  const { avgRatio } = getCarFuelStats(carId);
+  if(avgRatio==null) return { estimatedKm:null, reason:'Belum ada cukup riwayat perjalanan (jarak + liter BBM) untuk mobil ini, jadi efisiensinya belum bisa dihitung.' };
 
-  const avgRatio = totalKm / totalLiterTerpakai; // KM per Liter, dari riwayat nyata (neraca tangki)
   const litersRemaining = (bensinPercent/100) * Number(car.kapasitasTangkiLiter);
   const estimatedKm = avgRatio * litersRemaining;
   return { estimatedKm, avgRatio, litersRemaining, reason:null };
@@ -3786,6 +3864,11 @@ function openUsageModal(editId){
       <input type="text" id="in-tujuan" placeholder="Contoh: Gudang Surabaya - Toko A" autocomplete="off" value="${editing?escapeHtml(editing.tujuan||''):''}">
       <div class="err-msg">Tujuan wajib diisi.</div>
     </div>
+    <div class="field">
+      <label>Link Google Maps Tujuan (opsional)</label>
+      <input type="text" id="in-maps-link" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
+      <div class="hint">Kalau diisi, muncul tombol "📍 Navigasi" di tabel dan bubble perjalanan aktif — sopir tinggal klik untuk buka arah di HP-nya.</div>
+    </div>
     <div class="grid-2">
       <div class="field">
         <label>Tanggal Keluar</label>
@@ -3828,6 +3911,7 @@ function openUsageModal(editId){
       const driverId = document.getElementById('in-driver').value;
       const jenisPenggunaan = document.getElementById('in-jenis-pakai').value;
       const tujuan = document.getElementById('in-tujuan').value.trim();
+      const mapsLink = document.getElementById('in-maps-link').value.trim();
       const tglKeluar = document.getElementById('in-tglkeluar').value || today();
       const jamKeluar = document.getElementById('in-jam-keluar').value || null;
       const odoKeluarVal = getRibuanValue('in-odo-keluar');
@@ -3843,7 +3927,7 @@ function openUsageModal(editId){
 
       if(editing){
         Object.assign(editing, {
-          carId, driverId, jenisPenggunaan, tujuan, tglKeluar, jamKeluar,
+          carId, driverId, jenisPenggunaan, tujuan, mapsLink: mapsLink || null, tglKeluar, jamKeluar,
           odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
           bensinKeluar: bensinVal === '' ? null : Number(bensinVal),
           etollCardId,
@@ -3855,7 +3939,7 @@ function openUsageModal(editId){
         showToast('Perubahan disimpan.');
       } else {
         state.usage.push(touch({
-          id: uid(), kode: nextUsageCode(), carId, driverId, jenisPenggunaan, tujuan, tglKeluar, tglKembali:null,
+          id: uid(), kode: nextUsageCode(), carId, driverId, jenisPenggunaan, tujuan, mapsLink: mapsLink || null, tglKeluar, tglKembali:null,
           jamKeluar, jamKembali: null,
           status:'digunakan',
           odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
@@ -3878,6 +3962,7 @@ function openUsageModal(editId){
   });
   attachRibuanInput('in-etoll');
   attachAutocomplete('in-tujuan', () => state.usage.map(u=>u.tujuan));
+  wireMapsAutofill('in-tujuan', 'in-maps-link', editing ? editing.id : null);
   attachRibuanInput('in-odo-keluar');
 
   // Field bensin menyesuaikan otomatis (Persen <-> Bar) setiap kali pilihan
@@ -3995,7 +4080,7 @@ function renderBookings(){
             <tr>
               <td>${escapeHtml(carLabel(b.carId))}</td>
               <td>${b.driverId ? escapeHtml(driverLabel(b.driverId)) : '-'}</td>
-              <td>${escapeHtml(b.tujuan)}</td>
+              <td>${escapeHtml(b.tujuan)} ${mapsNavButtonHtml(b.mapsLink)}</td>
               <td>${fmtDate(b.tglMulai)} ${b.jamMulai||''}</td>
               <td>${fmtDate(b.tglSelesai)} ${b.jamSelesai||''}</td>
               <td>${bookingStatusBadge(b)}</td>
@@ -4013,7 +4098,7 @@ function renderBookings(){
           <div class="data-card">
             <div class="data-card-title"><span>${escapeHtml(carLabel(b.carId))}</span>${bookingStatusBadge(b)}</div>
             <div class="data-card-row"><span class="k">Sopir</span><span class="v">${b.driverId ? escapeHtml(driverLabel(b.driverId)) : '-'}</span></div>
-            <div class="data-card-row"><span class="k">Tujuan</span><span class="v">${escapeHtml(b.tujuan)}</span></div>
+            <div class="data-card-row"><span class="k">Tujuan</span><span class="v">${escapeHtml(b.tujuan)} ${mapsNavButtonHtml(b.mapsLink)}</span></div>
             <div class="data-card-row"><span class="k">Mulai</span><span class="v">${fmtDate(b.tglMulai)} ${b.jamMulai||''}</span></div>
             <div class="data-card-row"><span class="k">Selesai</span><span class="v">${fmtDate(b.tglSelesai)} ${b.jamSelesai||''}</span></div>
             <div class="data-card-actions">
@@ -4116,6 +4201,11 @@ function openBookingModal(editId){
       <input type="text" id="in-tujuan" placeholder="Contoh: Antar barang ke Gudang B" value="${editing?escapeHtml(editing.tujuan):''}" autocomplete="off">
       <div class="err-msg">Tujuan wajib diisi.</div>
     </div>
+    <div class="field">
+      <label>Link Google Maps Tujuan (opsional)</label>
+      <input type="text" id="in-maps-link" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
+      <div class="hint">Kalau diisi, muncul tombol "📍 Navigasi" di daftar booking — sopir tinggal klik untuk buka arah di HP-nya.</div>
+    </div>
     <div class="panel-head" style="padding:0;border:none;margin:14px 0 8px 0;"><h2 style="font-size:13px;">Jadwal Mulai</h2></div>
     <div class="grid-2">
       <div class="field"><label>Tanggal</label><input type="date" id="in-tgl-mulai" value="${editing?editing.tglMulai:nowDate}"></div>
@@ -4141,6 +4231,7 @@ function openBookingModal(editId){
       const carId = document.getElementById('in-car').value;
       const driverId = document.getElementById('in-driver').value || null;
       const tujuan = document.getElementById('in-tujuan').value.trim();
+      const mapsLink = document.getElementById('in-maps-link').value.trim();
       const tglMulai = document.getElementById('in-tgl-mulai').value;
       const jamMulai = document.getElementById('in-jam-mulai').value || '00:00';
       const tglSelesai = document.getElementById('in-tgl-selesai').value;
@@ -4165,13 +4256,13 @@ function openBookingModal(editId){
       }
 
       if(editing){
-        Object.assign(editing, {carId, driverId, tujuan, tglMulai, jamMulai, tglSelesai, jamSelesai, catatan: document.getElementById('in-catatan').value.trim()});
+        Object.assign(editing, {carId, driverId, tujuan, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai, catatan: document.getElementById('in-catatan').value.trim()});
         touch(editing);
         logActivity('booking', 'Edit booking', `${carLabel(carId)} — ${tujuan}`);
         showToast('Booking diperbarui.');
       } else {
         state.bookings.push(touch({
-          id: uid(), carId, driverId, tujuan, tglMulai, jamMulai, tglSelesai, jamSelesai,
+          id: uid(), carId, driverId, tujuan, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai,
           status:'dipesan', catatan: document.getElementById('in-catatan').value.trim(),
           petugas: currentAdmin
         }));
@@ -4185,6 +4276,7 @@ function openBookingModal(editId){
   });
 
   attachAutocomplete('in-tujuan', () => [...state.usage.map(u=>u.tujuan), ...state.bookings.map(b=>b.tujuan)]);
+  wireMapsAutofill('in-tujuan', 'in-maps-link', editing ? editing.id : null);
 
   // Wiring quick-add sopir baru, sama seperti di form Catat Perjalanan.
   document.getElementById('in-driver').addEventListener('change', function(){
@@ -4767,6 +4859,93 @@ function estimateLiterUsed(u, car){
   if(literTerbakarRiil <= 0) return null; // hasil tidak wajar -> jangan dipaksa dihitung
   return literTerbakarRiil;
 }
+
+/* ---------------- Rantai Akumulasi Jarak Tertunda (v3.22.0) ----------------
+   DASAR FISIKA: BBM yang terbakar TIDAK PERNAH nol selama mobil menempuh
+   jarak -- kalau indikator Bar belum bergerak, itu murni keterbatasan
+   resolusi alat ukur (1 Bar bisa mewakili ±5 Liter), BUKAN berarti 0 Liter
+   benar-benar terbakar. estimateLiterUsed() sudah benar menghitung LITER
+   (karena bensinKeluar trip berikutnya otomatis mewarisi bacaan yang sama
+   selama gaugenya belum bergerak, jadi neraca tangkinya tetap akurat).
+   Yang SALAH kalau dibiarkan: jarak (KM) trip yang belum "resolve" (literTer-
+   bakarRiil<=0) DIBUANG total dari rata-rata, bukan ditunda -- ini bikin bias
+   sistematis (rasio rata-rata mobil selalu keliatan lebih boros dari
+   kenyataan, dan bias ini TIDAK mengecil walau datanya banyak).
+   Fungsi ini urutkan trip 1 mobil secara KRONOLOGIS (pakai odometer, karena
+   odometer fisik tidak mungkin mundur -- lebih bisa dipercaya daripada
+   tanggal/jam yang diinput manual), lalu tunda jarak trip yang belum resolve
+   dan gabungkan ke trip berikutnya yang akhirnya resolve.
+
+   v3.25.0 -- DETEKSI GAP ODOMETER (rekonsiliasi, bukan koreksi paksa):
+   Kalau odoKembali trip sebelumnya TIDAK SAMA dengan odoKeluar trip
+   berikutnya (mobil yang sama), itu tanda ada jarak yang tidak tercatat di
+   mana pun -- kemungkinan besar 1/lebih perjalanan lupa dicatat. Sesuai
+   prinsip "jangan paksa pengguna perbaiki data lama, jangan rusak histori":
+   trip itu TETAP dihitung seperti biasa (tidak diblokir/diubah), cuma diberi
+   flag gapKm untuk ditampilkan sebagai peringatan transparansi di UI. */
+function buildFuelChain(carId){
+  const car = state.cars.find(c=>c.id===carId);
+  const result = new Map(); // usage.id -> hasil rantai untuk trip itu
+  if(!car) return result;
+
+  const trips = state.usage
+    .filter(u=> u.carId===carId && u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar)
+    .sort((a,b)=>{
+      if(a.odoKeluar !== b.odoKeluar) return a.odoKeluar - b.odoKeluar;
+      return (String(a.tglKeluar||'')+String(a.jamKeluar||'')).localeCompare(String(b.tglKeluar||'')+String(b.jamKeluar||''));
+    });
+
+  let pendingKm = 0;
+  let prevOdoKembali = null;
+  trips.forEach(u=>{
+    const ownKm = u.odoKembali - u.odoKeluar;
+    const keluar = getBensinKeluar(u);
+    const kembali = getBensinKembali(u);
+    const punyaIndikator = keluar!=null && kembali!=null && car.kapasitasTangkiLiter!=null;
+
+    // gapKm !== 0 -> ada jarak "hilang" antar trip (kemungkinan lupa dicatat).
+    // Cuma DITANDAI (rekonsiliasi), bukan menghalangi perhitungan trip ini.
+    const gapKm = (prevOdoKembali!=null) ? (u.odoKeluar - prevOdoKembali) : 0;
+    prevOdoKembali = u.odoKembali;
+
+    if(!punyaIndikator){
+      // Tidak ada data indikator sama sekali -> di luar rantai, pakai
+      // fallback lama (jarak/literBeli) sendiri-sendiri, tidak menyentuh pendingKm.
+      result.set(u.id, { resolved:false, method:'fallback', ownKm, carriedInKm:0, gapKm });
+      return;
+    }
+
+    const lt = estimateLiterUsed(u, car); // null berarti belum "resolve" (indikator belum sempat bergerak)
+    if(lt==null){
+      pendingKm += ownKm;
+      result.set(u.id, { resolved:false, method:'pending', ownKm, carriedInKm:0, pendingSoFar:pendingKm, gapKm });
+      return;
+    }
+
+    const carriedInKm = pendingKm;
+    const effectiveKm = ownKm + pendingKm;
+    pendingKm = 0; // "dilunasi" ke trip ini
+    result.set(u.id, { resolved:true, method:'indikator', ownKm, effectiveKm, carriedInKm, literTerbakarRiil:lt, ratio: effectiveKm/lt, gapKm });
+  });
+
+  return result;
+}
+
+// Total jarak & liter mobil, dari rantai yang SUDAH benar (bukan cuma jumlah
+// trip yang kebetulan resolve sendiri) -- dipakai bersama oleh Kalkulator
+// Rasio Konsumsi, Ringkasan per Mobil, Estimasi Jarak Tersisa, dan Deteksi
+// Anomali, supaya keempatnya konsisten dan sama-sama bebas dari bias di atas.
+function getCarFuelStats(carId){
+  const chain = buildFuelChain(carId);
+  let totalKm = 0, totalLiter = 0;
+  chain.forEach(entry=>{
+    if(entry.resolved){ totalKm += entry.effectiveKm; totalLiter += entry.literTerbakarRiil; }
+  });
+  return {
+    avgRatio: (totalKm>0 && totalLiter>0) ? totalKm/totalLiter : null,
+    totalLiterTerpakai: totalLiter,
+  };
+}
 function fuelLatestReading(carId){
   return state.usage
     .filter(u=>u.carId===carId && getBensinTerkini(u)!=null)
@@ -4793,22 +4972,12 @@ function computeBbmAnomalies(){
     const totalBiaya = trips.reduce((s,u)=> s+(Number(u.biayaBensin)||0), 0);
 
     // avgRatio dihitung dari METODE YANG SAMA dengan yang nanti dibandingkan
-    // (estimasi dari selisih % bensin -- sama seperti Kalkulator Rasio
-    // Konsumsi), BUKAN dari basis liter-dibeli. Kalau dicampur 2 metode
-    // ukur berbeda, perbandingannya jadi tidak apple-to-apple dan anomali
-    // nyata bisa lolos tidak terdeteksi.
-    let totalKmUntukRasio = 0, totalLiterTerpakaiUntukRasio = 0;
-    trips.forEach(u=>{
-      const lt = estimateLiterUsed(u, car);
-      if(lt==null || lt<=0) return;
-      if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar){
-        totalKmUntukRasio += (u.odoKembali-u.odoKeluar);
-        totalLiterTerpakaiUntukRasio += lt;
-      }
-    });
-
+    // (getCarFuelStats -- neraca tangki + akumulasi jarak tertunda), BUKAN
+    // dari basis liter-dibeli. Kalau dicampur 2 metode ukur berbeda,
+    // perbandingannya jadi tidak apple-to-apple dan anomali nyata bisa
+    // lolos tidak terdeteksi.
     carStats[car.id] = {
-      avgRatio: (totalKmUntukRasio>0 && totalLiterTerpakaiUntukRasio>0) ? totalKmUntukRasio/totalLiterTerpakaiUntukRasio : null,
+      avgRatio: getCarFuelStats(car.id).avgRatio,
       avgHarga: (totalLiterBeli>0 && totalBiaya>0) ? totalBiaya/totalLiterBeli : null,
     };
   });
@@ -4872,25 +5041,13 @@ function renderBBM(){
     const trips = state.usage.filter(u=>u.carId===c.id);
     const totalLiter = trips.reduce((sum,u)=> sum + (Number(u.literBensin)||0), 0);
     const totalBiaya = trips.reduce((sum,u)=> sum + (Number(u.biayaBensin)||0), 0);
-    // Rata-rata efisiensi & Total BBM Digunakan dihitung dari METODE RIIL
-    // yang SAMA dengan kolom "Rasio" di Catat Perjalanan & Kalkulator Rasio
-    // Konsumsi (neraca tangki: selisih % bensin + liter dibeli) -- BUKAN
-    // cuma total jarak ÷ total liter dibeli seperti sebelumnya. Dua metode
-    // beda itu yang membuat angka di sini terlihat "salah"/tidak cocok
-    // dibanding kolom Rasio per perjalanan, padahal keduanya cuma beda cara
-    // hitung. Perjalanan tanpa data bensin keluar+kembali (atau tanpa
-    // Kapasitas Tangki) otomatis tidak ikut dihitung di sini (estimateLiterUsed
-    // mengembalikan null), sama seperti di Kalkulator.
-    let totalKmForRatio = 0, totalLiterTerpakai = 0;
-    trips.forEach(u=>{
-      const lt = estimateLiterUsed(u, c);
-      if(lt==null || lt<=0) return;
-      if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar){
-        totalKmForRatio += (u.odoKembali-u.odoKeluar);
-        totalLiterTerpakai += lt;
-      }
-    });
-    const avgRatio = (totalKmForRatio>0 && totalLiterTerpakai>0) ? (totalKmForRatio/totalLiterTerpakai) : null;
+    // Rata-rata efisiensi & Total BBM Digunakan dihitung lewat getCarFuelStats
+    // -- SATU fungsi yang sama dipakai kolom "Rasio" di Catat Perjalanan,
+    // Kalkulator Rasio Konsumsi, dan Deteksi Anomali, supaya semuanya
+    // konsisten. Sejak v3.22.0 ini juga sudah mengakumulasi jarak trip yang
+    // belum sempat "resolve" sendiri (indikator belum bergerak) ke trip
+    // berikutnya, bukan membuangnya (lihat buildFuelChain untuk detail).
+    const { avgRatio, totalLiterTerpakai } = getCarFuelStats(c.id);
     const latest = fuelLatestReading(c.id);
     const sisaTerkini = latest ? getBensinTerkini(latest) : null;
     const batas = fuelBatasFor(c);
@@ -5055,6 +5212,31 @@ function renderBBM(){
     </div>
 
     <div class="panel">
+      <div class="panel-head"><h2>Kalkulator Kebutuhan BBM per Rute</h2></div>
+      <div class="panel-body">
+        <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
+          Pakai rasio efisiensi NYATA dari riwayat mobil ini (bukan asumsi/karangan), untuk membekali sopir dengan Liter yang cukup sebelum berangkat. Rasio TIDAK dibulatkan ke atas (itu bias optimis, bisa bikin sopir kurang bensin di jalan) — lihat Changelog v3.22.0 kalau ingin tahu alasannya.
+        </p>
+        <div class="grid-2">
+          <div class="field">
+            <label>Mobil</label>
+            <select id="fuelcalc-car"><option value="">— pilih mobil —</option>${state.cars.map(c=>`<option value="${c.id}">${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}</option>`).join('')}</select>
+          </div>
+          <div class="field">
+            <label>Jarak Rencana (KM)</label>
+            <input type="text" id="fuelcalc-jarak" inputmode="numeric" placeholder="Contoh: 300">
+          </div>
+        </div>
+        <div class="field">
+          <label>Margin Keamanan (%)</label>
+          <input type="text" id="fuelcalc-margin" inputmode="numeric" value="10">
+          <div class="hint">Cadangan ekstra untuk macet, AC, muatan berat, dll. Default 10% — bisa diubah sesuai kebiasaan rute.</div>
+        </div>
+        <div id="fuelcalc-result"></div>
+      </div>
+    </div>
+
+    <div class="panel">
       <div class="panel-head"><h2>Kalkulator Rasio Konsumsi BBM per Perjalanan</h2></div>
       <div class="panel-body">
         <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
@@ -5147,6 +5329,49 @@ function renderBBM(){
       });
     });
   }
+
+  // ---------------- Kalkulator Kebutuhan BBM per Rute (v3.23.0) ----------------
+  // Live-update (tanpa tombol submit) supaya petugas langsung lihat hasilnya
+  // saat mengetik. Sengaja pakai getCarFuelStats() -- SATU sumber yang sama
+  // dengan kolom Rasio & Ringkasan per Mobil -- jadi angkanya konsisten di
+  // seluruh aplikasi, bukan rumus terpisah yang bisa berbeda hasil.
+  function updateFuelCalc(){
+    const resultBox = document.getElementById('fuelcalc-result');
+    if(!resultBox) return;
+    const carId = document.getElementById('fuelcalc-car').value;
+    const jarakRaw = getRibuanValue('fuelcalc-jarak');
+    const marginRaw = document.getElementById('fuelcalc-margin').value.replace(/[^\d.]/g,'');
+
+    if(!carId){ resultBox.innerHTML = ''; return; }
+    const jarakVal = jarakRaw==='' ? null : Number(jarakRaw);
+    if(!jarakVal || jarakVal<=0){
+      resultBox.innerHTML = `<div class="hint" style="margin-top:10px;">Masukkan jarak rencana lebih dari 0 KM.</div>`;
+      return;
+    }
+
+    const { avgRatio } = getCarFuelStats(carId);
+    if(avgRatio==null){
+      resultBox.innerHTML = `<div class="hint" style="margin-top:10px;">💡 Riwayat perjalanan mobil ini belum cukup untuk menghitung efisiensi — catat beberapa perjalanan dulu (dengan Bensin Keluar/Kembali diisi).</div>`;
+      return;
+    }
+
+    const margin = (marginRaw!=='' && isFinite(Number(marginRaw)) && Number(marginRaw)>=0) ? Number(marginRaw) : 0;
+    const literPresisi = jarakVal / avgRatio;
+    const literAman = Math.ceil(literPresisi * (1 + margin/100)); // dibulatkan ke ATAS -- arah aman, beda dengan rasio yang TIDAK boleh dibulatkan ke atas
+
+    resultBox.innerHTML = `
+      <div class="kpi-grid" style="margin-top:12px;">
+        <div class="kpi"><div class="label">Rasio Dipakai (riwayat nyata)</div><div class="value">${avgRatio.toFixed(1)}<span style="font-size:13px;font-weight:600;"> KM/L</span></div></div>
+        <div class="kpi"><div class="label">Kebutuhan Presisi</div><div class="value">${literPresisi.toFixed(1)}<span style="font-size:13px;font-weight:600;"> L</span></div></div>
+        <div class="kpi"><div class="label">Bekali Sopir (+${margin}% margin)</div><div class="value">${literAman.toLocaleString('id-ID')}<span style="font-size:13px;font-weight:600;"> L</span></div></div>
+      </div>
+    `;
+  }
+  ['fuelcalc-car','fuelcalc-jarak','fuelcalc-margin'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('input', updateFuelCalc);
+  });
+  attachRibuanInput('fuelcalc-jarak');
 
   function renderTable(items){
     const wrap = document.getElementById('bbm-table-wrap');
@@ -5474,6 +5699,45 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.25.0',
+    date: '23 Jul 2026',
+    notes: [
+      'Fitur baru: Deteksi Gap Odometer. Kalau Odometer Keluar suatu perjalanan tidak nyambung dengan Odometer Kembali perjalanan sebelumnya (mobil yang sama) — tanda kemungkinan ada 1/lebih perjalanan yang lupa dicatat — kolom Rasio sekarang menampilkan label tambahan "⚠️ Belum Teralokasi" beserta selisih KM-nya. Ini CUMA penanda transparansi (rekonsiliasi); perhitungan trip itu tetap jalan seperti biasa dan data historis TIDAK diubah/dipaksa diperbaiki.',
+    ]
+  },
+  {
+    v: '3.24.0',
+    date: '23 Jul 2026',
+    notes: [
+      'Perbaikan bug penting: Spasi yang sering "hilang" saat mengetik di field teks (mis. Tujuan) di HP Android — akar masalahnya adalah sistem yang memaksa ubah huruf besar SETIAP ketikan, yang ternyata bentrok dengan keyboard Android (Gboard/Samsung Keyboard). Sekarang teks tetap TERLIHAT huruf besar saat mengetik, tapi nilainya baru benar-benar diubah huruf besar setelah selesai mengetik (pindah ke field lain) — spasi sekarang aman.',
+      'Fitur baru: Autofill Link Google Maps. Kalau tujuan yang diketik di Catat Perjalanan/Booking persis sama dengan tujuan langganan yang pernah dicatat sebelumnya (mis. "Gudang Utama"), Link Maps-nya otomatis terisi dari catatan terbaru — admin tidak perlu tempel ulang link yang sama berkali-kali. Tidak menimpa kalau Link Maps sudah diisi manual.',
+    ]
+  },
+  {
+    v: '3.23.0',
+    date: '23 Jul 2026',
+    notes: [
+      'Fitur baru di menu BBM: "Kalkulator Kebutuhan BBM per Rute" — pilih mobil, masukkan jarak rencana, sistem hitung kebutuhan Liter dari rasio efisiensi NYATA riwayat mobil itu (bukan asumsi). Ada 2 angka: Kebutuhan Presisi (apa adanya) dan Bekali Sopir (+margin keamanan, default 10%, bisa diubah) yang dibulatkan ke ATAS supaya sopir tidak kekurangan bensin di jalan.',
+      'Rasio efisiensi TETAP tidak pernah dibulatkan ke atas (itu bias optimis) — cadangan keamanan cuma diterapkan di angka kebutuhan Liter akhir, bukan di rasionya.',
+    ]
+  },
+  {
+    v: '3.22.0',
+    date: '23 Jul 2026',
+    notes: [
+      'Perbaikan akurasi penting: Rasio & rata-rata efisiensi BBM sekarang mengakumulasi jarak trip pendek yang belum sempat menggerakkan indikator Bar (sebelumnya jarak trip seperti ini dibuang total dari perhitungan, membuat rasio rata-rata mobil selalu terlihat lebih boros dari kenyataan). Kolom Rasio di trip yang belum "resolve" sekarang menampilkan label "Menunggu Akumulasi" (bukan tanda "-" polos) — jaraknya otomatis digabung ke trip berikutnya (mobil yang sama) begitu indikatornya bergerak atau BBM diisi ulang.',
+      'Kalkulator Rasio Konsumsi BBM, Ringkasan per Mobil, Estimasi Jarak Tersisa, dan Deteksi Anomali BBM kini memakai SATU sumber perhitungan yang sama (konsisten satu sama lain).',
+    ]
+  },
+  {
+    v: '3.21.0',
+    date: '23 Jul 2026',
+    notes: [
+      'Fitur baru: Link Google Maps Tujuan. Di form Catat Perjalanan dan Booking Mobil sekarang ada field opsional untuk tempel link lokasi dari Google Maps. Kalau diisi, muncul tombol "📍 Navigasi" di tabel Catat Perjalanan, tabel Booking Mobil, dan bubble "Mobil Sedang Jalan" — sopir tinggal klik untuk langsung buka arah di HP-nya, tanpa perlu tanya-tanya lokasi lagi kalau ada pergantian sopir.',
+      'Data lama (perjalanan/booking yang dibuat sebelum fitur ini ada) otomatis dianggap belum punya link — tombol Navigasi cuma muncul kalau linknya memang diisi.',
+    ]
+  },
   {
     v: '3.20.2',
     date: '23 Jul 2026',
