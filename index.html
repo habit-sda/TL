@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.35.2">
+<meta name="app-version" content="3.36.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -938,7 +938,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.35.2';
+const APP_VERSION = '3.36.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -5214,7 +5214,12 @@ function openUsageModal(editId){
           saldoEtollAwal: etollVal === '' ? null : Number(etollVal),
         });
         touch(editing);
-        ensureDestinationFromTujuan(tujuan, mapsLink);
+        // Keperluan Pribadi TIDAK disimpan/disinkronkan ke Data Tujuan --
+        // ini bukan tujuan operasional yang perlu direkomendasikan lagi ke
+        // perjalanan berikutnya (beda konteks/privasi dari pengiriman).
+        if(jenisPenggunaan !== 'pribadi'){
+          ensureDestinationFromTujuan(tujuan, mapsLink);
+        }
         saveData();
         logActivity('penggunaan', 'Edit catatan penggunaan', `${carLabel(carId)} — ${tujuan}`);
         showToast('Perubahan disimpan.');
@@ -5238,7 +5243,9 @@ function openUsageModal(editId){
           saldoEtoll: etollVal === '' ? null : Number(etollVal),
           petugas: currentAdmin
         }));
-        ensureDestinationFromTujuan(tujuan, mapsLink);
+        if(jenisPenggunaan !== 'pribadi'){
+          ensureDestinationFromTujuan(tujuan, mapsLink);
+        }
         saveData();
         logActivity('penggunaan', 'Catat penggunaan mobil', `${carLabel(carId)} — ${tujuan}`);
         showToast('Penggunaan mobil dicatat.');
@@ -5342,7 +5349,8 @@ function renderBookings(){
   document.getElementById('btn-add-booking').onclick = () => openBookingModal();
   document.getElementById('btn-export-booking').onclick = () => {
     exportToExcel('booking-mobil', 'Booking Mobil', state.bookings.map(b=>({
-      Mobil: carLabel(b.carId), Sopir: b.driverId?driverLabel(b.driverId):'', Tujuan: b.tujuan||'',
+      Mobil: carLabel(b.carId), Sopir: b.driverId?driverLabel(b.driverId):'',
+      'Jenis Perjalanan': b.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman', Tujuan: b.tujuan||'',
       Mulai: b.tglMulai||'', 'Jam Mulai': b.jamMulai||'', Selesai: b.tglSelesai||'', 'Jam Selesai': b.jamSelesai||'',
       Status: b.status||'',
     })));
@@ -5363,12 +5371,13 @@ function renderBookings(){
     }
     wrap.innerHTML = `
       <div class="table-scroll desktop-data-table"><table>
-        <thead><tr><th>Mobil</th><th>Sopir</th><th>Tujuan</th><th>Mulai</th><th>Selesai</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Mobil</th><th>Sopir</th><th>Jenis</th><th>Tujuan</th><th>Mulai</th><th>Selesai</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${items.map(b=>`
             <tr>
               <td>${escapeHtml(carLabel(b.carId))}</td>
               <td>${b.driverId ? escapeHtml(driverLabel(b.driverId)) : '-'}</td>
+              <td>${b.jenisPenggunaan==='pribadi' ? `<span class="badge neutral">Pribadi</span>` : `<span class="badge ok">Pengiriman</span>`}</td>
               <td>${escapeHtml(b.tujuan)} ${mapsNavButtonHtml(b.mapsLink)}</td>
               <td>${fmtDate(b.tglMulai)} ${b.jamMulai||''}</td>
               <td>${fmtDate(b.tglSelesai)} ${b.jamSelesai||''}</td>
@@ -5387,6 +5396,7 @@ function renderBookings(){
           <div class="data-card">
             <div class="data-card-title"><span>${escapeHtml(carLabel(b.carId))}</span>${bookingStatusBadge(b)}</div>
             <div class="data-card-row"><span class="k">Sopir</span><span class="v">${b.driverId ? escapeHtml(driverLabel(b.driverId)) : '-'}</span></div>
+            <div class="data-card-row"><span class="k">Jenis</span><span class="v">${b.jenisPenggunaan==='pribadi' ? `<span class="badge neutral">Pribadi</span>` : `<span class="badge ok">Pengiriman</span>`}</span></div>
             <div class="data-card-row"><span class="k">Tujuan</span><span class="v">${escapeHtml(b.tujuan)} ${mapsNavButtonHtml(b.mapsLink)}</span></div>
             <div class="data-card-row"><span class="k">Mulai</span><span class="v">${fmtDate(b.tglMulai)} ${b.jamMulai||''}</span></div>
             <div class="data-card-row"><span class="k">Selesai</span><span class="v">${fmtDate(b.tglSelesai)} ${b.jamSelesai||''}</span></div>
@@ -5427,7 +5437,7 @@ function startTripFromBooking(id){
   if(!confirm(`Mulai perjalanan sekarang?\n\nMobil: ${carLabel(b.carId)}\nTujuan: ${b.tujuan}\n\nAkan otomatis dibuat catatan baru di Catat Perjalanan.`)) return;
 
   state.usage.push(touch({
-    id: uid(), kode: nextUsageCode(), carId: b.carId, driverId: b.driverId||null, jenisPenggunaan:'pengiriman',
+    id: uid(), kode: nextUsageCode(), carId: b.carId, driverId: b.driverId||null, jenisPenggunaan: b.jenisPenggunaan || 'pengiriman',
     tujuan: b.tujuan, tglKeluar: today(), tglKembali: null,
     jamKeluar: new Date().toTimeString().slice(0,5), jamKembali: null,
     status:'digunakan', odoKeluar:null, odoKembali:null, bensinKeluar:null, bensinKembali:null,
@@ -5485,6 +5495,14 @@ function openBookingModal(editId){
       <label>Sopir (opsional)</label>
       <select id="in-driver"><option value="">— belum ditentukan —</option>${buildDriverOptions(editing?editing.driverId:null)}</select>
     </div>
+    <div class="field">
+      <label>Jenis / Keperluan *</label>
+      <select id="in-jenis-booking">
+        <option value="pengiriman" ${(!editing||editing.jenisPenggunaan!=='pribadi')?'selected':''}>Pengiriman (operasional)</option>
+        <option value="pribadi" ${editing&&editing.jenisPenggunaan==='pribadi'?'selected':''}>Pribadi</option>
+      </select>
+      <div class="hint">Booking "Pribadi" TIDAK ikut disimpan/direkomendasikan ke Data Tujuan -- beda dari keperluan operasional/pengiriman.</div>
+    </div>
     <div class="field" id="f-tujuan">
       <label>Tujuan / Keperluan *</label>
       <input type="text" id="in-tujuan" placeholder="Contoh: Antar barang ke Gudang B" value="${editing?escapeHtml(editing.tujuan):''}" autocomplete="off">
@@ -5521,6 +5539,7 @@ function openBookingModal(editId){
     onSave: () => {
       const carId = document.getElementById('in-car').value;
       const driverId = document.getElementById('in-driver').value || null;
+      const jenisPenggunaan = document.getElementById('in-jenis-booking').value;
       const tujuan = document.getElementById('in-tujuan').value.trim();
       const mapsLink = document.getElementById('in-maps-link').value.trim();
       const tglMulai = document.getElementById('in-tgl-mulai').value;
@@ -5547,18 +5566,22 @@ function openBookingModal(editId){
       }
 
       if(editing){
-        Object.assign(editing, {carId, driverId, tujuan, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai, catatan: document.getElementById('in-catatan').value.trim()});
+        Object.assign(editing, {carId, driverId, jenisPenggunaan, tujuan, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai, catatan: document.getElementById('in-catatan').value.trim()});
         touch(editing);
-        ensureDestinationFromTujuan(tujuan, mapsLink);
+        if(jenisPenggunaan !== 'pribadi'){
+          ensureDestinationFromTujuan(tujuan, mapsLink);
+        }
         logActivity('booking', 'Edit booking', `${carLabel(carId)} — ${tujuan}`);
         showToast('Booking diperbarui.');
       } else {
         state.bookings.push(touch({
-          id: uid(), carId, driverId, tujuan, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai,
+          id: uid(), carId, driverId, jenisPenggunaan, tujuan, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai,
           status:'dipesan', catatan: document.getElementById('in-catatan').value.trim(),
           petugas: currentAdmin
         }));
-        ensureDestinationFromTujuan(tujuan, mapsLink);
+        if(jenisPenggunaan !== 'pribadi'){
+          ensureDestinationFromTujuan(tujuan, mapsLink);
+        }
         logActivity('booking', 'Buat booking baru', `${carLabel(carId)} — ${tujuan}`);
         showToast('Booking berhasil dibuat.');
       }
@@ -7294,6 +7317,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.36.0',
+    date: '24 Jul 2026',
+    notes: [
+      'Perjalanan/Booking berjenis "Pribadi" sekarang TIDAK ikut disimpan/direkomendasikan ke Data Tujuan -- sebelumnya semua tujuan (termasuk keperluan pribadi) otomatis masuk ke Data Tujuan, padahal itu bukan tujuan operasional yang perlu direkomendasikan lagi ke pengiriman berikutnya.',
+      'Booking Mobil sekarang punya field "Jenis / Keperluan" (Pengiriman / Pribadi) -- sebelumnya cuma ada di Catat Perjalanan. Kalau Booking Pribadi diubah jadi perjalanan aktif lewat "Mulai Perjalanan", jenisnya ikut terbawa (tidak lagi selalu ter-set "Pengiriman"). Tabel & Export Excel Booking Mobil ikut menampilkan kolom Jenis ini.',
+    ]
+  },
   {
     v: '3.35.2',
     date: '24 Jul 2026',
