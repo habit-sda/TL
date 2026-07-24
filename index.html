@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.34.1">
+<meta name="app-version" content="3.35.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -237,6 +237,98 @@
   }
   .car-with-thumb{display:flex;align-items:center;gap:10px;}
   .car-with-thumb-sm{display:flex;align-items:center;gap:8px;}
+
+  /* ---------------- Catat Perjalanan: layout Card (grouped per mobil) + panel detail ---------------- */
+  .trip-search-row{display:flex;gap:10px;margin-bottom:16px;align-items:stretch;}
+  .trip-search-row .search-row{margin-bottom:0;position:relative;}
+  .trip-search-row .search-row input{
+    padding:10px 12px 10px 34px;border-radius:9px;background:#fff;
+    background-image:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:11px center;
+  }
+  .trip-view-toggle{display:flex;background:#EEF0F3;border-radius:9px;padding:3px;gap:2px;flex-shrink:0;}
+  .trip-view-toggle button{padding:0 16px;height:34px;font-size:12.5px;font-weight:700;background:transparent;border:none;border-radius:7px;cursor:pointer;color:var(--muted);white-space:nowrap;}
+  .trip-view-toggle button.active{background:#fff;color:var(--text);box-shadow:0 1px 3px rgba(16,24,40,.12);}
+  .trip-layout{display:flex;gap:16px;align-items:flex-start;}
+  .trip-page-left{flex:1 1 60%;min-width:0;}
+  .trip-page-right{flex:1 1 38%;min-width:300px;max-width:400px;position:sticky;top:12px;}
+
+  .vehicle-card{border:1px solid var(--line);border-radius:14px;background:#fff;margin-bottom:12px;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-shadow:0 1px 2px rgba(16,24,40,.04);}
+  .vehicle-card:hover{border-color:var(--blue);}
+  .vehicle-card-expanded{padding:18px;cursor:default;border-color:var(--blue);box-shadow:0 0 0 1px var(--blue);}
+  .vehicle-card-top{display:flex;gap:14px;}
+  .vehicle-card-info{flex:1;min-width:0;}
+  .vehicle-card-name{font-weight:800;font-size:14.5px;}
+  .vehicle-card-driver{font-size:11.5px;color:var(--muted);margin-top:4px;}
+  .vehicle-card-status-row{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11.5px;flex-wrap:wrap;}
+  .vehicle-card-status-row .k{color:var(--muted);}
+  .vehicle-card-stats{display:grid;grid-template-columns:repeat(3,auto) 1fr;gap:18px;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid #F0F1F3;}
+  .vehicle-card-stats .stat-value{font-size:19px;font-weight:800;font-family:'JetBrains Mono',monospace;}
+  .vehicle-card-stats .stat-value small{font-size:11px;font-weight:700;color:var(--muted);}
+  .vehicle-card-stats .stat-label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:2px;}
+  .vehicle-card-fuelnow .stat-label{margin-bottom:6px;}
+  .vehicle-card-footer{margin-top:12px;text-align:center;}
+  .vehicle-card-link{font-size:12px;font-weight:700;color:var(--blue);text-decoration:none;}
+
+  .vehicle-card-compact{display:flex;align-items:center;gap:12px;padding:12px 14px;}
+  .vehicle-card-compact-info{flex:1;min-width:0;}
+  .vehicle-card-compact-driver{font-size:11px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .vehicle-card-compact-stats{display:flex;gap:16px;flex-shrink:0;}
+  .vehicle-card-compact-stats .stat-value{font-size:14px;font-weight:800;font-family:'JetBrains Mono',monospace;text-align:center;}
+  .vehicle-card-compact-stats .stat-label{font-size:9.5px;color:var(--muted);text-align:center;}
+  .vehicle-card-compact-bar{width:110px;flex-shrink:0;}
+  .vehicle-card-chevron{color:var(--muted);font-size:18px;flex-shrink:0;}
+
+  .fuel-bar-strip{display:flex;gap:3px;}
+  .fuel-bar-seg{flex:1;height:7px;border-radius:4px;background:#EBEDF0;}
+  .fuel-bar-meta{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:6px;font-weight:600;}
+  .fuel-bar-empty{font-size:11px;color:var(--muted);}
+
+  .trip-detail-panel{border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden;box-shadow:0 1px 3px rgba(16,24,40,.06);}
+  .trip-detail-header{display:flex;gap:12px;align-items:flex-start;padding:18px 16px 0 16px;position:relative;}
+  .trip-detail-header-info{flex:1;min-width:0;}
+  .trip-detail-name{font-weight:800;font-size:14.5px;}
+  .trip-detail-driver{font-size:11.5px;color:var(--muted);margin-top:3px;}
+  .trip-detail-status{font-size:11.5px;color:var(--muted);margin-top:4px;}
+  .trip-detail-close{position:absolute;top:16px;right:16px;border:none;background:none;font-size:16px;color:var(--muted);cursor:pointer;line-height:1;}
+  .trip-detail-tabs{display:flex;gap:18px;padding:16px 16px 0 16px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto;}
+  .trip-detail-tabs button{background:none;border:none;font-size:12px;font-weight:700;color:var(--muted);padding:0 0 12px 0;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;}
+  .trip-detail-tabs button.active{color:var(--blue);border-bottom-color:var(--blue);}
+  .trip-detail-body{padding:6px 16px 8px 16px;max-height:520px;overflow-y:auto;}
+  .trip-detail-summary{background:#F7F8FA;padding:14px 16px;border-top:1px solid var(--line);}
+  .trip-detail-summary .title{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.04em;margin-bottom:10px;}
+  .trip-detail-summary .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;}
+  .trip-detail-summary .stat-value{font-size:15px;font-weight:800;font-family:'JetBrains Mono',monospace;}
+  .trip-detail-summary .stat-label{font-size:10px;color:var(--muted);margin-top:2px;}
+
+  .trip-timeline-item{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #F0F1F3;cursor:pointer;position:relative;}
+  .trip-timeline-item:last-child{border-bottom:none;}
+  .trip-timeline-item:hover .trip-timeline-dest{color:var(--blue);}
+  .trip-timeline-date{width:44px;flex-shrink:0;text-align:center;position:relative;}
+  .trip-timeline-date::after{
+    content:'';position:absolute;left:50%;top:26px;bottom:-14px;width:1px;
+    background:#EDEEF1;transform:translateX(-50%);
+  }
+  .trip-timeline-item:last-child .trip-timeline-date::after{display:none;}
+  .trip-timeline-date .day{font-size:15px;font-weight:800;}
+  .trip-timeline-date .mon,.trip-timeline-date .yr{font-size:9.5px;color:var(--muted);text-transform:uppercase;}
+  .trip-timeline-body{flex:1;min-width:0;}
+  .trip-timeline-time{font-size:11px;color:var(--muted);}
+  .trip-timeline-dest{font-size:12.5px;font-weight:600;margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .trip-timeline-meta{font-size:11px;color:var(--muted);margin-top:3px;}
+  .trip-timeline-right{text-align:right;flex-shrink:0;font-size:11px;}
+  .trip-timeline-right .km{color:var(--muted);margin-top:4px;}
+
+  @media(max-width:1024px){
+    .trip-layout{flex-direction:column;}
+    .trip-page-right{max-width:none;width:100%;position:static;}
+  }
+  @media(max-width:768px){
+    .trip-search-row{flex-direction:column;}
+    .vehicle-card-stats{grid-template-columns:1fr 1fr;row-gap:12px;}
+    .vehicle-card-compact{flex-wrap:wrap;}
+    .vehicle-card-compact-bar{width:100%;order:5;}
+  }
 
   .plate{
     display:inline-block;
@@ -846,7 +938,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.34.1';
+const APP_VERSION = '3.35.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3679,28 +3771,45 @@ function renderUsage(){
   // via konfirmasi & tercatat di Log Aktivitas (bukan diam-diam).
   const overlapEntries = findOdometerOverlapEntries();
 
-  // ---- Panel laporan ringkas: total jarak, BBM, dan pemakaian E-Toll ----
+  // ---- Ringkasan (hero KPI): total jarak, BBM, biaya, dan efisiensi rata-rata ----
   const totalJarak = allItems.reduce((sum,u)=>{
     if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) return sum + (u.odoKembali-u.odoKeluar);
     return sum;
   }, 0);
   const totalLiter = allItems.reduce((sum,u)=> sum + (Number(u.literBensin)||0), 0);
   const totalBiayaBensin = allItems.reduce((sum,u)=> sum + (Number(u.biayaBensin)||0), 0);
-  const totalTransaksiEtollPemakaian = state.etollTransactions
-    .filter(t=>t.jenis==='pemakaian')
-    .reduce((sum,t)=> sum + Math.abs(Math.min(0, Number(t.nominal)||0)), 0);
+  // Efisiensi rata-rata keseluruhan armada: gabungan (jarak total ÷ liter
+  // terpakai total) dari SEMUA mobil, bukan rata-rata sederhana per mobil --
+  // supaya mobil dengan riwayat lebih banyak data ikut berbobot lebih besar
+  // (metode yang sama semangatnya dengan getCarFuelStats per mobil).
+  let sumKmUtkRatio = 0, sumLiterUtkRatio = 0;
+  state.cars.forEach(c=>{
+    const stats = getCarFuelStats(c.id);
+    if(stats.avgRatio!=null && stats.totalLiterTerpakai>0){
+      sumKmUtkRatio += stats.avgRatio * stats.totalLiterTerpakai;
+      sumLiterUtkRatio += stats.totalLiterTerpakai;
+    }
+  });
+  const overallAvgRatio = sumLiterUtkRatio>0 ? sumKmUtkRatio/sumLiterUtkRatio : null;
 
   let html = `
-    <div class="panel">
-      <div class="panel-head"><h2>Ringkasan Pemakaian BBM &amp; E-Toll</h2></div>
-      <div class="panel-body">
-        <div class="kpi-grid">
-          <div class="kpi"><div class="label">Total Jarak Tempuh</div><div class="value">${totalJarak.toLocaleString('id-ID')}<span style="font-size:13px;font-weight:600;"> KM</span></div></div>
-          <div class="kpi"><div class="label">Total BBM Terisi</div><div class="value">${totalLiter.toLocaleString('id-ID')}<span style="font-size:13px;font-weight:600;"> L</span></div></div>
-          <div class="kpi"><div class="label">Total Biaya BBM</div><div class="value">${fmtMoney(totalBiayaBensin)}</div></div>
-          <div class="kpi"><div class="label">Total Pemakaian E-Toll</div><div class="value">${fmtMoney(totalTransaksiEtollPemakaian)}</div></div>
-        </div>
-      </div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-v2">
+        <div class="icon-badge blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2F6FED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.2"/><circle cx="18" cy="5" r="2.2"/><path d="M8 19h4a4 4 0 0 0 4-4v-1a4 4 0 0 1 4-4h-1" stroke-dasharray="2.5 2.5"/></svg></div>
+        <div class="txt"><div class="label">Total Jarak</div><div class="value">${totalJarak.toLocaleString('id-ID')}<span style="font-size:13px;font-weight:600;"> KM</span></div></div>
+      </div></div>
+      <div class="kpi"><div class="kpi-v2">
+        <div class="icon-badge green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F8A5A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="15" y2="22"/><line x1="4" y1="9" x2="14" y2="9"/><path d="M4 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M14 13h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2"/><polyline points="14 5 17 5 17 9"/></svg></div>
+        <div class="txt"><div class="label">Total BBM</div><div class="value">${totalLiter.toLocaleString('id-ID')}<span style="font-size:13px;font-weight:600;"> L</span></div></div>
+      </div></div>
+      <div class="kpi"><div class="kpi-v2">
+        <div class="icon-badge amber">Rp</div>
+        <div class="txt"><div class="label">Total Biaya</div><div class="value" style="font-size:19px;">${fmtMoney(totalBiayaBensin)}</div></div>
+      </div></div>
+      <div class="kpi"><div class="kpi-v2">
+        <div class="icon-badge purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C4FE0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg></div>
+        <div class="txt"><div class="label">Rata-rata Efisiensi</div><div class="value">${overallAvgRatio!=null?overallAvgRatio.toFixed(1):'-'}<span style="font-size:13px;font-weight:600;"> KM/L</span></div></div>
+      </div></div>
     </div>
   `;
 
@@ -3733,10 +3842,17 @@ function renderUsage(){
     </div>
   `;
 
-  html += `<div class="panel"><div class="panel-body">
-    <div class="search-row"><input type="text" id="usage-search" placeholder="Cari mobil, sopir, atau tujuan..."></div>
-    <div id="usage-table-wrap"></div>
-  </div></div>`;
+  html += `
+    <div class="trip-search-row">
+      <div class="search-row"><input type="text" id="usage-search" placeholder="Cari mobil, driver, atau tujuan..."></div>
+      <div class="trip-view-toggle">
+        <button type="button" id="btn-view-card"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Card</button>
+        <button type="button" id="btn-view-list"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>List</button>
+      </div>
+    </div>
+    <div id="usage-view-wrap"></div>
+  `;
+
   document.getElementById('content').innerHTML = html;
 
   const btnFixOdoOverlap = document.getElementById('btn-fix-odo-overlap');
@@ -3804,16 +3920,16 @@ function renderUsage(){
     //  - Gap KECIL (<= toleransi, lihat state.toleransiGapKm di Pengaturan):
     //    dianggap errand harian wajar (mis. ke masjid, beli makan dekat)
     //    yang memang sengaja tidak dicatat -- KM *dan* BBM-nya sudah
-    //    otomatis digabung ke perhitungan Rasio (lihat buildFuelChain), jadi
-    //    cukup ditandai badge NETRAL (bukan alarm) supaya tetap transparan
-    //    tanpa bikin was-was tiap hari.
+    //    otomatis digabung ke perhitungan Efisiensi (lihat buildFuelChain),
+    //    jadi cukup ditandai badge NETRAL (bukan alarm) supaya tetap
+    //    transparan tanpa bikin was-was tiap hari.
     //  - Gap BESAR (> toleransi): kemungkinan trip (pengiriman) yang lupa
     //    dicatat -- TIDAK digabung otomatis (supaya biaya/e-toll yang
     //    mungkin ikut hilang tidak "tertutupi" diam-diam), tetap ditandai
     //    merah untuk dicek manual. Data historis tetap TIDAK diubah.
     let gapBadge = '';
     if(entry && entry.gapTolerated){
-      gapBadge = ` <span class="badge neutral" title="Selisih ${Math.abs(entry.gapKm).toLocaleString('id-ID')} KM dari trip sebelumnya (mobil yang sama) dianggap jarak harian wajar yang memang tidak dicatat (mis. ke masjid, beli makan dekat) -- KM & estimasi BBM-nya sudah otomatis disertakan ke perhitungan Rasio di trip ini. Ambang toleransi bisa diatur di menu Pengaturan.">↔️ Gap Kecil (Disertakan)</span>`;
+      gapBadge = ` <span class="badge neutral" title="Selisih ${Math.abs(entry.gapKm).toLocaleString('id-ID')} KM dari trip sebelumnya (mobil yang sama) dianggap jarak harian wajar yang memang tidak dicatat (mis. ke masjid, beli makan dekat) -- KM & estimasi BBM-nya sudah otomatis disertakan ke perhitungan Efisiensi di trip ini. Ambang toleransi bisa diatur di menu Pengaturan.">↔️ Gap Kecil (Disertakan)</span>`;
     } else if(entry && entry.gapFlagged){
       const overlapMsg = `Odometer Keluar trip ini LEBIH KECIL dari Odometer Kembali trip sebelumnya (mobil yang sama) -- tumpang tindih ${Math.abs(entry.gapKm).toLocaleString('id-ID')} KM. Ini TIDAK MUNGKIN terjadi secara fisik (odometer tidak bisa mundur), jadi pasti ada salah input (mis. Odometer Keluar ke-copy dari catatan yang salah). Perlu dicek & diperbaiki manual -- data historis TIDAK diubah otomatis.`;
       const missingMsg = `Odometer Keluar trip ini tidak nyambung dengan Odometer Kembali trip sebelumnya (mobil yang sama) -- selisih ${Math.abs(entry.gapKm).toLocaleString('id-ID')} KM tidak tercatat di mana pun & melebihi ambang toleransi. Kemungkinan ada perjalanan yang lupa dicatat. Data historis TIDAK diubah, ini cuma penanda untuk dicek ulang.`;
@@ -3837,7 +3953,7 @@ function renderUsage(){
       // resolusi alat ukur) untuk dipercaya jadi 1 angka rasio -- akan
       // otomatis digabung ke perjalanan berikutnya (mobil yang sama) begitu
       // pergeserannya cukup besar untuk diandalkan.
-      return `<span class="badge neutral" title="Jarak ${entry.ownKm.toLocaleString('id-ID')} KM ditunda, akan otomatis digabung ke perjalanan berikutnya (mobil yang sama) begitu indikator bensin bergerak cukup besar untuk dipercaya (menghindari rasio yang keliatan terlalu irit dari pergeseran indikator yang masih tipis)">Menunggu Akumulasi</span>${gapBadge}`;
+      return `<span class="badge neutral" title="Jarak ${entry.ownKm.toLocaleString('id-ID')} KM ditunda, akan otomatis digabung ke perjalanan berikutnya (mobil yang sama) begitu indikator bensin bergerak cukup besar untuk dipercaya (menghindari efisiensi yang keliatan terlalu irit dari pergeseran indikator yang masih tipis)">Menunggu Akumulasi</span>${gapBadge}`;
     }
 
     // Fallback: data indikator/kapasitas tangki tidak lengkap -> rumus lama.
@@ -3849,16 +3965,17 @@ function renderUsage(){
     return `${rasio.toFixed(1)} KM/L${gapBadge}`;
   }
 
-  function renderTable(items){
-    const wrap = document.getElementById('usage-table-wrap');
+  // ======================================================================
+  // VIEW "LIST": tabel/kartu datar per baris perjalanan (perilaku LAMA,
+  // dipertahankan 100% -- semua aksi: Edit, Biaya Operasional, Bagikan,
+  // Salin Gambar, Tandai Kembali, Hapus tetap ada di sini).
+  // ======================================================================
+  function renderListView(items){
+    const wrap = document.getElementById('usage-view-wrap');
     if(items.length===0){
       wrap.innerHTML = emptyState('📍','Belum ada catatan penggunaan mobil.');
       return;
     }
-
-    // ---------- Data per baris disiapkan SEKALI, dipakai bersama oleh versi
-    // tabel (desktop) MAUPUN versi kartu (mobile) -- supaya tidak ada 2
-    // logic terpisah yang bisa berbeda/salah satu lupa diperbarui. ----------
     const rows = items.map(u=>{
       const carForRow = state.cars.find(c=>c.id===u.carId);
       function bensinBadgeFor(val){
@@ -3869,9 +3986,6 @@ function renderUsage(){
       const bensinKeluarBadge = bensinBadgeFor(getBensinKeluar(u));
       const bensinKembaliBadge = bensinBadgeFor(getBensinKembali(u));
       const etoll = (u.saldoEtoll===null || u.saldoEtoll===undefined || u.saldoEtoll==='') ? null : Number(u.saldoEtoll);
-      // Biaya Tol Terpakai: Saldo Awal + Pembelian Bersih - Saldo Akhir.
-      // Lihat getBiayaTolTerpakai() -- prioritas bacaan langsung trip ini,
-      // fallback warisan dari trip sebelumnya (kartu sama) kalau kosong.
       const biayaTolInfo = getBiayaTolTerpakai(u);
       const linkedCard = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
       let jarakBadge = '-';
@@ -3882,9 +3996,6 @@ function renderUsage(){
         jarakBadge = `<span class="badge neutral">Belum kembali</span>`;
       }
       const bbmLabel = (u.literBensin || u.biayaBensin) ? `${u.literBensin?Number(u.literBensin).toLocaleString('id-ID')+' L':''}${u.biayaBensin?' / '+fmtMoney(u.biayaBensin):''}` : '-';
-      // BBM Digunakan (Riil): estimasi liter yang benar-benar terpakai di
-      // perjalanan ini, rumus sama dengan kolom Rasio & Kalkulator Rasio
-      // Konsumsi di menu BBM (neraca tangki, bukan sekadar liter dibeli).
       const literTerpakaiVal = carForRow ? estimateLiterUsed(u, carForRow) : null;
       const literTerpakaiLabel = literTerpakaiVal!=null ? literTerpakaiVal.toFixed(1)+' L' : '-';
       const biayaOpTotal = usageBiayaOpTotal(u);
@@ -3989,17 +4100,318 @@ function renderUsage(){
     wrap.querySelectorAll('[data-return]').forEach(b=> b.onclick = ()=> markReturned(b.dataset.return));
     wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteUsage(b.dataset.del));
   }
-  renderTable(allItems);
 
-  document.getElementById('usage-search').addEventListener('input', (e)=>{
-    const q = e.target.value.trim().toLowerCase();
-    const filtered = allItems.filter(u =>
+  // ======================================================================
+  // VIEW "CARD": kendaraan dikelompokkan jadi kartu (1 kartu = 1 mobil,
+  // dengan ringkasan & indikator BBM saat ini) + panel detail riwayat
+  // perjalanan mobil yang dipilih di sisi kanan. Tampilan default.
+  // ======================================================================
+  const vehicleStats = state.cars.map(c=>{
+    const trips = state.usage.filter(u=>u.carId===c.id);
+    const jarak = trips.reduce((sum,u)=>{
+      if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) return sum + (u.odoKembali-u.odoKeluar);
+      return sum;
+    }, 0);
+    const literBeli = trips.reduce((sum,u)=> sum + (Number(u.literBensin)||0), 0);
+    const biaya = trips.reduce((sum,u)=> sum + (Number(u.biayaBensin)||0), 0);
+    const { avgRatio } = getCarFuelStats(c.id);
+    const latestReading = fuelLatestReading(c.id);
+    const sisaTerkini = latestReading ? getBensinTerkini(latestReading) : null;
+    const batas = fuelBatasFor(c);
+    const lastTrip = trips.slice().sort((a,b)=> (b.updatedAt||0)-(a.updatedAt||0))[0] || null;
+    const activeUsage = trips.find(u=>u.status==='digunakan') || null;
+    return { car:c, trips, jarak, literBeli, biaya, avgRatio, sisaTerkini, batas, lastTrip, activeUsage };
+  }).sort((a,b)=> (b.lastTrip?b.lastTrip.updatedAt||0:0) - (a.lastTrip?a.lastTrip.updatedAt||0:0));
+
+  function statsFor(carId){ return vehicleStats.find(vs=>vs.car.id===carId); }
+
+  function fuelBarStripHtml(car, sisaTerkini){
+    if(sisaTerkini==null) return `<div class="fuel-bar-empty">Belum ada data BBM tercatat.</div>`;
+    const color = bensinLevelColor(sisaTerkini);
+    if(car.tipeIndikatorBbm==='bar'){
+      const maxBar = car.maxBarBbm || 8;
+      const currentBar = convertPercentToBar(sisaTerkini, maxBar);
+      const segs = Array.from({length:maxBar}).map((_,i)=> `<div class="fuel-bar-seg${i<currentBar?' filled':''}" style="${i<currentBar?`background:${color};`:''}"></div>`).join('');
+      const liters = car.kapasitasTangkiLiter!=null ? Math.round((sisaTerkini/100)*Number(car.kapasitasTangkiLiter)) : null;
+      return `<div class="fuel-bar-strip">${segs}</div><div class="fuel-bar-meta"><span>${currentBar} / ${maxBar} Bar</span>${liters!=null?`<span>± ${liters} Liter</span>`:'<span></span>'}</div>`;
+    }
+    const filledSeg = Math.round(sisaTerkini/10);
+    const segs = Array.from({length:10}).map((_,i)=> `<div class="fuel-bar-seg${i<filledSeg?' filled':''}" style="${i<filledSeg?`background:${color};`:''}"></div>`).join('');
+    return `<div class="fuel-bar-strip">${segs}</div><div class="fuel-bar-meta"><span>${Math.round(sisaTerkini)}%</span><span></span></div>`;
+  }
+
+  function tripDateParts(s){
+    if(!s) return {day:'-', mon:'-', yr:'-'};
+    const d = new Date(s+'T00:00:00');
+    if(isNaN(d)) return {day:'-', mon:'-', yr:'-'};
+    return {
+      day: d.toLocaleDateString('id-ID', {day:'2-digit'}),
+      mon: d.toLocaleDateString('id-ID', {month:'short'}).toUpperCase().replace('.',''),
+      yr: d.getFullYear(),
+    };
+  }
+
+  let selectedCarId = vehicleStats.length>0 ? vehicleStats[0].car.id : null;
+  let activeDetailTab = 'riwayat';
+
+  function expandedCardHtml(vs){
+    const c = vs.car;
+    const driverText = vs.lastTrip ? escapeHtml(driverLabel(vs.lastTrip.driverId, vs.lastTrip.driver)) : '-';
+    const statusBadge = vs.activeUsage ? `<span class="badge warn">Dipakai</span>` : `<span class="badge ok">Aktif</span>`;
+    const lastUsedText = vs.lastTrip ? `${fmtDate(vs.lastTrip.tglKembali||vs.lastTrip.tglKeluar)}${vs.lastTrip.jamKembali?' '+vs.lastTrip.jamKembali:''}` : '-';
+    return `
+    <div class="vehicle-card vehicle-card-expanded" data-select-car="${c.id}">
+      <div class="vehicle-card-top">
+        ${carPhotoHtml(c,'car-thumb-lg')}
+        <div class="vehicle-card-info">
+          <div class="vehicle-card-name">${escapeHtml(c.merk)} ${escapeHtml(c.modelMobil)}</div>
+          <div class="vehicle-card-driver">Driver<br><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>${driverText}</div>
+          <div class="vehicle-card-status-row">
+            <span class="k">Status</span> ${statusBadge}
+            <span class="k" style="margin-left:10px;">Terakhir digunakan</span> <span>${lastUsedText}</span>
+          </div>
+        </div>
+      </div>
+      <div class="vehicle-card-stats">
+        <div><div class="stat-value">${vs.jarak.toLocaleString('id-ID')}<small> KM</small></div><div class="stat-label">Total Jarak</div></div>
+        <div><div class="stat-value">${vs.literBeli.toLocaleString('id-ID')}<small> L</small></div><div class="stat-label">Total BBM</div></div>
+        <div><div class="stat-value">${vs.avgRatio!=null?vs.avgRatio.toFixed(1):'-'}<small> KM/L</small></div><div class="stat-label">Rata-rata</div></div>
+        <div class="vehicle-card-fuelnow">
+          <div class="stat-label">BBM Saat Ini</div>
+          ${fuelBarStripHtml(c, vs.sisaTerkini)}
+        </div>
+      </div>
+      <div class="vehicle-card-footer">
+        <a href="#" class="vehicle-card-link" data-select-car="${c.id}">Lihat Riwayat Perjalanan ⌄</a>
+      </div>
+    </div>`;
+  }
+
+  function compactCardHtml(vs){
+    const c = vs.car;
+    const driverText = vs.lastTrip ? escapeHtml(driverLabel(vs.lastTrip.driverId, vs.lastTrip.driver)) : '-';
+    const statusBadge = vs.activeUsage ? `<span class="badge warn">Dipakai</span>` : `<span class="badge ok">Aktif</span>`;
+    return `
+    <div class="vehicle-card vehicle-card-compact" data-select-car="${c.id}">
+      ${carPhotoHtml(c,'car-thumb')}
+      <div class="vehicle-card-compact-info">
+        <div class="vehicle-card-name">${escapeHtml(c.merk)} ${escapeHtml(c.modelMobil)}</div>
+        <div class="vehicle-card-compact-driver"><span>Driver</span> <span>${driverText}</span> ${statusBadge}</div>
+      </div>
+      <div class="vehicle-card-compact-stats">
+        <div><div class="stat-value">${vs.jarak.toLocaleString('id-ID')}</div><div class="stat-label">KM</div></div>
+        <div><div class="stat-value">${vs.literBeli.toLocaleString('id-ID')}</div><div class="stat-label">L</div></div>
+        <div><div class="stat-value">${vs.avgRatio!=null?vs.avgRatio.toFixed(1):'-'}</div><div class="stat-label">KM/L</div></div>
+      </div>
+      <div class="vehicle-card-compact-bar">${fuelBarStripHtml(c, vs.sisaTerkini)}</div>
+      <span class="vehicle-card-chevron">›</span>
+    </div>`;
+  }
+
+  function riwayatTabHtml(vs){
+    const trips = vs.trips.slice().sort((a,b)=> b.tglKeluar.localeCompare(a.tglKeluar) || (b.updatedAt||0)-(a.updatedAt||0));
+    if(trips.length===0) return emptyState('🧾','Belum ada riwayat perjalanan untuk mobil ini.');
+    return trips.map(u=>{
+      const dp = tripDateParts(u.tglKeluar);
+      const jarakVal = (u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) ? (u.odoKembali-u.odoKeluar) : null;
+      const isEstimasi = !(getBensinKeluar(u)===100 && getBensinKembali(u)===100);
+      const ratioTxt = (() => {
+        const entry = getChainFor(u.carId).get(u.id);
+        return entry && entry.resolved ? entry.ratio.toFixed(1)+' KM/L' : '-';
+      })();
+      return `
+      <div class="trip-timeline-item" data-edit-trip="${u.id}">
+        <div class="trip-timeline-date"><div class="day">${dp.day}</div><div class="mon">${dp.mon}</div><div class="yr">${dp.yr}</div></div>
+        <div class="trip-timeline-body">
+          <div class="trip-timeline-time">${u.jamKeluar||'-'} – ${u.jamKembali||'-'}</div>
+          <div class="trip-timeline-dest">📍 ${escapeHtml(u.tujuan||'-')}${mapsNavButtonCompactHtml(u.mapsLink)}</div>
+          <div class="trip-timeline-meta">${u.literBensin?u.literBensin+' L':'-'}${u.biayaBensin?' · '+fmtMoney(u.biayaBensin):''}</div>
+        </div>
+        <div class="trip-timeline-right">
+          <div><span class="badge ${isEstimasi?'warn':'ok'}">${ratioTxt}</span></div>
+          <div class="km">${jarakVal!=null?jarakVal.toLocaleString('id-ID')+' KM':'-'}</div>
+        </div>
+        <span class="vehicle-card-chevron">›</span>
+      </div>`;
+    }).join('');
+  }
+
+  function detailKendaraanTabHtml(vs){
+    const c = vs.car;
+    return `
+      <div class="data-card-row"><span class="k">Plat Nomor</span><span class="v"><span class="plate">${escapeHtml(c.plat)}</span></span></div>
+      <div class="data-card-row"><span class="k">Tahun</span><span class="v">${escapeHtml(c.tahun)}</span></div>
+      <div class="data-card-row"><span class="k">Warna</span><span class="v">${escapeHtml(c.warna||'-')}</span></div>
+      <div class="data-card-row"><span class="k">Odometer</span><span class="v">${c.odometerSaatIni!=null?Number(c.odometerSaatIni).toLocaleString('id-ID')+' KM':'-'}</span></div>
+      <div class="data-card-row"><span class="k">Kapasitas Tangki</span><span class="v">${c.kapasitasTangkiLiter!=null?c.kapasitasTangkiLiter+' L':'-'}</span></div>
+      <div class="data-card-row"><span class="k">Tipe Indikator BBM</span><span class="v">${c.tipeIndikatorBbm==='bar'?`Bar (${c.maxBarBbm||8} Bar)`:'Persentase'}</span></div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:12px;" data-edit-car="${c.id}">✏️ Edit di Data Mobil</button>
+    `;
+  }
+
+  function etollTabHtml(vs){
+    const cards = state.etollCards.filter(card=> card.mobilId===vs.car.id);
+    if(cards.length===0){
+      return emptyState('💳','Belum ada kartu E-Toll yang ditautkan ke mobil ini.') +
+        `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" data-goto-etoll="1">Kelola Kartu E-Toll</button>`;
+    }
+    return cards.map(card=>`
+      <div class="data-card-row"><span class="k">${escapeHtml(card.nomorKartu)}</span><span class="v">${fmtMoney(card.saldo)}</span></div>
+    `).join('') + `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" data-goto-etoll="1">Kelola Kartu E-Toll</button>`;
+  }
+
+  function catatanTabHtml(vs){
+    return `
+      <textarea id="trip-note-input" rows="6" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:inherit;font-size:13px;resize:vertical;" placeholder="Catatan bebas soal mobil ini (kondisi, pengingat, dsb.)...">${escapeHtml(vs.car.catatan||'')}</textarea>
+      <button class="btn btn-primary btn-sm" style="margin-top:10px;" data-save-note="${vs.car.id}">💾 Simpan Catatan</button>
+    `;
+  }
+
+  function detailPanelHtml(vs){
+    const c = vs.car;
+    const driverText = vs.lastTrip ? escapeHtml(driverLabel(vs.lastTrip.driverId, vs.lastTrip.driver)) : '-';
+    const statusBadge = vs.activeUsage ? `<span class="badge warn">Dipakai</span>` : `<span class="badge ok">Aktif</span>`;
+    const tabs = [
+      {id:'riwayat', label:'Riwayat Perjalanan'},
+      {id:'detail', label:'Detail Kendaraan'},
+      {id:'etoll', label:'E-Toll'},
+      {id:'catatan', label:'Catatan'},
+    ];
+    let bodyHtml = '';
+    if(activeDetailTab==='riwayat') bodyHtml = riwayatTabHtml(vs);
+    else if(activeDetailTab==='detail') bodyHtml = detailKendaraanTabHtml(vs);
+    else if(activeDetailTab==='etoll') bodyHtml = etollTabHtml(vs);
+    else bodyHtml = catatanTabHtml(vs);
+
+    return `
+    <div class="trip-detail-panel">
+      <div class="trip-detail-header">
+        ${carPhotoHtml(c,'car-thumb-lg')}
+        <div class="trip-detail-header-info">
+          <div class="trip-detail-name">${escapeHtml(c.merk)} ${escapeHtml(c.modelMobil)}</div>
+          <div class="trip-detail-driver">Driver : ${driverText}</div>
+          <div class="trip-detail-status">Status : ${statusBadge}</div>
+        </div>
+        <button class="trip-detail-close" data-close-detail="1" title="Tutup">✕</button>
+      </div>
+      <div class="trip-detail-tabs">
+        ${tabs.map(t=>`<button data-tab="${t.id}" class="${activeDetailTab===t.id?'active':''}">${t.label}</button>`).join('')}
+      </div>
+      <div class="trip-detail-body">${bodyHtml}</div>
+      <div class="trip-detail-summary">
+        <div class="title">RINGKASAN KENDARAAN</div>
+        <div class="grid">
+          <div><div class="stat-value">${vs.jarak.toLocaleString('id-ID')} KM</div><div class="stat-label">Total Jarak</div></div>
+          <div><div class="stat-value">${vs.literBeli.toLocaleString('id-ID')} L</div><div class="stat-label">Total BBM</div></div>
+          <div><div class="stat-value">${fmtMoney(vs.biaya)}</div><div class="stat-label">Total Biaya</div></div>
+          <div><div class="stat-value">${vs.avgRatio!=null?vs.avgRatio.toFixed(1):'-'} KM/L</div><div class="stat-label">Rata-rata</div></div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function wireCardViewEvents(){
+    document.querySelectorAll('[data-select-car]').forEach(el=>{
+      el.addEventListener('click', (e)=>{
+        e.preventDefault();
+        selectedCarId = el.dataset.selectCar;
+        activeDetailTab = 'riwayat';
+        renderCardView(document.getElementById('usage-search').value);
+      });
+    });
+    document.querySelectorAll('[data-tab]').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        activeDetailTab = el.dataset.tab;
+        renderCardView(document.getElementById('usage-search').value);
+      });
+    });
+    const closeBtn = document.querySelector('[data-close-detail]');
+    if(closeBtn) closeBtn.addEventListener('click', ()=>{
+      selectedCarId = null;
+      renderCardView(document.getElementById('usage-search').value);
+    });
+    document.querySelectorAll('[data-edit-trip]').forEach(el=>{
+      el.addEventListener('click', ()=> openUsageModal(el.dataset.editTrip));
+    });
+    const editCarBtn = document.querySelector('[data-edit-car]');
+    if(editCarBtn) editCarBtn.addEventListener('click', ()=>{
+      const carId = editCarBtn.dataset.editCar;
+      navigate('cars');
+      openCarModal(carId);
+    });
+    document.querySelectorAll('[data-goto-etoll]').forEach(el=> el.addEventListener('click', ()=> navigate('etoll')));
+    const saveNoteBtn = document.querySelector('[data-save-note]');
+    if(saveNoteBtn) saveNoteBtn.addEventListener('click', ()=>{
+      const carId = saveNoteBtn.dataset.saveNote;
+      const car = state.cars.find(c=>c.id===carId);
+      const val = document.getElementById('trip-note-input').value;
+      if(!car) return;
+      car.catatan = val;
+      touch(car);
+      saveData();
+      showToast('Catatan disimpan.');
+    });
+  }
+
+  function renderCardView(query){
+    const wrap = document.getElementById('usage-view-wrap');
+    const q = (query||'').trim().toLowerCase();
+    let list = vehicleStats;
+    if(q){
+      list = vehicleStats.filter(vs=>
+        (vs.car.merk+' '+vs.car.modelMobil+' '+vs.car.plat).toLowerCase().includes(q) ||
+        vs.trips.some(u=> driverLabel(u.driverId,u.driver).toLowerCase().includes(q) || (u.tujuan||'').toLowerCase().includes(q))
+      );
+    }
+    if(list.length===0){
+      wrap.innerHTML = `<div class="trip-layout"><div class="trip-page-left">${emptyState('🚚','Tidak ada mobil yang cocok dengan pencarian ini.')}</div></div>`;
+      return;
+    }
+    if(!list.some(vs=>vs.car.id===selectedCarId)) selectedCarId = list[0].car.id;
+
+    const leftHtml = list.map(vs=> vs.car.id===selectedCarId ? expandedCardHtml(vs) : compactCardHtml(vs)).join('');
+    const selectedStats = statsFor(selectedCarId);
+    const rightHtml = selectedStats ? detailPanelHtml(selectedStats) : '';
+
+    wrap.innerHTML = `
+      <div class="trip-layout">
+        <div class="trip-page-left">${leftHtml}</div>
+        <div class="trip-page-right">${rightHtml}</div>
+      </div>
+    `;
+    wireCardViewEvents();
+  }
+
+  // ---------------- Toggle Card/List + pencarian gabungan ----------------
+  let viewMode = 'card';
+  function setActiveToggleButtons(){
+    document.getElementById('btn-view-card').classList.toggle('active', viewMode==='card');
+    document.getElementById('btn-view-list').classList.toggle('active', viewMode==='list');
+  }
+  function filterListItems(q){
+    q = (q||'').trim().toLowerCase();
+    if(!q) return allItems;
+    return allItems.filter(u =>
       carLabel(u.carId).toLowerCase().includes(q) ||
       driverLabel(u.driverId, u.driver).toLowerCase().includes(q) ||
       (u.tujuan||'').toLowerCase().includes(q)
     );
-    renderTable(filtered);
+  }
+  function renderCurrentView(){
+    const q = document.getElementById('usage-search').value;
+    if(viewMode==='card') renderCardView(q);
+    else renderListView(filterListItems(q));
+  }
+  document.getElementById('btn-view-card').addEventListener('click', ()=>{
+    viewMode = 'card'; setActiveToggleButtons(); renderCurrentView();
   });
+  document.getElementById('btn-view-list').addEventListener('click', ()=>{
+    viewMode = 'list'; setActiveToggleButtons(); renderCurrentView();
+  });
+  document.getElementById('usage-search').addEventListener('input', renderCurrentView);
+
+  setActiveToggleButtons();
+  renderCurrentView();
 }
 
 function markReturned(id){
@@ -6882,6 +7294,22 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.35.1',
+    date: '24 Jul 2026',
+    notes: [
+      'Perbaikan tampilan halaman Catat Perjalanan: ikon emoji (🛣️⛽📊👤🔍🗂️📋) di baris ringkasan, toggle Card/List, kotak pencarian, dan kartu kendaraan diganti jadi ikon garis (SVG) -- emoji tampilannya bisa beda-beda tergantung HP/OS/browser (kadang berwarna, kadang bentuknya beda sama sekali), sedangkan ikon SVG ini tampil identik di semua perangkat, sesuai gaya di gambar referensi.',
+    ]
+  },
+  {
+    v: '3.35.0',
+    date: '24 Jul 2026',
+    notes: [
+      'Tampilan halaman Catat Perjalanan dirombak total mengikuti desain baru: baris ringkasan (Total Jarak, Total BBM, Total Biaya, Rata-rata Efisiensi) di atas, lalu daftar mobil dikelompokkan jadi kartu per kendaraan (foto, driver terakhir, statistik, dan indikator BBM saat ini), plus panel detail di sisi kanan dengan 4 tab: Riwayat Perjalanan, Detail Kendaraan, E-Toll, dan Catatan (field bebas baru per mobil).',
+      'Ditambah toggle "Card / List" -- tampilan Card (baru, default) mengelompokkan per mobil seperti di atas; tampilan List adalah tabel/kartu detail per-perjalanan yang SUDAH ADA sebelumnya (Edit, Biaya Operasional, Bagikan, Salin Gambar, Tandai Kembali, Hapus semuanya tetap ada persis seperti sebelumnya, cuma dipindah ke balik toggle ini) -- tidak ada fitur yang dihapus.',
+      'Klik salah satu perjalanan di tab Riwayat Perjalanan (panel detail) membuka form Edit yang sama seperti sebelumnya. Tombol Edit di tab Detail Kendaraan mengarahkan ke Data Mobil (sumber tunggal data mobil, termasuk Foto Kendaraan). Tombol di tab E-Toll mengarahkan ke menu Kartu E-Toll.',
+    ]
+  },
   {
     v: '3.34.1',
     date: '24 Jul 2026',
