@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.27.0">
+<meta name="app-version" content="3.28.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -809,7 +809,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.27.0';
+const APP_VERSION = '3.28.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3128,7 +3128,9 @@ function renderUsage(){
     if(entry && entry.gapTolerated){
       gapBadge = ` <span class="badge neutral" title="Selisih ${Math.abs(entry.gapKm).toLocaleString('id-ID')} KM dari trip sebelumnya (mobil yang sama) dianggap jarak harian wajar yang memang tidak dicatat (mis. ke masjid, beli makan dekat) -- KM & estimasi BBM-nya sudah otomatis disertakan ke perhitungan Rasio di trip ini. Ambang toleransi bisa diatur di menu Pengaturan.">↔️ Gap Kecil (Disertakan)</span>`;
     } else if(entry && entry.gapFlagged){
-      gapBadge = ` <span class="badge danger" title="Odometer Keluar trip ini tidak nyambung dengan Odometer Kembali trip sebelumnya (mobil yang sama) -- selisih ${Math.abs(entry.gapKm).toLocaleString('id-ID')} KM tidak tercatat di mana pun & melebihi ambang toleransi. Kemungkinan ada perjalanan yang lupa dicatat. Data historis TIDAK diubah, ini cuma penanda untuk dicek ulang.">⚠️ Belum Teralokasi</span>`;
+      const overlapMsg = `Odometer Keluar trip ini LEBIH KECIL dari Odometer Kembali trip sebelumnya (mobil yang sama) -- tumpang tindih ${Math.abs(entry.gapKm).toLocaleString('id-ID')} KM. Ini TIDAK MUNGKIN terjadi secara fisik (odometer tidak bisa mundur), jadi pasti ada salah input (mis. Odometer Keluar ke-copy dari catatan yang salah). Perlu dicek & diperbaiki manual -- data historis TIDAK diubah otomatis.`;
+      const missingMsg = `Odometer Keluar trip ini tidak nyambung dengan Odometer Kembali trip sebelumnya (mobil yang sama) -- selisih ${Math.abs(entry.gapKm).toLocaleString('id-ID')} KM tidak tercatat di mana pun & melebihi ambang toleransi. Kemungkinan ada perjalanan yang lupa dicatat. Data historis TIDAK diubah, ini cuma penanda untuk dicek ulang.`;
+      gapBadge = ` <span class="badge danger" title="${entry.gapOverlap ? overlapMsg : missingMsg}">⚠️ ${entry.gapOverlap ? 'Odometer Tumpang Tindih' : 'Belum Teralokasi'}</span>`;
     }
 
     if(entry && entry.resolved){
@@ -3143,8 +3145,12 @@ function renderUsage(){
 
     if(entry && entry.method==='pending'){
       // Jujur ke petugas: BUKAN "tidak ada data", tapi "belum cukup untuk
-      // dihitung sendiri -- akan digabung ke trip berikutnya yang resolve".
-      return `<span class="badge neutral" title="Jarak ${entry.ownKm.toLocaleString('id-ID')} KM ditunda, akan otomatis digabung ke perjalanan berikutnya (mobil yang sama) yang indikatornya sudah sempat bergerak">Menunggu Akumulasi</span>${gapBadge}`;
+      // dihitung sendiri" -- baik karena indikator belum bergerak SAMA
+      // SEKALI, ATAU sudah bergerak tapi masih terlalu tipis (di bawah 2x
+      // resolusi alat ukur) untuk dipercaya jadi 1 angka rasio -- akan
+      // otomatis digabung ke perjalanan berikutnya (mobil yang sama) begitu
+      // pergeserannya cukup besar untuk diandalkan.
+      return `<span class="badge neutral" title="Jarak ${entry.ownKm.toLocaleString('id-ID')} KM ditunda, akan otomatis digabung ke perjalanan berikutnya (mobil yang sama) begitu indikator bensin bergerak cukup besar untuk dipercaya (menghindari rasio yang keliatan terlalu irit dari pergeseran indikator yang masih tipis)">Menunggu Akumulasi</span>${gapBadge}`;
     }
 
     // Fallback: data indikator/kapasitas tangki tidak lengkap -> rumus lama.
@@ -4969,10 +4975,38 @@ function buildFuelChain(carId){
   const result = new Map(); // usage.id -> hasil rantai untuk trip itu
   if(!car) return result;
 
-  // Ambang gap yang dianggap wajar & TIDAK ditandai sebagai "lupa dicatat"
-  // -- mis. bolak-balik ke masjid, beli makan dekat, dll yang memang
-  // sengaja tidak dicatat sebagai trip terpisah. Bisa diatur di Pengaturan.
+  // Ambang gap KEHILANGAN jarak (odoKeluar > odoKembali trip sebelumnya)
+  // yang dianggap wajar & TIDAK ditandai sebagai "lupa dicatat" -- mis.
+  // bolak-balik ke masjid, beli makan dekat, dll yang memang sengaja tidak
+  // dicatat sebagai trip terpisah. Bisa diatur di Pengaturan.
   const toleransiGapKm = (typeof state.toleransiGapKm === 'number') ? state.toleransiGapKm : 15;
+
+  // Resolusi terkecil indikator BBM mobil ini, dalam Liter -- dipakai untuk
+  // menentukan kapan sebuah trip "cukup andal" untuk dipercaya rasionya
+  // sendirian (lihat blok MIN_RESOLUSI_MULTIPLIER di bawah). TIDAK mengubah
+  // cara Bar dikonversi/direkam -- cuma dipakai sebagai ambang keputusan
+  // "sudah cukup yakin belum" sebelum menampilkan angka rasio.
+  //   - Tipe Bar: 1 Bar = kapasitasTangki / maxBarBbm Liter (mis. mobil 40L
+  //     dgn 8 Bar -> 1 Bar = 5 L, PERSIS sesuai referensi lapangan ~4.6-5.3L).
+  //   - Tipe Persen: 1% = kapasitasTangki / 100 Liter (jauh lebih halus).
+  const resolusiLiter = (car.tipeIndikatorBbm === 'bar' && car.maxBarBbm)
+    ? Number(car.kapasitasTangkiLiter||0) / Number(car.maxBarBbm)
+    : Number(car.kapasitasTangkiLiter||0) / 100;
+
+  // KENAPA ANGKA RASIO BISA "SEMU" TERLALU IRIT: kalau indikator cuma
+  // bergeser 1 Bar (~5L utk mobil ini) padahal jaraknya jauh, ketidakpastian
+  // di 1 Bar itu sendiri bisa ±50% dari nilainya (lihat catatan evaluasi
+  // armada) -- jadi rasio yang dihitung dari situ SANGAT tidak stabil, dan
+  // kadang kebetulan mendarat di angka yang jauh lebih optimis dari
+  // kenyataan (mis. 21+ KM/L utk mobil yang wajarnya 8-15 KM/L). SOLUSI:
+  // jangan percaya rasio dari pergeseran yang masih SETIPIS ini -- tunda
+  // dulu (akumulasi, sama seperti mekanisme "Menunggu Akumulasi" yang
+  // sudah ada utk pergeseran 0 Bar), sampai total pergeseran yang
+  // terkumpul minimal 2x resolusi (mis. >=2 Bar utk mobil ini), baru
+  // dipercaya jadi 1 angka rasio. Ini TIDAK mengubah cara Bar dikonversi
+  // ke Liter -- cuma menunda KAPAN angkanya ditampilkan sbg pasti.
+  const MIN_RESOLUSI_MULTIPLIER = 2;
+  const minLiterAndal = resolusiLiter * MIN_RESOLUSI_MULTIPLIER;
 
   const trips = state.usage
     .filter(u=> u.carId===carId && u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar)
@@ -4982,7 +5016,7 @@ function buildFuelChain(carId){
     });
 
   let pendingKm = 0;
-  let pendingLiter = 0; // BBM dari gap kecil yang ditoleransi, ikut diakumulasi berbarengan dgn KM-nya
+  let pendingLiter = 0; // BBM dari gap kecil yang ditoleransi & trip yg blm cukup andal, ikut diakumulasi berbarengan dgn KM-nya
   let prevOdoKembali = null;
   let prevBensinKembali = null; // % bensin saat trip SEBELUMNYA berakhir -- dasar hitung BBM selama gap
   trips.forEach(u=>{
@@ -4991,17 +5025,25 @@ function buildFuelChain(carId){
     const kembali = getBensinKembali(u);
     const punyaIndikator = keluar!=null && kembali!=null && car.kapasitasTangkiLiter!=null;
 
-    // gapKm > 0 -> ada jarak "hilang" antar trip (mobil sama). Dua kemungkinan:
-    //  (a) gap KECIL (<= toleransi) -> errand harian wajar yang memang tidak
-    //      dicatat -- diam-diam DIGABUNG ke perhitungan (KM *dan* BBM-nya
-    //      sekaligus, supaya rasio tidak bias), tidak perlu ditandai merah.
-    //  (b) gap BESAR (> toleransi) -> kemungkinan trip (pengiriman) yang
-    //      lupa dicatat -- CUMA ditandai untuk dicek manual, TIDAK digabung
-    //      otomatis (supaya biaya/e-toll trip yg hilang itu tidak "hilang
-    //      diam-diam" dari rekonsiliasi).
-    const gapKm = (prevOdoKembali!=null) ? (u.odoKeluar - prevOdoKembali) : 0;
-    const gapTolerated = gapKm > 0 && gapKm <= toleransiGapKm;
-    const gapFlagged = gapKm > toleransiGapKm;
+    // rawGapKm > 0 -> ada jarak "HILANG" antar trip (mobil sama) -- KM yang
+    //   tidak tercatat di mana pun. Dua kemungkinan:
+    //    (a) kecil (<= toleransi) -> errand harian wajar -- diam-diam
+    //        DIGABUNG ke perhitungan (KM *dan* BBM-nya sekaligus, supaya
+    //        rasio tidak bias), tidak perlu ditandai merah.
+    //    (b) besar (> toleransi) -> kemungkinan trip yang lupa dicatat --
+    //        CUMA ditandai, TIDAK digabung otomatis (supaya biaya/e-toll
+    //        yg mungkin ikut hilang tidak "tertutupi" diam-diam).
+    // rawGapKm < 0 -> odometer TUMPANG TINDIH/MUNDUR -- ini TIDAK MUNGKIN
+    //   terjadi secara fisik, jadi SELALU berarti ada salah input (misal
+    //   Odometer Keluar ke-copy dari trip yang salah). SELALU ditandai,
+    //   berapa pun besarnya & TANPA PEDULI toleransi -- beda dgn kasus (a)/(b)
+    //   di atas yang memang soal jarak tak tercatat, bukan kontradiksi data.
+    const rawGapKm = (prevOdoKembali!=null) ? (u.odoKeluar - prevOdoKembali) : 0;
+    const gapOverlap = rawGapKm < 0;
+    const gapMissing = rawGapKm > 0;
+    const gapTolerated = gapMissing && rawGapKm <= toleransiGapKm;
+    const gapFlagged = gapOverlap || (gapMissing && rawGapKm > toleransiGapKm);
+    const gapKm = rawGapKm; // dipertahankan utk kompatibilitas (dipakai buat tampilkan besar selisih di badge)
 
     if(gapTolerated && keluar!=null && prevBensinKembali!=null && car.kapasitasTangkiLiter!=null){
       // Estimasi BBM yang terpakai SELAMA gap kecil ini, dari selisih %
@@ -5020,28 +5062,39 @@ function buildFuelChain(carId){
     prevOdoKembali = u.odoKembali;
     prevBensinKembali = kembali;
 
-    // Badge transparansi utk gap BESAR (tidak digabung otomatis).
-    const gapBadgeInfo = gapFlagged ? { gapKm } : null;
-
     if(!punyaIndikator){
       // Tidak ada data indikator sama sekali -> di luar rantai, pakai
       // fallback lama (jarak/literBeli) sendiri-sendiri, tidak menyentuh pendingKm.
-      result.set(u.id, { resolved:false, method:'fallback', ownKm, carriedInKm:0, gapKm, gapFlagged, gapTolerated });
+      result.set(u.id, { resolved:false, method:'fallback', ownKm, carriedInKm:0, gapKm, gapFlagged, gapTolerated, gapOverlap });
       return;
     }
 
-    const lt = estimateLiterUsed(u, car); // null berarti belum "resolve" (indikator belum sempat bergerak)
+    const lt = estimateLiterUsed(u, car); // null berarti indikator belum bergerak sama sekali
     if(lt==null){
       pendingKm += ownKm;
-      result.set(u.id, { resolved:false, method:'pending', ownKm, carriedInKm:0, pendingSoFar:pendingKm, gapKm, gapFlagged, gapTolerated });
+      result.set(u.id, { resolved:false, method:'pending', ownKm, carriedInKm:0, pendingSoFar:pendingKm, gapKm, gapFlagged, gapTolerated, gapOverlap });
+      return;
+    }
+
+    const combinedKm = ownKm + pendingKm;
+    const combinedLiter = lt + pendingLiter;
+
+    if(combinedLiter < minLiterAndal){
+      // Pergeseran indikator masih terlalu tipis utk dipercaya sendirian
+      // (di bawah 2x resolusi alat ukur) -- BUKAN "tidak ada data", tapi
+      // "belum cukup yakin". Simpan gabungan KM & Liter-nya, tunggu trip
+      // berikutnya menambah lagi sampai cukup andal baru ditampilkan.
+      pendingKm = combinedKm;
+      pendingLiter = combinedLiter;
+      result.set(u.id, { resolved:false, method:'pending', ownKm, carriedInKm:0, pendingSoFar:combinedKm, gapKm, gapFlagged, gapTolerated, gapOverlap });
       return;
     }
 
     const carriedInKm = pendingKm;
-    const effectiveKm = ownKm + pendingKm;
-    const effectiveLiter = lt + pendingLiter;
+    const effectiveKm = combinedKm;
+    const effectiveLiter = combinedLiter;
     pendingKm = 0; pendingLiter = 0; // "dilunasi" ke trip ini
-    result.set(u.id, { resolved:true, method:'indikator', ownKm, effectiveKm, carriedInKm, literTerbakarRiil:effectiveLiter, ratio: effectiveKm/effectiveLiter, gapKm, gapFlagged, gapTolerated });
+    result.set(u.id, { resolved:true, method:'indikator', ownKm, effectiveKm, carriedInKm, literTerbakarRiil:effectiveLiter, ratio: effectiveKm/effectiveLiter, gapKm, gapFlagged, gapTolerated, gapOverlap });
   });
 
   return result;
@@ -5815,6 +5868,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.28.0',
+    date: '23 Jul 2026',
+    notes: [
+      'Perbaikan bug: gap odometer NEGATIF (Odometer Keluar trip ini lebih kecil dari Odometer Kembali trip sebelumnya -- tumpang tindih, secara fisik tidak mungkin terjadi) sekarang SELALU ditandai sebagai kesalahan input ("⚠️ Odometer Tumpang Tindih"), berapa pun besarnya -- sebelumnya lolos dari deteksi kalau kebetulan di bawah ambang Toleransi Gap, padahal ini murni salah input, bukan soal jarak tak tercatat.',
+      'Anti-bias Rasio: sistem sekarang menahan diri menampilkan angka Rasio kalau pergeseran indikator BBM masih terlalu tipis (di bawah 2x resolusi alat ukur, mis. <2 Bar) untuk dipercaya sendirian -- ditunda & digabung ke perjalanan berikutnya (mekanisme "Menunggu Akumulasi" yang sudah ada, sekarang diperluas). Ini mencegah rasio yang terlihat jauh lebih irit dari kenyataan gara-gara kebetulan indikator baru bergeser 1 tingkat atas jarak yang jauh. Cara Bar dicatat & dikonversi TIDAK berubah -- ini cuma soal kapan angkanya dipercaya untuk ditampilkan.',
+    ]
+  },
   {
     v: '3.27.0',
     date: '23 Jul 2026',
