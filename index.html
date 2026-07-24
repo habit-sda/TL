@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.32.2">
+<meta name="app-version" content="3.32.3">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -810,7 +810,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.32.2';
+const APP_VERSION = '3.32.3';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -857,6 +857,47 @@ function touch(obj){ obj.updatedAt = Date.now(); return obj; }
 // tampilan halaman sebelumnya.
 function ensureDestinationsArray(){
   if(!Array.isArray(state.destinations)) state.destinations = [];
+}
+
+// Rata-rata Jarak & BBM dari riwayat Catat Perjalanan untuk 1 nama tujuan
+// (cocok persis, case-insensitive) -- dipakai untuk isi OTOMATIS Jarak
+// (KM)/Perkiraan BBM (L) di Data Tujuan, supaya admin tidak perlu isi
+// manual kalau riwayatnya sudah ada. Cuma pakai trip dengan data valid
+// (odometer keluar<=kembali, BBM dibeli>0) -- trip yang datanya kosong/aneh
+// tidak ikut menggeser rata-rata.
+function computeAvgJarakBbmForTujuan(nama){
+  const needle = (nama||'').trim().toLowerCase();
+  if(!needle) return { jarakKm:null, bbmLiter:null };
+
+  const trips = state.usage.filter(u=> (u.tujuan||'').trim().toLowerCase()===needle);
+  const jaraks = trips
+    .filter(u=> u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar)
+    .map(u=> u.odoKembali - u.odoKeluar);
+  const bbms = trips
+    .filter(u=> u.literBensin!=null && Number(u.literBensin)>0)
+    .map(u=> Number(u.literBensin));
+
+  const avg = (arr)=> arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : null;
+  return { jarakKm: avg(jaraks), bbmLiter: avg(bbms) };
+}
+
+// Isi CELAH (bukan timpa) Jarak/BBM yang masih kosong di Data Tujuan yang
+// SUDAH ADA, begitu riwayat perjalanan untuk tujuan itu tersedia -- aman
+// dijalankan berkali-kali (idempotent): tidak pernah menimpa nilai yang
+// sudah terisi, baik diisi manual oleh admin maupun otomatis sebelumnya.
+function backfillDestinationEstimates(){
+  let changed = false;
+  state.destinations.forEach(d=>{
+    const needJarak = d.jarakKm==null;
+    const needBbm = d.bbmLiter==null;
+    if(!needJarak && !needBbm) return;
+    const avg = computeAvgJarakBbmForTujuan(d.nama);
+    let touched = false;
+    if(needJarak && avg.jarakKm!=null){ d.jarakKm = avg.jarakKm; touched = true; }
+    if(needBbm && avg.bbmLiter!=null){ d.bbmLiter = avg.bbmLiter; touched = true; }
+    if(touched){ touch(d); changed = true; }
+  });
+  if(changed) saveData();
 }
 
 // Mencatat 1 baris riwayat transaksi kartu E-Toll (top up / pemakaian), supaya
@@ -3166,6 +3207,7 @@ function openDriverModal(editId){
    ======================================================================== */
 function renderDestinations(){
   ensureDestinationsArray();
+  backfillDestinationEstimates(); // isi celah Jarak/BBM yang masih kosong, kalau riwayatnya sudah tersedia sekarang
   document.getElementById('header-actions').innerHTML =
     `<button class="btn btn-primary" id="btn-add-destination">+ Tambah Tujuan Baru</button>${exportBtnHtml('btn-export-destination')}`;
   document.getElementById('btn-add-destination').onclick = () => openDestinationModal();
@@ -3347,8 +3389,9 @@ function ensureDestinationFromTujuan(tujuan, mapsLink){
     }
     return;
   }
+  const avgNew = computeAvgJarakBbmForTujuan(nama);
   state.destinations.push(touch({
-    id: uid(), nama, jarakKm: null, bbmLiter: null, mapsLink: mapsLink || null,
+    id: uid(), nama, jarakKm: avgNew.jarakKm, bbmLiter: avgNew.bbmLiter, mapsLink: mapsLink || null,
     createdAt: today(), petugas: currentAdmin
   }));
   logActivity('tujuan', 'Tambah tujuan baru (otomatis dari input manual)', nama);
@@ -3368,7 +3411,7 @@ function ensureDestinationsSeeded(){
       const key = nama.toLowerCase();
       if(seen.has(key)) return;
       seen.add(key);
-      state.destinations.push(touch({id: uid(), nama, jarakKm: null, bbmLiter: null, mapsLink: item.mapsLink||null, createdAt: today(), petugas: currentAdmin}));
+      state.destinations.push(touch({id: uid(), nama, ...computeAvgJarakBbmForTujuan(nama), mapsLink: item.mapsLink||null, createdAt: today(), petugas: currentAdmin}));
       changed = true;
     });
   }
@@ -6554,6 +6597,13 @@ function openModal({title, body, onSave}){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '3.32.3',
+    date: '24 Jul 2026',
+    notes: [
+      'Perbaikan bug: kolom "Jarak (KM)" dan "Perkiraan BBM (L)" di Data Tujuan selalu tampil "-" walau riwayat perjalanan ke tujuan itu sudah ada -- akar masalahnya, fungsi penghitung rata-rata (backfillDestinationEstimates) sudah dibuat sejak awal tapi tidak pernah benar-benar dipanggil di mana pun. Sekarang dipanggil otomatis saat aplikasi dibuka dan setiap kali menu Data Tujuan dibuka -- data lama yang riwayatnya sudah tersedia langsung terisi, tanpa menimpa nilai yang sudah diisi manual oleh admin.',
+    ]
+  },
+  {
     v: '3.32.2',
     date: '24 Jul 2026',
     notes: [
@@ -7251,6 +7301,13 @@ document.getElementById('btn-changelog').onclick = () => {
 /* ---------------- Init ---------------- */
 document.getElementById('btn-changelog').textContent = 'v' + APP_VERSION + ' · Lihat Changelog';
 renderPetugasSelect();
+// Perbaikan v3.28.0: backfillDestinationEstimates() sudah ada sejak awal
+// fitur Data Tujuan dibuat, tapi TIDAK PERNAH DIPANGGIL di mana pun --
+// akibatnya Jarak (KM)/Perkiraan BBM (L) selalu tampil '-' walau riwayat
+// perjalanannya sudah ada. Dipanggil sekali di sini (saat app dibuka) +
+// sekali lagi tiap kali menu Data Tujuan dibuka (lihat renderDestinations),
+// supaya datanya selalu terisi begitu ada riwayat baru yang bisa dipakai.
+backfillDestinationEstimates();
 // Buka kembali halaman TERAKHIR yang dikunjungi DALAM SESI YANG SAMA (bukan
 // selalu Dashboard), supaya screen mati/HP terkunci lalu dibuka lagi (BUKAN
 // menutup aplikasi) tidak memutus pekerjaan yang sedang dilihat. Sengaja
