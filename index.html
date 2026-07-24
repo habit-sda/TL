@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.29.0">
+<meta name="app-version" content="3.30.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -809,7 +809,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.29.0';
+const APP_VERSION = '3.30.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1612,6 +1612,48 @@ function usageEtollBiayaTotal(u){
   return usageBiayaOpItems(u)
     .filter(it=> it.kategori === 'Isi E-Toll')
     .reduce((sum,it)=> sum + (Number(it.nominal)||0), 0);
+}
+// Versi BERSIH (nominal dikurangi biaya admin) -- ini yang menambah saldo
+// kartu yang BISA dipakai bayar tol, bukan angka kotornya. Dipakai di
+// getBiayaTolTerpakai(), JANGAN dipakai gross di situ (akan kelebihan hitung
+// sebesar biaya admin).
+function usageEtollNetTopupTotal(u){
+  return usageBiayaOpItems(u)
+    .filter(it=> it.kategori === 'Isi E-Toll')
+    .reduce((sum,it)=> sum + ((Number(it.nominal)||0) - (Number(it.biayaAdmin)||0)), 0);
+}
+// Kunci urut kronologis 1 trip, dipakai buat cari trip "sebelumnya" dgn
+// kartu E-Toll yang sama -- pakai waktu KEMBALI (selesainya) trip itu,
+// fallback ke waktu keluar kalau belum ada tglKembali.
+function usageEtollTimeKey(u){
+  return (u.tglKembali||u.tglKeluar||'') + (u.jamKembali||u.jamKeluar||'');
+}
+// Biaya Tol Terpakai = Saldo Awal + Pembelian E-Toll BERSIH (trip ini) - Saldo Akhir.
+// Saldo Awal diutamakan dari bacaan ASLI trip ini sendiri (saldoEtollAwal,
+// diisi manual saat trip dibuat -- akurasi tertinggi). Kalau kosong (data
+// lama / admin lupa isi), fallback ke Saldo Akhir trip SEBELUMNYA yang
+// pakai kartu sama (kronologis) -- sama seperti mekanisme Rantai Akumulasi
+// BBM: tidak dipaksa, kalau tidak ada yang bisa diwarisi juga -> null (bukan
+// angka yang salah / dipaksa 0).
+function getBiayaTolTerpakai(u){
+  if(u.status !== 'selesai' || u.saldoEtoll==null) return null;
+
+  let saldoAwal = (u.saldoEtollAwal!=null) ? Number(u.saldoEtollAwal) : null;
+  let sumber = 'langsung';
+  if(saldoAwal==null){
+    if(!u.etollCardId) return null;
+    const timeKeyU = usageEtollTimeKey(u);
+    const kandidat = state.usage
+      .filter(x=> x.id!==u.id && x.etollCardId===u.etollCardId && x.status==='selesai' && x.saldoEtoll!=null && usageEtollTimeKey(x) <= timeKeyU)
+      .sort((a,b)=> usageEtollTimeKey(b).localeCompare(usageEtollTimeKey(a))); // terbaru dulu
+    if(kandidat.length===0) return null;
+    saldoAwal = Number(kandidat[0].saldoEtoll);
+    sumber = 'warisan';
+  }
+
+  const netTopup = usageEtollNetTopupTotal(u);
+  const biayaTol = saldoAwal + netTopup - Number(u.saldoEtoll);
+  return { biayaTol, sumber, saldoAwal, netTopup };
 }
 
 // Kompatibilitas mundur: catatan servis versi lama menyimpan {jenis, biaya}
@@ -3277,6 +3319,10 @@ function renderUsage(){
       const bensinKeluarBadge = bensinBadgeFor(getBensinKeluar(u));
       const bensinKembaliBadge = bensinBadgeFor(getBensinKembali(u));
       const etoll = (u.saldoEtoll===null || u.saldoEtoll===undefined || u.saldoEtoll==='') ? null : Number(u.saldoEtoll);
+      // Biaya Tol Terpakai: Saldo Awal + Pembelian Bersih - Saldo Akhir.
+      // Lihat getBiayaTolTerpakai() -- prioritas bacaan langsung trip ini,
+      // fallback warisan dari trip sebelumnya (kartu sama) kalau kosong.
+      const biayaTolInfo = getBiayaTolTerpakai(u);
       const linkedCard = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
       let jarakBadge = '-';
       if(u.odoKeluar!=null && u.odoKembali!=null){
@@ -3300,7 +3346,7 @@ function renderUsage(){
         ${biayaOpTotal>0 ? `<button class="btn btn-ghost btn-sm" data-share="${u.id}">📤 Bagikan</button><button class="btn btn-ghost btn-sm" data-copy-img="${u.id}">📋 Salin Gambar</button>` : ''}
         ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Tandai Kembali</button>` : `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✏️ Edit Data Kembali</button>`}
       `;
-      return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, etollBiayaTotal, isOperasional, actionButtonsHtml };
+      return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, biayaTolInfo, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, etollBiayaTotal, isOperasional, actionButtonsHtml };
     });
 
     // ---------- Versi TABEL (desktop, layar lebar) ----------
@@ -3328,7 +3374,7 @@ function renderUsage(){
               <td>${r.bensinKeluarBadge}</td>
               <td>${r.bensinKembaliBadge}</td>
               <td>${r.linkedCard ? escapeHtml(r.linkedCard.nomorKartu) : '-'}</td>
-              <td>${r.etoll !== null && !isNaN(r.etoll) ? fmtMoney(r.etoll) : '-'}</td>
+              <td>${r.etoll !== null && !isNaN(r.etoll) ? fmtMoney(r.etoll) : '-'}${r.biayaTolInfo ? `<div style="font-size:10.5px;color:var(--muted);white-space:nowrap;" title="${r.biayaTolInfo.sumber==='warisan' ? 'Saldo Awal diwarisi dari Saldo Akhir trip sebelumnya (kartu sama) karena Saldo E-Toll Saat Keluar trip ini tidak diisi.' : 'Dihitung dari Saldo E-Toll Saat Keluar yang diisi langsung di trip ini (akurasi tinggi).'}">🛣️ Tol Terpakai: ${fmtMoney(r.biayaTolInfo.biayaTol)}${r.biayaTolInfo.sumber==='warisan' ? ' (warisan)' : ''}</div>` : ''}</td>
               <td>${r.biayaOpTotal>0 ? fmtMoney(r.biayaOpTotal) : '-'}${r.etollBiayaTotal>0 ? `<div style="font-size:10.5px;color:var(--muted);white-space:nowrap;">🛣️ E-Toll: ${fmtMoney(r.etollBiayaTotal)}</div>` : ''}</td>
               <td>${u.status==='digunakan' ? `<span class="badge warn">Digunakan</span>` : `<span class="badge ok">Selesai</span>`}</td>
               <td style="text-align:right;white-space:nowrap;">${r.actionButtonsHtml}</td>
@@ -3365,7 +3411,7 @@ function renderUsage(){
                 <div><span class="k">Bensin Keluar</span> <span class="v">${r.bensinKeluarBadge}</span></div>
                 <div><span class="k">Bensin Kembali</span> <span class="v">${r.bensinKembaliBadge}</span></div>
                 <div><span class="k">Kartu E-Toll</span> <span class="v">${r.linkedCard?escapeHtml(r.linkedCard.nomorKartu):'-'}</span></div>
-                <div><span class="k">Saldo E-Toll</span> <span class="v">${r.etoll!==null&&!isNaN(r.etoll)?fmtMoney(r.etoll):'-'}</span></div>
+                <div><span class="k">Saldo E-Toll</span> <span class="v">${r.etoll!==null&&!isNaN(r.etoll)?fmtMoney(r.etoll):'-'}${r.biayaTolInfo?` <span style="font-size:11px;color:var(--muted);">(🛣️ Tol Terpakai: ${fmtMoney(r.biayaTolInfo.biayaTol)}${r.biayaTolInfo.sumber==='warisan'?' — warisan':''})</span>`:''}</span></div>
               </div>
             </div>
             <div class="usage-card-actions">${r.actionButtonsHtml}</div>
@@ -4080,8 +4126,8 @@ function openUsageModal(editId){
     </div>
     <div class="field">
       <label>Saldo E-Toll Saat Keluar (Rp)</label>
-      <input type="text" inputmode="numeric" id="in-etoll" placeholder="Contoh: 100.000" value="${editing?fmtRibuanInitial(editing.saldoEtoll):''}">
-      <div class="hint" id="etoll-hint">Pilih kartu di atas supaya saldo terisi otomatis, atau isi manual kalau bayar tunai/kartu belum terdaftar.</div>
+      <input type="text" inputmode="numeric" id="in-etoll" placeholder="Contoh: 100.000" value="${editing?fmtRibuanInitial(editing.saldoEtollAwal):''}">
+      <div class="hint" id="etoll-hint">Pilih kartu di atas supaya saldo terisi otomatis, atau isi manual kalau bayar tunai/kartu belum terdaftar. Nilai ini disimpan tersendiri (tidak tertimpa saat trip selesai), dipakai untuk hitung "Biaya Tol Terpakai" secara akurat.</div>
     </div>
     <div id="fuel-range-insight"></div>
   `;
@@ -4113,7 +4159,11 @@ function openUsageModal(editId){
           odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
           bensinKeluar: bensinVal === '' ? null : Number(bensinVal),
           etollCardId,
-          saldoEtoll: etollVal === '' ? null : Number(etollVal),
+          // CUMA saldoEtollAwal yang disentuh di sini -- JANGAN saldoEtoll,
+          // karena kalau trip ini sudah selesai, saldoEtoll sedang menyimpan
+          // Saldo Akhir (dari "Tandai Kembali"), bukan Saldo Keluar. Menimpanya
+          // di sini akan merusak data Saldo Akhir yang sudah benar.
+          saldoEtollAwal: etollVal === '' ? null : Number(etollVal),
         });
         touch(editing);
         saveData();
@@ -4130,6 +4180,12 @@ function openUsageModal(editId){
           bensinKembali: null,
           literBensin: null, biayaBensin: null,
           etollCardId,
+          // saldoEtollAwal disimpan PERMANEN (dasar hitung Biaya Tol Terpakai
+          // nanti). saldoEtoll juga diisi sama di awal supaya kolom "Saldo
+          // E-Toll" tetap tampil selama trip berjalan -- nanti akan DITIMPA
+          // oleh markReturned() begitu trip selesai (jadi Saldo Akhir), TAPI
+          // saldoEtollAwal tidak pernah tersentuh lagi setelah ini.
+          saldoEtollAwal: etollVal === '' ? null : Number(etollVal),
           saldoEtoll: etollVal === '' ? null : Number(etollVal),
           petugas: currentAdmin
         }));
@@ -4324,7 +4380,7 @@ function startTripFromBooking(id){
     tujuan: b.tujuan, tglKeluar: today(), tglKembali: null,
     jamKeluar: new Date().toTimeString().slice(0,5), jamKembali: null,
     status:'digunakan', odoKeluar:null, odoKembali:null, bensinKeluar:null, bensinKembali:null,
-    literBensin:null, biayaBensin:null, etollCardId:null, saldoEtoll:null,
+    literBensin:null, biayaBensin:null, etollCardId:null, saldoEtoll:null, saldoEtollAwal:null,
     petugas: currentAdmin
   }));
   b.status = 'selesai';
@@ -5963,6 +6019,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.30.0',
+    date: '23 Jul 2026',
+    notes: [
+      'Fitur baru: "Biaya Tol Terpakai" per perjalanan (kolom Saldo E-Toll, Catat Perjalanan) -- dihitung dari Saldo Awal + Pembelian E-Toll Bersih (nominal dikurangi biaya admin) - Saldo Akhir. Field "Saldo E-Toll Saat Keluar" sekarang disimpan tersendiri (saldoEtollAwal) dan TIDAK LAGI tertimpa saat trip selesai -- sebelumnya field ini ditimpa jadi Saldo Akhir sehingga Saldo Awal aslinya hilang.',
+      'Kalau Saldo Awal trip tidak diisi (data lama/lupa diisi), sistem otomatis mewarisi dari Saldo Akhir trip sebelumnya yang pakai kartu E-Toll sama (kronologis) -- sama seperti mekanisme Rantai Akumulasi BBM. Kalau tidak ada yang bisa diwarisi, ditampilkan kosong ("-"), bukan angka yang dipaksakan.',
+    ]
+  },
   {
     v: '3.29.0',
     date: '23 Jul 2026',
