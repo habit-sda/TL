@@ -820,7 +820,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.32.5';
+const APP_VERSION = '3.32.6';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -922,6 +922,65 @@ function migrateFixDestinationBbmBasis(){
   });
   state._bbmLiterBasisFixed = true;
   saveData();
+}
+
+// Gabungkan Data Tujuan yang namanya SAMA (case-insensitive) jadi 1 baris.
+// Duplikat begini TIDAK berasal dari modal Tambah/Edit (itu sudah dicegah di
+// satu device -- lihat pengecekan "dup" di openDestinationModal), tapi dari
+// SINKRON CLOUD: kalau 2 device sama-sama input manual nama tujuan yang sama
+// sebelum sempat sinkron, masing-masing lahir dengan id berbeda, dan
+// mergeCollection() (gabung berdasarkan id, bukan nama) menyimpan keduanya
+// sebagai record terpisah. Aman dijalankan berkali-kali (idempotent):
+// - Baris yang dipertahankan: yang datanya paling lengkap (Jarak/BBM/Maps
+//   terisi), kalau masih seri baru yang terakhir diedit (updatedAt) yang menang.
+// - Baris lain digabung ke baris pemenang (mengisi celah field yang masih
+//   kosong di pemenang) lalu dihapus + ditandai tombstone, supaya tidak
+//   "hidup lagi" lewat sinkron dari device lain yang belum tahu.
+function dedupeDestinations(){
+  ensureDestinationsArray();
+  const groups = new Map(); // key: nama lowercase trim -> array of destinations
+  state.destinations.forEach(d=>{
+    const key = (d.nama||'').trim().toLowerCase();
+    if(!key) return;
+    if(!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(d);
+  });
+
+  let changed = false;
+  const toRemoveIds = new Set();
+
+  groups.forEach(list=>{
+    if(list.length < 2) return; // tidak ada duplikat untuk nama ini
+    const completeness = (d)=> (d.jarakKm!=null?1:0) + (d.bbmLiter!=null?1:0) + (d.mapsLink?1:0);
+    // Pilih pemenang: paling lengkap dulu, kalau seri baru yang paling baru diedit.
+    let winner = list[0];
+    for(const d of list.slice(1)){
+      const cWin = completeness(winner), cD = completeness(d);
+      if(cD > cWin || (cD === cWin && (d.updatedAt||0) > (winner.updatedAt||0))){
+        winner = d;
+      }
+    }
+    list.forEach(d=>{
+      if(d === winner) return;
+      // Isi celah field yang masih kosong di pemenang dari duplikatnya.
+      if(winner.jarakKm==null && d.jarakKm!=null) winner.jarakKm = d.jarakKm;
+      if(winner.bbmLiter==null && d.bbmLiter!=null) winner.bbmLiter = d.bbmLiter;
+      if(!winner.mapsLink && d.mapsLink) winner.mapsLink = d.mapsLink;
+      toRemoveIds.add(d.id);
+      markDeleted('destinations', d.id);
+    });
+    touch(winner);
+    changed = true;
+  });
+
+  if(toRemoveIds.size){
+    state.destinations = state.destinations.filter(d=> !toRemoveIds.has(d.id));
+  }
+  if(changed){
+    logActivity('tujuan', 'Gabungkan data tujuan duplikat', `${toRemoveIds.size} baris duplikat digabungkan`);
+    saveData();
+  }
+  return changed;
 }
 
 // Isi CELAH (bukan timpa) Jarak/BBM yang masih kosong di Data Tujuan yang
@@ -1282,6 +1341,10 @@ async function fetchFromGithub(){
     state = Object.assign({}, state, mergedState);
     ensureDestinationsArray();
     tombstones = mergedTombstones;
+    // Sinkron gabung berdasarkan id, bukan nama -- kalau 2 device sempat
+    // menambahkan nama tujuan yang sama sebelum sinkron, gabungkan sekarang
+    // juga supaya tidak sempat tampil dobel di layar (lihat dedupeDestinations).
+    if(dedupeDestinations()) localChanged = true;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     saveTombstones();
     if(localChanged){
@@ -3250,6 +3313,7 @@ function openDriverModal(editId){
    ======================================================================== */
 function renderDestinations(){
   ensureDestinationsArray();
+  dedupeDestinations(); // gabungkan baris duplikat (nama sama) -- lihat catatan di atas fungsinya
   backfillDestinationEstimates(); // isi celah Jarak/BBM yang masih kosong, kalau riwayatnya sudah tersedia sekarang
   document.getElementById('header-actions').innerHTML =
     `<button class="btn btn-primary" id="btn-add-destination">+ Tambah Tujuan Baru</button>${exportBtnHtml('btn-export-destination')}`;
@@ -6640,6 +6704,14 @@ function openModal({title, body, onSave}){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '3.32.6',
+    date: '24 Jul 2026',
+    notes: [
+      'Perbaikan bug: nama tujuan yang sama bisa tampil DOBEL di Data Tujuan. Akar masalahnya bukan di modal Tambah/Edit (itu sudah mencegah duplikat di 1 device), tapi Sinkron Cloud: kalau 2 device sama-sama input manual nama tujuan yang sama sebelum sempat sinkron, masing-masing punya id sendiri sehingga keduanya lolos ikut tersimpan sebagai baris terpisah.',
+      'Sekarang ada penggabung otomatis (dedupeDestinations) yang jalan saat aplikasi dibuka, tiap kali menu Data Tujuan dibuka, dan tepat setelah Sinkron Cloud selesai -- baris dengan nama sama (tidak peduli huruf besar/kecil) digabung jadi 1, mempertahankan data yang paling lengkap (Jarak/BBM/Link Maps yang sudah terisi tidak hilang).',
+    ]
+  },
+  {
     v: '3.32.5',
     date: '24 Jul 2026',
     notes: [
@@ -7365,6 +7437,7 @@ renderPetugasSelect();
 // perjalanannya sudah ada. Dipanggil sekali di sini (saat app dibuka) +
 // sekali lagi tiap kali menu Data Tujuan dibuka (lihat renderDestinations),
 // supaya datanya selalu terisi begitu ada riwayat baru yang bisa dipakai.
+dedupeDestinations(); // gabungkan Data Tujuan yang namanya sama (lihat catatan di fungsinya) -- juga dipanggil tiap menu Data Tujuan dibuka
 migrateFixDestinationBbmBasis();
 backfillDestinationEstimates();
 // Buka kembali halaman TERAKHIR yang dikunjungi DALAM SESI YANG SAMA (bukan
