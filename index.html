@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.32.3">
+<meta name="app-version" content="3.32.5">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -258,6 +258,16 @@
   .badge.warn{background:var(--amber-bg);color:var(--amber);}
   .badge.danger{background:var(--red-bg);color:var(--red);}
   .badge.neutral{background:#EEF0F3;color:var(--muted);}
+
+  /* Tombol Navigasi Maps -- Opsi 2 (Outline Tegas), dipilih supaya lebih
+     terlihat dibanding badge kecil sebelumnya, tanpa terlalu "ramai" kalau
+     berdampingan dengan tombol aksi lain (Edit, Biaya Operasional, dll). */
+  .btn-nav-maps{
+    display:inline-flex;align-items:center;gap:6px;
+    background:#fff;color:var(--blue-dark);text-decoration:none;
+    padding:6px 12px;border-radius:8px;font-size:12.5px;font-weight:700;
+    border:1.5px solid var(--blue);white-space:nowrap;
+  }
 
   .empty-state{
     text-align:center;
@@ -810,7 +820,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.32.3';
+const APP_VERSION = '3.32.5';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -863,8 +873,16 @@ function ensureDestinationsArray(){
 // (cocok persis, case-insensitive) -- dipakai untuk isi OTOMATIS Jarak
 // (KM)/Perkiraan BBM (L) di Data Tujuan, supaya admin tidak perlu isi
 // manual kalau riwayatnya sudah ada. Cuma pakai trip dengan data valid
-// (odometer keluar<=kembali, BBM dibeli>0) -- trip yang datanya kosong/aneh
-// tidak ikut menggeser rata-rata.
+// (odometer keluar<=kembali) -- trip yang datanya kosong/aneh tidak ikut
+// menggeser rata-rata.
+// PENTING (v3.32.5): Perkiraan BBM diambil dari BBM DIGUNAKAN (neraca
+// tangki lewat estimateLiterUsed -- SAMA dengan basis kolom "Rasio" &
+// "BBM Digunakan" di Catat Perjalanan), BUKAN dari BBM DIBELI (u.literBensin).
+// BBM Dibeli sering lebih besar dari yang benar-benar habis di 1 trip
+// (sisanya numpuk di tangki buat trip berikutnya) -- kalau dipakai sebagai
+// "perkiraan", jadinya nyuruh sopir bawa BBM lebih banyak dari kebutuhan
+// riil. Fallback ke BBM Dibeli HANYA kalau trip itu tidak punya data
+// indikator (bensinKeluar/bensinKembali/kapasitasTangkiLiter) sama sekali.
 function computeAvgJarakBbmForTujuan(nama){
   const needle = (nama||'').trim().toLowerCase();
   if(!needle) return { jarakKm:null, bbmLiter:null };
@@ -874,11 +892,36 @@ function computeAvgJarakBbmForTujuan(nama){
     .filter(u=> u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar)
     .map(u=> u.odoKembali - u.odoKeluar);
   const bbms = trips
-    .filter(u=> u.literBensin!=null && Number(u.literBensin)>0)
-    .map(u=> Number(u.literBensin));
+    .map(u=>{
+      const car = state.cars.find(c=>c.id===u.carId);
+      const literTerpakai = car ? estimateLiterUsed(u, car) : null;
+      if(literTerpakai!=null) return literTerpakai; // basis utama: BBM Digunakan (neraca tangki)
+      return (u.literBensin!=null && Number(u.literBensin)>0) ? Number(u.literBensin) : null; // fallback: BBM Dibeli
+    })
+    .filter(v=> v!=null);
 
   const avg = (arr)=> arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : null;
-  return { jarakKm: avg(jaraks), bbmLiter: avg(bbms) };
+  const avgDecimal = (arr)=> arr.length ? Math.round((arr.reduce((a,b)=>a+b,0)/arr.length)*10)/10 : null;
+  return { jarakKm: avg(jaraks), bbmLiter: avgDecimal(bbms) };
+}
+
+// Migrasi 1x (v3.32.5): sebelum versi ini, Perkiraan BBM di Data Tujuan
+// salah pakai basis BBM DIBELI, bukan BBM DIGUNAKAN (lihat catatan di
+// computeAvgJarakBbmForTujuan). Karena fitur backfill ini baru betul-betul
+// aktif sejak v3.32.3 (sebelumnya tidak pernah kepanggil), sangat kecil
+// kemungkinan admin sempat mengoreksi manual -- aman untuk hitung ULANG
+// bbmLiter semua Data Tujuan sekali ini saja. Dijaga dengan flag supaya
+// TIDAK terus menerus menimpa nilai yang nanti diedit manual oleh admin
+// setelah migrasi ini selesai (Jarak KM tidak disentuh -- basisnya sudah
+// benar sejak awal, tidak ada yang perlu dikoreksi).
+function migrateFixDestinationBbmBasis(){
+  if(state._bbmLiterBasisFixed) return;
+  state.destinations.forEach(d=>{
+    const avg = computeAvgJarakBbmForTujuan(d.nama);
+    if(avg.bbmLiter !== d.bbmLiter){ d.bbmLiter = avg.bbmLiter; touch(d); }
+  });
+  state._bbmLiterBasisFixed = true;
+  saveData();
 }
 
 // Isi CELAH (bukan timpa) Jarak/BBM yang masih kosong di Data Tujuan yang
@@ -1795,7 +1838,7 @@ function mapsNavButtonHtml(mapsLink){
   // punya klik-handler sendiri di elemen pembungkusnya -- tanpa ini, klik
   // tombol ini akan IKUT memicu handler pembungkus itu (mis. buka menu aksi)
   // di atas navigasi yang sebenarnya dituju.
-  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="badge ok" style="text-decoration:none;white-space:nowrap;">📍 Navigasi</a>`;
+  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps">📍 Navigasi</a>`;
 }
 
 // Cari Link Maps dari riwayat TUJUAN YANG SAMA PERSIS (case-insensitive) --
@@ -6597,6 +6640,21 @@ function openModal({title, body, onSave}){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '3.32.5',
+    date: '24 Jul 2026',
+    notes: [
+      'Perbaikan bug: "Perkiraan BBM (L)" di Data Tujuan salah pakai basis BBM DIBELI (kadang lebih besar dari yang sebenarnya habis, sisanya numpuk di tangki buat trip berikutnya) -- seharusnya BBM DIGUNAKAN (neraca tangki, sama basisnya dengan kolom Rasio & BBM Digunakan di Catat Perjalanan). Sekarang sudah benar, dengan fallback ke BBM Dibeli kalau trip tidak punya data indikator Bensin Keluar/Kembali sama sekali.',
+      'Data Tujuan yang sudah terlanjur tersimpan dengan basis lama otomatis dikoreksi sekali (migrasi 1x) saat aplikasi ini pertama dibuka -- Jarak (KM) tidak berubah (basisnya sudah benar dari awal), cuma Perkiraan BBM yang disesuaikan.',
+    ]
+  },
+  {
+    v: '3.32.4',
+    date: '24 Jul 2026',
+    notes: [
+      'Tombol "📍 Navigasi" (di Catat Perjalanan, Booking, dan bubble Mobil Jalan) diperbesar dan diberi border biru tegas -- sebelumnya badge hijau kecil, kurang terlihat.',
+    ]
+  },
+  {
     v: '3.32.3',
     date: '24 Jul 2026',
     notes: [
@@ -7307,6 +7365,7 @@ renderPetugasSelect();
 // perjalanannya sudah ada. Dipanggil sekali di sini (saat app dibuka) +
 // sekali lagi tiap kali menu Data Tujuan dibuka (lihat renderDestinations),
 // supaya datanya selalu terisi begitu ada riwayat baru yang bisa dipakai.
+migrateFixDestinationBbmBasis();
 backfillDestinationEstimates();
 // Buka kembali halaman TERAKHIR yang dikunjungi DALAM SESI YANG SAMA (bukan
 // selalu Dashboard), supaya screen mati/HP terkunci lalu dibuka lagi (BUKAN
