@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.48.0">
+<meta name="app-version" content="3.50.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -961,7 +961,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.48.0';
+const APP_VERSION = '3.50.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1063,6 +1063,25 @@ function migrateFixDestinationBbmBasis(){
   });
   state._bbmLiterBasisFixed = true;
   saveData();
+}
+
+// Migrasi 1x (v3.49.0): tab "Catatan" di panel mobil dulunya cuma 1 kotak
+// teks yang KETIMPA tiap kali disimpan (field car.catatan) -- sekarang jadi
+// riwayat berjejak waktu (array car.catatanLog, tidak pernah ketimpa, cuma
+// nambah). Kalau ada isi lama di car.catatan yang belum sempat "dinaikkan"
+// jadi entri pertama, jadikan 1x sebagai entri riwayat supaya tidak hilang
+// -- field car.catatan lama dibiarkan apa adanya (bukan dihapus, jaga-jaga)
+// tapi tidak dipakai lagi setelah ini.
+function migrateCatatanToLog(){
+  let changed = false;
+  state.cars.forEach(c=>{
+    if(!Array.isArray(c.catatanLog)) c.catatanLog = [];
+    if(c.catatan && c.catatan.trim() && c.catatanLog.length===0){
+      c.catatanLog.push({ id: uid(), tanggal: c.createdAt || today(), teks: c.catatan.trim(), petugas: c.petugas || currentAdmin, createdAt: c.updatedAt || Date.now() });
+      changed = true;
+    }
+  });
+  if(changed) saveData();
 }
 
 // Gabungkan Data Tujuan yang namanya SAMA (case-insensitive) jadi 1 baris.
@@ -4169,9 +4188,25 @@ function openDestinationModal(editId){
 
       // Cegah duplikat nama (case-insensitive), kecuali kalau sedang edit
       // data itu sendiri -- supaya daftar rekomendasi tidak dobel.
+      // v3.50.0: SEBELUMNYA cuma ditolak mentah (toast error, input tetap
+      // ada tapi buntu -- petugas harus sadar sendiri harus apa). Sekarang
+      // ditawarkan SOLUSI konkret: tunjukkan data yang sudah ada (kode +
+      // Jarak/BBM-nya), lalu tawarkan langsung lompat ke Edit entri itu --
+      // supaya inputnya tidak "ditolak begitu saja", tapi diarahkan ke jalan
+      // keluar yang benar (edit yang sudah ada, bukan bikin baris duplikat).
       const dup = state.destinations.find(d=> d.id!==editId && (d.nama||'').trim().toLowerCase()===nama.toLowerCase());
       if(dup){
-        showToast('Nama tujuan ini sudah ada di daftar.', true);
+        const infoParts = [];
+        if(dup.jarakKm!=null) infoParts.push(`${Number(dup.jarakKm).toLocaleString('id-ID')} KM`);
+        if(dup.bbmLiter!=null) infoParts.push(`${dup.bbmLiter} L`);
+        const infoText = infoParts.length ? ` (${infoParts.join(' · ')})` : '';
+        openConfirmModal(
+          `Tujuan "${escapeHtml(nama)}" sudah ada di daftar -- kode ${dup.kode||'-'}${infoText}.\n\nSupaya tidak ada 2 baris dengan nama sama (bikin rekomendasi Tujuan jadi dobel di Catat Perjalanan), edit data yang sudah ada itu saja?`,
+          ()=>{
+            document.getElementById('modal-root').innerHTML = ''; // tutup modal Tambah/Edit yang sedang terbuka
+            openDestinationModal(dup.id); // buka modal Edit untuk entri yang sudah ada
+          }
+        );
         return false;
       }
 
@@ -4883,9 +4918,27 @@ function renderUsage(){
   }
 
   function catatanTabHtml(vs){
+    const log = Array.isArray(vs.car.catatanLog) ? vs.car.catatanLog : [];
+    const sorted = log.slice().sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
+    const listHtml = sorted.length===0
+      ? `<div class="hint" style="margin:0 0 12px;">Belum ada catatan untuk mobil ini.</div>`
+      : `<div style="margin-bottom:14px;">
+          ${sorted.map(entry=>`
+            <div style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;">
+                <span style="font-size:11px;font-weight:700;color:var(--muted);">${fmtDate(entry.tanggal)} · ${escapeHtml(entry.petugas||'-')}</span>
+                <button type="button" class="btn btn-ghost btn-sm" data-del-catatan="${entry.id}" title="Hapus catatan ini">🗑️</button>
+              </div>
+              <div style="font-size:13px;white-space:pre-wrap;">${escapeHtml(entry.teks)}</div>
+            </div>`).join('')}
+        </div>`;
     return `
-      <textarea id="trip-note-input" rows="6" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:inherit;font-size:13px;resize:vertical;" placeholder="Catatan bebas soal mobil ini (kondisi, pengingat, dsb.)...">${escapeHtml(vs.car.catatan||'')}</textarea>
-      <button class="btn btn-primary btn-sm" style="margin-top:10px;" data-save-note="${vs.car.id}">💾 Simpan Catatan</button>
+      ${listHtml}
+      <div class="panel-head" style="padding:0;border:none;margin:0 0 8px 0;">
+        <h2 style="font-size:12.5px;color:var(--muted);">+ Tambah Catatan Baru</h2>
+      </div>
+      <textarea id="trip-note-input" rows="4" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:inherit;font-size:13px;resize:vertical;" placeholder="Catatan bebas soal mobil ini (kondisi, pengingat, dsb.)..."></textarea>
+      <button class="btn btn-primary btn-sm" style="margin-top:10px;" data-save-note="${vs.car.id}">💾 Tambah ke Riwayat</button>
     `;
   }
 
@@ -4978,13 +5031,28 @@ function renderUsage(){
     if(saveNoteBtn) saveNoteBtn.addEventListener('click', ()=>{
       const carId = saveNoteBtn.dataset.saveNote;
       const car = state.cars.find(c=>c.id===carId);
-      const val = document.getElementById('trip-note-input').value;
-      if(!car) return;
-      car.catatan = val;
+      const val = document.getElementById('trip-note-input').value.trim();
+      if(!car || !val) return;
+      if(!Array.isArray(car.catatanLog)) car.catatanLog = [];
+      car.catatanLog.push({ id: uid(), tanggal: today(), teks: val, petugas: currentAdmin, createdAt: Date.now() });
       touch(car);
       saveData();
-      showToast('Catatan disimpan.');
+      logActivity('mobil', 'Tambah catatan mobil', `${carLabel(car.id)} — ${val.slice(0,60)}${val.length>60?'…':''}`);
+      showToast('Catatan ditambahkan ke riwayat.');
+      renderCardView(document.getElementById('usage-search').value);
     });
+    document.querySelectorAll('[data-del-catatan]').forEach(btn=> btn.addEventListener('click', ()=>{
+      const entryId = btn.dataset.delCatatan;
+      openConfirmModal('Hapus catatan ini dari riwayat?', ()=>{
+        const car = state.cars.find(c=> Array.isArray(c.catatanLog) && c.catatanLog.some(e=>e.id===entryId));
+        if(!car) return;
+        car.catatanLog = car.catatanLog.filter(e=>e.id!==entryId);
+        touch(car);
+        saveData();
+        showToast('Catatan dihapus.');
+        renderCardView(document.getElementById('usage-search').value);
+      });
+    }));
   }
 
   function renderCardView(query){
@@ -8090,6 +8158,21 @@ function openModal({title, body, onSave}){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '3.50.0',
+    date: '24 Jul 2026',
+    notes: [
+      'Data Tujuan: kalau nama tujuan yang diketik SAMA PERSIS dengan yang sudah ada, sistem sebelumnya cuma menolak (toast error, buntu). Sekarang muncul pilihan solusi konkret -- ditunjukkan data yang sudah ada (kode + Jarak/BBM-nya), lalu bisa langsung lompat ke Edit data itu (bukan bikin baris baru yang duplikat). Input tidak lagi "ditolak begitu saja" tanpa arah.',
+    ]
+  },
+  {
+    v: '3.49.0',
+    date: '24 Jul 2026',
+    notes: [
+      'Tab "Catatan" di panel mobil (Catat Perjalanan → pilih mobil → tab Catatan) sekarang jadi Riwayat Pencatatan Manual per mobil -- sebelumnya cuma 1 kotak teks yang KETIMPA tiap disimpan, sekarang setiap catatan yang ditambahkan tersimpan sebagai entri terpisah berjejak waktu (tanggal + nama petugas + isi), bisa terus ditambah tanpa menghapus catatan sebelumnya, dan tiap entri bisa dihapus satu-satu kalau perlu. Tidak ada menu baru -- tetap di tab yang sama.',
+      'Catatan lama (yang sempat disimpan sebelum versi ini) otomatis diangkat jadi entri pertama di riwayat, tidak hilang.',
+    ]
+  },
+  {
     v: '3.48.0',
     date: '24 Jul 2026',
     notes: [
@@ -9080,6 +9163,7 @@ try{
 }catch(e){}
 ensureCodesAssigned();
 ensureDestinationsSeeded();
+migrateCatatanToLog();
 navigate(startRoute);
 setTimeout(checkAutoBackup, 1500); // ditunda sedikit -- biarkan tampilan awal selesai render dulu
 
