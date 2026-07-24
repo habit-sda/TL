@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.28.0">
+<meta name="app-version" content="3.29.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -809,7 +809,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.28.0';
+const APP_VERSION = '3.29.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1512,6 +1512,28 @@ function findCorruptedBensinEntries(){
         results.push({ usage:u, car, field, oldValue:val, newValue:matches[0].correctPercent, newBar:matches[0].bar, resolved:true });
       } else {
         results.push({ usage:u, car, field, oldValue:val, newValue:null, newBar:null, resolved:false });
+      }
+    });
+  });
+  return results;
+}
+// Kumpulkan semua trip yang odometer-nya TUMPANG TINDIH dengan trip
+// sebelumnya (mobil yang sama) -- lihat buildFuelChain(). Beda dengan gap
+// "hilang" (jarak tak tercatat, bisa jadi errand wajar), overlap SELALU
+// berarti salah input (odometer tidak mungkin mundur), jadi perbaikannya
+// SELALU tidak ambigu: Odometer Keluar trip ini seharusnya SAMA dengan
+// Odometer Kembali trip sebelumnya. Dipakai oleh panel "Perbaikan Otomatis"
+// di menu Catat Perjalanan -- tetap lewat konfirmasi & tercatat di Log
+// Aktivitas, TIDAK pernah mengubah data diam-diam tanpa persetujuan.
+function findOdometerOverlapEntries(){
+  const results = [];
+  state.cars.forEach(car=>{
+    const chain = buildFuelChain(car.id);
+    chain.forEach((entry, usageId)=>{
+      if(entry.gapOverlap && entry.suggestedOdoKeluar!=null){
+        const usage = state.usage.find(u=>u.id===usageId);
+        if(!usage) return;
+        results.push({ usage, car, oldValue: usage.odoKeluar, newValue: entry.suggestedOdoKeluar, gapKm: entry.gapKm });
       }
     });
   });
@@ -3058,6 +3080,13 @@ function renderUsage(){
 
   const allItems = [...state.usage].sort((a,b)=> b.tglKeluar.localeCompare(a.tglKeluar));
 
+  // ---- Panel "Perbaikan Otomatis" utk odometer tumpang tindih ----
+  // Beda dari gap "hilang" (perlu dicek manual, bisa jadi trip lupa
+  // dicatat), overlap SELALU salah input & perbaikannya SELALU tidak
+  // ambigu -- jadi aman ditawarkan sebagai perbaikan 1-klik, TAPI tetap
+  // via konfirmasi & tercatat di Log Aktivitas (bukan diam-diam).
+  const overlapEntries = findOdometerOverlapEntries();
+
   // ---- Panel laporan ringkas: total jarak, BBM, dan pemakaian E-Toll ----
   const totalJarak = allItems.reduce((sum,u)=>{
     if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) return sum + (u.odoKembali-u.odoKeluar);
@@ -3083,11 +3112,77 @@ function renderUsage(){
     </div>
   `;
 
+  html += overlapEntries.length===0 ? '' : `
+    <div class="panel">
+      <div class="panel-head">
+        <h2>🔧 Odometer Tumpang Tindih Ditemukan</h2>
+        <span class="badge danger">${overlapEntries.length} ditemukan</span>
+      </div>
+      <div class="panel-body">
+        <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
+          Trip berikut punya Odometer Keluar yang lebih kecil dari Odometer Kembali trip
+          sebelumnya (mobil yang sama) -- secara fisik tidak mungkin, pasti salah input.
+          Perbaikannya tidak ambigu: Odometer Keluar diset sama dengan Odometer Kembali
+          trip sebelumnya. Data historis TIDAK diubah sampai Anda konfirmasi.
+        </p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Kode</th><th>Mobil</th><th>Odometer Keluar Sekarang</th><th>Seharusnya</th></tr></thead>
+          <tbody>
+            ${overlapEntries.map(e=>`<tr>
+              <td>${escapeHtml(e.usage.kode||'-')}</td>
+              <td>${escapeHtml(carLabel(e.car.id))}</td>
+              <td>${e.oldValue.toLocaleString('id-ID')}</td>
+              <td><b>${e.newValue.toLocaleString('id-ID')}</b></td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+        <button class="btn btn-primary" id="btn-fix-odo-overlap" style="margin-top:12px;">Perbaiki Otomatis (${overlapEntries.length} data)</button>
+      </div>
+    </div>
+  `;
+
   html += `<div class="panel"><div class="panel-body">
     <div class="search-row"><input type="text" id="usage-search" placeholder="Cari mobil, sopir, atau tujuan..."></div>
     <div id="usage-table-wrap"></div>
   </div></div>`;
   document.getElementById('content').innerHTML = html;
+
+  const btnFixOdoOverlap = document.getElementById('btn-fix-odo-overlap');
+  if(btnFixOdoOverlap){
+    btnFixOdoOverlap.addEventListener('click', ()=>{
+      const body = `
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
+          Berikut ${overlapEntries.length} data yang akan diperbaiki. Aksi ini tercatat di Log Aktivitas.
+        </p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Kode</th><th>Mobil</th><th>Sebelum</th><th>Sesudah</th></tr></thead>
+          <tbody>
+            ${overlapEntries.map(e=>`<tr>
+              <td>${escapeHtml(e.usage.kode||'-')}</td>
+              <td>${escapeHtml(carLabel(e.car.id))}</td>
+              <td>${e.oldValue.toLocaleString('id-ID')}</td>
+              <td>${e.newValue.toLocaleString('id-ID')}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      `;
+      openModal({
+        title: `Konfirmasi Perbaikan ${overlapEntries.length} Odometer`,
+        body,
+        onSave: () => {
+          overlapEntries.forEach(e=>{
+            e.usage.odoKeluar = e.newValue;
+            touch(e.usage);
+          });
+          saveData();
+          logActivity('penggunaan', 'Perbaiki Odometer Keluar tumpang tindih', `${overlapEntries.length} catatan diperbaiki otomatis`);
+          showToast(`${overlapEntries.length} data Odometer berhasil diperbaiki.`);
+          if(currentRoute==='usage') renderUsage();
+          return true;
+        }
+      });
+    });
+  }
 
   // ---------------- Rasio Mesin Riil + Akumulasi Jarak Tertunda (v3.22.0) ----------------
   // Rumus lama menganggap SEMUA BBM yang dibeli (u.literBensin) langsung
@@ -5065,14 +5160,14 @@ function buildFuelChain(carId){
     if(!punyaIndikator){
       // Tidak ada data indikator sama sekali -> di luar rantai, pakai
       // fallback lama (jarak/literBeli) sendiri-sendiri, tidak menyentuh pendingKm.
-      result.set(u.id, { resolved:false, method:'fallback', ownKm, carriedInKm:0, gapKm, gapFlagged, gapTolerated, gapOverlap });
+      result.set(u.id, { resolved:false, method:'fallback', ownKm, carriedInKm:0, gapKm, gapFlagged, gapTolerated, gapOverlap, suggestedOdoKeluar: gapOverlap ? (u.odoKeluar - gapKm) : null });
       return;
     }
 
     const lt = estimateLiterUsed(u, car); // null berarti indikator belum bergerak sama sekali
     if(lt==null){
       pendingKm += ownKm;
-      result.set(u.id, { resolved:false, method:'pending', ownKm, carriedInKm:0, pendingSoFar:pendingKm, gapKm, gapFlagged, gapTolerated, gapOverlap });
+      result.set(u.id, { resolved:false, method:'pending', ownKm, carriedInKm:0, pendingSoFar:pendingKm, gapKm, gapFlagged, gapTolerated, gapOverlap, suggestedOdoKeluar: gapOverlap ? (u.odoKeluar - gapKm) : null });
       return;
     }
 
@@ -5086,7 +5181,7 @@ function buildFuelChain(carId){
       // berikutnya menambah lagi sampai cukup andal baru ditampilkan.
       pendingKm = combinedKm;
       pendingLiter = combinedLiter;
-      result.set(u.id, { resolved:false, method:'pending', ownKm, carriedInKm:0, pendingSoFar:combinedKm, gapKm, gapFlagged, gapTolerated, gapOverlap });
+      result.set(u.id, { resolved:false, method:'pending', ownKm, carriedInKm:0, pendingSoFar:combinedKm, gapKm, gapFlagged, gapTolerated, gapOverlap, suggestedOdoKeluar: gapOverlap ? (u.odoKeluar - gapKm) : null });
       return;
     }
 
@@ -5094,7 +5189,7 @@ function buildFuelChain(carId){
     const effectiveKm = combinedKm;
     const effectiveLiter = combinedLiter;
     pendingKm = 0; pendingLiter = 0; // "dilunasi" ke trip ini
-    result.set(u.id, { resolved:true, method:'indikator', ownKm, effectiveKm, carriedInKm, literTerbakarRiil:effectiveLiter, ratio: effectiveKm/effectiveLiter, gapKm, gapFlagged, gapTolerated, gapOverlap });
+    result.set(u.id, { resolved:true, method:'indikator', ownKm, effectiveKm, carriedInKm, literTerbakarRiil:effectiveLiter, ratio: effectiveKm/effectiveLiter, gapKm, gapFlagged, gapTolerated, gapOverlap, suggestedOdoKeluar: gapOverlap ? (u.odoKeluar - gapKm) : null });
   });
 
   return result;
@@ -5868,6 +5963,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.29.0',
+    date: '23 Jul 2026',
+    notes: [
+      'Menu Catat Perjalanan sekarang punya panel "🔧 Odometer Tumpang Tindih Ditemukan" -- kalau ada trip yang Odometer Keluarnya lebih kecil dari Odometer Kembali trip sebelumnya (mobil sama, pasti salah input), sistem mengusulkan perbaikannya secara otomatis (Odometer Keluar diset = Odometer Kembali trip sebelumnya, satu-satunya nilai yang mungkin benar) lewat 1 tombol. Tetap via konfirmasi (menampilkan Sebelum/Sesudah) & tercatat di Log Aktivitas -- tidak ada data yang berubah diam-diam tanpa persetujuan.',
+    ]
+  },
   {
     v: '3.28.0',
     date: '23 Jul 2026',
