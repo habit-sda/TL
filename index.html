@@ -262,7 +262,7 @@
   .vehicle-card-driver{font-size:11.5px;color:var(--muted);margin-top:4px;}
   .vehicle-card-status-row{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11.5px;flex-wrap:wrap;}
   .vehicle-card-status-row .k{color:var(--muted);}
-  .vehicle-card-stats{display:grid;grid-template-columns:repeat(3,auto) 1fr;gap:18px;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid #F0F1F3;}
+  .vehicle-card-stats{display:grid;grid-template-columns:repeat(4,auto) 1fr;gap:18px;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid #F0F1F3;}
   .vehicle-card-stats .stat-value{font-size:19px;font-weight:800;font-family:'JetBrains Mono',monospace;}
   .vehicle-card-stats .stat-value small{font-size:11px;font-weight:700;color:var(--muted);}
   .vehicle-card-stats .stat-label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:2px;}
@@ -297,11 +297,6 @@
   .trip-detail-body{padding:6px 16px 8px 16px;max-height:520px;overflow-y:auto;}
   .trip-detail-back{font-size:12px;font-weight:700;color:var(--blue);cursor:pointer;margin-bottom:12px;display:inline-block;}
   .trip-detail-view-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
-  .trip-detail-summary{background:#F7F8FA;padding:14px 16px;border-top:1px solid var(--line);}
-  .trip-detail-summary .title{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.04em;margin-bottom:10px;}
-  .trip-detail-summary .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;}
-  .trip-detail-summary .stat-value{font-size:15px;font-weight:800;font-family:'JetBrains Mono',monospace;}
-  .trip-detail-summary .stat-label{font-size:10px;color:var(--muted);margin-top:2px;}
 
   .trip-timeline-item{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #F0F1F3;cursor:pointer;position:relative;}
   .trip-timeline-item:last-child{border-bottom:none;}
@@ -485,8 +480,8 @@
      kecil (Bensin/E-Toll/Saldo/Tol/Biaya Op) yang boleh melipat ke bawah
      (flex-wrap) -- TIDAK PERNAH perlu scroll horizontal lagi, di layar
      manapun, karena tidak ada kolom tetap yang harus sejajar. */
-  .triprow{border-bottom:1px solid var(--line);padding:14px 16px;}
-  .triprow:hover{background:#FAFBFC;}
+  .triprow{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;background:#fff;}
+  .triprow:hover{border-color:var(--blue);}
   .triprow-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
   .triprow-dest{font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .triprow-meta{font-size:12px;color:var(--muted);margin-top:3px;}
@@ -962,7 +957,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.38.3';
+const APP_VERSION = '3.38.4';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -4272,6 +4267,7 @@ function renderUsage(){
         <div><div class="stat-value">${vs.jarak.toLocaleString('id-ID')}<small> KM</small></div><div class="stat-label">Total Jarak</div></div>
         <div><div class="stat-value">${vs.literBeli.toLocaleString('id-ID')}<small> L</small></div><div class="stat-label">Total BBM</div></div>
         <div><div class="stat-value">${vs.avgRatio!=null?vs.avgRatio.toFixed(1):'-'}<small> KM/L</small></div><div class="stat-label">Rata-rata</div></div>
+        <div><div class="stat-value" style="font-size:16px;">${fmtMoney(vs.biaya)}</div><div class="stat-label">Total Biaya</div></div>
         <div class="vehicle-card-fuelnow">
           <div class="stat-label">BBM Saat Ini</div>
           ${fuelBarStripHtml(c, vs.sisaTerkini)}
@@ -4445,15 +4441,6 @@ function renderUsage(){
         ${tabs.map(t=>`<button data-tab="${t.id}" class="${activeDetailTab===t.id?'active':''}">${t.label}</button>`).join('')}
       </div>
       <div class="trip-detail-body">${bodyHtml}</div>
-      <div class="trip-detail-summary">
-        <div class="title">RINGKASAN KENDARAAN</div>
-        <div class="grid">
-          <div><div class="stat-value">${vs.jarak.toLocaleString('id-ID')} KM</div><div class="stat-label">Total Jarak</div></div>
-          <div><div class="stat-value">${vs.literBeli.toLocaleString('id-ID')} L</div><div class="stat-label">Total BBM</div></div>
-          <div><div class="stat-value">${fmtMoney(vs.biaya)}</div><div class="stat-label">Total Biaya</div></div>
-          <div><div class="stat-value">${vs.avgRatio!=null?vs.avgRatio.toFixed(1):'-'} KM/L</div><div class="stat-label">Rata-rata</div></div>
-        </div>
-      </div>
     </div>`;
   }
 
@@ -7497,6 +7484,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.38.4',
+    date: '24 Jul 2026',
+    notes: [
+      'Catat Perjalanan (tampilan Card): blok "Ringkasan Kendaraan" di panel detail (kanan) dihapus karena sudah duplikat -- statistik Total Jarak/Total BBM/Rata-rata di kartu induk mobil (kiri) sekarang jadi satu-satunya tempat, ditambah kolom "Total Biaya" baru di sampingnya (sebelumnya cuma ada di panel detail).',
+      'Catat Perjalanan (tampilan List): tiap baris perjalanan sekarang tampil dalam bingkai (border + latar putih), sebelumnya cuma dipisah garis bawah tipis -- lebih mudah membedakan data per kolom & per perjalanan.',
+    ]
+  },
   {
     v: '3.38.3',
     date: '24 Jul 2026',
