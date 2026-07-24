@@ -820,7 +820,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.32.8';
+const APP_VERSION = '3.32.9';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1938,6 +1938,49 @@ function findMapsLinkForTujuan(tujuanText, excludeId){
   return candidates[0].mapsLink;
 }
 
+// Sama seperti findMapsLinkForTujuan, tapi untuk nama BENGKEL -- dicari dari
+// riwayat Catat Servis (case-insensitive, exact match), yang paling baru
+// dicatat. Tidak ada master data terpisah (beda dari Data Tujuan) -- sesuai
+// permintaan, cukup autofill dari riwayat, tanpa menu kelola tersendiri.
+function findMapsLinkForBengkel(bengkelText){
+  const needle = (bengkelText||'').trim().toLowerCase();
+  if(!needle) return null;
+  const candidates = [];
+  state.services.forEach(s=>{
+    if(s.mapsLink && (s.bengkel||'').trim().toLowerCase()===needle){
+      candidates.push({ mapsLink: s.mapsLink, sortKey: (s.tanggal||'') + '_' + (s.updatedAt||0) });
+    }
+  });
+  if(candidates.length===0) return null;
+  candidates.sort((a,b)=> b.sortKey.localeCompare(a.sortKey)); // terbaru dulu
+  return candidates[0].mapsLink;
+}
+
+// Inti bersama dari wireMapsAutofill (Tujuan) & wireBengkelMapsAutofill
+// (Bengkel) -- sama-sama: autofill Link Maps dari riwayat begitu field
+// nama diketik (tidak menimpa kalau sudah diisi manual), + live preview
+// tombol "📍 Navigasi".
+function wireMapsAutofillGeneric(sourceInputId, mapsLinkInputId, previewId, finderFn){
+  const sourceEl = document.getElementById(sourceInputId);
+  const mapsEl = document.getElementById(mapsLinkInputId);
+  if(!sourceEl || !mapsEl) return;
+  const previewEl = previewId ? document.getElementById(previewId) : null;
+  function updatePreview(){
+    if(!previewEl) return;
+    const btn = mapsNavButtonHtml(mapsEl.value.trim());
+    previewEl.innerHTML = btn || '';
+  }
+  sourceEl.addEventListener('input', ()=>{
+    if(!mapsEl.value.trim()){ // sudah diisi manual -> jangan ditimpa
+      const found = finderFn(sourceEl.value);
+      if(found) mapsEl.value = found;
+    }
+    updatePreview();
+  });
+  mapsEl.addEventListener('input', updatePreview);
+  updatePreview(); // langsung tampil kalau lagi Edit data yang sudah punya Link Maps
+}
+
 // Wire autofill di 1 field tujuan + 1 field maps-link -- dipakai bareng oleh
 // openUsageModal & openBookingModal supaya tidak ditulis ulang 2x. TIDAK
 // menimpa kalau field Link Maps sudah diisi manual oleh admin.
@@ -1947,24 +1990,13 @@ function findMapsLinkForTujuan(tujuanText, excludeId){
 // ditempel manual. Ini yang bikin admin bisa langsung buka & cek lokasinya
 // dari halaman Catat Perjalanan/Booking, tanpa harus simpan dulu.
 function wireMapsAutofill(tujuanInputId, mapsLinkInputId, excludeId, previewId){
-  const tujuanEl = document.getElementById(tujuanInputId);
-  const mapsEl = document.getElementById(mapsLinkInputId);
-  if(!tujuanEl || !mapsEl) return;
-  const previewEl = previewId ? document.getElementById(previewId) : null;
-  function updatePreview(){
-    if(!previewEl) return;
-    const btn = mapsNavButtonHtml(mapsEl.value.trim());
-    previewEl.innerHTML = btn || '';
-  }
-  tujuanEl.addEventListener('input', ()=>{
-    if(!mapsEl.value.trim()){ // sudah diisi manual -> jangan ditimpa
-      const found = findMapsLinkForTujuan(tujuanEl.value, excludeId);
-      if(found) mapsEl.value = found;
-    }
-    updatePreview();
-  });
-  mapsEl.addEventListener('input', updatePreview);
-  updatePreview(); // langsung tampil kalau lagi Edit data yang sudah punya Link Maps
+  wireMapsAutofillGeneric(tujuanInputId, mapsLinkInputId, previewId, (val)=> findMapsLinkForTujuan(val, excludeId));
+}
+
+// Sama seperti wireMapsAutofill, tapi untuk field Bengkel di Catat Servis --
+// lihat findMapsLinkForBengkel().
+function wireBengkelMapsAutofill(bengkelInputId, mapsLinkInputId, previewId){
+  wireMapsAutofillGeneric(bengkelInputId, mapsLinkInputId, previewId, findMapsLinkForBengkel);
 }
 
 // Tampilan kode Mobil/Perjalanan + tombol salin -- dipakai di Data Mobil &
@@ -5173,7 +5205,7 @@ function renderService(){
   document.getElementById('btn-export-service').onclick = () => {
     exportToExcel('servis-maintenance', 'Servis', rows.map(r=>({
       Tanggal: r.service.tanggal||'', Mobil: carLabel(r.service.carId), Kategori: r.item.kategori||'',
-      'Odometer (KM)': r.service.odometer||'', Bengkel: r.service.bengkel||'', Biaya: r.item.biaya||0,
+      'Odometer (KM)': r.service.odometer||'', Bengkel: r.service.bengkel||'', 'Link Maps': r.service.mapsLink||'', Biaya: r.item.biaya||0,
       Catatan: r.item.catatan||'',
     })));
   };
@@ -5223,7 +5255,7 @@ function renderService(){
     }
     wrap.innerHTML = `
       <div class="table-scroll desktop-data-table"><table>
-        <thead><tr><th>Tanggal</th><th>Mobil</th><th>Kategori</th><th>Odometer</th><th>Bengkel</th><th>Biaya</th><th>Catatan</th><th></th></tr></thead>
+        <thead><tr><th>Tanggal</th><th>Mobil</th><th>Kategori</th><th>Odometer</th><th>Bengkel</th><th>Maps</th><th>Biaya</th><th>Catatan</th><th></th></tr></thead>
         <tbody>
           ${list.map(r=>`
             <tr>
@@ -5232,6 +5264,7 @@ function renderService(){
               <td><span class="badge neutral">${escapeHtml(r.item.kategori)}</span></td>
               <td>${r.service.odometer!=null ? Number(r.service.odometer).toLocaleString('id-ID')+' KM' : '-'}</td>
               <td>${escapeHtml(r.service.bengkel||'-')}</td>
+              <td>${mapsNavButtonHtml(r.service.mapsLink) || '-'}</td>
               <td>${fmtMoney(r.item.biaya)}</td>
               <td>${escapeHtml(r.item.catatan||'-')}</td>
               <td style="text-align:right;"><button class="btn btn-danger btn-sm" data-del="${r.service.id}">Hapus</button></td>
@@ -5245,6 +5278,7 @@ function renderService(){
             <div class="data-card-row"><span class="k">Tanggal</span><span class="v">${fmtDate(r.service.tanggal)}</span></div>
             <div class="data-card-row"><span class="k">Odometer</span><span class="v">${r.service.odometer!=null ? Number(r.service.odometer).toLocaleString('id-ID')+' KM' : '-'}</span></div>
             <div class="data-card-row"><span class="k">Bengkel</span><span class="v">${escapeHtml(r.service.bengkel||'-')}</span></div>
+            <div class="data-card-row"><span class="k">Maps</span><span class="v">${mapsNavButtonHtml(r.service.mapsLink) || '-'}</span></div>
             <div class="data-card-row"><span class="k">Biaya</span><span class="v">${fmtMoney(r.item.biaya)}</span></div>
             ${r.item.catatan ? `<div class="data-card-row"><span class="k">Catatan</span><span class="v">${escapeHtml(r.item.catatan)}</span></div>` : ''}
             <div class="data-card-actions"><button class="btn btn-danger btn-sm" data-del="${r.service.id}">🗑️ Hapus</button></div>
@@ -5314,6 +5348,12 @@ function openServiceModal(){
     <div class="field">
       <label>Bengkel</label>
       <input type="text" id="in-bengkel" placeholder="Nama bengkel" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Link Google Maps Bengkel (opsional)</label>
+      <input type="text" id="in-maps-bengkel" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off">
+      <div id="maps-bengkel-preview" style="margin-top:6px;"></div>
+      <div class="hint">Terisi otomatis kalau bengkel ini sudah pernah dicatat sebelumnya. Klik "📍 Navigasi" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini.</div>
     </div>
     <div class="panel-head" style="padding:0;border:none;margin:16px 0 8px 0;display:flex;justify-content:space-between;align-items:center;">
       <h2 style="font-size:13px;">Item Servis / Perbaikan *</h2>
@@ -5438,8 +5478,9 @@ function openServiceModal(){
       if(!valid) return false;
 
       const odometer = odoServisVal === '' ? null : Number(odoServisVal);
+      const mapsLink = document.getElementById('in-maps-bengkel').value.trim();
       state.services.push(touch({
-        id: uid(), carId, tanggal, bengkel, odometer, items: validItems,
+        id: uid(), carId, tanggal, bengkel, odometer, items: validItems, mapsLink: mapsLink || null,
         petugas: currentAdmin
       }));
 
@@ -5459,6 +5500,7 @@ function openServiceModal(){
 
   attachRibuanInput('in-odo-servis');
   attachAutocomplete('in-bengkel', () => state.services.map(s=>s.bengkel));
+  wireBengkelMapsAutofill('in-bengkel', 'in-maps-bengkel', 'maps-bengkel-preview');
   renderItems();
   document.getElementById('btn-add-item').addEventListener('click', ()=>{
     syncFormItemsFromDom();
@@ -6730,6 +6772,15 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.32.9',
+    date: '24 Jul 2026',
+    notes: [
+      'Fitur baru di Catat Servis: field "Link Google Maps Bengkel" -- terisi OTOMATIS kalau nama bengkel yang diketik sudah pernah dicatat sebelumnya (sama seperti autofill Link Maps di field Tujuan pada Catat Perjalanan), lengkap dengan tombol "📍 Navigasi" untuk langsung cek lokasinya dari form.',
+      'Tabel riwayat Servis & Maintenance sekarang punya kolom "Maps" dengan tombol "📍 Navigasi" per baris (kalau bengkel itu punya link tersimpan), sama seperti kolom Maps di Data Tujuan.',
+      'Beda dengan Data Tujuan: bengkel TIDAK punya menu master data terpisah -- link Maps-nya tersimpan otomatis di balik layar dari riwayat Catat Servis, tanpa halaman kelola sendiri (sesuai permintaan).',
+    ]
+  },
   {
     v: '3.32.8',
     date: '24 Jul 2026',
