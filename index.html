@@ -567,6 +567,10 @@
        tabel lebar (yang butuh geser kanan-kiri). Desktop tidak terpengaruh. */
     .desktop-usage-table{display:none;}
     .mobile-usage-cards{display:block;}
+    /* Tombol toggle "List" disembunyikan di HP -- tampilan List (tabel
+       lebar) tidak cocok untuk layar sempit, jadi di HP cukup tampilan
+       Card saja (default) yang bisa dipilih. Desktop tidak terpengaruh. */
+    #btn-view-list{display:none;}
   }
 
   /* ---------------- Overlay transisi halus saat update diterapkan ----------------
@@ -1652,6 +1656,30 @@ function fmtDate(s){
 function fmtMoney(n){
   n = Number(n)||0;
   return 'Rp ' + n.toLocaleString('id-ID');
+}
+// Hitung lama perjalanan (menit) dari tglKeluar+jamKeluar sampai
+// tglKembali+jamKembali. Format tanggal "YYYY-MM-DD", jam "HH:MM" (dari
+// <input type="time">) -- kalau jam kosong dianggap "00:00". null kalau
+// datanya belum lengkap (belum kembali) atau tidak valid.
+function getTripDurationMinutes(u){
+  if(!u.tglKeluar || !u.tglKembali) return null;
+  const start = new Date(u.tglKeluar + 'T' + (u.jamKeluar||'00:00') + ':00');
+  const end = new Date(u.tglKembali + 'T' + (u.jamKembali||'00:00') + ':00');
+  if(isNaN(start) || isNaN(end)) return null;
+  const diffMin = Math.round((end - start) / 60000);
+  return diffMin >= 0 ? diffMin : null;
+}
+function fmtDuration(u){
+  const mins = getTripDurationMinutes(u);
+  if(mins===null) return '-';
+  const days = Math.floor(mins / 1440);
+  const hours = Math.floor((mins % 1440) / 60);
+  const minutes = mins % 60;
+  const parts = [];
+  if(days>0) parts.push(days+' hari');
+  if(hours>0) parts.push(hours+' jam');
+  if(minutes>0 || parts.length===0) parts.push(minutes+' menit');
+  return parts.join(' ');
 }
 
 /* ---------------- Helper: input angka dengan pemisah ribuan ----------------
@@ -4071,13 +4099,14 @@ function renderUsage(){
     const biayaOpTotal = usageBiayaOpTotal(u);
     const etollBiayaTotal = usageEtollBiayaTotal(u);
     const isOperasional = u.jenisPenggunaan !== 'pribadi';
+    const durationLabel = fmtDuration(u);
     const actionButtonsHtml = `
       <button class="btn btn-ghost btn-sm" data-edit="${u.id}">✏️ Edit</button>
       ${isOperasional ? `<button class="btn btn-ghost btn-sm" data-biayaop="${u.id}">🧾 Biaya Operasional</button>` : ''}
       ${biayaOpTotal>0 ? `<button class="btn btn-ghost btn-sm" data-share="${u.id}">📤 Bagikan</button><button class="btn btn-ghost btn-sm" data-copy-img="${u.id}">📋 Salin Gambar</button>` : ''}
       ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Tiba</button>` : `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✏️ Edit Data Tiba</button>`}
     `;
-    return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, biayaTolInfo, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, etollBiayaTotal, isOperasional, actionButtonsHtml };
+    return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, biayaTolInfo, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, etollBiayaTotal, isOperasional, durationLabel, actionButtonsHtml };
   }
 
   function renderListView(items){
@@ -4120,6 +4149,7 @@ function renderUsage(){
             </div>
             <div class="triprow-mid">
               <div><span class="stat-k">Jarak</span><span class="stat-v">${r.jarakBadge}</span></div>
+              <div><span class="stat-k">Durasi</span><span class="stat-v">${r.durationLabel}</span></div>
               <div><span class="stat-k">Efisiensi BBM</span><span class="stat-v">${ratioLabel(u)}</span></div>
               <div><span class="stat-k">Pengisian BBM</span><span class="stat-v">${r.bbmLabel}</span></div>
               <div><span class="stat-k">Estimasi Konsumsi</span><span class="stat-v">${r.literTerpakaiLabel}</span></div>
@@ -4150,6 +4180,7 @@ function renderUsage(){
                 <div><span class="k">Jenis Perjalanan</span> <span class="v">${u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman'}</span></div>
                 <div><span class="k">Jarak</span> <span class="v">${r.jarakBadge}</span></div>
                 <div><span class="k">Jam</span> <span class="v">${u.jamKeluar||'-'} → ${u.jamKembali||'-'}</span></div>
+                <div><span class="k">Durasi</span> <span class="v">${r.durationLabel}</span></div>
                 <div><span class="k">Efisiensi BBM (KM/L)</span> <span class="v">${ratioLabel(u)}</span></div>
                 <div><span class="k">Pengisian BBM</span> <span class="v">${r.bbmLabel}</span></div>
                 <div><span class="k">Estimasi Konsumsi BBM</span> <span class="v">${r.literTerpakaiLabel}</span></div>
@@ -4376,6 +4407,7 @@ function renderUsage(){
         <div><span class="k">Jenis Perjalanan</span> <span class="v">${u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman'}</span></div>
         <div><span class="k">Jarak</span> <span class="v">${r.jarakBadge}</span></div>
         <div><span class="k">Jam</span> <span class="v">${u.jamKeluar||'-'} → ${u.jamKembali||'-'}</span></div>
+        <div><span class="k">Durasi</span> <span class="v">${r.durationLabel}</span></div>
         <div><span class="k">Efisiensi BBM (KM/L)</span> <span class="v">${ratioLabel(u)}</span></div>
         <div><span class="k">Pengisian BBM</span> <span class="v">${r.bbmLabel}</span></div>
         <div><span class="k">Estimasi Konsumsi BBM</span> <span class="v">${r.literTerpakaiLabel}</span></div>
