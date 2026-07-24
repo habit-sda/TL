@@ -962,7 +962,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.38.2';
+const APP_VERSION = '3.38.3';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2759,7 +2759,6 @@ function openConfirmModal(message, onConfirm){
 
 function openInsightPinModal(){
   const body = `
-    <p style="font-size:12.5px;color:var(--muted);margin-top:0;">Masukkan PIN untuk membuka panel Insight/Anomali di menu BBM &amp; Servis.</p>
     <div class="field" id="f-insight-pin">
       <label>PIN</label>
       <input type="password" inputmode="numeric" id="in-insight-pin" placeholder="••••••" autocomplete="off">
@@ -7498,6 +7497,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.38.3',
+    date: '24 Jul 2026',
+    notes: [
+      'Hapus teks deskripsi "Masukkan PIN untuk membuka panel Insight/Anomali di menu BBM & Servis." di modal "🔒 Buka Insight" -- judul modal & field PIN sudah cukup jelas.',
+    ]
+  },
   {
     v: '3.38.2',
     date: '24 Jul 2026',
