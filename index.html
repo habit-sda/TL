@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.35.1">
+<meta name="app-version" content="3.35.2">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -938,7 +938,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.35.1';
+const APP_VERSION = '3.35.2';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3196,7 +3196,7 @@ function openCarModal(editId){
       <label>Foto Kendaraan (Image URL)</label>
       <div class="car-with-thumb">
         ${carPhotoHtml(editing, 'car-thumb-lg')}
-        <input type="text" id="in-foto-url" placeholder="https://... (CDN perusahaan, GitHub, dsb.)" value="${editing&&editing.fotoUrl?escapeHtml(editing.fotoUrl):''}" style="flex:1;">
+        <input type="text" id="in-foto-url" data-no-uppercase="1" placeholder="https://... (CDN perusahaan, GitHub, dsb.)" value="${editing&&editing.fotoUrl?escapeHtml(editing.fotoUrl):''}" style="flex:1;">
       </div>
       <div class="hint">Tempelkan URL gambar mobil ini. Satu URL di sini otomatis dipakai di semua tampilan yang menunjukkan foto mobil (Data Mobil &amp; Catat Perjalanan) -- ganti di sini saja, tidak perlu edit halaman lain. Kosong/gagal dimuat akan memakai gambar mobil generik.</div>
     </div>
@@ -7294,6 +7294,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.35.2',
+    date: '24 Jul 2026',
+    notes: [
+      'Perbaikan bug PENTING: field "Foto Kendaraan (Image URL)" di Data Mobil ikut kena aturan huruf-besar-otomatis yang berlaku untuk field teks biasa, padahal URL itu case-sensitive -- akibatnya URL yang ditempel bisa berubah huruf jadi semua kapital saat pindah field (blur) dan gambarnya gagal dimuat (jatuh ke ikon generik). Sekarang field ini dikecualikan dari aturan huruf besar, sama seperti field Link Maps. Catatan: mobil yang URL fotonya SUDAH TERLANJUR tersimpan dalam bentuk kapital sebelum perbaikan ini perlu ditempel ulang URL-nya secara manual lewat Edit -- perbaikan ini hanya mencegah kesalahan baru, bukan mengoreksi data lama secara otomatis.',
+    ]
+  },
   {
     v: '3.35.1',
     date: '24 Jul 2026',
