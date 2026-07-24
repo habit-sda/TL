@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.32.5">
+<meta name="app-version" content="3.33.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -267,6 +267,17 @@
     background:#fff;color:var(--blue-dark);text-decoration:none;
     padding:6px 12px;border-radius:8px;font-size:12.5px;font-weight:700;
     border:1.5px solid var(--blue);white-space:nowrap;
+  }
+
+  /* Varian ringkas (ikon saja) -- KHUSUS kolom Tujuan tabel desktop Catat
+     Perjalanan. Class terpisah dari .btn-nav-maps supaya tidak memengaruhi
+     tombol Navigasi di Booking/Dashboard/Servis/kartu mobile. */
+  .btn-nav-maps-compact{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;flex:none;
+    background:#fff;text-decoration:none;
+    border-radius:6px;font-size:12px;line-height:1;
+    border:1.5px solid var(--blue);vertical-align:middle;
   }
 
   .empty-state{
@@ -820,7 +831,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.33.0';
+const APP_VERSION = '3.33.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1902,6 +1913,18 @@ function mapsNavButtonHtml(mapsLink){
   // tombol ini akan IKUT memicu handler pembungkus itu (mis. buka menu aksi)
   // di atas navigasi yang sebenarnya dituju.
   return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps">📍 Navigasi</a>`;
+}
+
+// Varian RINGKAS (ikon saja, tanpa teks "Navigasi") -- KHUSUS dipakai di
+// kolom Tujuan tabel desktop Catat Perjalanan, supaya tidak mendominasi
+// kolom yang sempit (tombol penuh "📍 Navigasi" di situ kelihatan kebesaran
+// & bikin baris jadi tinggi). TIDAK dipakai di tempat lain (Booking,
+// Dashboard, Servis, kartu mobile Catat Perjalanan tetap pakai
+// mapsNavButtonHtml() yang biasa) -- sengaja fungsi & class CSS terpisah
+// supaya perubahan ukuran di sini tidak ikut mengubah tombol di tempat lain.
+function mapsNavButtonCompactHtml(mapsLink){
+  if(!mapsLink || !/^https?:\/\//i.test(mapsLink.trim())) return '';
+  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps-compact" title="Buka Navigasi">📍</a>`;
 }
 
 // Cari Link Maps dari riwayat TUJUAN YANG SAMA PERSIS (case-insensitive) --
@@ -3846,7 +3869,7 @@ function renderUsage(){
               <td>${escapeHtml(carLabel(u.carId))}</td>
               <td>${escapeHtml(driverLabel(u.driverId, u.driver))}</td>
               <td>${u.jenisPenggunaan==='pribadi' ? `<span class="badge neutral">Pribadi</span>` : `<span class="badge ok">Pengiriman</span>`}</td>
-              <td>${escapeHtml(u.tujuan)} ${mapsNavButtonHtml(u.mapsLink)}</td>
+              <td><span style="display:inline-flex;align-items:center;gap:6px;">${escapeHtml(u.tujuan)}${mapsNavButtonCompactHtml(u.mapsLink)}</span></td>
               <td>${fmtDate(u.tglKeluar)}</td>
               <td>${u.jamKeluar || '-'}</td>
               <td>${u.tglKembali ? fmtDate(u.tglKembali) : '-'}</td>
@@ -6816,6 +6839,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.33.1',
+    date: '24 Jul 2026',
+    notes: [
+      'Kolom Tujuan pada tabel desktop Catat Perjalanan: tombol "📍 Navigasi" dipersempit jadi ikon kecil sejajar teks tujuan -- sebelumnya tombol besar bertuliskan "Navigasi" membuat baris jadi tinggi & mendominasi kolom. Tombol Navigasi di Booking, Dashboard, Servis & kartu mobile Catat Perjalanan TIDAK berubah (tetap ukuran biasa).',
+    ]
+  },
   {
     v: '3.33.0',
     date: '24 Jul 2026',
