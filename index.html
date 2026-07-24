@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.36.0">
+<meta name="app-version" content="3.36.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -938,7 +938,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.36.0';
+const APP_VERSION = '3.36.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -4367,7 +4367,15 @@ function renderUsage(){
       wrap.innerHTML = `<div class="trip-layout"><div class="trip-page-left">${emptyState('🚚','Tidak ada mobil yang cocok dengan pencarian ini.')}</div></div>`;
       return;
     }
-    if(!list.some(vs=>vs.car.id===selectedCarId)) selectedCarId = list[0].car.id;
+    // PENTING: null itu status SENGAJA ("panel ditutup" via tombol ✕) --
+    // bukan id tidak valid yang perlu "dikoreksi" balik ke mobil pertama.
+    // Sebelumnya baris ini treat null SAMA seperti id basi (mis. mobil
+    // sudah tersaring dari pencarian), jadi begitu ditutup langsung
+    // kepilih ulang ke list[0] -- panel jadi kelihatan tidak pernah
+    // tertutup. Sekarang null dibiarkan null; auto-koreksi cuma jalan
+    // kalau selectedCarId BUKAN null tapi sudah tidak ada di list (id
+    // basi), supaya panel yang sedang terbuka tidak kosong tanpa alasan.
+    if(selectedCarId!=null && !list.some(vs=>vs.car.id===selectedCarId)) selectedCarId = list[0].car.id;
 
     const leftHtml = list.map(vs=> vs.car.id===selectedCarId ? expandedCardHtml(vs) : compactCardHtml(vs)).join('');
     const selectedStats = statsFor(selectedCarId);
@@ -7317,6 +7325,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.36.1',
+    date: '24 Jul 2026',
+    notes: [
+      'Perbaikan bug: tombol ✕ "Tutup" di panel detail kanan (Catat Perjalanan, tampilan Card) tidak benar-benar menutup panelnya -- langsung terbuka lagi ke mobil pertama. Penyebabnya, status "sengaja ditutup" (selectedCarId null) salah dianggap sama dengan "id mobil sudah tidak valid" sehingga otomatis dikoreksi balik. Sekarang keduanya dibedakan -- menutup panel benar-benar menutupnya.',
+    ]
+  },
   {
     v: '3.36.0',
     date: '24 Jul 2026',
