@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.33.1">
+<meta name="app-version" content="3.34.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -222,6 +222,21 @@
   td{padding:10px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
   tr:last-child td{border-bottom:none;}
   tr:hover td{background:#FAFBFC;}
+
+  .car-thumb{
+    width:44px;height:44px;border-radius:8px;object-fit:cover;
+    border:1px solid var(--line);background:#F4F5F7;flex-shrink:0;display:block;
+  }
+  .car-thumb-sm{
+    width:30px;height:30px;border-radius:6px;object-fit:cover;
+    border:1px solid var(--line);background:#F4F5F7;flex-shrink:0;display:block;
+  }
+  .car-thumb-lg{
+    width:64px;height:64px;border-radius:10px;object-fit:cover;
+    border:1px solid var(--line);background:#F4F5F7;flex-shrink:0;display:block;
+  }
+  .car-with-thumb{display:flex;align-items:center;gap:10px;}
+  .car-with-thumb-sm{display:flex;align-items:center;gap:8px;}
 
   .plate{
     display:inline-block;
@@ -831,7 +846,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.33.1';
+const APP_VERSION = '3.34.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1862,6 +1877,21 @@ function serviceTotal(s){
 function carLabel(carId){
   const c = state.cars.find(x=>x.id===carId);
   return c ? (c.merk+' '+c.modelMobil+' — '+c.plat) : '(mobil telah dihapus)';
+}
+// Placeholder default kalau Foto Kendaraan kosong / gagal dimuat -- ikon mobil
+// generik (SVG inline), supaya tidak butuh file gambar tambahan/upload.
+const DEFAULT_CAR_PHOTO = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#EEF0F3"/><g transform="translate(8,20)" fill="none" stroke="#9AA3AF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 14 L5 4 Q6 1 10 1 H38 Q42 1 43 4 L46 14"/><rect x="0" y="14" width="48" height="10" rx="3"/><circle cx="10" cy="24" r="4" fill="#EEF0F3"/><circle cx="38" cy="24" r="4" fill="#EEF0F3"/></g></svg>`
+);
+// Sumber tunggal (single source of truth) untuk foto kendaraan: field
+// car.fotoUrl diisi sekali di Data Mobil, lalu dipakai ulang di semua
+// tempat yang menampilkan thumbnail mobil (Data Mobil & Catat Perjalanan).
+// Kalau URL kosong atau gagal dimuat, otomatis jatuh ke DEFAULT_CAR_PHOTO.
+function carPhotoHtml(car, sizeClass){
+  sizeClass = sizeClass || 'car-thumb';
+  const src = (car && car.fotoUrl) ? escapeHtml(car.fotoUrl) : DEFAULT_CAR_PHOTO;
+  const alt = car ? escapeHtml(car.merk+' '+car.modelMobil) : 'Mobil';
+  return `<img src="${src}" alt="${alt}" class="${sizeClass}" loading="lazy" onerror="this.onerror=null;this.src='${DEFAULT_CAR_PHOTO}';">`;
 }
 function driverLabel(driverId, legacyDriverText){
   // Defensive: catatan lama (sebelum modul Data Sopir ada) menyimpan nama sopir
@@ -2971,7 +3001,7 @@ function renderCars(){
             <tr>
               <td>${codeBadgeHtml(c.kode)}</td>
               <td><span class="plate">${escapeHtml(c.plat)}</span></td>
-              <td>${escapeHtml(c.merk)} ${escapeHtml(c.modelMobil)}</td>
+              <td><span class="car-with-thumb-sm">${carPhotoHtml(c,'car-thumb-sm')}<span>${escapeHtml(c.merk)} ${escapeHtml(c.modelMobil)}</span></span></td>
               <td>${escapeHtml(c.tahun)}</td>
               <td>${escapeHtml(c.warna)}</td>
               <td>${c.odometerSaatIni!=null ? Number(c.odometerSaatIni).toLocaleString('id-ID')+' KM' : '-'}</td>
@@ -2991,7 +3021,7 @@ function renderCars(){
           return `
           <div class="data-card">
             <div class="data-card-title">
-              <span>${escapeHtml(c.merk)} ${escapeHtml(c.modelMobil)}</span>
+              <span class="car-with-thumb-sm">${carPhotoHtml(c,'car-thumb-sm')}<span>${escapeHtml(c.merk)} ${escapeHtml(c.modelMobil)}</span></span>
               <span class="plate">${escapeHtml(c.plat)}</span>
             </div>
             <div class="data-card-row"><span class="k">Kode</span><span class="v">${codeBadgeHtml(c.kode)}</span></div>
@@ -3071,6 +3101,14 @@ function openCarModal(editId){
       <div class="err-msg">Plat nomor wajib diisi dan tidak boleh sama dengan mobil lain.</div>
     </div>
     <div class="field">
+      <label>Foto Kendaraan (Image URL)</label>
+      <div class="car-with-thumb">
+        ${carPhotoHtml(editing, 'car-thumb-lg')}
+        <input type="text" id="in-foto-url" placeholder="https://... (CDN perusahaan, GitHub, dsb.)" value="${editing&&editing.fotoUrl?escapeHtml(editing.fotoUrl):''}" style="flex:1;">
+      </div>
+      <div class="hint">Tempelkan URL gambar mobil ini. Satu URL di sini otomatis dipakai di semua tampilan yang menunjukkan foto mobil (Data Mobil &amp; Catat Perjalanan) -- ganti di sini saja, tidak perlu edit halaman lain. Kosong/gagal dimuat akan memakai gambar mobil generik.</div>
+    </div>
+    <div class="field">
       <label>Odometer Saat Ini (KM)</label>
       <input type="text" inputmode="numeric" id="in-odo" placeholder="Contoh: 45.000" value="${editing?fmtRibuanInitial(editing.odometerSaatIni):''}">
       <div class="hint">Terisi/terupdate otomatis tiap kali mobil ditandai "kembali", tapi bisa diedit manual di sini.</div>
@@ -3141,6 +3179,7 @@ function openCarModal(editId){
     body,
     onSave: () => {
       const merk = document.getElementById('in-merk').value.trim();
+      const fotoUrl = document.getElementById('in-foto-url').value.trim();
       const modelMobil = document.getElementById('in-model').value.trim();
       const tahun = document.getElementById('in-tahun').value.trim();
       const warna = document.getElementById('in-warna').value.trim();
@@ -3180,12 +3219,12 @@ function openCarModal(editId){
         : (tipeIndikatorBbm === 'bar' ? convertBarToPercent(Number(batasBensinVal), maxBarBbm) : Number(batasBensinVal));
 
       if(editing){
-        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter});
+        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter});
         touch(editing);
         logActivity('mobil', 'Edit data mobil', `${merk} ${modelMobil} — ${plat}`);
         showToast('Data mobil diperbarui.');
       } else {
-        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, createdAt: today(), petugas: currentAdmin}));
+        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, createdAt: today(), petugas: currentAdmin}));
         logActivity('mobil', 'Tambah mobil baru', `${merk} ${modelMobil} — ${plat}`);
         showToast('Mobil baru ditambahkan.');
       }
@@ -3193,6 +3232,10 @@ function openCarModal(editId){
       renderCars();
       return true;
     }
+  });
+  document.getElementById('in-foto-url').addEventListener('input', function(){
+    const preview = document.querySelector('#f-plat + .field .car-thumb-lg');
+    if(preview){ preview.src = this.value.trim() || DEFAULT_CAR_PHOTO; }
   });
   attachRibuanInput('in-odo');
   attachRibuanInput('in-interval-km');
@@ -3612,15 +3655,15 @@ function wireDestinationRefHint(tujuanInputId, hintElId){
    ======================================================================== */
 function renderUsage(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-usage">+ Catat Penggunaan</button>${exportBtnHtml('btn-export-usage')}`;
+    `<button class="btn btn-primary" id="btn-add-usage">+ Catat Perjalanan</button>${exportBtnHtml('btn-export-usage')}`;
   document.getElementById('btn-add-usage').onclick = () => openUsageModal();
   document.getElementById('btn-export-usage').onclick = () => {
     exportToExcel('catat-perjalanan', 'Catat Perjalanan', state.usage.map(u=>{
       const jarak = (u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) ? (u.odoKembali-u.odoKeluar) : '';
       return {
         Kode: u.kode||'', Mobil: carLabel(u.carId), Driver: driverLabel(u.driverId,u.driver),
-        Jenis: u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman', Tujuan: u.tujuan||'',
-        Keluar: u.tglKeluar||'', 'Jam Keluar': u.jamKeluar||'', Kembali: u.tglKembali||'', 'Jam Kembali': u.jamKembali||'',
+        'Jenis Perjalanan': u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman', Tujuan: u.tujuan||'',
+        Berangkat: u.tglKeluar||'', 'Jam Berangkat': u.jamKeluar||'', Tiba: u.tglKembali||'', 'Jam Tiba': u.jamKembali||'',
         'Jarak (KM)': jarak, 'Liter BBM': u.literBensin||'', 'Biaya BBM': u.biayaBensin||'',
         Status: u.status==='digunakan'?'Digunakan':'Selesai',
       };
@@ -3859,14 +3902,14 @@ function renderUsage(){
     // ---------- Versi TABEL (desktop, layar lebar) ----------
     const tableHtml = `
       <div class="table-scroll desktop-usage-table"><table>
-        <thead><tr><th>Kode</th><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Jam</th><th>Kembali</th><th>Jam</th><th>Jarak</th><th>BBM Dibeli</th><th>BBM Digunakan</th><th>Rasio</th><th>Bensin Keluar</th><th>Bensin Kembali</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Tol Terpakai</th><th>Biaya Operasional</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Kode</th><th>Mobil</th><th>Driver</th><th>Jenis Perjalanan</th><th>Tujuan</th><th>Berangkat</th><th>Jam</th><th>Tiba</th><th>Jam</th><th>Jarak</th><th>Pengisian BBM</th><th>Estimasi Konsumsi BBM</th><th>Efisiensi BBM (KM/L)</th><th>BBM Awal</th><th>BBM Akhir</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Tol Terpakai</th><th>Biaya Operasional</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${rows.map(r=>{
             const u = r.u;
             return `
             <tr>
               <td>${codeBadgeHtml(u.kode)}</td>
-              <td>${escapeHtml(carLabel(u.carId))}</td>
+              <td><span class="car-with-thumb-sm">${carPhotoHtml(r.carForRow,'car-thumb-sm')}<span>${escapeHtml(carLabel(u.carId))}</span></span></td>
               <td>${escapeHtml(driverLabel(u.driverId, u.driver))}</td>
               <td>${u.jenisPenggunaan==='pribadi' ? `<span class="badge neutral">Pribadi</span>` : `<span class="badge ok">Pengiriman</span>`}</td>
               <td><span style="display:inline-flex;align-items:center;gap:6px;">${escapeHtml(u.tujuan)}${mapsNavButtonCompactHtml(u.mapsLink)}</span></td>
@@ -3900,24 +3943,24 @@ function renderUsage(){
           return `
           <div class="usage-card">
             <div class="usage-card-row1">
-              <span class="usage-card-mobil">${escapeHtml(carLabel(u.carId))}</span>
+              <span class="usage-card-mobil car-with-thumb-sm">${carPhotoHtml(r.carForRow,'car-thumb-sm')}<span>${escapeHtml(carLabel(u.carId))}</span></span>
               ${u.status==='digunakan' ? `<span class="badge warn">Digunakan</span>` : `<span class="badge ok">Selesai</span>`}
             </div>
             <div class="usage-card-tujuan">📍 ${escapeHtml(u.tujuan)} ${mapsNavButtonHtml(u.mapsLink)}</div>
             <div class="usage-card-meta">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${fmtDate(u.tglKeluar)}${u.tglKembali?' → '+fmtDate(u.tglKembali):''}</div>
             <div style="margin-top:6px;">${codeBadgeHtml(u.kode)}</div>
-            <div class="usage-card-detail-toggle" data-toggle="${idx}">▾ Lihat detail (Jarak, BBM, Rasio, dst)</div>
+            <div class="usage-card-detail-toggle" data-toggle="${idx}">▾ Lihat detail (Jarak, BBM, Efisiensi, dst)</div>
             <div class="usage-card-detail" id="usage-card-detail-${idx}" style="display:none;">
               <div class="usage-card-detail-grid">
-                <div><span class="k">Jenis</span> <span class="v">${u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman'}</span></div>
+                <div><span class="k">Jenis Perjalanan</span> <span class="v">${u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman'}</span></div>
                 <div><span class="k">Jarak</span> <span class="v">${r.jarakBadge}</span></div>
                 <div><span class="k">Jam</span> <span class="v">${u.jamKeluar||'-'} → ${u.jamKembali||'-'}</span></div>
-                <div><span class="k">Rasio</span> <span class="v">${ratioLabel(u)}</span></div>
-                <div><span class="k">BBM Dibeli</span> <span class="v">${r.bbmLabel}</span></div>
-                <div><span class="k">BBM Digunakan</span> <span class="v">${r.literTerpakaiLabel}</span></div>
+                <div><span class="k">Efisiensi BBM (KM/L)</span> <span class="v">${ratioLabel(u)}</span></div>
+                <div><span class="k">Pengisian BBM</span> <span class="v">${r.bbmLabel}</span></div>
+                <div><span class="k">Estimasi Konsumsi BBM</span> <span class="v">${r.literTerpakaiLabel}</span></div>
                 <div><span class="k">Biaya Operasional</span> <span class="v">${r.biayaOpTotal>0?fmtMoney(r.biayaOpTotal):'-'}${r.etollBiayaTotal>0?` <span style="font-size:11px;color:var(--muted);">(🛣️ E-Toll: ${fmtMoney(r.etollBiayaTotal)})</span>`:''}</span></div>
-                <div><span class="k">Bensin Keluar</span> <span class="v">${r.bensinKeluarBadge}</span></div>
-                <div><span class="k">Bensin Kembali</span> <span class="v">${r.bensinKembaliBadge}</span></div>
+                <div><span class="k">BBM Awal</span> <span class="v">${r.bensinKeluarBadge}</span></div>
+                <div><span class="k">BBM Akhir</span> <span class="v">${r.bensinKembaliBadge}</span></div>
                 <div><span class="k">Kartu E-Toll</span> <span class="v">${r.linkedCard?escapeHtml(r.linkedCard.nomorKartu):'-'}</span></div>
                 <div><span class="k">Saldo E-Toll</span> <span class="v">${r.etoll!==null&&!isNaN(r.etoll)?fmtMoney(r.etoll):'-'}</span></div>
                 ${r.biayaTolInfo ? `<div><span class="k">🛣️ Tol Terpakai</span> <span class="v">${fmtMoney(r.biayaTolInfo.biayaTol)} ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn">Warisan</span>' : '<span class="badge ok">Akurat</span>'}</span></div>` : ''}
@@ -3936,7 +3979,7 @@ function renderUsage(){
         const detail = document.getElementById('usage-card-detail-'+t.dataset.toggle);
         const isOpen = detail.style.display !== 'none';
         detail.style.display = isOpen ? 'none' : 'block';
-        t.textContent = isOpen ? '▾ Lihat detail (Jarak, BBM, Rasio, dst)' : '▴ Sembunyikan detail';
+        t.textContent = isOpen ? '▾ Lihat detail (Jarak, BBM, Efisiensi, dst)' : '▴ Sembunyikan detail';
       });
     });
     wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openUsageModal(b.dataset.edit));
@@ -4672,7 +4715,7 @@ function openUsageModal(editId){
       <div class="err-msg">Pilih sopir.</div>
     </div>
     <div class="field" id="f-jenis-pakai">
-      <label>Jenis Pemakaian *</label>
+      <label>Jenis Perjalanan *</label>
       <select id="in-jenis-pakai">
         <option value="pengiriman" ${editing&&editing.jenisPenggunaan==='pengiriman'?'selected':''}>Pengiriman (operasional)</option>
         <option value="pribadi" ${editing&&editing.jenisPenggunaan==='pribadi'?'selected':''}>Pribadi</option>
@@ -4725,7 +4768,7 @@ function openUsageModal(editId){
     <div id="fuel-range-insight"></div>
   `;
   openModal({
-    title: editing ? 'Edit Penggunaan Mobil' : 'Catat Penggunaan Mobil',
+    title: editing ? 'Edit Perjalanan' : 'Catat Perjalanan',
     body,
     onSave: () => {
       const carId = document.getElementById('in-car').value;
@@ -6214,7 +6257,7 @@ function renderBBM(){
       </div>
       <div class="panel-body">
         <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
-          Terdeteksi Bensin Keluar/Kembali di atas 100% — bekas bug pembulatan Bar yang sudah diperbaiki di v3.20.1 (lihat Changelog).
+          Terdeteksi BBM Awal/Akhir di atas 100% — bekas bug pembulatan Bar yang sudah diperbaiki di v3.20.1 (lihat Changelog).
           ${resolvedFixes.length>0?` <b>${resolvedFixes.length} data</b> bisa dipastikan nilai Bar aslinya dan diperbaiki otomatis.`:''}
           ${unresolvedFixes.length>0?` <b>${unresolvedFixes.length} data</b> tidak bisa dipastikan otomatis (ambigu) — perlu dikoreksi manual lewat Edit di Catat Perjalanan.`:''}
         </p>
@@ -6223,7 +6266,7 @@ function renderBBM(){
         <div class="table-scroll" style="margin-top:12px;"><table>
           <thead><tr><th>Kode</th><th>Mobil</th><th>Field</th><th>Nilai Tersimpan</th></tr></thead>
           <tbody>
-            ${unresolvedFixes.map(e=>`<tr><td>${escapeHtml(e.usage.kode||'-')}</td><td>${escapeHtml(carLabel(e.car.id))}</td><td>${e.field==='bensinKeluar'?'Bensin Keluar':'Bensin Kembali'}</td><td>${e.oldValue}%</td></tr>`).join('')}
+            ${unresolvedFixes.map(e=>`<tr><td>${escapeHtml(e.usage.kode||'-')}</td><td>${escapeHtml(carLabel(e.car.id))}</td><td>${e.field==='bensinKeluar'?'BBM Awal':'BBM Akhir'}</td><td>${e.oldValue}%</td></tr>`).join('')}
           </tbody>
         </table></div>`:''}
       </div>
@@ -6259,7 +6302,7 @@ function renderBBM(){
       <div class="panel-body">
         ${carSummaries.length===0 ? emptyState('🚚','Belum ada data mobil.') : `
         <div class="table-scroll desktop-data-table"><table>
-          <thead><tr><th>Mobil</th><th>Sisa Bensin Terakhir</th><th>Rata-rata Efisiensi</th><th>Total Liter Dibeli</th><th>Total BBM Digunakan</th><th>Total Biaya BBM</th></tr></thead>
+          <thead><tr><th>Mobil</th><th>Sisa Bensin Terakhir</th><th>Rata-rata Efisiensi</th><th>Total Pengisian BBM</th><th>Total Estimasi Konsumsi BBM</th><th>Total Biaya BBM</th></tr></thead>
           <tbody>
             ${carSummaries.map(s=>{
               let sisaBadge = '-';
@@ -6291,8 +6334,8 @@ function renderBBM(){
               <div class="data-card-title"><span>${escapeHtml(carLabel(s.car.id))}</span></div>
               <div class="data-card-row"><span class="k">Sisa Bensin Terakhir</span><span class="v">${sisaBadge}</span></div>
               <div class="data-card-row"><span class="k">Rata-rata Efisiensi</span><span class="v">${s.avgRatio!=null ? s.avgRatio.toFixed(1)+' KM/L' : '-'}</span></div>
-              <div class="data-card-row"><span class="k">Total Liter Dibeli</span><span class="v">${s.totalLiter.toLocaleString('id-ID')} L</span></div>
-              <div class="data-card-row"><span class="k">Total BBM Digunakan</span><span class="v">${s.totalLiterTerpakai>0 ? s.totalLiterTerpakai.toFixed(1)+' L' : '-'}</span></div>
+              <div class="data-card-row"><span class="k">Total Pengisian BBM</span><span class="v">${s.totalLiter.toLocaleString('id-ID')} L</span></div>
+              <div class="data-card-row"><span class="k">Total Estimasi Konsumsi BBM</span><span class="v">${s.totalLiterTerpakai>0 ? s.totalLiterTerpakai.toFixed(1)+' L' : '-'}</span></div>
               <div class="data-card-row"><span class="k">Total Biaya BBM</span><span class="v">${fmtMoney(s.totalBiaya)}</span></div>
             </div>`;
           }).join('')}
@@ -6304,7 +6347,7 @@ function renderBBM(){
       <div class="panel-head"><h2>Kalkulator Kebutuhan BBM per Rute</h2></div>
       <div class="panel-body">
         <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
-          Pakai rasio efisiensi NYATA dari riwayat mobil ini (bukan asumsi/karangan), untuk membekali sopir dengan Liter yang cukup sebelum berangkat. Rasio TIDAK dibulatkan ke atas (itu bias optimis, bisa bikin sopir kurang bensin di jalan) — lihat Changelog v3.22.0 kalau ingin tahu alasannya.
+          Pakai efisiensi BBM NYATA dari riwayat mobil ini (bukan asumsi/karangan), untuk membekali sopir dengan Liter yang cukup sebelum berangkat. Efisiensi TIDAK dibulatkan ke atas (itu bias optimis, bisa bikin sopir kurang bensin di jalan) — lihat Changelog v3.22.0 kalau ingin tahu alasannya.
         </p>
         <div class="grid-2">
           <div class="field">
@@ -6326,7 +6369,7 @@ function renderBBM(){
     </div>
 
     <div class="panel">
-      <div class="panel-head"><h2>Kalkulator Rasio Konsumsi BBM per Perjalanan</h2></div>
+      <div class="panel-head"><h2>Kalkulator Efisiensi Konsumsi BBM per Perjalanan</h2></div>
       <div class="panel-body">
         <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
           Estimasi liter yang <b>benar-benar terpakai</b> di tiap perjalanan — dihitung dari selisih
@@ -6339,9 +6382,9 @@ function renderBBM(){
         <div class="hint" style="background:var(--warn-bg);color:var(--amber);padding:8px 10px;border-radius:6px;margin-bottom:10px;">
           ⚠️ ${carsWithoutKapasitas.length} mobil belum diatur Kapasitas Tangki-nya (${carsWithoutKapasitas.map(c=>carLabel(c.id)).join(', ')}) — perjalanan mobil itu belum bisa dihitung di sini. Atur di <b>Data Mobil → Edit → Kapasitas Tangki BBM</b>.
         </div>` : ''}
-        ${consumptionRows.length===0 ? emptyState('🧮','Belum ada perjalanan yang bisa dihitung — butuh Kapasitas Tangki (di Data Mobil) DAN catatan bensin keluar+kembali (di Catat Perjalanan) untuk perjalanan yang sama.') : `
+        ${consumptionRows.length===0 ? emptyState('🧮','Belum ada perjalanan yang bisa dihitung — butuh Kapasitas Tangki (di Data Mobil) DAN catatan BBM Awal+Akhir (di Catat Perjalanan) untuk perjalanan yang sama.') : `
         <div class="table-scroll desktop-data-table"><table>
-          <thead><tr><th>Tanggal</th><th>Mobil</th><th>Jarak</th><th>Bensin Keluar</th><th>Bensin Kembali</th><th>Estimasi Liter Terpakai</th><th>Rasio</th></tr></thead>
+          <thead><tr><th>Tanggal</th><th>Mobil</th><th>Jarak</th><th>BBM Awal</th><th>BBM Akhir</th><th>Estimasi Liter Terpakai</th><th>Efisiensi BBM (KM/L)</th></tr></thead>
           <tbody>
             ${consumptionRows.map(r=>`
               <tr>
@@ -6363,10 +6406,10 @@ function renderBBM(){
               <div class="data-card-title"><span>${escapeHtml(carLabel(r.u.carId))}</span></div>
               <div class="data-card-row"><span class="k">Tanggal</span><span class="v">${fmtDate(r.u.tglKeluar)}</span></div>
               <div class="data-card-row"><span class="k">Jarak</span><span class="v">${r.jarak!=null ? r.jarak.toLocaleString('id-ID')+' KM' : '-'}</span></div>
-              <div class="data-card-row"><span class="k">Bensin Keluar</span><span class="v">${formatBensinDisplay(r.keluar, carForRow)}</span></div>
-              <div class="data-card-row"><span class="k">Bensin Kembali</span><span class="v">${formatBensinDisplay(r.kembali, carForRow)}</span></div>
+              <div class="data-card-row"><span class="k">BBM Awal</span><span class="v">${formatBensinDisplay(r.keluar, carForRow)}</span></div>
+              <div class="data-card-row"><span class="k">BBM Akhir</span><span class="v">${formatBensinDisplay(r.kembali, carForRow)}</span></div>
               <div class="data-card-row"><span class="k">Estimasi Liter Terpakai</span><span class="v">${r.literTerpakai.toFixed(1)} L</span></div>
-              <div class="data-card-row"><span class="k">Rasio</span><span class="v">${r.rasio!=null ? r.rasio.toFixed(1)+' KM/L' : '-'}</span></div>
+              <div class="data-card-row"><span class="k">Efisiensi BBM (KM/L)</span><span class="v">${r.rasio!=null ? r.rasio.toFixed(1)+' KM/L' : '-'}</span></div>
             </div>`;
           }).join('')}
         </div>`}
@@ -6408,7 +6451,7 @@ function renderBBM(){
             ${resolvedFixes.map(e=>`<tr>
               <td>${escapeHtml(e.usage.kode||'-')}</td>
               <td>${escapeHtml(carLabel(e.car.id))}</td>
-              <td>${e.field==='bensinKeluar'?'Bensin Keluar':'Bensin Kembali'}</td>
+              <td>${e.field==='bensinKeluar'?'BBM Awal':'BBM Akhir'}</td>
               <td>${e.oldValue}%</td>
               <td>${formatBensinDisplay(e.newValue, e.car)} (${e.newValue}%)</td>
             </tr>`).join('')}
@@ -6454,7 +6497,7 @@ function renderBBM(){
 
     const { avgRatio } = getCarFuelStats(carId);
     if(avgRatio==null){
-      resultBox.innerHTML = `<div class="hint" style="margin-top:10px;">💡 Riwayat perjalanan mobil ini belum cukup untuk menghitung efisiensi — catat beberapa perjalanan dulu (dengan Bensin Keluar/Kembali diisi).</div>`;
+      resultBox.innerHTML = `<div class="hint" style="margin-top:10px;">💡 Riwayat perjalanan mobil ini belum cukup untuk menghitung efisiensi — catat beberapa perjalanan dulu (dengan BBM Awal/Akhir diisi).</div>`;
       return;
     }
 
@@ -6464,7 +6507,7 @@ function renderBBM(){
 
     resultBox.innerHTML = `
       <div class="kpi-grid" style="margin-top:12px;">
-        <div class="kpi"><div class="label">Rasio Dipakai (riwayat nyata)</div><div class="value">${avgRatio.toFixed(1)}<span style="font-size:13px;font-weight:600;"> KM/L</span></div></div>
+        <div class="kpi"><div class="label">Efisiensi BBM Dipakai (riwayat nyata)</div><div class="value">${avgRatio.toFixed(1)}<span style="font-size:13px;font-weight:600;"> KM/L</span></div></div>
         <div class="kpi"><div class="label">Kebutuhan Presisi</div><div class="value">${literPresisi.toFixed(1)}<span style="font-size:13px;font-weight:600;"> L</span></div></div>
         <div class="kpi"><div class="label">Bekali Sopir (+${margin}% margin)</div><div class="value">${literAman.toLocaleString('id-ID')}<span style="font-size:13px;font-weight:600;"> L</span></div></div>
       </div>
@@ -6839,6 +6882,21 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.34.1',
+    date: '24 Jul 2026',
+    notes: [
+      'Lanjutan penyeragaman istilah dari v3.34.0: menu BBM (Kalkulator Efisiensi Konsumsi BBM per Perjalanan, Ringkasan per Mobil, Kalkulator Kebutuhan BBM per Rute, dan alat "Perbaiki Data Bensin Rusak") sekarang ikut pakai istilah baru -- "Rasio" → "Efisiensi BBM (KM/L)", "Bensin Keluar/Kembali" → "BBM Awal/BBM Akhir", "Total Liter Dibeli" → "Total Pengisian BBM", "Total BBM Digunakan" → "Total Estimasi Konsumsi BBM". Hanya label tampilan yang berubah -- perhitungan, nama field database, dan entri Changelog versi-versi sebelumnya (yang memang mencatat istilah lama sebagai riwayat) TIDAK diubah.',
+    ]
+  },
+  {
+    v: '3.34.0',
+    date: '24 Jul 2026',
+    notes: [
+      'Penyempurnaan tampilan halaman Catat Perjalanan (Riwayat Perjalanan): tombol "+ Catat Penggunaan" diganti jadi "+ Catat Perjalanan" (fungsinya sama persis, cuma labelnya). Istilah di tabel, kartu mobile, dan Export Excel halaman ini juga diseragamkan supaya lebih mudah dipahami: "Jenis" → "Jenis Perjalanan", kolom waktu "Keluar/Kembali" → "Berangkat/Tiba", "BBM Dibeli" → "Pengisian BBM", "BBM Digunakan" → "Estimasi Konsumsi BBM", "Rasio" → "Efisiensi BBM (KM/L)", "Bensin Keluar/Kembali" → "BBM Awal/BBM Akhir". Perhitungan, nama field database, dan fungsi tombol lain (termasuk 📍 Navigasi) TIDAK berubah.',
+      'Fitur baru: Foto Kendaraan. Data Mobil sekarang punya field "Foto Kendaraan (Image URL)" -- cukup tempel 1 URL gambar (CDN perusahaan, GitHub, dsb.), lalu foto itu otomatis dipakai ulang di semua tampilan yang menampilkan mobil (Data Mobil & Catat Perjalanan), sesuai prinsip single source of truth: ganti URL-nya sekali di Data Mobil, seluruh sistem ikut update tanpa perlu edit halaman lain. Kalau URL kosong atau gagal dimuat, otomatis jatuh ke ikon mobil generik (placeholder bawaan, tidak perlu upload file).',
+    ]
+  },
   {
     v: '3.33.1',
     date: '24 Jul 2026',
