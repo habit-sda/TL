@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.30.1">
+<meta name="app-version" content="3.31.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -659,6 +659,7 @@
     <div class="menu-item" data-route="cars"><span class="ic">🚚</span>Data Mobil</div>
     <div class="menu-item" data-route="drivers"><span class="ic"><img src="data:image/png;base64,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" style="width:22px;height:22px;object-fit:contain;display:block;"></span>Data Sopir</div>
     <div class="menu-item" data-route="usage"><span class="ic"><img src="data:image/png;base64,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" style="width:22px;height:22px;object-fit:contain;display:block;"></span>Catat Perjalanan</div>
+    <div class="menu-item" data-route="destinations"><span class="ic">📍</span>Data Tujuan</div>
     <div class="menu-item" data-route="bookings"><span class="ic">📅</span>Booking Mobil</div>
     <div class="menu-item" data-route="service"><span class="ic"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.5 4.9L3 17.4l2.6 2.6L11.8 14a4 4 0 0 0 4.9-5.5l-2.5 2.5-2-2z"/></svg></span>Servis &amp; Maintenance</div>
     <div class="menu-item" data-route="docs"><span class="ic">📄</span>Dokumen</div>
@@ -809,7 +810,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.30.1';
+const APP_VERSION = '3.32.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -918,12 +919,22 @@ function attachAutocomplete(inputId, getSuggestions){
     if(e.key === 'ArrowDown'){ e.preventDefault(); activeIndex = Math.min(activeIndex+1, items.length-1); render(); }
     else if(e.key === 'ArrowUp'){ e.preventDefault(); activeIndex = Math.max(activeIndex-1, 0); render(); }
     else if(e.key === 'Enter'){
-      if(activeIndex >= 0){ e.preventDefault(); input.value = items[activeIndex]; close(); }
+      if(activeIndex >= 0){
+        e.preventDefault(); input.value = items[activeIndex]; close();
+        // PENTING: set value langsung tidak memicu event 'input' bawaan
+        // browser -- dispatch manual supaya listener lain (autofill Link
+        // Maps, preview tombol Navigasi, referensi Jarak/BBM) ikut jalan
+        // begitu tujuan dipilih dari daftar saran, bukan cuma saat diketik.
+        input.dispatchEvent(new Event('input', {bubbles:true}));
+      }
     } else if(e.key === 'Escape'){ close(); }
   });
   box.addEventListener('mousedown', (e)=>{
     const el = e.target.closest('.ac-item');
-    if(el){ input.value = items[Number(el.dataset.i)]; close(); }
+    if(el){
+      input.value = items[Number(el.dataset.i)]; close();
+      input.dispatchEvent(new Event('input', {bubbles:true}));
+    }
   });
   input.addEventListener('blur', ()=> setTimeout(close, 150));
 }
@@ -944,6 +955,11 @@ function loadData(){
       etollTransactions: Array.isArray(parsed.etollTransactions) ? parsed.etollTransactions : [],
       activityLog: Array.isArray(parsed.activityLog) ? parsed.activityLog : [],
       bookings: Array.isArray(parsed.bookings) ? parsed.bookings : [],
+      // Daftar Tujuan (master data tempat tujuan langganan) -- nama, jarak (KM),
+      // perkiraan BBM (Liter), dan Link Maps ke tujuan itu. Dipakai sebagai
+      // SUMBER rekomendasi/autocomplete field Tujuan di Catat Perjalanan &
+      // Booking Mobil (lihat attachAutocomplete di form masing-masing).
+      destinations: Array.isArray(parsed.destinations) ? parsed.destinations : [],
       admins: Array.isArray(parsed.admins) && parsed.admins.length ? parsed.admins : defaultData().admins,
       // Toleransi jarak "hilang" (gap odometer) antar-trip per HARI yang
       // dianggap wajar/tidak perlu ditandai (mis. bolak-balik ke masjid,
@@ -958,7 +974,7 @@ function loadData(){
   }
 }
 function defaultData(){
-  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, toleransiGapKm: 15 };
+  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, toleransiGapKm: 15 };
 }
 // Kode unik Mobil & Perjalanan -- dipakai KHUSUS untuk menu "Hapus Data"
 // (lihat konsep di bawah). Format sengaja pendek & mudah dibaca/disalin,
@@ -1733,6 +1749,13 @@ function findMapsLinkForTujuan(tujuanText, excludeId){
   const needle = (tujuanText||'').trim().toLowerCase();
   if(!needle) return null;
 
+  // Sumber utama sekarang Daftar Tujuan (Data Tujuan) -- kalau tujuan ini
+  // sudah punya Link Maps tersimpan di sana, pakai itu duluan.
+  const dest = state.destinations.find(d=> (d.nama||'').trim().toLowerCase()===needle);
+  if(dest && dest.mapsLink) return dest.mapsLink;
+
+  // Fallback lama: riwayat Catat Perjalanan/Booking (buat data yang belum
+  // sempat masuk Daftar Tujuan, mis. sebelum migrasi/seed berjalan).
   const candidates = [];
   state.usage.forEach(u=>{
     if(u.id===excludeId) return;
@@ -1754,15 +1777,30 @@ function findMapsLinkForTujuan(tujuanText, excludeId){
 // Wire autofill di 1 field tujuan + 1 field maps-link -- dipakai bareng oleh
 // openUsageModal & openBookingModal supaya tidak ditulis ulang 2x. TIDAK
 // menimpa kalau field Link Maps sudah diisi manual oleh admin.
-function wireMapsAutofill(tujuanInputId, mapsLinkInputId, excludeId){
+// previewId (opsional): id elemen tempat menampilkan tombol "📍 Navigasi"
+// yang bisa diklik langsung dari form ini, live mengikuti isi field Link
+// Maps -- baik yang keisi otomatis (dari Data Tujuan) maupun yang diketik/
+// ditempel manual. Ini yang bikin admin bisa langsung buka & cek lokasinya
+// dari halaman Catat Perjalanan/Booking, tanpa harus simpan dulu.
+function wireMapsAutofill(tujuanInputId, mapsLinkInputId, excludeId, previewId){
   const tujuanEl = document.getElementById(tujuanInputId);
   const mapsEl = document.getElementById(mapsLinkInputId);
   if(!tujuanEl || !mapsEl) return;
+  const previewEl = previewId ? document.getElementById(previewId) : null;
+  function updatePreview(){
+    if(!previewEl) return;
+    const btn = mapsNavButtonHtml(mapsEl.value.trim());
+    previewEl.innerHTML = btn || '';
+  }
   tujuanEl.addEventListener('input', ()=>{
-    if(mapsEl.value.trim()) return; // sudah diisi manual -> jangan ditimpa
-    const found = findMapsLinkForTujuan(tujuanEl.value, excludeId);
-    if(found) mapsEl.value = found;
+    if(!mapsEl.value.trim()){ // sudah diisi manual -> jangan ditimpa
+      const found = findMapsLinkForTujuan(tujuanEl.value, excludeId);
+      if(found) mapsEl.value = found;
+    }
+    updatePreview();
   });
+  mapsEl.addEventListener('input', updatePreview);
+  updatePreview(); // langsung tampil kalau lagi Edit data yang sudah punya Link Maps
 }
 
 // Tampilan kode Mobil/Perjalanan + tombol salin -- dipakai di Data Mobil &
@@ -2049,6 +2087,7 @@ const ROUTES = {
   dashboard: {title:'Dashboard', sub:'Ringkasan kondisi armada saat ini', render: renderDashboard},
   cars:      {title:'Data Mobil', sub:'Data dasar setiap kendaraan armada', render: renderCars},
   drivers:   {title:'Data Sopir', sub:'Data master sopir/pengemudi armada', render: renderDrivers},
+  destinations: {title:'Data Tujuan', sub:'Daftar tujuan langganan -- jarak, perkiraan BBM, dan link Maps', render: renderDestinations},
   usage:     {title:'Catat Perjalanan', sub:'Catat & pantau setiap perjalanan mobil', render: renderUsage},
   bookings:  {title:'Booking Mobil', sub:'Jadwal pemesanan mobil, deteksi bentrok otomatis', render: renderBookings},
   service:   {title:'Servis & Maintenance', sub:'Riwayat servis dan perawatan kendaraan', render: renderService},
@@ -3101,6 +3140,248 @@ function openDriverModal(editId){
 }
 
 /* ========================================================================
+   MODUL 3B: DATA TUJUAN (master tempat tujuan langganan)
+   Nama tujuan + jarak (KM), perkiraan BBM (Liter), dan Link Maps ke tujuan
+   itu. Daftar ini jadi SUMBER rekomendasi/autocomplete field Tujuan di Catat
+   Perjalanan & Booking Mobil (lihat attachAutocomplete di masing-masing
+   form) -- lihat juga findDestinationByName() & ensureDestinationFromTujuan()
+   di bawah untuk mekanisme "input manual otomatis masuk ke daftar ini".
+   ======================================================================== */
+function renderDestinations(){
+  document.getElementById('header-actions').innerHTML =
+    `<button class="btn btn-primary" id="btn-add-destination">+ Tambah Tujuan Baru</button>${exportBtnHtml('btn-export-destination')}`;
+  document.getElementById('btn-add-destination').onclick = () => openDestinationModal();
+  document.getElementById('btn-export-destination').onclick = () => {
+    exportToExcel('data-tujuan', 'Data Tujuan', state.destinations.map(d=>({
+      Nama: d.nama, 'Jarak (KM)': d.jarakKm!=null?d.jarakKm:'', 'Perkiraan BBM (L)': d.bbmLiter!=null?d.bbmLiter:'', 'Link Maps': d.mapsLink||'',
+    })));
+  };
+
+  const allItems = [...state.destinations].sort((a,b)=> a.nama.localeCompare(b.nama));
+  const html = `<div class="panel"><div class="panel-body">
+    <div class="search-row"><input type="text" id="destination-search" placeholder="Cari nama tujuan..."></div>
+    <div id="destination-table-wrap"></div>
+  </div></div>`;
+  document.getElementById('content').innerHTML = html;
+
+  function renderTable(items){
+    const wrap = document.getElementById('destination-table-wrap');
+    if(items.length===0){
+      wrap.innerHTML = emptyState('📍','Belum ada data tujuan yang cocok.');
+      return;
+    }
+    wrap.innerHTML = `
+      <div class="table-scroll desktop-data-table"><table>
+        <thead><tr><th>Nama Tujuan</th><th>Jarak (KM)</th><th>Perkiraan BBM (L)</th><th>Maps</th><th></th></tr></thead>
+        <tbody>
+          ${items.map(d=>`
+            <tr>
+              <td>${escapeHtml(d.nama)}</td>
+              <td>${d.jarakKm!=null?Number(d.jarakKm).toLocaleString('id-ID')+' KM':'-'}</td>
+              <td>${d.bbmLiter!=null?Number(d.bbmLiter).toLocaleString('id-ID')+' L':'-'}</td>
+              <td>${mapsNavButtonHtml(d.mapsLink) || '-'}</td>
+              <td style="text-align:right;white-space:nowrap;">
+                <button class="btn btn-ghost btn-sm" data-edit="${d.id}">Edit</button>
+                <button class="btn btn-danger btn-sm" data-del="${d.id}">Hapus</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>
+      <div class="data-card-list">
+        ${items.map(d=>`
+          <div class="data-card">
+            <div class="data-card-title"><span>${escapeHtml(d.nama)}</span></div>
+            <div class="data-card-row"><span class="k">Jarak</span><span class="v">${d.jarakKm!=null?Number(d.jarakKm).toLocaleString('id-ID')+' KM':'-'}</span></div>
+            <div class="data-card-row"><span class="k">Perkiraan BBM</span><span class="v">${d.bbmLiter!=null?Number(d.bbmLiter).toLocaleString('id-ID')+' L':'-'}</span></div>
+            <div class="data-card-row"><span class="k">Maps</span><span class="v">${mapsNavButtonHtml(d.mapsLink) || '-'}</span></div>
+            <div class="data-card-actions">
+              <button class="btn btn-ghost btn-sm" data-edit="${d.id}">✏️ Edit</button>
+              <button class="btn btn-danger btn-sm" data-del="${d.id}">🗑️ Hapus</button>
+            </div>
+          </div>`).join('')}
+      </div>
+    `;
+    wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openDestinationModal(b.dataset.edit));
+    wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteDestination(b.dataset.del));
+  }
+  renderTable(allItems);
+
+  document.getElementById('destination-search').addEventListener('input', (e)=>{
+    const q = e.target.value.trim().toLowerCase();
+    renderTable(allItems.filter(d => d.nama.toLowerCase().includes(q)));
+  });
+}
+
+function deleteDestination(id){
+  const dest = state.destinations.find(d=>d.id===id);
+  const usedElsewhere = dest && (
+    state.usage.some(u=>(u.tujuan||'').trim().toLowerCase()===(dest.nama||'').trim().toLowerCase()) ||
+    state.bookings.some(b=>(b.tujuan||'').trim().toLowerCase()===(dest.nama||'').trim().toLowerCase())
+  );
+  let warn = 'Hapus tujuan ini dari daftar?';
+  if(usedElsewhere){
+    warn += '\n\nPerhatian: nama tujuan ini pernah dipakai di Catat Perjalanan/Booking. Riwayat tersebut TIDAK akan berubah, tapi tujuan ini tidak akan muncul lagi di rekomendasi -- kecuali diketik manual lagi (yang otomatis akan menambahkannya kembali ke daftar ini).';
+  }
+  if(!confirm(warn)) return;
+  const nama = dest ? dest.nama : '';
+  state.destinations = state.destinations.filter(d=>d.id!==id);
+  logActivity('tujuan', 'Hapus data tujuan', nama);
+  saveData();
+  showToast('Data tujuan dihapus.');
+  renderDestinations();
+}
+
+function openDestinationModal(editId){
+  const editing = editId ? state.destinations.find(d=>d.id===editId) : null;
+  const body = `
+    <div class="field" id="f-nama-tujuan">
+      <label>Nama Tujuan *</label>
+      <input type="text" id="in-nama-tujuan" placeholder="Contoh: Gudang Surabaya" value="${editing?escapeHtml(editing.nama):''}">
+      <div class="err-msg">Nama tujuan wajib diisi.</div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Jarak (KM)</label>
+        <input type="text" inputmode="numeric" id="in-jarak-tujuan" placeholder="Opsional" value="${editing?fmtRibuanInitial(editing.jarakKm):''}">
+      </div>
+      <div class="field">
+        <label>Perkiraan BBM (Liter)</label>
+        <input type="text" inputmode="decimal" id="in-bbm-tujuan" placeholder="Opsional" value="${editing&&editing.bbmLiter!=null?editing.bbmLiter:''}">
+      </div>
+    </div>
+    <div class="field">
+      <label>Link Google Maps (opsional)</label>
+      <input type="text" data-no-uppercase="1" id="in-maps-tujuan" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
+      <div class="hint">Kalau diisi, otomatis dipakai sebagai Link Maps saat tujuan ini dipilih di Catat Perjalanan/Booking.</div>
+    </div>
+  `;
+  openModal({
+    title: editing ? 'Edit Data Tujuan' : 'Tambah Tujuan Baru',
+    body,
+    onSave: () => {
+      const nama = document.getElementById('in-nama-tujuan').value.trim();
+      const jarakRaw = getRibuanValue('in-jarak-tujuan');
+      const bbmRaw = document.getElementById('in-bbm-tujuan').value.trim().replace(',', '.');
+      const mapsLink = document.getElementById('in-maps-tujuan').value.trim();
+
+      let valid = true;
+      toggleFieldError('f-nama-tujuan', !nama); if(!nama) valid=false;
+      if(!valid) return false;
+
+      // Cegah duplikat nama (case-insensitive), kecuali kalau sedang edit
+      // data itu sendiri -- supaya daftar rekomendasi tidak dobel.
+      const dup = state.destinations.find(d=> d.id!==editId && (d.nama||'').trim().toLowerCase()===nama.toLowerCase());
+      if(dup){
+        showToast('Nama tujuan ini sudah ada di daftar.', true);
+        return false;
+      }
+
+      const jarakKm = jarakRaw === '' ? null : Number(jarakRaw);
+      const bbmLiter = bbmRaw === '' ? null : Number(bbmRaw);
+
+      if(editing){
+        Object.assign(editing, {nama, jarakKm, bbmLiter, mapsLink: mapsLink || null});
+        touch(editing);
+        logActivity('tujuan', 'Edit data tujuan', nama);
+        showToast('Data tujuan diperbarui.');
+      } else {
+        state.destinations.push(touch({id: uid(), nama, jarakKm, bbmLiter, mapsLink: mapsLink || null, createdAt: today(), petugas: currentAdmin}));
+        logActivity('tujuan', 'Tambah tujuan baru', nama);
+        showToast('Tujuan baru ditambahkan.');
+      }
+      saveData();
+      renderDestinations();
+      return true;
+    }
+  });
+  attachRibuanInput('in-jarak-tujuan');
+}
+
+// Cari data tujuan di Daftar Tujuan berdasarkan nama (case-insensitive, exact
+// match) -- dipakai findMapsLinkForTujuan() dan panel referensi Jarak/BBM di
+// form Catat Perjalanan/Booking.
+function findDestinationByName(name){
+  const needle = (name||'').trim().toLowerCase();
+  if(!needle) return null;
+  return state.destinations.find(d=> (d.nama||'').trim().toLowerCase()===needle) || null;
+}
+
+// Kalau tujuan yang diketik di Catat Perjalanan/Booking TIDAK ADA di Daftar
+// Tujuan (berarti tidak muncul rekomendasi -- diinput manual), otomatis
+// tambahkan sebagai tujuan baru di Daftar Tujuan supaya lain kali muncul
+// sebagai rekomendasi. Kalau sudah ada tapi belum punya Link Maps, lengkapi
+// otomatis dari Link Maps yang baru diisi (tidak menimpa yang sudah ada).
+function ensureDestinationFromTujuan(tujuan, mapsLink){
+  const nama = (tujuan||'').trim();
+  if(!nama) return;
+  const existing = findDestinationByName(nama);
+  if(existing){
+    // Sinkronkan Link Maps ke Data Tujuan kalau di halaman Catat
+    // Perjalanan/Booking diisi/ditempel link BARU (beda dari yang tersimpan)
+    // -- supaya "perbarui Link Maps" bisa dilakukan dari sini juga, tidak
+    // wajib buka menu Data Tujuan. Kalau field-nya dikosongkan di trip ini,
+    // Link Maps yang sudah ada di Data Tujuan TIDAK dihapus (mungkin admin
+    // cuma tidak sempat isi ulang, bukan berarti mau menghapus link lama).
+    if(mapsLink && mapsLink !== existing.mapsLink){
+      existing.mapsLink = mapsLink;
+      touch(existing);
+    }
+    return;
+  }
+  state.destinations.push(touch({
+    id: uid(), nama, jarakKm: null, bbmLiter: null, mapsLink: mapsLink || null,
+    createdAt: today(), petugas: currentAdmin
+  }));
+  logActivity('tujuan', 'Tambah tujuan baru (otomatis dari input manual)', nama);
+}
+
+// Migrasi 1x: kalau Daftar Tujuan masih kosong (aplikasi baru naik ke versi
+// ini) tapi sudah ada riwayat Catat Perjalanan/Booking, seed Daftar Tujuan
+// dari nama-nama tujuan yang PERNAH tercatat -- supaya rekomendasi tidak
+// kosong melompong padahal riwayatnya sudah banyak.
+function ensureDestinationsSeeded(){
+  let changed = false;
+  const seen = new Set(state.destinations.map(d=>(d.nama||'').trim().toLowerCase()));
+  function seedFrom(list){
+    list.forEach(item=>{
+      const nama = (item.tujuan||'').trim();
+      if(!nama) return;
+      const key = nama.toLowerCase();
+      if(seen.has(key)) return;
+      seen.add(key);
+      state.destinations.push(touch({id: uid(), nama, jarakKm: null, bbmLiter: null, mapsLink: item.mapsLink||null, createdAt: today(), petugas: currentAdmin}));
+      changed = true;
+    });
+  }
+  seedFrom(state.usage);
+  seedFrom(state.bookings);
+  if(changed) saveData();
+}
+
+// Tampilkan referensi Jarak/BBM dari Daftar Tujuan (kalau ada datanya) di
+// bawah field Tujuan -- murni informasi untuk bantu admin, TIDAK mengubah
+// field lain secara otomatis.
+function wireDestinationRefHint(tujuanInputId, hintElId){
+  const tujuanEl = document.getElementById(tujuanInputId);
+  const hintEl = document.getElementById(hintElId);
+  if(!tujuanEl || !hintEl) return;
+  function update(){
+    const dest = findDestinationByName(tujuanEl.value);
+    if(dest && (dest.jarakKm!=null || dest.bbmLiter!=null)){
+      const parts = [];
+      if(dest.jarakKm!=null) parts.push(`~${Number(dest.jarakKm).toLocaleString('id-ID')} KM`);
+      if(dest.bbmLiter!=null) parts.push(`~${Number(dest.bbmLiter).toLocaleString('id-ID')} L BBM`);
+      hintEl.innerHTML = `📍 Referensi tujuan ini (dari Data Tujuan): <b>${parts.join(' · ')}</b>`;
+      hintEl.style.display = 'block';
+    } else {
+      hintEl.style.display = 'none';
+    }
+  }
+  tujuanEl.addEventListener('input', update);
+  update();
+}
+
+/* ========================================================================
    MODUL 4: STATUS PENGGUNAAN (pemakaian mobil untuk pengiriman)
    ======================================================================== */
 function renderUsage(){
@@ -3483,6 +3764,13 @@ function markReturned(id){
     <div class="panel-head" style="padding:0;border:none;margin:14px 0 8px 0;">
       <h2 style="font-size:13px;">Pembelian BBM perjalanan ini (opsional)</h2>
     </div>
+    ${carForFuel && carForFuel.tipeIndikatorBbm==='bar' ? `
+    <div class="field" id="box-bensin-sebelum-isi" style="margin-bottom:12px;">
+      ${renderFuelFieldHTML('in-bensin-sebelum-isi', 'Level BBM Sebelum Diisi', u.bensinSebelumIsi, carForFuel)}
+      <div class="hint">Opsional — isi kalau BBM diisi saat ini. Dipakai untuk membandingkan Prediksi Liter vs Liter Aktual, dan otomatis mengoreksi tabel Liter-per-Bar mobil ini ke depannya (lihat menu BBM → Kalibrasi Liter per Bar).</div>
+    </div>
+    <div id="kalibrasi-insight"></div>
+    ` : ''}
     <div class="grid-2">
       <div class="field">
         <label>Jumlah BBM (Liter)</label>
@@ -3514,6 +3802,8 @@ function markReturned(id){
       u.tglKembali = today();
       u.jamKembali = jamKembali || null;
       u.bensinKembali = bensin === '' ? (u.bensinKembali ?? null) : Number(bensin);
+      const bensinSebelumIsiRaw = getPercentValue('in-bensin-sebelum-isi');
+      u.bensinSebelumIsi = bensinSebelumIsiRaw === '' ? (u.bensinSebelumIsi ?? null) : Number(bensinSebelumIsiRaw);
       u.saldoEtoll = etoll === '' ? u.saldoEtoll ?? null : Number(etoll);
       u.odoKembali = odoKembali === null ? (u.odoKembali ?? null) : odoKembali;
       u.literBensin = literBensinVal === '' ? (u.literBensin ?? null) : Number(literBensinVal);
@@ -3557,12 +3847,73 @@ function markReturned(id){
   attachRibuanInput('in-odo-kembali');
   attachRibuanInput('in-biaya-bensin');
   attachIntegerOnlyInput('in-liter-bensin');
+
+  // ---------------- Kalibrasi Liter per Bar: Prediksi Liter & Bandingkan ----------------
+  // Live-update tiap kali salah satu dari 3 input ini berubah: Level BBM
+  // Sebelum Diisi (Bar Saat Ini), Sisa Bensin/Level BBM Sesudah Diisi (target),
+  // dan Jumlah BBM aktual -- alur: Bar Saat Ini -> Prediksi Liter -> Bandingkan
+  // vs aktual -> (otomatis) Koreksi tabel kalibrasi -> Prediksi Baru di isi berikutnya.
+  function updateKalibrasiInsight(){
+    const box = document.getElementById('kalibrasi-insight');
+    if(!box || !carForFuel) return;
+    const maxBar = carForFuel.maxBarBbm || 8;
+    const sebelumPct = getPercentValue('in-bensin-sebelum-isi');
+    const sesudahPct = getPercentValue('in-bensin-kembali');
+    const literAktualRaw = document.getElementById('in-liter-bensin').value;
+
+    if(sebelumPct===''){ box.innerHTML = ''; return; }
+    const barDari = convertPercentToBar(Number(sebelumPct), maxBar);
+    const barKe = sesudahPct==='' ? null : convertPercentToBar(Number(sesudahPct), maxBar);
+
+    if(barKe==null){
+      box.innerHTML = `<div class="hint" style="margin:-4px 0 12px 0;">Isi juga "Sisa Bensin" di atas (level BBM sesudah diisi) untuk melihat Prediksi Liter.</div>`;
+      return;
+    }
+    if(barKe<=barDari){
+      box.innerHTML = `<div class="hint" style="margin:-4px 0 12px 0;">Level sesudah diisi harus lebih tinggi dari sebelum diisi.</div>`;
+      return;
+    }
+
+    const pred = predictLiterForBarFill(carForFuel.id, barDari, barKe);
+    if(!pred){ box.innerHTML = ''; return; }
+
+    const confLabel = { asumsi:'Asumsi rata (belum ada data kalibrasi)', sedang:'Belum stabil, masih menyesuaikan', tinggi:'Sudah stabil (kalibrasi otomatis aktif)' }[pred.confidence];
+    const confBadge = { asumsi:'warn', sedang:'warn', tinggi:'ok' }[pred.confidence];
+
+    const literAktual = literAktualRaw==='' ? null : Number(literAktualRaw);
+    let bandingkanHtml = '';
+    if(literAktual!=null && literAktual>0){
+      const selisih = literAktual - pred.totalLiter;
+      const selisihPct = pred.totalLiter>0 ? (selisih/pred.totalLiter*100) : 0;
+      bandingkanHtml = `
+        <div class="data-card-row"><span class="k">Liter Aktual</span><span class="v">${literAktual.toLocaleString('id-ID')} L</span></div>
+        <div class="data-card-row"><span class="k">Selisih</span><span class="v">${selisih>=0?'+':''}${selisih.toFixed(1)} L (${selisihPct>=0?'+':''}${selisihPct.toFixed(0)}%)</span></div>
+        <div class="hint" style="margin-top:6px;">Selisih ini otomatis dipakai mengoreksi tabel Liter-per-Bar mobil ini begitu data disimpan — tidak perlu tindakan tambahan.</div>
+      `;
+    }
+
+    box.innerHTML = `
+      <div class="data-card" style="margin-bottom:12px;">
+        <div class="data-card-title"><span>Kalibrasi Liter per Bar — ${barDari}→${barKe} Bar</span><span class="badge ${confBadge}">${confLabel}</span></div>
+        <div class="data-card-row"><span class="k">Prediksi Liter</span><span class="v">${pred.totalLiter.toFixed(1)} L</span></div>
+        ${bandingkanHtml}
+      </div>
+    `;
+  }
+
   const barWidgetKembali = document.querySelector('#box-bensin-kembali .bar-picker-widget');
   if(barWidgetKembali){
-    wireBarPickerWidget('#box-bensin-kembali .bar-picker-widget', 'in-bensin-kembali');
+    wireBarPickerWidget('#box-bensin-kembali .bar-picker-widget', 'in-bensin-kembali', updateKalibrasiInsight);
   } else if(document.getElementById('in-bensin-kembali').type !== 'hidden'){
     attachPercentInput('in-bensin-kembali');
   }
+  const barWidgetSebelumIsi = document.querySelector('#box-bensin-sebelum-isi .bar-picker-widget');
+  if(barWidgetSebelumIsi){
+    wireBarPickerWidget('#box-bensin-sebelum-isi .bar-picker-widget', 'in-bensin-sebelum-isi', updateKalibrasiInsight);
+  }
+  const literBensinEl = document.getElementById('in-liter-bensin');
+  if(literBensinEl) literBensinEl.addEventListener('input', updateKalibrasiInsight);
+  updateKalibrasiInsight();
 }
 
 /* ---------------- Biaya Operasional per Perjalanan (multi-item, mirip Servis) ---------------- */
@@ -4093,11 +4444,13 @@ function openUsageModal(editId){
       <label>Tujuan / Keperluan *</label>
       <input type="text" id="in-tujuan" placeholder="Contoh: Gudang Surabaya - Toko A" autocomplete="off" value="${editing?escapeHtml(editing.tujuan||''):''}">
       <div class="err-msg">Tujuan wajib diisi.</div>
+      <div class="hint" id="tujuan-ref-hint" style="display:none;"></div>
     </div>
     <div class="field">
       <label>Link Google Maps Tujuan (opsional)</label>
       <input type="text" id="in-maps-link" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
-      <div class="hint">Kalau diisi, muncul tombol "📍 Navigasi" di tabel dan bubble perjalanan aktif — sopir tinggal klik untuk buka arah di HP-nya.</div>
+      <div id="maps-link-preview" style="margin-top:6px;"></div>
+      <div class="hint">Terisi otomatis kalau tujuan ini sudah pernah dicatat. Klik "📍 Navigasi" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- otomatis ikut memperbarui Data Tujuan supaya perjalanan berikutnya ke tujuan ini pakai link terbaru juga. Bisa juga diperbarui langsung lewat menu Data Tujuan.</div>
     </div>
     <div class="grid-2">
       <div class="field">
@@ -4168,6 +4521,7 @@ function openUsageModal(editId){
           saldoEtollAwal: etollVal === '' ? null : Number(etollVal),
         });
         touch(editing);
+        ensureDestinationFromTujuan(tujuan, mapsLink);
         saveData();
         logActivity('penggunaan', 'Edit catatan penggunaan', `${carLabel(carId)} — ${tujuan}`);
         showToast('Perubahan disimpan.');
@@ -4191,6 +4545,7 @@ function openUsageModal(editId){
           saldoEtoll: etollVal === '' ? null : Number(etollVal),
           petugas: currentAdmin
         }));
+        ensureDestinationFromTujuan(tujuan, mapsLink);
         saveData();
         logActivity('penggunaan', 'Catat penggunaan mobil', `${carLabel(carId)} — ${tujuan}`);
         showToast('Penggunaan mobil dicatat.');
@@ -4201,8 +4556,9 @@ function openUsageModal(editId){
     }
   });
   attachRibuanInput('in-etoll');
-  attachAutocomplete('in-tujuan', () => state.usage.map(u=>u.tujuan));
-  wireMapsAutofill('in-tujuan', 'in-maps-link', editing ? editing.id : null);
+  attachAutocomplete('in-tujuan', () => state.destinations.map(d=>d.nama));
+  wireMapsAutofill('in-tujuan', 'in-maps-link', editing ? editing.id : null, 'maps-link-preview');
+  wireDestinationRefHint('in-tujuan', 'tujuan-ref-hint');
   attachRibuanInput('in-odo-keluar');
 
   // Field bensin menyesuaikan otomatis (Persen <-> Bar) setiap kali pilihan
@@ -4440,11 +4796,13 @@ function openBookingModal(editId){
       <label>Tujuan / Keperluan *</label>
       <input type="text" id="in-tujuan" placeholder="Contoh: Antar barang ke Gudang B" value="${editing?escapeHtml(editing.tujuan):''}" autocomplete="off">
       <div class="err-msg">Tujuan wajib diisi.</div>
+      <div class="hint" id="tujuan-ref-hint" style="display:none;"></div>
     </div>
     <div class="field">
       <label>Link Google Maps Tujuan (opsional)</label>
       <input type="text" id="in-maps-link" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
-      <div class="hint">Kalau diisi, muncul tombol "📍 Navigasi" di daftar booking — sopir tinggal klik untuk buka arah di HP-nya.</div>
+      <div id="maps-link-preview" style="margin-top:6px;"></div>
+      <div class="hint">Terisi otomatis kalau tujuan ini sudah pernah dicatat. Klik "📍 Navigasi" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- otomatis ikut memperbarui Data Tujuan. Bisa juga diperbarui langsung lewat menu Data Tujuan.</div>
     </div>
     <div class="panel-head" style="padding:0;border:none;margin:14px 0 8px 0;"><h2 style="font-size:13px;">Jadwal Mulai</h2></div>
     <div class="grid-2">
@@ -4498,6 +4856,7 @@ function openBookingModal(editId){
       if(editing){
         Object.assign(editing, {carId, driverId, tujuan, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai, catatan: document.getElementById('in-catatan').value.trim()});
         touch(editing);
+        ensureDestinationFromTujuan(tujuan, mapsLink);
         logActivity('booking', 'Edit booking', `${carLabel(carId)} — ${tujuan}`);
         showToast('Booking diperbarui.');
       } else {
@@ -4506,6 +4865,7 @@ function openBookingModal(editId){
           status:'dipesan', catatan: document.getElementById('in-catatan').value.trim(),
           petugas: currentAdmin
         }));
+        ensureDestinationFromTujuan(tujuan, mapsLink);
         logActivity('booking', 'Buat booking baru', `${carLabel(carId)} — ${tujuan}`);
         showToast('Booking berhasil dibuat.');
       }
@@ -4515,8 +4875,9 @@ function openBookingModal(editId){
     }
   });
 
-  attachAutocomplete('in-tujuan', () => [...state.usage.map(u=>u.tujuan), ...state.bookings.map(b=>b.tujuan)]);
-  wireMapsAutofill('in-tujuan', 'in-maps-link', editing ? editing.id : null);
+  attachAutocomplete('in-tujuan', () => state.destinations.map(d=>d.nama));
+  wireMapsAutofill('in-tujuan', 'in-maps-link', editing ? editing.id : null, 'maps-link-preview');
+  wireDestinationRefHint('in-tujuan', 'tujuan-ref-hint');
 
   // Wiring quick-add sopir baru, sama seperti di form Catat Perjalanan.
   document.getElementById('in-driver').addEventListener('change', function(){
@@ -5100,6 +5461,107 @@ function estimateLiterUsed(u, car){
   return literTerbakarRiil;
 }
 
+/* ---------------- Kalibrasi Liter per Bar (v3.31.0) ----------------
+   Sebelum ini, konversi Bar -> Liter untuk mobil bertipe indikator "Bar"
+   selalu pakai 1 ANGKA TETAP: Kapasitas Tangki / Jumlah Bar Maksimal (SAMA
+   RATA di semua bar). Padahal indikator BBM analog/digital di kebanyakan
+   mobil TIDAK linear -- bentuk tangki bikin bar atas sering "bertahan lebih
+   lama" daripada bar bawah. Modul ini membangun tabel Liter-per-Segmen-Bar
+   yang dikoreksi TERUS dari riwayat pengisian NYATA mobil itu sendiri,
+   dengan fallback halus ke asumsi rata kalau data di segmen itu belum
+   cukup -- supaya tidak ada angka yang "lompat" cuma karena 1 sampel aneh.
+
+   SUMBER DATA: field usage.bensinSebelumIsi (level Bar SAAT SEBELUM diisi,
+   opsional, diisi manual di "Tandai Kembali" saat Liter BBM diisi)
+   dipasangkan dengan bensinKembali (level SESUDAH diisi, field yang sudah
+   ada) & literBensin (liter yang benar-benar dibeli, sudah ada). Catatan
+   tanpa bensinSebelumIsi (data lama / tidak diisi) TIDAK ikut kalibrasi --
+   tetap tersimpan seperti biasa, cuma tidak jadi sumber pembelajaran.
+
+   TIDAK ADA tabel tersimpan terpisah -- tabel SELALU dihitung ulang dari
+   riwayat (konsisten dgn buildFuelChain/getCarFuelStats), jadi kalau
+   sebuah catatan lama diedit/dihapus, kalibrasi otomatis ikut menyesuaikan
+   tanpa proses migrasi apa pun. */
+
+// Asumsi rata (titik jangkar awal sebelum ada data nyata) -- liter per 1
+// Bar, dari Kapasitas Tangki / Jumlah Bar Maksimal. SAMA seperti rumus lama.
+function flatLiterPerBar(car){
+  if(!car || car.tipeIndikatorBbm!=='bar' || !car.maxBarBbm || !car.kapasitasTangkiLiter) return null;
+  return Number(car.kapasitasTangkiLiter) / Number(car.maxBarBbm);
+}
+
+// Kumpulkan semua sampel pengisian nyata mobil ini, dipecah rata ke tiap
+// segmen Bar yang dilalui (mis. isi dari 2->6 Bar = 12L, sementara dianggap
+// rata 3L/segmen -- makin banyak sampel LAIN yang kebetulan cuma melewati
+// 1 segmen spesifik, makin akurat rata-rata segmen itu sendiri).
+function getBarCalibrationSamples(carId){
+  const car = state.cars.find(c=>c.id===carId);
+  const table = {}; // key: index segmen (Bar i -> i+1) -> {totalLiter, count}
+  if(!car || car.tipeIndikatorBbm!=='bar' || !car.maxBarBbm) return table;
+  const maxBar = Number(car.maxBarBbm);
+
+  state.usage.filter(u=>u.carId===carId).forEach(u=>{
+    if(u.bensinSebelumIsi==null) return;
+    const literBeli = u.literBensin ? Number(u.literBensin) : 0;
+    if(literBeli<=0) return;
+    const kembaliPercent = getBensinKembali(u);
+    if(kembaliPercent==null) return;
+    const barSebelum = convertPercentToBar(Number(u.bensinSebelumIsi), maxBar);
+    const barSesudah = convertPercentToBar(kembaliPercent, maxBar);
+    // Harus naik -- kalau tidak, kemungkinan salah input, jangan dipakai
+    // supaya tidak meracuni kalibrasi dengan data yang tidak masuk akal.
+    if(barSebelum==null || barSesudah==null || barSesudah<=barSebelum) return;
+
+    const span = barSesudah - barSebelum;
+    const literPerSegmen = literBeli / span;
+    for(let i=barSebelum; i<barSesudah; i++){
+      if(!table[i]) table[i] = {totalLiter:0, count:0};
+      table[i].totalLiter += literPerSegmen;
+      table[i].count += 1;
+    }
+  });
+  return table;
+}
+
+// Bobot "prior" (asumsi rata) dinyatakan setara N sampel semu -- makin
+// banyak sampel NYATA masuk di 1 segmen, makin kecil pengaruh asumsi rata
+// terhadap segmen itu (bergeser halus, bukan lompat begitu ada 1 sampel).
+// N=3 dipilih supaya ~3 sampel per segmen sudah cukup dominan (lihat juga
+// MIN_RESOLUSI_MULTIPLIER di buildFuelChain untuk filosofi serupa).
+const KALIBRASI_PRIOR_WEIGHT = 3;
+
+// Estimasi Liter untuk 1 segmen Bar (barIndex -> barIndex+1) mobil ini,
+// dikoreksi dari data nyata (kalau ada) dicampur dengan asumsi rata.
+function getBarSegmentEstimate(carId, barIndex){
+  const car = state.cars.find(c=>c.id===carId);
+  const flat = flatLiterPerBar(car);
+  if(flat==null) return null;
+  const s = getBarCalibrationSamples(carId)[barIndex];
+  if(!s || s.count===0) return { literPerBar: flat, count: 0, confidence: 'asumsi' };
+  const literPerBar = (flat*KALIBRASI_PRIOR_WEIGHT + s.totalLiter) / (KALIBRASI_PRIOR_WEIGHT + s.count);
+  const confidence = s.count >= KALIBRASI_PRIOR_WEIGHT ? 'tinggi' : 'sedang';
+  return { literPerBar, count: s.count, confidence };
+}
+
+// Prediksi total Liter untuk mengisi dari barDari ke barKe (barKe>barDari),
+// dijumlah PER-SEGMEN dari tabel kalibrasi -- bukan dikali rata sekali
+// jalan -- supaya tiap segmen yang sudah punya data sendiri dipakai sendiri.
+function predictLiterForBarFill(carId, barDari, barKe){
+  const car = state.cars.find(c=>c.id===carId);
+  if(!car || car.tipeIndikatorBbm!=='bar') return null;
+  if(barDari==null || barKe==null || barKe<=barDari) return null;
+  let total = 0, minCount = Infinity;
+  for(let i=barDari; i<barKe; i++){
+    const est = getBarSegmentEstimate(carId, i);
+    if(!est) return null;
+    total += est.literPerBar;
+    minCount = Math.min(minCount, est.count);
+  }
+  if(minCount===Infinity) minCount = 0;
+  const confidence = minCount===0 ? 'asumsi' : (minCount>=KALIBRASI_PRIOR_WEIGHT ? 'tinggi' : 'sedang');
+  return { totalLiter: total, confidence, minCount };
+}
+
 /* ---------------- Rantai Akumulasi Jarak Tertunda (v3.22.0) ----------------
    DASAR FISIKA: BBM yang terbakar TIDAK PERNAH nol selama mobil menempuh
    jarak -- kalau indikator Bar belum bergerak, itu murni keterbatasan
@@ -5606,6 +6068,20 @@ function renderBBM(){
       </div>
     </div>
 
+    <div class="panel" id="panel-kalibrasi-bar">
+      <div class="panel-head"><h2>Kalibrasi Liter per Bar (Otomatis)</h2></div>
+      <div class="panel-body">
+        <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
+          Khusus mobil bertipe indikator "Bar". Asumsi lama menganggap 1 Bar = Kapasitas Tangki ÷ Jumlah Bar (sama rata semua bar). Tabel di bawah dikoreksi otomatis dari riwayat pengisian NYATA (field "Level BBM Sebelum Diisi" saat Tandai Kembali) — makin banyak data per segmen, makin akurat & makin lepas dari asumsi rata.
+        </p>
+        <div class="field">
+          <label>Mobil</label>
+          <select id="kalibrasi-car"><option value="">— pilih mobil —</option>${state.cars.filter(c=>c.tipeIndikatorBbm==='bar').map(c=>`<option value="${c.id}">${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}</option>`).join('')}</select>
+        </div>
+        <div id="kalibrasi-table-result"></div>
+      </div>
+    </div>
+
     <div class="panel"><div class="panel-body">
       <div class="search-row"><input type="text" id="bbm-search" placeholder="Cari mobil atau sopir..."></div>
       <div id="bbm-table-wrap"></div>
@@ -5694,6 +6170,43 @@ function renderBBM(){
     if(el) el.addEventListener('input', updateFuelCalc);
   });
   attachRibuanInput('fuelcalc-jarak');
+
+  // ---------------- Kalibrasi Liter per Bar: tabel transparansi (v3.31.0) ----------------
+  function updateKalibrasiTable(){
+    const resultBox = document.getElementById('kalibrasi-table-result');
+    if(!resultBox) return;
+    const carId = document.getElementById('kalibrasi-car').value;
+    if(!carId){ resultBox.innerHTML = ''; return; }
+    const car = state.cars.find(c=>c.id===carId);
+    if(!car || !car.maxBarBbm || !car.kapasitasTangkiLiter){
+      resultBox.innerHTML = `<div class="hint" style="margin-top:10px;">Atur dulu Kapasitas Tangki & Jumlah Bar Maksimal mobil ini di Data Mobil.</div>`;
+      return;
+    }
+    const maxBar = Number(car.maxBarBbm);
+    const flat = flatLiterPerBar(car);
+    const rows = [];
+    for(let i=0;i<maxBar;i++){
+      const est = getBarSegmentEstimate(carId, i);
+      rows.push({ segmen: `${i}→${i+1} Bar`, ...est });
+    }
+    const totalSampel = rows.reduce((s,r)=>s+r.count,0);
+    resultBox.innerHTML = `
+      <p style="font-size:12px;color:var(--muted);margin:10px 0;">Asumsi rata dasar: <b>${flat.toFixed(2)} L/Bar</b>. Total sampel pengisian terkalibrasi sejauh ini: <b>${totalSampel}</b>.</p>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Segmen</th><th>Estimasi Liter</th><th>Jumlah Sampel</th><th>Status</th></tr></thead>
+        <tbody>
+          ${rows.map(r=>{
+            const badge = { asumsi:'warn', sedang:'warn', tinggi:'ok' }[r.confidence];
+            const label = { asumsi:'Asumsi rata', sedang:'Menyesuaikan', tinggi:'Terkalibrasi' }[r.confidence];
+            return `<tr><td>${r.segmen}</td><td>${r.literPerBar.toFixed(2)} L</td><td>${r.count}</td><td><span class="badge ${badge}">${label}</span></td></tr>`;
+          }).join('')}
+        </tbody>
+      </table></div>
+      <div class="hint" style="margin-top:8px;">Segmen "Terkalibrasi" sudah punya ${KALIBRASI_PRIOR_WEIGHT}+ sampel nyata dan sudah didominasi data lapangan, bukan asumsi lagi. Isi "Level BBM Sebelum Diisi" tiap kali isi BBM (menu Catat Perjalanan → Tandai Kembali) untuk menambah sampel di segmen yang masih "Asumsi rata"/"Menyesuaikan".</div>
+    `;
+  }
+  const kalibrasiCarEl = document.getElementById('kalibrasi-car');
+  if(kalibrasiCarEl) kalibrasiCarEl.addEventListener('input', updateKalibrasiTable);
 
   function renderTable(items){
     const wrap = document.getElementById('bbm-table-wrap');
@@ -6021,6 +6534,33 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.32.1',
+    date: '24 Jul 2026',
+    notes: [
+      'Perbaikan: memilih tujuan dari daftar saran (autocomplete) di Catat Perjalanan/Booking sekarang benar-benar mengisi Link Maps otomatis -- sebelumnya autofill cuma jalan kalau tujuan DIKETIK sampai persis sama, tidak jalan kalau dipilih lewat klik/Enter dari saran.',
+      'Field Link Maps di Catat Perjalanan & Booking sekarang menampilkan tombol "📍 Navigasi" langsung di form (begitu tujuan dipilih/link terisi) -- bisa langsung diklik untuk buka & cek lokasinya di Google Maps tanpa perlu simpan dulu.',
+      'Memperbarui Link Maps sekarang bisa dari 2 tempat: langsung di halaman Catat Perjalanan/Booking (tempel link baru di field Link Maps, otomatis ikut memperbarui Data Tujuan), atau lewat menu Data Tujuan.',
+    ]
+  },
+  {
+    v: '3.32.0',
+    date: '24 Jul 2026',
+    notes: [
+      'Menu baru: "Data Tujuan" -- daftar tujuan langganan berisi Nama, Jarak (KM), Perkiraan BBM (Liter), dan Link Maps ke tujuan itu, lengkap dengan tombol "+ Tambah Tujuan Baru".',
+      'Rekomendasi (autocomplete) field Tujuan di Catat Perjalanan & Booking Mobil sekarang bersumber dari Data Tujuan. Kalau tujuan yang diketik TIDAK muncul rekomendasinya (belum ada di daftar) dan diinput manual, begitu disimpan otomatis ditambahkan ke Data Tujuan -- jadi lain kali muncul sebagai rekomendasi, tanpa perlu buka menu Data Tujuan secara terpisah.',
+      'Kalau tujuan yang diketik cocok dengan salah satu Data Tujuan yang sudah punya catatan Jarak/BBM, muncul info referensi singkat di bawah field Tujuan (mis. "~120 KM · ~15 L BBM") supaya admin punya gambaran sebelum mengisi Odometer/BBM secara manual -- ini murni informasi, tidak mengisi field lain secara otomatis.',
+      'Data lama (tujuan yang sudah pernah tercatat di Catat Perjalanan/Booking sebelum fitur ini ada) otomatis di-seed 1x ke Data Tujuan saat aplikasi pertama kali dibuka di versi ini, supaya rekomendasi tidak kosong.',
+    ]
+  },
+  {
+    v: '3.31.0',
+    date: '24 Jul 2026',
+    notes: [
+      'Fitur baru: Kalibrasi Liter per Bar otomatis untuk mobil bertipe indikator "Bar". Sebelumnya 1 Bar selalu dianggap sama rata (Kapasitas Tangki ÷ Jumlah Bar). Sekarang ada field opsional "Level BBM Sebelum Diisi" di Tandai Kembali (Catat Perjalanan) -- begitu diisi bersama Liter BBM & Sisa Bensin, sistem menampilkan Prediksi Liter live, membandingkannya dengan Liter Aktual, lalu otomatis mengoreksi tabel Liter-per-Segmen-Bar mobil itu dari data nyata (bukan tebakan), dengan fallback ke asumsi rata kalau sampel di segmen tsb belum cukup.',
+      'Menu BBM: panel baru "Kalibrasi Liter per Bar (Otomatis)" -- transparansi tabel Liter-per-Segmen-Bar tiap mobil (per segmen: estimasi Liter, jumlah sampel, status Asumsi rata/Menyesuaikan/Terkalibrasi).',
+    ]
+  },
   {
     v: '3.30.1',
     date: '23 Jul 2026',
@@ -6699,6 +7239,7 @@ try{
   if(savedRoute && ROUTES[savedRoute]) startRoute = savedRoute;
 }catch(e){}
 ensureCodesAssigned();
+ensureDestinationsSeeded();
 navigate(startRoute);
 
 /* ---------------- Tombol "Kembali" HP/browser ----------------
