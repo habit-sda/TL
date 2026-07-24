@@ -820,7 +820,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.32.9';
+const APP_VERSION = '3.33.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1942,11 +1942,13 @@ function findMapsLinkForTujuan(tujuanText, excludeId){
 // riwayat Catat Servis (case-insensitive, exact match), yang paling baru
 // dicatat. Tidak ada master data terpisah (beda dari Data Tujuan) -- sesuai
 // permintaan, cukup autofill dari riwayat, tanpa menu kelola tersendiri.
-function findMapsLinkForBengkel(bengkelText){
+// excludeId: supaya saat EDIT, catatan itu sendiri tidak ikut jadi sumber.
+function findMapsLinkForBengkel(bengkelText, excludeId){
   const needle = (bengkelText||'').trim().toLowerCase();
   if(!needle) return null;
   const candidates = [];
   state.services.forEach(s=>{
+    if(s.id===excludeId) return;
     if(s.mapsLink && (s.bengkel||'').trim().toLowerCase()===needle){
       candidates.push({ mapsLink: s.mapsLink, sortKey: (s.tanggal||'') + '_' + (s.updatedAt||0) });
     }
@@ -1995,8 +1997,8 @@ function wireMapsAutofill(tujuanInputId, mapsLinkInputId, excludeId, previewId){
 
 // Sama seperti wireMapsAutofill, tapi untuk field Bengkel di Catat Servis --
 // lihat findMapsLinkForBengkel().
-function wireBengkelMapsAutofill(bengkelInputId, mapsLinkInputId, previewId){
-  wireMapsAutofillGeneric(bengkelInputId, mapsLinkInputId, previewId, findMapsLinkForBengkel);
+function wireBengkelMapsAutofill(bengkelInputId, mapsLinkInputId, excludeId, previewId){
+  wireMapsAutofillGeneric(bengkelInputId, mapsLinkInputId, previewId, (val)=> findMapsLinkForBengkel(val, excludeId));
 }
 
 // Tampilan kode Mobil/Perjalanan + tombol salin -- dipakai di Data Mobil &
@@ -5267,7 +5269,10 @@ function renderService(){
               <td>${mapsNavButtonHtml(r.service.mapsLink) || '-'}</td>
               <td>${fmtMoney(r.item.biaya)}</td>
               <td>${escapeHtml(r.item.catatan||'-')}</td>
-              <td style="text-align:right;"><button class="btn btn-danger btn-sm" data-del="${r.service.id}">Hapus</button></td>
+              <td style="text-align:right;white-space:nowrap;">
+                <button class="btn btn-ghost btn-sm" data-edit="${r.service.id}">Edit</button>
+                <button class="btn btn-danger btn-sm" data-del="${r.service.id}">Hapus</button>
+              </td>
             </tr>`).join('')}
         </tbody>
       </table></div>
@@ -5281,10 +5286,14 @@ function renderService(){
             <div class="data-card-row"><span class="k">Maps</span><span class="v">${mapsNavButtonHtml(r.service.mapsLink) || '-'}</span></div>
             <div class="data-card-row"><span class="k">Biaya</span><span class="v">${fmtMoney(r.item.biaya)}</span></div>
             ${r.item.catatan ? `<div class="data-card-row"><span class="k">Catatan</span><span class="v">${escapeHtml(r.item.catatan)}</span></div>` : ''}
-            <div class="data-card-actions"><button class="btn btn-danger btn-sm" data-del="${r.service.id}">🗑️ Hapus</button></div>
+            <div class="data-card-actions">
+              <button class="btn btn-ghost btn-sm" data-edit="${r.service.id}">✏️ Edit</button>
+              <button class="btn btn-danger btn-sm" data-del="${r.service.id}">🗑️ Hapus</button>
+            </div>
           </div>`).join('')}
       </div>
     `;
+    wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openServiceModal(b.dataset.edit));
     wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=>{
       const s = state.services.find(x=>x.id===b.dataset.del);
       const itemCount = s ? serviceItems(s).length : 1;
@@ -5317,17 +5326,20 @@ function renderService(){
   document.getElementById('service-filter-kategori').addEventListener('change', applyFilter);
 }
 
-function openServiceModal(){
+function openServiceModal(editId){
   if(state.cars.length===0){
     showToast('Tambahkan data mobil terlebih dahulu sebelum mencatat servis.', true);
     return;
   }
-  const carOptions = state.cars.map(c=>`<option value="${c.id}">${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}</option>`).join('');
+  const editing = editId ? state.services.find(s=>s.id===editId) : null;
+  const carOptions = state.cars.map(c=>`<option value="${c.id}" ${editing&&editing.carId===c.id?'selected':''}>${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}</option>`).join('');
 
   // State sementara daftar item servis selama modal terbuka — baru dikunci ke
   // data permanen saat "Simpan" ditekan. Ini yang mengizinkan 1 tanggal/kunjungan
   // punya banyak item (ganti oli + rem + AC dst) dalam satu kali input.
-  let formItems = [{ id: uid(), kategori:'', kategoriCustom:'', biaya:'', catatan:'' }];
+  let formItems = editing
+    ? serviceItems(editing).map(it=>({ id: it.id||uid(), kategori: it.kategori, kategoriCustom:'', biaya: it.biaya, catatan: it.catatan||'' }))
+    : [{ id: uid(), kategori:'', kategoriCustom:'', biaya:'', catatan:'' }];
 
   const body = `
     <div class="field" id="f-car">
@@ -5338,22 +5350,22 @@ function openServiceModal(){
     <div class="grid-2">
       <div class="field">
         <label>Tanggal Servis</label>
-        <input type="date" id="in-tanggal" value="${today()}">
+        <input type="date" id="in-tanggal" value="${editing?editing.tanggal:today()}">
       </div>
       <div class="field">
         <label>Odometer Saat Servis (KM)</label>
-        <input type="text" inputmode="numeric" id="in-odo-servis" placeholder="Contoh: 45.000">
+        <input type="text" inputmode="numeric" id="in-odo-servis" placeholder="Contoh: 45.000" value="${editing&&editing.odometer!=null?fmtRibuanInitial(editing.odometer):''}">
       </div>
     </div>
     <div class="field">
       <label>Bengkel</label>
-      <input type="text" id="in-bengkel" placeholder="Nama bengkel" autocomplete="off">
+      <input type="text" id="in-bengkel" placeholder="Nama bengkel" autocomplete="off" value="${editing?escapeHtml(editing.bengkel||''):''}">
     </div>
     <div class="field">
       <label>Link Google Maps Bengkel (opsional)</label>
-      <input type="text" id="in-maps-bengkel" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off">
+      <input type="text" id="in-maps-bengkel" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
       <div id="maps-bengkel-preview" style="margin-top:6px;"></div>
-      <div class="hint">Terisi otomatis kalau bengkel ini sudah pernah dicatat sebelumnya. Klik "📍 Navigasi" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini.</div>
+      <div class="hint">Terisi otomatis kalau bengkel ini sudah pernah dicatat sebelumnya. Klik "📍 Navigasi" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- kamu akan ditanya apakah mau ikut menerapkannya ke SEMUA riwayat servis bengkel yang sama.</div>
     </div>
     <div class="panel-head" style="padding:0;border:none;margin:16px 0 8px 0;display:flex;justify-content:space-between;align-items:center;">
       <h2 style="font-size:13px;">Item Servis / Perbaikan *</h2>
@@ -5454,7 +5466,7 @@ function openServiceModal(){
   }
 
   openModal({
-    title: 'Catat Servis / Maintenance',
+    title: editing ? 'Edit Servis / Maintenance' : 'Catat Servis / Maintenance',
     body,
     onSave: () => {
       const carId = document.getElementById('in-car').value;
@@ -5479,10 +5491,21 @@ function openServiceModal(){
 
       const odometer = odoServisVal === '' ? null : Number(odoServisVal);
       const mapsLink = document.getElementById('in-maps-bengkel').value.trim();
-      state.services.push(touch({
-        id: uid(), carId, tanggal, bengkel, odometer, items: validItems, mapsLink: mapsLink || null,
-        petugas: currentAdmin
-      }));
+      const mapsLinkBefore = editing ? (editing.mapsLink||'') : '';
+
+      if(editing){
+        Object.assign(editing, { carId, tanggal, bengkel, odometer, items: validItems, mapsLink: mapsLink || null });
+        touch(editing);
+        logActivity('servis', 'Edit catatan servis', `${carLabel(carId)} — ${validItems.map(i=>i.kategori).join(', ')}`);
+        showToast('Catatan servis diperbarui.');
+      } else {
+        state.services.push(touch({
+          id: uid(), carId, tanggal, bengkel, odometer, items: validItems, mapsLink: mapsLink || null,
+          petugas: currentAdmin
+        }));
+        logActivity('servis', 'Catat servis/maintenance', `${carLabel(carId)} — ${validItems.map(i=>i.kategori).join(', ')}`);
+        showToast('Catatan servis ditambahkan.');
+      }
 
       // Sinkronkan ke Odometer Saat Ini di Data Mobil kalau angkanya lebih baru/besar.
       if(odometer != null){
@@ -5490,9 +5513,30 @@ function openServiceModal(){
         if(car){ car.odometerSaatIni = Math.max(car.odometerSaatIni||0, odometer); touch(car); }
       }
 
+      // Update massal (opsional): kalau Link Maps bengkel ini baru diisi/diubah
+      // (beda dari sebelumnya), tawarkan untuk MENERAPKANNYA ke SEMUA riwayat
+      // servis lain dengan nama bengkel yang sama persis (case-insensitive) --
+      // supaya tidak perlu edit satu-satu manual kalau memang link lamanya
+      // salah/berubah. Kalau ditolak, cuma baris yang sedang diedit/ditambah
+      // ini saja yang kepakai (perilaku lama, tidak retroaktif).
+      const bengkelKey = bengkel.trim().toLowerCase();
+      if(mapsLink && mapsLink !== mapsLinkBefore && bengkelKey){
+        const others = state.services.filter(s=>
+          s.id !== (editing?editing.id:null) &&
+          (s.bengkel||'').trim().toLowerCase() === bengkelKey &&
+          (s.mapsLink||'') !== mapsLink
+        );
+        if(others.length > 0){
+          const confirmMsg = `Terapkan Link Maps ini ke ${others.length} riwayat servis lain dengan bengkel "${bengkel}" juga?\n\n(Kalau tidak, hanya catatan ini yang pakai link baru.)`;
+          if(confirm(confirmMsg)){
+            others.forEach(s=>{ s.mapsLink = mapsLink; touch(s); });
+            logActivity('servis', 'Update massal Link Maps bengkel', `${bengkel} — ${others.length} riwayat`);
+            showToast(`Link Maps diterapkan ke ${others.length} riwayat servis "${bengkel}" lainnya.`);
+          }
+        }
+      }
+
       saveData();
-      logActivity('servis', 'Catat servis/maintenance', `${carLabel(carId)} — ${validItems.map(i=>i.kategori).join(', ')}`);
-      showToast('Catatan servis ditambahkan.');
       renderService();
       return true;
     }
@@ -5500,7 +5544,7 @@ function openServiceModal(){
 
   attachRibuanInput('in-odo-servis');
   attachAutocomplete('in-bengkel', () => state.services.map(s=>s.bengkel));
-  wireBengkelMapsAutofill('in-bengkel', 'in-maps-bengkel', 'maps-bengkel-preview');
+  wireBengkelMapsAutofill('in-bengkel', 'in-maps-bengkel', editing ? editing.id : null, 'maps-bengkel-preview');
   renderItems();
   document.getElementById('btn-add-item').addEventListener('click', ()=>{
     syncFormItemsFromDom();
@@ -6772,6 +6816,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.33.0',
+    date: '24 Jul 2026',
+    notes: [
+      'Menu Servis & Maintenance sekarang punya tombol "Edit" (sebelumnya cuma Tambah + Hapus) -- bisa perbaiki Mobil, Tanggal, Odometer, Bengkel, Link Maps, dan semua item servis dalam 1 kunjungan sekaligus.',
+      'Fitur baru: Update massal Link Maps. Kalau Link Maps bengkel diisi/diubah (baik saat Tambah maupun Edit) dan bengkel itu ternyata sudah pernah dicatat di riwayat servis LAIN dengan nama sama, sistem akan tanya dulu apakah mau menerapkan link baru itu ke SEMUA riwayat bengkel yang sama sekaligus -- tidak perlu edit satu-satu manual. Kalau ditolak, cuma catatan yang sedang diisi/diedit itu saja yang kepakai.',
+    ]
+  },
   {
     v: '3.32.9',
     date: '24 Jul 2026',
