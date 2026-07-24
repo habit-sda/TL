@@ -820,7 +820,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.32.6';
+const APP_VERSION = '3.32.7';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -5315,6 +5315,17 @@ function openServiceModal(){
     </div>
   `;
 
+  // Kategori custom yang PERNAH dipakai (diketik lewat "+ Kategori lain...")
+  // di riwayat servis manapun -- ditampilkan sebagai pilihan langsung di
+  // dropdown, supaya tidak perlu ketik ulang tiap kali pakai kategori yang
+  // sama. Sebelumnya kategori custom cuma tersimpan di data (tidak hilang),
+  // tapi TIDAK PERNAH ditambahkan lagi ke pilihan dropdown, jadi tampak
+  // seperti "tidak muncul di daftar kategori".
+  const customCategoriesUsed = Array.from(new Set(
+    state.services.flatMap(s => serviceItems(s).map(x => x.kategori))
+      .filter(k => k && !SERVICE_CATEGORIES.includes(k))
+  )).sort((a,b)=> a.localeCompare(b));
+
   function syncFormItemsFromDom(){
     formItems.forEach(it=>{
       const katEl = document.getElementById('item-kat-'+it.id);
@@ -5342,8 +5353,12 @@ function openServiceModal(){
             <select id="item-kat-${it.id}">
               <option value="">— pilih kategori —</option>
               ${SERVICE_CATEGORIES.map(c=>`<option value="${c}" ${it.kategori===c?'selected':''}>${c}</option>`).join('')}
-              <option value="__lainnya__" ${it.kategori==='__lainnya__'?'selected':''}>+ Kategori lain...</option>
+              ${customCategoriesUsed.length ? `<optgroup label="Kategori custom (pernah dipakai)">
+                ${customCategoriesUsed.map(c=>`<option value="${escapeHtml(c)}" ${it.kategori===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}
+              </optgroup>` : ''}
+              <option value="__lainnya__" ${it.kategori==='__lainnya__'?'selected':''}>+ Kategori lain (baru)...</option>
             </select>
+
           </div>
           <div class="field" style="margin-bottom:8px;">
             <label>Biaya (Rp)</label>
@@ -6703,6 +6718,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.32.7',
+    date: '24 Jul 2026',
+    notes: [
+      'Perbaikan bug di Catat Servis / Maintenance: kategori custom yang diketik lewat "+ Kategori lain..." (misal "JASA") memang tersimpan dengan benar di data, tapi TIDAK PERNAH muncul lagi sebagai pilihan di dropdown Kategori -- jadi harus pilih "+ Kategori lain..." dan ketik ulang setiap kali mau pakai kategori yang sama.',
+      'Sekarang dropdown Kategori otomatis menampilkan semua kategori custom yang pernah dipakai (dikelompokkan di bawah "Kategori custom (pernah dipakai)"), bisa langsung dipilih tanpa ketik ulang.',
+    ]
+  },
   {
     v: '3.32.6',
     date: '24 Jul 2026',
