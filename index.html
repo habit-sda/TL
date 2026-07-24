@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.30.0">
+<meta name="app-version" content="3.30.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -809,7 +809,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.30.0';
+const APP_VERSION = '3.30.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3352,7 +3352,7 @@ function renderUsage(){
     // ---------- Versi TABEL (desktop, layar lebar) ----------
     const tableHtml = `
       <div class="table-scroll desktop-usage-table"><table>
-        <thead><tr><th>Kode</th><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Jam</th><th>Kembali</th><th>Jam</th><th>Jarak</th><th>BBM Dibeli</th><th>BBM Digunakan</th><th>Rasio</th><th>Bensin Keluar</th><th>Bensin Kembali</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Biaya Operasional</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Kode</th><th>Mobil</th><th>Driver</th><th>Jenis</th><th>Tujuan</th><th>Keluar</th><th>Jam</th><th>Kembali</th><th>Jam</th><th>Jarak</th><th>BBM Dibeli</th><th>BBM Digunakan</th><th>Rasio</th><th>Bensin Keluar</th><th>Bensin Kembali</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Tol Terpakai</th><th>Biaya Operasional</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${rows.map(r=>{
             const u = r.u;
@@ -3374,7 +3374,8 @@ function renderUsage(){
               <td>${r.bensinKeluarBadge}</td>
               <td>${r.bensinKembaliBadge}</td>
               <td>${r.linkedCard ? escapeHtml(r.linkedCard.nomorKartu) : '-'}</td>
-              <td>${r.etoll !== null && !isNaN(r.etoll) ? fmtMoney(r.etoll) : '-'}${r.biayaTolInfo ? `<div style="font-size:10.5px;color:var(--muted);white-space:nowrap;" title="${r.biayaTolInfo.sumber==='warisan' ? 'Saldo Awal diwarisi dari Saldo Akhir trip sebelumnya (kartu sama) karena Saldo E-Toll Saat Keluar trip ini tidak diisi.' : 'Dihitung dari Saldo E-Toll Saat Keluar yang diisi langsung di trip ini (akurasi tinggi).'}">🛣️ Tol Terpakai: ${fmtMoney(r.biayaTolInfo.biayaTol)}${r.biayaTolInfo.sumber==='warisan' ? ' (warisan)' : ''}</div>` : ''}</td>
+              <td>${r.etoll !== null && !isNaN(r.etoll) ? fmtMoney(r.etoll) : '-'}</td>
+              <td>${r.biayaTolInfo ? `${fmtMoney(r.biayaTolInfo.biayaTol)} ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn" title="Saldo Awal diwarisi dari Saldo Akhir trip sebelumnya (kartu sama) karena Saldo E-Toll Saat Keluar trip ini tidak diisi.">Warisan</span>' : '<span class="badge ok" title="Dihitung dari Saldo E-Toll Saat Keluar yang diisi langsung di trip ini.">Akurat</span>'}` : '-'}</td>
               <td>${r.biayaOpTotal>0 ? fmtMoney(r.biayaOpTotal) : '-'}${r.etollBiayaTotal>0 ? `<div style="font-size:10.5px;color:var(--muted);white-space:nowrap;">🛣️ E-Toll: ${fmtMoney(r.etollBiayaTotal)}</div>` : ''}</td>
               <td>${u.status==='digunakan' ? `<span class="badge warn">Digunakan</span>` : `<span class="badge ok">Selesai</span>`}</td>
               <td style="text-align:right;white-space:nowrap;">${r.actionButtonsHtml}</td>
@@ -3411,7 +3412,8 @@ function renderUsage(){
                 <div><span class="k">Bensin Keluar</span> <span class="v">${r.bensinKeluarBadge}</span></div>
                 <div><span class="k">Bensin Kembali</span> <span class="v">${r.bensinKembaliBadge}</span></div>
                 <div><span class="k">Kartu E-Toll</span> <span class="v">${r.linkedCard?escapeHtml(r.linkedCard.nomorKartu):'-'}</span></div>
-                <div><span class="k">Saldo E-Toll</span> <span class="v">${r.etoll!==null&&!isNaN(r.etoll)?fmtMoney(r.etoll):'-'}${r.biayaTolInfo?` <span style="font-size:11px;color:var(--muted);">(🛣️ Tol Terpakai: ${fmtMoney(r.biayaTolInfo.biayaTol)}${r.biayaTolInfo.sumber==='warisan'?' — warisan':''})</span>`:''}</span></div>
+                <div><span class="k">Saldo E-Toll</span> <span class="v">${r.etoll!==null&&!isNaN(r.etoll)?fmtMoney(r.etoll):'-'}</span></div>
+                ${r.biayaTolInfo ? `<div><span class="k">🛣️ Tol Terpakai</span> <span class="v">${fmtMoney(r.biayaTolInfo.biayaTol)} ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn">Warisan</span>' : '<span class="badge ok">Akurat</span>'}</span></div>` : ''}
               </div>
             </div>
             <div class="usage-card-actions">${r.actionButtonsHtml}</div>
@@ -6019,6 +6021,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.30.1',
+    date: '23 Jul 2026',
+    notes: [
+      'Rapikan tampilan "Biaya Tol Terpakai" (Catat Perjalanan) -- sebelumnya nyempil jadi teks kecil di dalam nilai Saldo E-Toll dan gampang bikin tampilan berantakan/susah dibaca di HP. Sekarang jadi baris/kolom tersendiri dengan badge kecil "Akurat" atau "Warisan" (bukan teks panjang) supaya tetap jelas sumber datanya tanpa berantakan.',
+    ]
+  },
   {
     v: '3.30.0',
     date: '23 Jul 2026',
