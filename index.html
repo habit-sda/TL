@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.37.0">
+<meta name="app-version" content="3.38.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -476,6 +476,27 @@
      Default: sembunyikan kartu, tampilkan tabel (perilaku desktop). Media
      query di bawah membalik ini khusus layar sempit. */
   .mobile-usage-cards{display:none;}
+
+  /* ---------------- Tabel Desktop v3.38.0: baris 2-lapis (Opsi C) ----------------
+     Sebelumnya 1 baris = 1 <tr> dengan 21 kolom sejajar (perlu geser kanan-
+     kiri di layar manapun). Sekarang 1 trip = 1 blok baris dengan 3 lapis:
+     info utama (Tujuan/Driver/Waktu + Status + tombol Aksi tunggal), lalu
+     3 statistik inti (Jarak/Efisiensi/BBM), lalu 1 baris rincian sekunder
+     kecil (Bensin/E-Toll/Saldo/Tol/Biaya Op) yang boleh melipat ke bawah
+     (flex-wrap) -- TIDAK PERNAH perlu scroll horizontal lagi, di layar
+     manapun, karena tidak ada kolom tetap yang harus sejajar. */
+  .triprow{border-bottom:1px solid var(--line);padding:14px 16px;}
+  .triprow:hover{background:#FAFBFC;}
+  .triprow-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+  .triprow-dest{font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .triprow-meta{font-size:12px;color:var(--muted);margin-top:3px;}
+  .triprow-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+  .triprow-mid{display:flex;gap:28px;margin-top:10px;flex-wrap:wrap;}
+  .triprow-mid .stat-k{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);display:block;margin-bottom:2px;}
+  .triprow-mid .stat-v{font-weight:700;font-size:13.5px;}
+  .triprow-sub{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted);display:flex;gap:20px;flex-wrap:wrap;}
+  .triprow-sub b{color:var(--text);font-weight:600;}
+  .btn-triprow-act{border:1px solid var(--blue);background:#fff;color:var(--blue-dark);border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
   .usage-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fff;}
   .usage-card-row1{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;}
   .usage-card-mobil{font-weight:800;font-size:13.5px;}
@@ -941,7 +962,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.37.0';
+const APP_VERSION = '3.38.2';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2785,7 +2806,8 @@ function openTripActionMenu(usageId, anchorEl){
     <div class="trip-action-item" data-act="cancel" style="color:var(--muted);border-bottom:1px solid var(--line);">✕ Batal</div>
     <div class="trip-action-item" data-act="edit">✏️ Edit</div>
     <div class="trip-action-item" data-act="biayaop">🧾 Biaya Operasional</div>
-    <div class="trip-action-item" data-act="return">✅ Tandai Kembali</div>
+    <div class="trip-action-item" data-act="return">✅ Tiba</div>
+    <div class="trip-action-item" data-act="copykode" data-copy-code="${escapeHtml(u.kode||'')}">📋 Salin Kode Perjalanan</div>
   `;
   document.body.appendChild(menu);
 
@@ -2801,6 +2823,7 @@ function openTripActionMenu(usageId, anchorEl){
     item.addEventListener('click', ()=>{
       const act = item.dataset.act;
       if(act==='cancel'){ menu.remove(); return; } // cuma tutup menu ini, tidak ada perubahan apapun
+      if(act==='copykode'){ menu.remove(); return; } // penyalinan sudah ditangani listener global [data-copy-code] (event bubbling ke document)
       menu.remove();
       document.getElementById('trip-bubble-panel').style.display = 'none';
       if(act==='edit') openUsageModal(u.id);
@@ -2828,6 +2851,58 @@ function deleteUsage(id, onDeleted){
     if(currentRoute==='usage') renderUsage();
     if(onDeleted) onDeleted();
   });
+}
+
+// Konsolidasi tombol aksi di tabel List Catat Perjalanan (v3.38.0) jadi 1
+// menu dropdown -- dipisah dari openTripActionMenu (dipakai bubble "Mobil
+// Jalan") supaya tidak ikut menutup panel bubble sebagai efek samping yang
+// tidak relevan, dan supaya daftar aksinya bisa match persis actionButtonsHtml
+// (Bagikan/Salin Gambar cuma muncul kalau ada Biaya Operasional, label
+// Tandai Kembali/Edit Data Kembali beda tergantung status trip).
+function openListActionMenu(usageId, anchorEl){
+  document.querySelectorAll('.trip-action-menu').forEach(m=>m.remove());
+  const u = state.usage.find(x=>x.id===usageId);
+  if(!u) return;
+  const isOperasional = u.jenisPenggunaan !== 'pribadi';
+  const biayaOpTotal = usageBiayaOpTotal(u);
+
+  const items = [
+    {act:'edit', label:'✏️ Edit'},
+    ...(isOperasional ? [{act:'biayaop', label:'🧾 Biaya Operasional'}] : []),
+    ...(biayaOpTotal>0 ? [{act:'share', label:'📤 Bagikan'}, {act:'copyimg', label:'📋 Salin Gambar'}] : []),
+    {act:'return', label: u.status==='digunakan' ? '✅ Tiba' : '✏️ Edit Data Tiba'},
+    {act:'copykode', label:'📋 Salin Kode Perjalanan', copyCode: u.kode||''},
+  ];
+
+  const menu = document.createElement('div');
+  menu.className = 'trip-action-menu';
+  menu.innerHTML = items.map(it=>`<div class="trip-action-item" data-act="${it.act}"${it.copyCode!==undefined?` data-copy-code="${escapeHtml(it.copyCode)}"`:''}>${it.label}</div>`).join('');
+  document.body.appendChild(menu);
+
+  const rect = anchorEl.getBoundingClientRect();
+  const menuWidth = Math.min(230, window.innerWidth - 16);
+  let top = Math.min(rect.bottom + 4, window.innerHeight - 250);
+  let left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8);
+  menu.style.top = Math.max(8, top) + 'px';
+  menu.style.left = Math.max(8, left) + 'px';
+
+  menu.querySelectorAll('[data-act]').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      const act = item.dataset.act;
+      menu.remove();
+      if(act==='edit') openUsageModal(u.id);
+      else if(act==='biayaop') openBiayaOperasionalModal(u.id);
+      else if(act==='share') shareUsageReport(u.id);
+      else if(act==='copyimg') copyUsageReportToClipboard(u.id);
+      else if(act==='return') markReturned(u.id);
+      // 'copykode' -- penyalinan sudah ditangani listener global [data-copy-code] (event bubbling ke document); cukup tutup menu.
+    });
+  });
+  setTimeout(()=>{
+    document.addEventListener('click', function closeMenu(e){
+      if(!menu.contains(e.target) && e.target!==anchorEl){ menu.remove(); document.removeEventListener('click', closeMenu); }
+    });
+  }, 0);
 }
 document.getElementById('trip-bubble-btn').addEventListener('click', (e)=>{ e.stopPropagation(); toggleTripBubblePanel(); });
 document.addEventListener('click', (e)=>{
@@ -4006,7 +4081,7 @@ function renderUsage(){
       <button class="btn btn-ghost btn-sm" data-edit="${u.id}">✏️ Edit</button>
       ${isOperasional ? `<button class="btn btn-ghost btn-sm" data-biayaop="${u.id}">🧾 Biaya Operasional</button>` : ''}
       ${biayaOpTotal>0 ? `<button class="btn btn-ghost btn-sm" data-share="${u.id}">📤 Bagikan</button><button class="btn btn-ghost btn-sm" data-copy-img="${u.id}">📋 Salin Gambar</button>` : ''}
-      ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Tandai Kembali</button>` : `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✏️ Edit Data Kembali</button>`}
+      ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Tiba</button>` : `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✏️ Edit Data Tiba</button>`}
     `;
     return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, biayaTolInfo, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, etollBiayaTotal, isOperasional, actionButtonsHtml };
   }
@@ -4019,40 +4094,46 @@ function renderUsage(){
     }
     const rows = items.map(buildTripRowData);
 
-    // ---------- Versi TABEL (desktop, layar lebar) ----------
+    // ---------- Versi TABEL (desktop, layar lebar) — Opsi C: baris 2-lapis ----------
+    // Sebelumnya 21 kolom sejajar dalam 1 <tr> (selalu perlu geser kanan-
+    // kiri). Sekarang per trip = 1 blok: info utama+status+1 tombol Aksi,
+    // 3 statistik inti, lalu 1 baris rincian sekunder yang boleh melipat.
+    // Kartu E-Toll & Saldo ditampilkan LENGKAP (tidak dipotong/disingkat).
     const tableHtml = `
-      <div class="table-scroll desktop-usage-table"><table>
-        <thead><tr><th>Kode</th><th>Mobil</th><th>Driver</th><th>Jenis Perjalanan</th><th>Tujuan</th><th>Berangkat</th><th>Jam</th><th>Tiba</th><th>Jam</th><th>Jarak</th><th>Pengisian BBM</th><th>Estimasi Konsumsi BBM</th><th>Efisiensi BBM (KM/L)</th><th>BBM Awal</th><th>BBM Akhir</th><th>Kartu E-Toll</th><th>Saldo E-Toll</th><th>Tol Terpakai</th><th>Biaya Operasional</th><th>Status</th><th></th></tr></thead>
-        <tbody>
-          ${rows.map(r=>{
-            const u = r.u;
-            return `
-            <tr>
-              <td>${codeBadgeHtml(u.kode)}</td>
-              <td><span class="car-with-thumb-sm">${carPhotoHtml(r.carForRow,'car-thumb-sm')}<span>${escapeHtml(carLabel(u.carId))}</span></span></td>
-              <td>${escapeHtml(driverLabel(u.driverId, u.driver))}</td>
-              <td>${u.jenisPenggunaan==='pribadi' ? `<span class="badge neutral">Pribadi</span>` : `<span class="badge ok">Pengiriman</span>`}</td>
-              <td><span style="display:inline-flex;align-items:center;gap:6px;">${escapeHtml(u.tujuan)}${mapsNavButtonCompactHtml(u.mapsLink)}</span></td>
-              <td>${fmtDate(u.tglKeluar)}</td>
-              <td>${u.jamKeluar || '-'}</td>
-              <td>${u.tglKembali ? fmtDate(u.tglKembali) : '-'}</td>
-              <td>${u.jamKembali || '-'}</td>
-              <td>${r.jarakBadge}</td>
-              <td>${r.bbmLabel}</td>
-              <td>${r.literTerpakaiLabel}</td>
-              <td>${ratioLabel(u)}</td>
-              <td>${r.bensinKeluarBadge}</td>
-              <td>${r.bensinKembaliBadge}</td>
-              <td>${r.linkedCard ? escapeHtml(r.linkedCard.nomorKartu) : '-'}</td>
-              <td>${r.etoll !== null && !isNaN(r.etoll) ? fmtMoney(r.etoll) : '-'}</td>
-              <td>${r.biayaTolInfo ? `${fmtMoney(r.biayaTolInfo.biayaTol)} ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn" title="Saldo Awal diwarisi dari Saldo Akhir trip sebelumnya (kartu sama) karena Saldo E-Toll Saat Keluar trip ini tidak diisi.">Warisan</span>' : '<span class="badge ok" title="Dihitung dari Saldo E-Toll Saat Keluar yang diisi langsung di trip ini.">Akurat</span>'}` : '-'}</td>
-              <td>${r.biayaOpTotal>0 ? fmtMoney(r.biayaOpTotal) : '-'}${r.etollBiayaTotal>0 ? `<div style="font-size:10.5px;color:var(--muted);white-space:nowrap;">🛣️ E-Toll: ${fmtMoney(r.etollBiayaTotal)}</div>` : ''}</td>
-              <td>${u.status==='digunakan' ? `<span class="badge warn">Digunakan</span>` : `<span class="badge ok">Selesai</span>`}</td>
-              <td style="text-align:right;white-space:nowrap;">${r.actionButtonsHtml}</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table></div>
+      <div class="desktop-usage-table">
+        ${rows.map(r=>{
+          const u = r.u;
+          const statusBadge = u.status==='digunakan' ? `<span class="badge warn">Digunakan</span>` : `<span class="badge ok">Selesai</span>`;
+          const subItems = [
+            { label:'Bensin', val: `${r.bensinKeluarBadge} → ${r.bensinKembaliBadge}` },
+            r.linkedCard ? { label:'Kartu E-Toll', val: `<b>${escapeHtml(r.linkedCard.nomorKartu)}</b>` } : null,
+            (r.etoll!==null && !isNaN(r.etoll)) ? { label:'Saldo E-Toll', val: `<b>${fmtMoney(r.etoll)}</b>` } : null,
+            r.biayaTolInfo ? { label:'🛣️ Tol Terpakai', val: `<b>${fmtMoney(r.biayaTolInfo.biayaTol)}</b> ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn" title="Saldo Awal diwarisi dari trip sebelumnya (kartu sama), karena Saldo E-Toll Saat Berangkat trip ini tidak diisi.">Warisan</span>' : '<span class="badge ok" title="Dihitung dari Saldo E-Toll Saat Berangkat yang diisi langsung di trip ini.">Akurat</span>'}` } : null,
+            (r.biayaOpTotal>0) ? { label:'Biaya Operasional', val: `<b>${fmtMoney(r.biayaOpTotal)}</b>${r.etollBiayaTotal>0?` (🛣️ E-Toll: ${fmtMoney(r.etollBiayaTotal)})`:''}` } : null,
+          ].filter(Boolean);
+
+          return `
+          <div class="triprow">
+            <div class="triprow-top">
+              <div>
+                <div class="triprow-dest">${codeBadgeHtml(u.kode)} 📍 ${escapeHtml(u.tujuan)}${mapsNavButtonCompactHtml(u.mapsLink)}</div>
+                <div class="triprow-meta">${escapeHtml(carLabel(u.carId))} · ${escapeHtml(driverLabel(u.driverId,u.driver))} · ${u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman'} · ${fmtDate(u.tglKeluar)} ${u.jamKeluar||''} → ${u.tglKembali?fmtDate(u.tglKembali):'-'} ${u.jamKembali||''}</div>
+              </div>
+              <div class="triprow-right">
+                ${statusBadge}
+                <button class="btn-triprow-act" data-list-action="${u.id}">Aksi ▾</button>
+              </div>
+            </div>
+            <div class="triprow-mid">
+              <div><span class="stat-k">Jarak</span><span class="stat-v">${r.jarakBadge}</span></div>
+              <div><span class="stat-k">Efisiensi BBM</span><span class="stat-v">${ratioLabel(u)}</span></div>
+              <div><span class="stat-k">Pengisian BBM</span><span class="stat-v">${r.bbmLabel}</span></div>
+              <div><span class="stat-k">Estimasi Konsumsi</span><span class="stat-v">${r.literTerpakaiLabel}</span></div>
+            </div>
+            ${subItems.length>0 ? `<div class="triprow-sub">${subItems.map(it=>`<span>${it.label}: ${it.val}</span>`).join('')}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
     `;
 
     // ---------- Versi KARTU (mobile, khusus layar sempit) ----------
@@ -4101,6 +4182,9 @@ function renderUsage(){
         detail.style.display = isOpen ? 'none' : 'block';
         t.textContent = isOpen ? '▾ Lihat detail (Jarak, BBM, Efisiensi, dst)' : '▴ Sembunyikan detail';
       });
+    });
+    wrap.querySelectorAll('[data-list-action]').forEach(b=>{
+      b.addEventListener('click', (e)=>{ e.stopPropagation(); openListActionMenu(b.dataset.listAction, b); });
     });
     wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openUsageModal(b.dataset.edit));
     wrap.querySelectorAll('[data-biayaop]').forEach(b=> b.onclick = ()=> openBiayaOperasionalModal(b.dataset.biayaop));
@@ -4221,9 +4305,26 @@ function renderUsage(){
     </div>`;
   }
 
+  // BUG SEBELUMNYA: pencarian di tampilan Card (usage-search) cuma dipakai
+  // untuk menentukan MOBIL mana yang tampil di kiri (lihat renderCardView) --
+  // begitu masuk ke tab ini, SEMUA riwayat mobil itu tetap ditampilkan tanpa
+  // ikut disaring. Untuk armada 1 mobil, mobilnya SELALU cocok/tetap tampil,
+  // jadi hasilnya kelihatan seperti "pencarian tidak ngefek/tidak ketemu",
+  // padahal cuma daftar di dalamnya yang tidak ikut tersaring. Sekarang kalau
+  // query cocok ke NAMA MOBIL itu sendiri (plat/merk/model), tampilkan tetap
+  // semua riwayat (yang dicari memang mobilnya, bukan perjalanan tertentu).
+  // Kalau tidak, saring ke perjalanan yang driver/tujuan-nya cocok saja --
+  // sama seperti kriteria yang dipakai renderCardView untuk memilih mobil.
   function riwayatTabHtml(vs){
-    const trips = vs.trips.slice().sort((a,b)=> b.tglKeluar.localeCompare(a.tglKeluar) || (b.updatedAt||0)-(a.updatedAt||0));
-    if(trips.length===0) return emptyState('🧾','Belum ada riwayat perjalanan untuk mobil ini.');
+    const q = cardSearchQuery;
+    const carMatchesQuery = q && (vs.car.merk+' '+vs.car.modelMobil+' '+vs.car.plat).toLowerCase().includes(q);
+    let trips = vs.trips.slice().sort((a,b)=> b.tglKeluar.localeCompare(a.tglKeluar) || (b.updatedAt||0)-(a.updatedAt||0));
+    if(q && !carMatchesQuery){
+      trips = trips.filter(u=> driverLabel(u.driverId,u.driver).toLowerCase().includes(q) || (u.tujuan||'').toLowerCase().includes(q));
+    }
+    if(trips.length===0){
+      return emptyState('🧾', q ? `Tidak ada perjalanan yang cocok dengan pencarian "${escapeHtml(q)}" di mobil ini.` : 'Belum ada riwayat perjalanan untuk mobil ini.');
+    }
     return trips.map(u=>{
       const dp = tripDateParts(u.tglKeluar);
       const jarakVal = (u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) ? (u.odoKembali-u.odoKeluar) : null;
@@ -4422,6 +4523,7 @@ function renderUsage(){
   function renderCardView(query){
     const wrap = document.getElementById('usage-view-wrap');
     const q = (query||'').trim().toLowerCase();
+    cardSearchQuery = q; // dibaca riwayatTabHtml() supaya daftar perjalanan di panel detail ikut tersaring
     let list = vehicleStats;
     if(q){
       list = vehicleStats.filter(vs=>
@@ -4458,6 +4560,11 @@ function renderUsage(){
 
   // ---------------- Toggle Card/List + pencarian gabungan ----------------
   let viewMode = 'card';
+  // Kata kunci pencarian aktif saat ini (khusus tampilan Card) -- dibaca oleh
+  // riwayatTabHtml() supaya daftar "Riwayat Perjalanan" di panel detail ikut
+  // tersaring, bukan cuma menentukan mobil mana yang tampil di kiri. Lihat
+  // catatan lengkap di riwayatTabHtml().
+  let cardSearchQuery = '';
   function setActiveToggleButtons(){
     document.getElementById('btn-view-card').classList.toggle('active', viewMode==='card');
     document.getElementById('btn-view-list').classList.toggle('active', viewMode==='list');
@@ -4497,12 +4604,12 @@ function markReturned(id){
     <p style="font-size:13px;color:var(--muted);margin-top:0;">Perbarui kondisi mobil saat kembali (opsional).</p>
     <div class="grid-2">
       <div class="field" id="f-odo-kembali">
-        <label>Odometer Saat Kembali (KM)</label>
+        <label>Odometer Saat Tiba (KM)</label>
         <input type="text" inputmode="numeric" id="in-odo-kembali" placeholder="Contoh: 45.230" value="${fmtRibuanInitial(u.odoKembali)}">
-        <div class="err-msg">Odometer kembali tidak boleh lebih kecil dari odometer keluar (${u.odoKeluar!=null ? Number(u.odoKeluar).toLocaleString('id-ID') : '-'} KM).</div>
+        <div class="err-msg">Odometer tiba tidak boleh lebih kecil dari odometer berangkat (${u.odoKeluar!=null ? Number(u.odoKeluar).toLocaleString('id-ID') : '-'} KM).</div>
       </div>
       <div class="field">
-        <label>Jam Pulang</label>
+        <label>Jam Tiba</label>
         <input type="time" id="in-jam-kembali" value="${u.jamKembali||''}">
       </div>
     </div>
@@ -4538,7 +4645,7 @@ function markReturned(id){
     </div>
   `;
   openModal({
-    title: u.status==='digunakan' ? 'Tandai Mobil Telah Kembali' : 'Edit Data Kembali',
+    title: u.status==='digunakan' ? 'Tandai Mobil Telah Tiba' : 'Edit Data Tiba',
     body,
     onSave: () => {
       const bensin = getPercentValue('in-bensin-kembali');
@@ -4924,7 +5031,7 @@ function buildReceiptElement(u){
       <div><b>Sopir:</b> ${escapeHtml(driverLabel(u.driverId, u.driver))}</div>
       <div><b>Tujuan:</b> ${escapeHtml(u.tujuan||'-')}</div>
       <div><b>Berangkat:</b> ${fmtDate(u.tglKeluar)}${u.jamKeluar ? ', '+u.jamKeluar : ''}</div>
-      <div><b>Kembali:</b> ${u.tglKembali ? fmtDate(u.tglKembali)+(u.jamKembali?', '+u.jamKembali:'') : '-'}</div>
+      <div><b>Tiba:</b> ${u.tglKembali ? fmtDate(u.tglKembali)+(u.jamKembali?', '+u.jamKembali:'') : '-'}</div>
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px;">
       ${items.map(it=>`
@@ -5221,7 +5328,7 @@ function openUsageModal(editId){
     </div>
     <div class="grid-2">
       <div class="field">
-        <label>Tanggal Keluar</label>
+        <label>Tanggal Berangkat</label>
         <input type="date" id="in-tglkeluar" value="${editing?editing.tglKeluar:today()}">
       </div>
       <div class="field">
@@ -5230,13 +5337,13 @@ function openUsageModal(editId){
       </div>
     </div>
     <div class="field">
-      <label>Odometer Saat Keluar (KM)</label>
+      <label>Odometer Saat Berangkat (KM)</label>
       <input type="text" inputmode="numeric" id="in-odo-keluar" placeholder="Contoh: 45.000" value="${editing?fmtRibuanInitial(editing.odoKeluar):''}">
       <div class="hint">Diisi supaya jarak tempuh perjalanan ini bisa dihitung otomatis.</div>
     </div>
     <div class="grid-2">
       <div class="field" id="box-bensin-keluar">
-        ${renderFuelFieldHTML('in-bensin', 'Sisa Bensin Saat Keluar', editing?getBensinKeluar(editing):null, editing?state.cars.find(c=>c.id===editing.carId):null)}
+        ${renderFuelFieldHTML('in-bensin', 'Sisa Bensin Saat Berangkat', editing?getBensinKeluar(editing):null, editing?state.cars.find(c=>c.id===editing.carId):null)}
       </div>
       <div class="field" id="f-etoll-card">
         <label>Kartu E-Toll Dipakai</label>
@@ -5247,7 +5354,7 @@ function openUsageModal(editId){
       </div>
     </div>
     <div class="field">
-      <label>Saldo E-Toll Saat Keluar (Rp)</label>
+      <label>Saldo E-Toll Saat Berangkat (Rp)</label>
       <input type="text" inputmode="numeric" id="in-etoll" placeholder="Contoh: 100.000" value="${editing?fmtRibuanInitial(editing.saldoEtollAwal):''}">
       <div class="hint" id="etoll-hint">Pilih kartu di atas supaya saldo terisi otomatis, atau isi manual kalau bayar tunai/kartu belum terdaftar. Nilai ini disimpan tersendiri (tidak tertimpa saat trip selesai), dipakai untuk hitung "Biaya Tol Terpakai" secara akurat.</div>
     </div>
@@ -5358,12 +5465,12 @@ function openUsageModal(editId){
   updateFuelRangeInsight();
   document.getElementById('in-car').addEventListener('change', function(){
     const car = state.cars.find(c=>c.id===this.value);
-    document.getElementById('box-bensin-keluar').innerHTML = renderFuelFieldHTML('in-bensin', 'Sisa Bensin Saat Keluar', null, car);
+    document.getElementById('box-bensin-keluar').innerHTML = renderFuelFieldHTML('in-bensin', 'Sisa Bensin Saat Berangkat', null, car);
     wireBensinKeluarInput();
     updateFuelRangeInsight();
   });
 
-  // Pilih kartu E-Toll → saldo saat ini otomatis tersalin ke field "Saldo Saat Keluar",
+  // Pilih kartu E-Toll → saldo saat ini otomatis tersalin ke field "Saldo Saat Berangkat",
   // supaya petugas tidak perlu ketik ulang (dan tetap bisa dikoreksi manual kalau beda).
   document.getElementById('in-etoll-card').addEventListener('change', function(){
     const card = state.etollCards.find(c=>c.id===this.value);
@@ -7391,6 +7498,31 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.38.2',
+    date: '24 Jul 2026',
+    notes: [
+      'Fitur baru: "📋 Salin Kode Perjalanan" ditambahkan di menu Aksi Catat Perjalanan (bubble "Mobil Sedang Jalan" & dropdown Aksi tampilan List), di bawah tombol Tiba -- klik langsung salin kode perjalanan (mis. PJL-00001) ke clipboard.',
+      'Penyeragaman istilah lanjutan khusus konteks status perjalanan (Catat Perjalanan): "Tandai Kembali" → "Tiba", "Edit Data Kembali" → "Edit Data Tiba", "Tanggal/Odometer/Sisa Bensin/Saldo E-Toll Saat Keluar" → "...Saat Berangkat", "Odometer Saat Kembali" → "Odometer Saat Tiba", "Jam Pulang" → "Jam Tiba". Istilah "Kembali" yang maknanya beda (mis. tombol "← Kembali ke Riwayat Perjalanan") TIDAK diubah -- itu navigasi balik, bukan status perjalanan. Nama field database & perhitungan tidak berubah, cuma label tampilan.',
+    ]
+  },
+  {
+    v: '3.38.1',
+    date: '24 Jul 2026',
+    notes: [
+      'Perbaikan bug di Catat Perjalanan tampilan Card: kotak pencarian ("Cari mobil, driver, atau tujuan...") sebelumnya cuma menentukan MOBIL mana yang tampil di kiri -- begitu masuk ke tab "Riwayat Perjalanan" di panel detail, SEMUA riwayat mobil itu tetap tampil, tidak ikut tersaring. Untuk armada dengan 1 mobil, ini bikin pencarian kelihatan seperti tidak berfungsi sama sekali (mobilnya selalu tampil, tapi perjalanan yang dicari tenggelam di antara yang lain).',
+      'Sekarang daftar Riwayat Perjalanan ikut tersaring sesuai kata kunci pencarian (cocokkan Driver/Tujuan) -- kecuali kalau yang dicari memang nama/plat mobilnya sendiri, di situ semua riwayat tetap ditampilkan.',
+    ]
+  },
+  {
+    v: '3.38.0',
+    date: '24 Jul 2026',
+    notes: [
+      'Tabel List di Catat Perjalanan dirombak total -- sebelumnya 21 kolom sejajar (selalu perlu geser kanan-kiri), sekarang tiap perjalanan tampil sebagai 1 blok 3-lapis: info utama & status di atas, 4 statistik inti (Jarak/Efisiensi/BBM) di tengah, rincian sekunder (Bensin/Kartu E-Toll/Saldo/Tol Terpakai/Biaya Operasional) di baris kecil bawah. Tidak perlu geser kanan-kiri lagi di layar manapun.',
+      'Semua tombol aksi (Edit, Biaya Operasional, Bagikan, Salin Gambar, Tandai Kembali) dikonsolidasi jadi 1 tombol "Aksi ▾" per perjalanan.',
+      'Nomor Kartu E-Toll & Saldo E-Toll ditampilkan lengkap (tidak disingkat/dipotong).',
+    ]
+  },
   {
     v: '3.37.0',
     date: '24 Jul 2026',
