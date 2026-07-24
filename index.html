@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.31.0">
+<meta name="app-version" content="3.32.2">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -810,14 +810,14 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.32.1';
+const APP_VERSION = '3.32.2';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
-const SYNC_COLLECTIONS = ['cars','drivers','usage','services','documents','etollCards','etollTransactions','activityLog','bookings'];
+const SYNC_COLLECTIONS = ['cars','drivers','usage','services','documents','etollCards','etollTransactions','activityLog','bookings','destinations'];
 
 function defaultTombstones(){
-  return { cars:[], drivers:[], usage:[], services:[], documents:[], etollCards:[], etollTransactions:[], activityLog:[], bookings:[] };
+  return { cars:[], drivers:[], usage:[], services:[], documents:[], etollCards:[], etollTransactions:[], activityLog:[], bookings:[], destinations:[] };
 }
 function loadTombstones(){
   try{
@@ -850,6 +850,14 @@ function markDeleted(collection, id){
 // Menandai record baru/diedit dengan waktu terbaru, jadi acuan "versi mana yang
 // menang" saat data digabung dari beberapa device.
 function touch(obj){ obj.updatedAt = Date.now(); return obj; }
+// Jaring pengaman terakhir: pastikan state.destinations SELALU berupa array
+// di titik-titik kritis (habis load awal, habis sinkron cloud), supaya kalau
+// suatu saat ada jalur data lain yang lupa menjaga field ini, halaman Data
+// Tujuan tetap bisa dibuka dengan aman (kosong) alih-alih error/nyangkut di
+// tampilan halaman sebelumnya.
+function ensureDestinationsArray(){
+  if(!Array.isArray(state.destinations)) state.destinations = [];
+}
 
 // Mencatat 1 baris riwayat transaksi kartu E-Toll (top up / pemakaian), supaya
 // Modul Kartu E-Toll bisa menampilkan histori lengkap, bukan cuma saldo akhir.
@@ -1180,7 +1188,15 @@ async function fetchFromGithub(){
 
     const { mergedState, mergedTombstones, remoteNeedsUpdate, localChanged } = mergeAllCollections(remoteState, remoteTombstones);
 
-    state = mergedState;
+    // PENTING: mergedState cuma berisi koleksi yang ada di SYNC_COLLECTIONS +
+    // admins. Field state LAIN yang bukan koleksi (mis. carCodeSeq,
+    // usageCodeSeq, toleransiGapKm) harus tetap dipertahankan dari state
+    // lokal yang sekarang -- Object.assign di sini (bukan langsung menimpa
+    // `state = mergedState`) mencegah field-field itu (atau koleksi baru
+    // yang lupa didaftarkan ke SYNC_COLLECTIONS) hilang begitu saja tiap
+    // sinkron cloud jalan.
+    state = Object.assign({}, state, mergedState);
+    ensureDestinationsArray();
     tombstones = mergedTombstones;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     saveTombstones();
@@ -1327,6 +1343,7 @@ document.getElementById('gh-modal-repo').addEventListener('keydown', (e)=>{
 });
 
 let state = loadData();
+ensureDestinationsArray();
 let tombstones = loadTombstones();
 // Sengaja SELALU mulai dari "Admin 1" tiap aplikasi dibuka -- tidak lagi
 // mengingat petugas terakhir yang aktif. Ini permintaan eksplisit: siapa
@@ -3148,6 +3165,7 @@ function openDriverModal(editId){
    di bawah untuk mekanisme "input manual otomatis masuk ke daftar ini".
    ======================================================================== */
 function renderDestinations(){
+  ensureDestinationsArray();
   document.getElementById('header-actions').innerHTML =
     `<button class="btn btn-primary" id="btn-add-destination">+ Tambah Tujuan Baru</button>${exportBtnHtml('btn-export-destination')}`;
   document.getElementById('btn-add-destination').onclick = () => openDestinationModal();
@@ -3224,6 +3242,7 @@ function deleteDestination(id){
   }
   if(!confirm(warn)) return;
   const nama = dest ? dest.nama : '';
+  markDeleted('destinations', id);
   state.destinations = state.destinations.filter(d=>d.id!==id);
   logActivity('tujuan', 'Hapus data tujuan', nama);
   saveData();
@@ -6534,6 +6553,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.32.2',
+    date: '24 Jul 2026',
+    notes: [
+      'Perbaikan bug PENTING: Data Tujuan bisa "hilang" (tampilan macet menampilkan halaman sebelumnya, mis. Catat Perjalanan) setiap kali Sinkron Cloud (GitHub) berjalan -- akar masalahnya, koleksi "destinations" belum terdaftar di daftar koleksi yang disinkron, jadi tertimpa kosong tiap sinkron. Sekarang Data Tujuan sudah ikut disinkron & digabung antar-device seperti Data Mobil/Sopir/dll, lengkap dengan tombstone supaya penghapusan juga tersinkron dengan benar.',
+      'Jaring pengaman tambahan: proses sinkron cloud sekarang mempertahankan field data lain yang bukan bagian dari daftar sinkron (mis. nomor urut kode Mobil/Perjalanan) alih-alih menimpanya jadi kosong -- mencegah masalah serupa terulang kalau ada fitur baru lain yang lupa didaftarkan.',
+    ]
+  },
   {
     v: '3.32.1',
     date: '24 Jul 2026',
