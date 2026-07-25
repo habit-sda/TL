@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.92.0">
+<meta name="app-version" content="3.92.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1163,7 +1163,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.92.0';
+const APP_VERSION = '3.92.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2714,9 +2714,11 @@ function tujuanPinIconHtml(){
 // Ikon kompas (bukan pin lagi) untuk tombol/link "Navigasi" -- SENGAJA beda
 // bentuk dari ikon pin tujuan di atas, supaya keduanya tidak mirip & bikin
 // bingung (pin = "ini lokasinya", kompas = "buka arah ke sini").
-function navCompassIconHtml(color){
+function navCompassIconHtml(color, needleColor, size){
   color = color || '#fff';
-  return `<svg width="15" height="15" viewBox="0 0 20 20" style="vertical-align:-2px;flex-shrink:0;"><circle cx="10" cy="10" r="9" fill="${color}"/><path d="M10 5L13.5 12.5L10 11L6.5 12.5Z" fill="#2E7D4F"/></svg>`;
+  needleColor = needleColor || '#2E7D4F';
+  size = size || 15;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="vertical-align:-2px;flex-shrink:0;"><circle cx="10" cy="10" r="9" fill="${color}"/><path d="M10 5L13.5 12.5L10 11L6.5 12.5Z" fill="${needleColor}"/></svg>`;
 }
 function mapsNavButtonHtml(mapsLink){
   if(!mapsLink || !/^https?:\/\//i.test(mapsLink.trim())) return ''; // jaga-jaga: tolak skema selain http(s), mis. javascript:
@@ -4261,7 +4263,7 @@ function renderDashboard(){
         <button class="quick-action-btn" data-action="doc"><span class="ic icon-badge purple">📄</span>Tambah Dokumen</button>
         <button class="quick-action-btn" data-action="etoll"><span class="ic icon-badge blue">💳</span>Kartu E-Toll</button>
         <button class="quick-action-btn" data-action="booking"><span class="ic icon-badge amber">📅</span>Buat Booking</button>
-        <button class="quick-action-btn" data-action="rutepulang"><span class="ic icon-badge green">${navCompassIconHtml()}</span>Rute Pulang</button>
+        <button class="quick-action-btn" data-action="rutepulang"><span class="ic icon-badge green">${navCompassIconHtml('#2E7D4F', '#fff', 24)}</span>Rute Pulang</button>
       </div>
     </div>
   </div>
@@ -10179,6 +10181,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.92.1',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan kontras ikon tombol "Rute Pulang" di Aksi Cepat -- sebelumnya lingkaran putih ikon kompas nyaris tidak kelihatan di atas badge pastel hijau muda (nyaris putih-di-atas-putih), cuma jarumnya yang samar-samar terlihat. Sekarang warnanya dibalik (lingkaran hijau solid + jarum putih) dan ukurannya diperbesar, jadi jelas terlihat tanpa mengubah bingkai badge-nya (tetap konsisten dengan tombol Aksi Cepat lain).',
+    ]
+  },
   {
     v: '3.92.0',
     date: '25 Jul 2026',
