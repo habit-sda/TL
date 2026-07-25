@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.91.0">
+<meta name="app-version" content="3.92.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1163,7 +1163,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.91.0';
+const APP_VERSION = '3.92.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -4261,7 +4261,7 @@ function renderDashboard(){
         <button class="quick-action-btn" data-action="doc"><span class="ic icon-badge purple">📄</span>Tambah Dokumen</button>
         <button class="quick-action-btn" data-action="etoll"><span class="ic icon-badge blue">💳</span>Kartu E-Toll</button>
         <button class="quick-action-btn" data-action="booking"><span class="ic icon-badge amber">📅</span>Buat Booking</button>
-        <button class="quick-action-btn" data-action="rutepulang"><span class="ic icon-badge green">🏠</span>Rute Pulang</button>
+        <button class="quick-action-btn" data-action="rutepulang"><span class="ic icon-badge green">${navCompassIconHtml()}</span>Rute Pulang</button>
       </div>
     </div>
   </div>
@@ -9910,48 +9910,44 @@ async function openCarQrModal(carId){
 // Tambah Perjalanan dengan mobil itu sudah terpilih, lalu BERSIHKAN query
 // string dari address bar (supaya kalau di-refresh manual tidak terus-
 // menerus lompat ke form yang sama).
-// v3.87.0 -- "Rute Pulang" (Aksi Cepat Dashboard): 2 langkah SENGAJA
-// dipisah (bukan langsung buka Maps) karena armada bisa lebih dari 1
-// mobil -- klik tombol Aksi Cepat dulu MUNCUL daftar mobil (yang sudah
-// diisi Link Maps Rute Pulang di Data Mobil), klik salah satu BARU muncul
-// tombol Navigasi ke Maps utk mobil itu. Mobil yang belum diisi link-nya
-// TIDAK muncul di daftar (bukan ditampilkan kosong/error).
+// v3.87.0 -- "Rute Pulang" (Aksi Cepat Dashboard). Awalnya 2 langkah
+// terpisah (pilih mobil -> layar konfirmasi -> baru tombol Navigasi), tapi
+// kerasa kebanyakan klik/popup untuk hal sesederhana ini.
+// v3.92.0 -- Disederhanakan (Referensi A): (1) kalau cuma 1 mobil yang
+// punya Link Maps Rute Pulang, popup dilewati SAMA SEKALI -- klik tombol
+// Aksi Cepat langsung buka Google Maps di tab baru. (2) Kalau lebih dari 1
+// mobil, tetap muncul daftar pilihan (perlu, supaya jelas rute mobil mana
+// yang dibuka) TAPI begitu satu mobil diklik, Maps langsung terbuka DAN
+// popup langsung tertutup -- tidak ada lagi layar konfirmasi perantara
+// dengan tombol "Navigasi" terpisah.
 function openRutePulangPicker(){
   const carsWithRoute = state.cars.filter(c=> c.mapsRutePulang);
   if(carsWithRoute.length===0){
     showToast('Belum ada mobil yang diisi Link Maps Rute Pulang -- isi dulu di Data Mobil (Edit → Link Maps Rute Pulang).', true);
     return;
   }
-  function draw(selectedCarId){
-    const selectedCar = selectedCarId ? state.cars.find(c=>c.id===selectedCarId) : null;
-    const body = selectedCar ? `
-        <div style="text-align:center;">
-          <div style="display:flex;justify-content:center;margin-bottom:10px;">${carPhotoHtml(selectedCar,'car-thumb-lg')}</div>
-          <div style="font-weight:800;font-size:15px;margin-bottom:4px;">${escapeHtml(carLabel(selectedCar.id))}</div>
-          <p style="font-size:12.5px;color:var(--muted);margin:0 0 16px;">Buka rute pulang mobil ini di Google Maps.</p>
-          <a href="${escapeHtml(selectedCar.mapsRutePulang)}" target="_blank" rel="noopener" id="rp-navigate" class="btn btn-primary" style="width:100%;justify-content:center;display:flex;">🧭 Navigasi ke Maps</a>
-          <button type="button" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:8px;" id="rp-back">← Pilih Mobil Lain</button>
-        </div>
-      ` : `
-        <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">Pilih mobil untuk lihat rute pulangnya.</p>
-        ${carsWithRoute.map(c=>`
-          <button type="button" class="btn btn-ghost" style="width:100%;justify-content:flex-start;gap:10px;margin-bottom:6px;display:flex;align-items:center;" data-rp-car="${c.id}">
-            ${carPhotoHtml(c,'car-thumb-sm')}<span>${escapeHtml(carLabel(c.id))}</span>
-          </button>`).join('')}
-      `;
-    openModal({ title: '🏠 Rute Pulang', body, onSave: ()=>true });
-    const saveBtn = document.getElementById('modal-save'); if(saveBtn) saveBtn.style.display='none';
-    const cancelBtn = document.getElementById('modal-cancel'); if(cancelBtn) cancelBtn.textContent='Tutup';
-    if(!selectedCar){
-      document.querySelectorAll('[data-rp-car]').forEach(b=> b.onclick = ()=> draw(b.dataset.rpCar));
-    } else {
-      const backBtn = document.getElementById('rp-back');
-      if(backBtn) backBtn.onclick = ()=> draw(null);
-      const navBtn = document.getElementById('rp-navigate');
-      if(navBtn) navBtn.addEventListener('click', ()=> setTimeout(()=>{ const root=document.getElementById('modal-root'); if(root) root.innerHTML=''; }, 100));
-    }
+  if(carsWithRoute.length===1){
+    window.open(carsWithRoute[0].mapsRutePulang, '_blank', 'noopener');
+    return;
   }
-  draw(null);
+  const body = `
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">Pilih mobil untuk langsung buka rute pulangnya di Google Maps.</p>
+    ${carsWithRoute.map(c=>`
+      <button type="button" class="btn btn-ghost" style="width:100%;justify-content:flex-start;gap:10px;margin-bottom:6px;display:flex;align-items:center;" data-rp-car="${c.id}">
+        ${carPhotoHtml(c,'car-thumb-sm')}<span>${escapeHtml(carLabel(c.id))}</span>
+      </button>`).join('')}
+  `;
+  openModal({ title: '🏠 Rute Pulang', body, onSave: ()=>true });
+  const saveBtn = document.getElementById('modal-save'); if(saveBtn) saveBtn.style.display='none';
+  const cancelBtn = document.getElementById('modal-cancel'); if(cancelBtn) cancelBtn.textContent='Batal';
+  document.querySelectorAll('[data-rp-car]').forEach(b=>{
+    b.onclick = ()=>{
+      const car = carsWithRoute.find(c=>c.id===b.dataset.rpCar);
+      window.open(car.mapsRutePulang, '_blank', 'noopener');
+      const root = document.getElementById('modal-root');
+      if(root) root.innerHTML = '';
+    };
+  });
 }
 
 function handleQrQuickstart(){
@@ -10183,6 +10179,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.92.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Aksi Cepat Dashboard, tombol "Rute Pulang": ikon rumah diganti pakai ikon kompas navigasi yang sama dipakai di semua tombol "Rute"/"Navigasi" lain di aplikasi, supaya konsisten.',
+      'Alur "Rute Pulang" disederhanakan -- sebelumnya klik tombol → pilih mobil → layar konfirmasi → klik "Navigasi" (3 klik + 2 popup). Sekarang: kalau cuma 1 mobil yang punya Link Maps Rute Pulang, klik tombolnya LANGSUNG buka Google Maps (tanpa popup sama sekali). Kalau armadanya lebih dari 1 mobil, tetap muncul daftar pilihan tapi begitu satu mobil diklik langsung buka Maps & popup langsung tertutup -- tidak ada lagi layar konfirmasi perantara.',
+    ]
+  },
   {
     v: '3.91.0',
     date: '25 Jul 2026',
