@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.56.0">
+<meta name="app-version" content="3.56.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -328,7 +328,8 @@
   .trip-timeline-body{flex:1;min-width:0;}
   .trip-timeline-time{font-size:11px;color:var(--muted);}
   .trip-timeline-dest{font-size:12.5px;font-weight:600;margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-  .trip-timeline-meta{font-size:11px;color:var(--muted);margin-top:3px;}
+  .trip-timeline-meta{font-size:11px;color:var(--muted);margin-top:3px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 0;}
+  .trip-timeline-meta .badge{white-space:nowrap;}
   .trip-timeline-right{text-align:right;flex-shrink:0;font-size:11px;}
   .trip-timeline-right .km{color:var(--muted);margin-top:4px;}
 
@@ -977,7 +978,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.56.0';
+const APP_VERSION = '3.56.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -8372,6 +8373,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.56.1',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan tampilan: badge Gap yang teksnya panjang (mis. "⚠️ Gap 19 KM (Belum Teralokasi)") sebelumnya bisa melipat jadi 2 baris DI DALAM bentuk pil-nya sendiri, bikin bentuknya jadi oval besar yang aneh. Sekarang badge tidak melipat teksnya sendiri -- kalau tidak muat, badge-nya utuh pindah ke baris baru.',
+    ]
+  },
   {
     v: '3.56.0',
     date: '25 Jul 2026',
