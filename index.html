@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.74.0">
+<meta name="app-version" content="3.75.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1110,7 +1110,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.74.0';
+const APP_VERSION = '3.75.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -4553,6 +4553,7 @@ function durasiAnomaliBadgeHtml(u){
 
 function renderDestinations(){
   ensureDestinationsArray();
+  migrateRemovePribadiOnlyDestinations(); // bersihkan sisa bug seed lama yang ikutkan trip Pribadi
   dedupeDestinations(); // gabungkan baris duplikat (nama sama) -- lihat catatan di atas fungsinya
   ensureUniqueCodes(); // perbaiki tabrakan kode antar-perangkat kalau ada -- lihat catatan di fungsinya
   backfillDestinationEstimates(); // isi celah Jarak/BBM yang masih kosong, kalau riwayatnya sudah tersedia sekarang
@@ -4797,11 +4798,17 @@ function ensureDestinationFromTujuan(tujuan, mapsLink){
 // ini) tapi sudah ada riwayat Catat Perjalanan/Booking, seed Daftar Tujuan
 // dari nama-nama tujuan yang PERNAH tercatat -- supaya rekomendasi tidak
 // kosong melompong padahal riwayatnya sudah banyak.
+// v3.75.0: trip berjenis Pribadi DIKECUALIKAN dari seed ini -- konsisten
+// dengan aturan yang sudah berlaku di jalur simpan trip baru/edit
+// (ensureDestinationFromTujuan dipanggil hanya kalau jenisPenggunaan!=='pribadi').
+// Sebelumnya seed ini lupa menerapkan aturan yang sama, jadi tujuan Pribadi
+// ikut nyasar ke Data Tujuan lewat jalur migrasi ini.
 function ensureDestinationsSeeded(){
   let changed = false;
   const seen = new Set(state.destinations.map(d=>(d.nama||'').trim().toLowerCase()));
   function seedFrom(list){
     list.forEach(item=>{
+      if(item.jenisPenggunaan==='pribadi') return; // Keperluan Pribadi tidak masuk Data Tujuan
       const nama = (item.tujuan||'').trim();
       if(!nama) return;
       const key = nama.toLowerCase();
@@ -4814,6 +4821,35 @@ function ensureDestinationsSeeded(){
   seedFrom(state.usage);
   seedFrom(state.bookings);
   if(changed) saveData();
+}
+
+// Migrasi 1x (v3.75.0): membersihkan entri Data Tujuan yang terlanjur
+// nyasar dari bug di atas (seed sebelumnya tidak mengecualikan trip
+// Pribadi). Cuma hapus entri yang: (a) HANYA pernah dipakai di trip
+// Pribadi (tidak pernah untuk Pengiriman/Booking), DAN (b) belum ada data
+// pendukung apa pun (Jarak/BBM/Link Maps semuanya kosong -- kalau sudah
+// diisi manual oleh admin, JANGAN disentuh, mungkin sengaja dipakai juga
+// untuk keperluan lain di kemudian hari).
+function migrateRemovePribadiOnlyDestinations(){
+  if(state._pribadiDestinationsCleaned) return;
+  const toRemove = [];
+  state.destinations.forEach(d=>{
+    const key = (d.nama||'').trim().toLowerCase();
+    if(!key) return;
+    const hasData = d.jarakKm!=null || d.bbmLiter!=null || d.mapsLink;
+    if(hasData) return;
+    const usedNonPribadi = state.usage.some(u=> (u.tujuan||'').trim().toLowerCase()===key && u.jenisPenggunaan!=='pribadi')
+      || state.bookings.some(b=> (b.tujuan||'').trim().toLowerCase()===key);
+    const usedPribadi = state.usage.some(u=> (u.tujuan||'').trim().toLowerCase()===key && u.jenisPenggunaan==='pribadi');
+    if(usedPribadi && !usedNonPribadi) toRemove.push(d.id);
+  });
+  if(toRemove.length>0){
+    toRemove.forEach(id=>markDeleted('destinations', id));
+    state.destinations = state.destinations.filter(d=>!toRemove.includes(d.id));
+    logActivity('tujuan', 'Bersihkan Data Tujuan dari trip Pribadi', `${toRemove.length} entri dihapus (bug seed lama)`);
+  }
+  state._pribadiDestinationsCleaned = true;
+  saveData();
 }
 
 // Tampilkan referensi Jarak/BBM dari Daftar Tujuan (kalau ada datanya) di
@@ -8755,6 +8791,13 @@ function openModal({title, body, onSave}){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '3.75.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan bug: tujuan dari perjalanan berjenis Pribadi bisa nyasar ke Data Tujuan lewat proses migrasi/seed data lama (aturan "kecualikan Pribadi" sudah ada untuk trip baru, tapi migrasi seed ini sebelumnya lupa menerapkan aturan yang sama). Sekarang seed juga mengecualikan trip Pribadi, dan entri yang sudah terlanjur nyasar otomatis dibersihkan sekali -- HANYA yang murni dari trip Pribadi tanpa data pendukung apa pun (Jarak/BBM/Link Maps kosong semua); entri yang sudah diisi manual atau juga dipakai untuk Pengiriman tidak disentuh.',
+    ]
+  },
+  {
     v: '3.74.0',
     date: '25 Jul 2026',
     notes: [
@@ -9997,6 +10040,7 @@ renderPetugasSelect();
 // sekali lagi tiap kali menu Data Tujuan dibuka (lihat renderDestinations),
 // supaya datanya selalu terisi begitu ada riwayat baru yang bisa dipakai.
 dedupeDestinations(); // gabungkan Data Tujuan yang namanya sama (lihat catatan di fungsinya) -- juga dipanggil tiap menu Data Tujuan dibuka
+migrateRemovePribadiOnlyDestinations(); // bersihkan sisa bug seed lama yang ikutkan trip Pribadi -- juga dipanggil tiap menu Data Tujuan dibuka
 migrateFixDestinationBbmBasis();
 backfillDestinationEstimates();
 // Buka kembali halaman TERAKHIR yang dikunjungi DALAM SESI YANG SAMA (bukan
