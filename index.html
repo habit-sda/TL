@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.68.0">
+<meta name="app-version" content="3.69.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -712,6 +712,9 @@
     border:1px solid var(--line);border-radius:7px;padding:9px 10px;
     background:#fff;cursor:pointer;font-size:13px;font-family:inherit;
     transition:border-color .15s, box-shadow .15s;
+    min-width:0; /* v3.69.0 -- WAJIB di dalam .grid-2/flex sempit, kalau
+      tidak flex item ini menolak menyusut & malah teksnya melipat jadi
+      banyak baris (tinggi kotaknya jadi rusak) alih-alih dipotong "...". */
   }
   .cdd-control:hover{border-color:#C7CDD8;}
   .cdd-control:focus{outline:none;}
@@ -719,11 +722,22 @@
     border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,111,237,0.12);
   }
   .cdd.disabled .cdd-control{background:#F5F6F8;color:var(--muted);cursor:not-allowed;}
+  .cdd-control-label{
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
+  }
   .cdd-control-label.placeholder{color:#9AA1AC;}
   .cdd-chevron{transition:transform .18s;flex-shrink:0;}
   .cdd.open .cdd-chevron{transform:rotate(180deg);}
   .cdd-panel{
-    position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:60;
+    position:absolute;top:calc(100% + 5px);left:0;z-index:60;
+    /* v3.69.0 -- SEBELUMNYA "right:0" (lebar panel dipaksa SAMA PERSIS
+       dengan kotak tertutupnya) -- kalau kotaknya sempit (mis. di dalam
+       .grid-2), teks pilihan yang panjang ikut sempit & melipat berantakan.
+       Sekarang panel boleh lebih LEBAR dari kotaknya (menyesuaikan teks
+       terpanjang di antara pilihannya, sampai batas wajar) supaya teks
+       tetap 1 baris rapi -- kotak tertutupnya sendiri tetap ikut lebar
+       kolom aslinya (lihat .cdd-control di atas, teksnya dipotong "..."). */
+    min-width:100%;width:max-content;max-width:min(340px, 88vw);
     background:#fff;border:1px solid var(--line);border-radius:10px;
     box-shadow:0 14px 34px rgba(16,24,40,0.16);
     padding:5px;max-height:260px;overflow-y:auto;
@@ -734,6 +748,7 @@
     display:flex;align-items:center;justify-content:space-between;gap:8px;
     padding:9px 10px;border-radius:7px;cursor:pointer;font-size:13px;
   }
+  .cdd-option span:first-child{white-space:normal;word-break:break-word;}
   .cdd-option:hover, .cdd-option.active{background:#F5F7FA;}
   .cdd-option.selected{background:var(--blue-bg,#EAF0FF);color:var(--blue-dark);font-weight:700;}
   .cdd-option.selected.active{background:#DCE7FF;}
@@ -1072,7 +1087,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.68.0';
+const APP_VERSION = '3.69.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -8684,6 +8699,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.69.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan bug PENTING pada Dropdown Kustom (v3.61.0): dropdown yang berada di kolom sempit (mis. field "Kartu E-Toll Dipakai" yang berdampingan dengan field lain dalam 1 baris) sebelumnya bisa tampil berantakan -- teks pilihan yang panjang melipat jadi banyak baris (kotaknya jadi tinggi tidak wajar) alih-alih dipotong rapi. Sekarang kotak tertutup memotong teks panjang dengan "..." kalau perlu, sementara panel pilihan yang terbuka boleh melebar lebih dari kotaknya supaya teks pilihan tetap 1 baris utuh & mudah dibaca. Berlaku otomatis di SEMUA dropdown (bukan cuma yang di kolom sempit).',
+    ]
+  },
   {
     v: '3.68.0',
     date: '25 Jul 2026',
