@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.53.1">
+<meta name="app-version" content="3.54.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -977,7 +977,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.53.1';
+const APP_VERSION = '3.54.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -4889,18 +4889,49 @@ function renderUsage(){
 
   function statsFor(carId){ return vehicleStats.find(vs=>vs.car.id===carId); }
 
+  // Interpolasi warna hex linear -- dipakai fuelGaugeSegColor() di bawah
+  // untuk bikin gradasi halus antar segmen (bukan warna solid rata).
+  function lerpHexColor(hex1, hex2, t){
+    const c1 = hex1.match(/\w\w/g).map(x=>parseInt(x,16));
+    const c2 = hex2.match(/\w\w/g).map(x=>parseInt(x,16));
+    const tt = Math.max(0, Math.min(1, t));
+    return '#' + c1.map((v,i)=> Math.round(v + (c2[i]-v)*tt).toString(16).padStart(2,'0')).join('');
+  }
+  // Warna gauge "BBM Saat Ini" (v3.54.0, Varian 2): SATU gradasi warna yang
+  // konsisten (biru), BUKAN 5 tingkat warna berjenjang seperti sebelumnya
+  // (dirasa terlalu ramai/norak). Ambang "rendah" (<20%) SENGAJA disamakan
+  // dengan ambang merah di bensinLevelColor() (dipakai widget input Bensin
+  // Keluar/Kembali) supaya kedua tempat konsisten -- di bawah ambang itu,
+  // gauge ini beralih total ke gradasi merah sebagai alarm visual, di atas
+  // ambang itu selalu biru apa pun levelnya persisnya.
+  function fuelGaugeSegColor(percent, posRatio){
+    return percent < 20
+      ? lerpHexColor('#B91C1C', '#EF4444', posRatio)
+      : lerpHexColor('#1E4FBB', '#6EB4FA', posRatio);
+  }
+  // Ikon pompa bensin (SVG stroke, konsisten gaya ikon lain di aplikasi
+  // seperti ikon Driver) -- ditaruh di samping label "BBM Saat Ini".
+  const FUEL_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="3" width="11" height="18" rx="1.5"/><line x1="3" y1="11" x2="14" y2="11"/><path d="M14 8h3a2 2 0 0 1 2 2v7a1.5 1.5 0 0 0 3 0v-6"/><path d="M19 8l2 2"/></svg>';
+
   function fuelBarStripHtml(car, sisaTerkini){
     if(sisaTerkini==null) return `<div class="fuel-bar-empty">Belum ada data BBM tercatat.</div>`;
-    const color = bensinLevelColor(sisaTerkini);
     if(car.tipeIndikatorBbm==='bar'){
       const maxBar = car.maxBarBbm || 8;
       const currentBar = convertPercentToBar(sisaTerkini, maxBar);
-      const segs = Array.from({length:maxBar}).map((_,i)=> `<div class="fuel-bar-seg${i<currentBar?' filled':''}" style="${i<currentBar?`background:${color};`:''}"></div>`).join('');
+      const segs = Array.from({length:maxBar}).map((_,i)=>{
+        const filled = i<currentBar;
+        const posRatio = maxBar>1 ? i/(maxBar-1) : 0;
+        return `<div class="fuel-bar-seg${filled?' filled':''}" style="${filled?`background:${fuelGaugeSegColor(sisaTerkini,posRatio)};`:''}"></div>`;
+      }).join('');
       const liters = car.kapasitasTangkiLiter!=null ? Math.round((sisaTerkini/100)*Number(car.kapasitasTangkiLiter)) : null;
       return `<div class="fuel-bar-strip">${segs}</div><div class="fuel-bar-meta"><span>${currentBar} / ${maxBar} Bar</span>${liters!=null?`<span>± ${liters} Liter</span>`:'<span></span>'}</div>`;
     }
     const filledSeg = Math.round(sisaTerkini/10);
-    const segs = Array.from({length:10}).map((_,i)=> `<div class="fuel-bar-seg${i<filledSeg?' filled':''}" style="${i<filledSeg?`background:${color};`:''}"></div>`).join('');
+    const segs = Array.from({length:10}).map((_,i)=>{
+      const filled = i<filledSeg;
+      const posRatio = i/9;
+      return `<div class="fuel-bar-seg${filled?' filled':''}" style="${filled?`background:${fuelGaugeSegColor(sisaTerkini,posRatio)};`:''}"></div>`;
+    }).join('');
     return `<div class="fuel-bar-strip">${segs}</div><div class="fuel-bar-meta"><span>${Math.round(sisaTerkini)}%</span><span></span></div>`;
   }
 
@@ -4946,7 +4977,7 @@ function renderUsage(){
         <div><div class="stat-value">${vs.avgRatio!=null?vs.avgRatio.toFixed(1):'-'}<small> KM/L</small></div><div class="stat-label">Rata-rata</div></div>
         <div><div class="stat-value" style="font-size:16px;">${fmtMoney(vs.biaya)}</div><div class="stat-label">Total Biaya</div></div>
         <div class="vehicle-card-fuelnow">
-          <div class="stat-label">BBM Saat Ini</div>
+          <div class="stat-label">${FUEL_ICON_SVG}BBM Saat Ini</div>
           ${fuelBarStripHtml(c, vs.sisaTerkini)}
         </div>
       </div>
@@ -8341,6 +8372,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.54.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Desain ulang indikator "BBM Saat Ini" di kartu mobil (Catat Perjalanan, tampilan Card): sebelumnya 5 warna berjenjang (abu/merah/oranye/kuning/hijau/biru) yang terasa ramai, sekarang 1 gradasi warna biru yang konsisten -- otomatis beralih total ke gradasi merah kalau BBM di bawah 20% (ambang sama dengan yang sudah dipakai di form input Bensin Keluar/Kembali) sebagai alarm visual. Ditambah ikon pompa bensin kecil di label.',
+    ]
+  },
   {
     v: '3.53.1',
     date: '25 Jul 2026',
