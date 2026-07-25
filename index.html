@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.77.2">
+<meta name="app-version" content="3.78.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -554,6 +554,19 @@
      Default: sembunyikan kartu, tampilkan tabel (perilaku desktop). Media
      query di bawah membalik ini khusus layar sempit. */
   .mobile-usage-cards{display:none;}
+  /* Kontrol paginasi (v3.78.0) -- List view Catat Perjalanan. */
+  .list-pagination{
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+    padding:14px 4px 4px;border-top:1px solid var(--line);margin-top:8px;
+  }
+  .list-pagination-info{font-size:12px;color:var(--muted);}
+  .list-pagination-nav{display:flex;align-items:center;gap:10px;}
+  .list-pagination-num{font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;}
+  .list-pagination .btn:disabled{opacity:0.4;cursor:not-allowed;}
+  @media(max-width:480px){
+    .list-pagination{flex-direction:column;align-items:stretch;}
+    .list-pagination-nav{justify-content:space-between;}
+  }
 
   /* ---------------- Tabel Desktop v3.38.0: baris 2-lapis (Opsi C) ----------------
      Sebelumnya 1 baris = 1 <tr> dengan 21 kolom sejajar (perlu geser kanan-
@@ -1130,7 +1143,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.77.2';
+const APP_VERSION = '3.78.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -5317,7 +5330,19 @@ function renderUsage(){
       wrap.innerHTML = emptyState('📍','Belum ada catatan penggunaan mobil.');
       return;
     }
-    const rows = items.map(buildTripRowData);
+    // v3.78.0 -- pagination: cuma POTONG bagian yang digambar ke layar
+    // (items yang SUDAH difilter/dicari tetap lengkap di memori, dipakai
+    // penuh utk hitung total halaman & Export Excel yang sudah ada
+    // sebelumnya -- TIDAK terpengaruh, itu baca allItems langsung, bukan
+    // hasil potongan ini). listPage dijaga tetap valid (mis. kalau 1 data
+    // di halaman terakhir baru saja dihapus & halaman itu jadi kosong).
+    const totalItems = items.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / LIST_PAGE_SIZE));
+    if(listPage > totalPages) listPage = totalPages;
+    if(listPage < 1) listPage = 1;
+    const pageStart = (listPage - 1) * LIST_PAGE_SIZE;
+    const pageItems = items.slice(pageStart, pageStart + LIST_PAGE_SIZE);
+    const rows = pageItems.map(buildTripRowData);
 
     // ---------- Versi TABEL (desktop, layar lebar) — Opsi C: baris 2-lapis ----------
     // Sebelumnya 21 kolom sejajar dalam 1 <tr> (selalu perlu geser kanan-
@@ -5400,7 +5425,26 @@ function renderUsage(){
       </div>
     `;
 
-    wrap.innerHTML = tableHtml + cardsHtml;
+    // Kontrol halaman -- CUMA muncul kalau memang lebih dari 1 halaman,
+    // supaya tidak menambah elemen yang tidak perlu utk kasus umum
+    // (riwayat masih sedikit, semua muat di 1 halaman).
+    const paginationHtml = totalPages<=1 ? '' : `
+      <div class="list-pagination">
+        <span class="list-pagination-info">Menampilkan ${(pageStart+1).toLocaleString('id-ID')}–${Math.min(pageStart+LIST_PAGE_SIZE,totalItems).toLocaleString('id-ID')} dari ${totalItems.toLocaleString('id-ID')} data</span>
+        <span class="list-pagination-nav">
+          <button type="button" class="btn btn-ghost btn-sm" id="list-page-prev" ${listPage<=1?'disabled':''}>‹ Sebelumnya</button>
+          <span class="list-pagination-num">Hal. ${listPage} / ${totalPages}</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="list-page-next" ${listPage>=totalPages?'disabled':''}>Berikutnya ›</button>
+        </span>
+      </div>
+    `;
+
+    wrap.innerHTML = tableHtml + cardsHtml + paginationHtml;
+
+    const prevBtn = document.getElementById('list-page-prev');
+    if(prevBtn) prevBtn.addEventListener('click', ()=>{ listPage--; renderListView(items); });
+    const nextBtn = document.getElementById('list-page-next');
+    if(nextBtn) nextBtn.addEventListener('click', ()=>{ listPage++; renderListView(items); });
 
     wrap.querySelectorAll('[data-toggle]').forEach(t=>{
       t.addEventListener('click', ()=>{
@@ -5827,6 +5871,18 @@ function renderUsage(){
   // tersaring, bukan cuma menentukan mobil mana yang tampil di kiri. Lihat
   // catatan lengkap di riwayatTabHtml().
   let cardSearchQuery = '';
+  // Pagination (v3.78.0) -- KHUSUS tampilan List, supaya tidak menggambar
+  // ribuan baris sekaligus ke layar begitu riwayat perjalanan menumpuk
+  // bertahun-tahun (lihat diskusi ukuran file/performa). listPage & 
+  // lastListQuery dijaga di scope renderUsage() ini (bukan di dalam
+  // renderListView sendiri) supaya HALAMAN yang sedang dibuka tetap
+  // "diingat" walau renderListView dipanggil ulang tiap kali toggle
+  // Card/List atau ganti kata kunci pencarian -- TAPI otomatis balik ke
+  // halaman 1 begitu kata kuncinya BERUBAH (supaya tidak nyasar ke
+  // "halaman 5" dari hasil pencarian sebelumnya yang sudah tidak relevan).
+  const LIST_PAGE_SIZE = 25;
+  let listPage = 1;
+  let lastListQuery = null;
   function setActiveToggleButtons(){
     document.getElementById('btn-view-card').classList.toggle('active', viewMode==='card');
     document.getElementById('btn-view-list').classList.toggle('active', viewMode==='list');
@@ -5843,7 +5899,10 @@ function renderUsage(){
   function renderCurrentView(){
     const q = document.getElementById('usage-search').value;
     if(viewMode==='card') renderCardView(q);
-    else renderListView(filterListItems(q));
+    else{
+      if(q !== lastListQuery){ listPage = 1; lastListQuery = q; }
+      renderListView(filterListItems(q));
+    }
   }
   document.getElementById('btn-view-card').addEventListener('click', ()=>{
     viewMode = 'card'; setActiveToggleButtons(); renderCurrentView();
@@ -8947,6 +9006,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.78.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Fitur baru: Paginasi di Catat Perjalanan (tampilan List) -- sebelumnya SEMUA baris riwayat digambar sekaligus ke layar setiap buka halaman, makin lama makin berat kalau riwayatnya sudah menumpuk bertahun-tahun. Sekarang cuma 25 baris per halaman, dengan navigasi "Sebelumnya/Berikutnya" + info "Menampilkan X-Y dari Z data". Otomatis kembali ke halaman 1 tiap kata kunci pencarian berubah. Export Excel & pencarian TIDAK terpengaruh -- keduanya tetap membaca/mencari SELURUH data, cuma yang DIGAMBAR ke layar yang dibatasi.',
+    ]
+  },
   {
     v: '3.77.2',
     date: '25 Jul 2026',
