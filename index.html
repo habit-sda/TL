@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.73.1">
+<meta name="app-version" content="3.73.2">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -271,6 +271,16 @@
   .etoll-card-preview-info{display:flex;flex-direction:column;gap:1px;min-width:0;}
   .etoll-card-preview-nomor{font-size:12.5px;font-weight:700;letter-spacing:0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .etoll-card-preview-mobil{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* Saldo terakhir kartu -- diletakkan di ruang kosong kanan (dulu kosong).
+     Batas atas SALDO E-TOLL SESUNGGUHNYA di sistem ini: Rp 90.000.000 ("Rp
+     90.000.000" = 13 karakter) -- font & max-width di bawah sengaja diuji
+     pas di angka itu (lihat referensi sebelum deploy), BUKAN cuma
+     asal-asalan, supaya tidak pernah terpotong pada nilai yang mungkin
+     benar-benar terjadi. max-width tetap dikasih & overflow:ellipsis
+     sebagai jaring pengaman kalau suatu saat batasnya berubah lebih besar.*/
+  .etoll-card-preview-saldo{margin-left:auto;padding-left:10px;text-align:right;flex:none;min-width:0;max-width:160px;}
+  .etoll-card-preview-saldo-label{font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+  .etoll-card-preview-saldo-value{font-size:17px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;}
   @keyframes etollPreviewIn{from{opacity:0;transform:translateY(-2px);}to{opacity:1;transform:translateY(0);}}
 
   /* ---------------- Catat Perjalanan: layout Card (grouped per mobil) + panel detail ---------------- */
@@ -1089,7 +1099,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.73.1';
+const APP_VERSION = '3.73.2';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2500,6 +2510,11 @@ function etollCardPreviewHtml(card){
         <div class="etoll-card-preview-nomor">${escapeHtml(card.nomorKartu)}</div>
         ${card.mobilId ? `<div class="etoll-card-preview-mobil">${escapeHtml(carLabel(card.mobilId))}</div>` : ''}
       </div>
+      ${card.saldo!=null ? `
+      <div class="etoll-card-preview-saldo">
+        <div class="etoll-card-preview-saldo-label">Saldo Terakhir</div>
+        <div class="etoll-card-preview-saldo-value">${fmtMoney(card.saldo)}</div>
+      </div>` : ''}
     </div>
   `;
 }
@@ -6440,7 +6455,17 @@ function openUsageModal(editId){
         <option value="">— tidak pakai kartu / isi manual —</option>
         ${state.etollCards.map(card=>{
           const nomor = String(card.nomorKartu||'');
-          const nomorRingkas = nomor.length>4 ? '•••• '+nomor.slice(-4) : nomor;
+          // v3.73.2 -- nomor kartu ditampilkan PENUH (tidak lagi
+          // dipotong "•••• XXXX"), konsisten dengan etollCardPreviewHtml()
+          // yang dari awal sudah menampilkan nomor penuh. Aman dicoba
+          // karena Dropdown Kustom SUDAH punya jaring pengaman ellipsis
+          // (lihat catatan v3.61.0 di atas): kotak tertutup memotong teks
+          // panjang dengan "..." kalau perlu, panel pilihan boleh melebar
+          // supaya tetap 1 baris utuh & terbaca. Kalau nanti ternyata masih
+          // terlihat kurang rapi di device tertentu, tinggal ganti baris di
+          // bawah balik ke versi ringkas (kode lama dikomentari di sini):
+          // const nomorRingkas = nomor.length>4 ? '•••• '+nomor.slice(-4) : nomor;
+          const nomorRingkas = nomor;
           return `<option value="${card.id}" ${editing&&editing.etollCardId===card.id?'selected':''}>${escapeHtml(nomorRingkas)}${card.mobilId?' — '+escapeHtml(carLabel(card.mobilId)):''}</option>`;
         }).join('')}
       </select>
@@ -8710,6 +8735,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.73.2',
+    date: '25 Jul 2026',
+    notes: [
+      'Preview kartu E-Toll (muncul saat kartu dipilih di Catat Perjalanan) sekarang menampilkan Saldo Terakhir kartu itu di ruang kosong sebelah kanan -- sebelumnya kosong. Ukuran teks & lebar sudah diuji sampai batas atas saldo sesungguhnya (Rp 90.000.000) supaya tidak pernah terpotong.',
+      'Dropdown "Kartu E-Toll Dipakai" sekarang menampilkan nomor kartu PENUH (sebelumnya dipotong jadi "•••• 4-digit-terakhir") -- konsisten dengan preview kartu yang dari awal sudah menampilkan nomor penuh. Kalau ruang tidak cukup (HP sempit), teksnya otomatis turun jadi 2 baris rapi (jaring pengaman dari v3.61.0), bukan melebar/rusak.',
+    ]
+  },
   {
     v: '3.73.1',
     date: '25 Jul 2026',
