@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.75.0">
+<meta name="app-version" content="3.75.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1110,7 +1110,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.75.0';
+const APP_VERSION = '3.75.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3077,7 +3077,7 @@ const ROUTES = {
   dashboard: {title:'Dashboard', sub:'Ringkasan kondisi armada saat ini', render: renderDashboard},
   cars:      {title:'Data Mobil', sub:'Data dasar setiap kendaraan armada', render: renderCars},
   drivers:   {title:'Data Sopir', sub:'Data master sopir/pengemudi armada', render: renderDrivers},
-  destinations: {title:'Data Tujuan', sub:'Daftar tujuan langganan -- jarak, perkiraan BBM, dan link Maps', render: renderDestinations},
+  destinations: {title:'Data Tujuan', sub:'Daftar tujuan perjalanan operasional -- jarak, perkiraan BBM, dan tautan Maps', render: renderDestinations},
   usage:     {title:'Catat Perjalanan', sub:'Catat & pantau setiap perjalanan mobil', render: renderUsage},
   bookings:  {title:'Booking Mobil', sub:'Jadwal pemesanan mobil, deteksi bentrok otomatis', render: renderBookings},
   service:   {title:'Servis & Maintenance', sub:'Riwayat servis dan perawatan kendaraan', render: renderService},
@@ -4569,6 +4569,9 @@ function renderDestinations(){
 
   const allItems = [...state.destinations].sort((a,b)=> a.nama.localeCompare(b.nama));
   const html = `<div class="panel"><div class="panel-body">
+    <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
+      Halaman ini hanya mencatat tujuan perjalanan operasional. Perjalanan pribadi tidak dicatat di sini.
+    </p>
     <div class="search-row"><input type="text" id="destination-search" placeholder="Cari nama tujuan..."></div>
     <div id="destination-table-wrap"></div>
   </div></div>`;
@@ -8790,6 +8793,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.75.1',
+    date: '25 Jul 2026',
+    notes: [
+      'Data Tujuan: subjudul halaman dan keterangan singkat dirapikan ke bahasa baku, dengan penegasan bahwa halaman ini hanya mencatat tujuan perjalanan operasional -- perjalanan pribadi tidak tercatat di sini.',
+    ]
+  },
   {
     v: '3.75.0',
     date: '25 Jul 2026',
