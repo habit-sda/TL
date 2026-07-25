@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.77.1">
+<meta name="app-version" content="3.77.2">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -166,6 +166,8 @@
   #header-dua .arti{font-size:11.5px;color:var(--muted);text-align:center;line-height:1.5;}
   @media(max-width:640px){
     #header-dua .txt{font-size:14px;white-space:normal;text-align:center;}
+    #header-dua .line{display:none;}
+    #header-dua .row{justify-content:center;}
   }
   #content{flex:1;padding:24px 28px 40px 28px;}
 
@@ -1128,7 +1130,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.77.1';
+const APP_VERSION = '3.77.2';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -8945,6 +8947,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.77.2',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan tampilan HP untuk doa di header Dashboard: di layar sempit teks Arabnya otomatis membungkus ke 2-3 baris (kalimatnya cukup panjang), tapi garis pembatas kiri-kanan sebelumnya tetap sejajar di satu ketinggian tetap, jadi kelihatan seperti "memotong" tengah-tengah teks yang sudah membungkus. Sekarang garis pembatas otomatis disembunyikan di layar sempit, teks Arab + artinya berdiri rapi di tengah tanpa elemen yang mengganggu.',
+    ]
+  },
   {
     v: '3.77.1',
     date: '25 Jul 2026',
