@@ -12,13 +12,13 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.76.1">
+<meta name="app-version" content="3.77.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
      disamakan dengan variabel APP_VERSION di kode JavaScript setiap rilis. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Amiri:wght@400;700&family=Noto+Naskh+Arabic:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root{
     --navy:#161C27;
@@ -149,11 +149,24 @@
     border-bottom:1px solid var(--line);
     padding:16px 28px;
     display:flex;
-    align-items:center;
-    justify-content:space-between;
+    flex-direction:column;
   }
+  .topbar-row{display:flex;align-items:center;justify-content:space-between;}
   header.topbar h1{font-size:19px;margin:0;font-weight:700;}
   header.topbar p{margin:2px 0 0 0;font-size:12.5px;color:var(--muted);}
+  #header-dua{
+    display:flex;flex-direction:column;align-items:center;gap:5px;margin-top:10px;
+  }
+  #header-dua .row{display:flex;align-items:center;gap:12px;width:100%;}
+  #header-dua .line{flex:1;height:1px;background:var(--line);}
+  #header-dua .txt{
+    font-family:'Amiri','Noto Naskh Arabic',serif;font-size:17px;font-weight:700;
+    color:#3D3833;white-space:nowrap;letter-spacing:0.2px;
+  }
+  #header-dua .arti{font-size:11.5px;color:var(--muted);text-align:center;line-height:1.5;}
+  @media(max-width:640px){
+    #header-dua .txt{font-size:14px;white-space:normal;text-align:center;}
+  }
   #content{flex:1;padding:24px 28px 40px 28px;}
 
   .btn{
@@ -979,20 +992,23 @@
 
 <div id="main">
   <header class="topbar">
-    <button id="hamburger-btn" aria-label="Buka menu">☰</button>
-    <div>
-      <h1 id="page-title">Dashboard</h1>
-      <p id="page-sub">Ringkasan kondisi armada saat ini</p>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div style="position:relative;">
-        <button id="notif-bell-btn" class="btn btn-ghost btn-sm" style="padding:8px 10px;position:relative;font-size:15px;line-height:1;">
-          🔔<span id="notif-count-badge" class="notif-count-badge" style="display:none;">0</span>
-        </button>
-        <div id="notif-dropdown" class="notif-dropdown" style="display:none;"></div>
+    <div class="topbar-row">
+      <button id="hamburger-btn" aria-label="Buka menu">☰</button>
+      <div>
+        <h1 id="page-title">Dashboard</h1>
+        <p id="page-sub">Ringkasan kondisi armada saat ini</p>
       </div>
-      <div id="header-actions"></div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="position:relative;">
+          <button id="notif-bell-btn" class="btn btn-ghost btn-sm" style="padding:8px 10px;position:relative;font-size:15px;line-height:1;">
+            🔔<span id="notif-count-badge" class="notif-count-badge" style="display:none;">0</span>
+          </button>
+          <div id="notif-dropdown" class="notif-dropdown" style="display:none;"></div>
+        </div>
+        <div id="header-actions"></div>
+      </div>
     </div>
+    <div id="header-dua" style="display:none;"></div>
   </header>
 
   <div id="content"></div>
@@ -1112,7 +1128,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.76.1';
+const APP_VERSION = '3.77.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3098,6 +3114,24 @@ const ROUTES = {
 let navHistory = [];
 const NAV_HISTORY_MAX = 50; // jaga-jaga supaya tidak membengkak tanpa batas
 
+// Doa pembuka, khusus tampil di header Dashboard saja (tidak di halaman
+// lain) -- gaya "caption minimalis + garis pembatas" dengan font kaligrafis
+// Amiri (fallback Noto Naskh Arabic kalau Amiri gagal dimuat), supaya tetap
+// terbaca rapi & tidak pecah di perangkat mana pun.
+function renderHeaderDua(route){
+  const box = document.getElementById('header-dua');
+  if(!box) return;
+  if(route !== 'dashboard'){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.innerHTML = `
+    <div class="row">
+      <div class="line"></div>
+      <span class="txt" dir="rtl" lang="ar">بِسْمِ اللَّهِ تَوَكَّلْتُ عَلَى اللَّهِ، وَلاَ حَوْلَ وَلاَ قُوَّةَ إِلاَّ بِاللَّهِ</span>
+      <div class="line"></div>
+    </div>
+    <div class="arti">Dengan nama Allah, aku bertawakal kepada Allah. Tiada daya dan kekuatan kecuali dengan pertolongan Allah.</div>
+  `;
+  box.style.display = 'flex';
+}
 function navigate(route, opts){
   opts = opts || {};
   // Catat route SEBELUMNYA ke stack -- KECUALI kalau navigasi ini dipicu oleh
@@ -3123,6 +3157,7 @@ function navigate(route, opts){
   const r = ROUTES[route];
   document.getElementById('page-title').textContent = r.title;
   document.getElementById('page-sub').textContent = r.sub;
+  renderHeaderDua(route);
   r.render();
   enhanceAllSelects();
   closeDrawer();
@@ -8910,6 +8945,20 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.77.1',
+    date: '25 Jul 2026',
+    notes: [
+      'Doa di header Dashboard sekarang disertai arti singkatnya (bahasa Indonesia) di bawah teks Arab, ditulis kecil dan halus supaya tetap elegan -- tidak mengalihkan perhatian dari teks Arabnya sendiri.',
+    ]
+  },
+  {
+    v: '3.77.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Header Dashboard (khusus halaman Dashboard, tidak di halaman lain) sekarang menampilkan doa "Bismillahi tawakkaltu \'alallah, wa la hawla wa la quwwata illa billah" -- ditulis pakai font kaligrafis Amiri (fallback Noto Naskh Arabic) supaya tanda baca Arabnya terbaca rapi di perangkat apa pun, diapit garis pembatas tipis di kiri-kanan.',
+    ]
+  },
   {
     v: '3.76.1',
     date: '25 Jul 2026',
