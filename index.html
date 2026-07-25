@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.53.0">
+<meta name="app-version" content="3.53.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -977,7 +977,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.53.0';
+const APP_VERSION = '3.53.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1353,6 +1353,85 @@ function ensureCodesAssigned(){
   state.etollCards.forEach(c=>{ if(!c.kode){ c.kode = nextEtollCardCode(); changed = true; } });
   if(changed) saveData();
 }
+
+/* ---------------- Perbaikan Tabrakan Kode antar-perangkat (v3.53.1) ----------------
+   AKAR MASALAH: tiap kode (MBL-/PJL-/SRV-/TJN-/SPR-/DOK-/BKG-/ETC-) dibuat
+   dari counter LOKAL per perangkat (mis. state.destinationCodeSeq). Kalau 2
+   perangkat sama-sama bikin data baru sebelum sempat sinkron, counter di
+   masing-masing mulai dari titik yang sama -> 2 data yang BEDA (id beda)
+   bisa kebagian Kode yang SAMA. mergeCollection() gabung berdasarkan id
+   (bukan kode), jadi tabrakan ini lolos begitu saja sampai kelihatan di
+   layar sebagai 2 baris dengan kode kembar.
+
+   PERBAIKAN: bukan cuma sekali jalan, tapi SELF-HEALING -- dijalankan tiap
+   aplikasi dibuka DAN tiap selesai sinkron cloud, supaya tabrakan baru
+   (mis. muncul lagi dari perangkat ketiga) otomatis kebenerin sendiri.
+
+   SOAL DETERMINISME (paling penting): fungsi ini harus menghasilkan
+   keputusan SAMA PERSIS di semua perangkat yang menjalankannya atas data
+   gabungan yang sama -- kalau tidak, tiap perangkat bisa pilih "pemenang"
+   kode yang berbeda, dan setelah sinkron berikutnya tabrakan BARU muncul
+   lagi (kejar-kejaran tanpa akhir). Makanya siapa mempertahankan kode lama
+   & siapa dapat kode baru TIDAK bergantung urutan array (bisa beda tiap
+   perangkat tergantung urutan sinkron) -- selalu: createdAt paling awal
+   menang, kalau seri baru id (uid, unik & tidak pernah berubah) dipakai
+   sebagai tie-breaker, supaya hasilnya konsisten di mana pun dijalankan.
+   Nomor kode baru yang dibagikan juga dihitung dari angka TERTINGGI yang
+   sudah ada di kode-kode yang lewat merge (bukan dari counter lokal),
+   supaya tidak bentrok lagi dengan kode yang baru saja masuk dari device lain. */
+function highestCodeSeq(items, prefix){
+  let max = 0;
+  items.forEach(it=>{
+    if(!it.kode || !it.kode.startsWith(prefix)) return;
+    const n = parseInt(it.kode.slice(prefix.length), 10);
+    if(!isNaN(n) && n > max) max = n;
+  });
+  return max;
+}
+function resolveCodeCollisions(items, prefix, padLen, seqFieldName){
+  const groups = new Map();
+  items.forEach(it=>{
+    if(!it.kode) return;
+    if(!groups.has(it.kode)) groups.set(it.kode, []);
+    groups.get(it.kode).push(it);
+  });
+  const collidingKodes = Array.from(groups.keys()).filter(k=> groups.get(k).length>1).sort();
+  if(collidingKodes.length===0) return false;
+
+  let nextSeq = highestCodeSeq(items, prefix);
+  collidingKodes.forEach(kode=>{
+    const list = groups.get(kode).slice().sort((a,b)=>{
+      const ca = a.createdAt||'', cb = b.createdAt||'';
+      if(ca !== cb) return ca < cb ? -1 : 1;
+      return (a.id||'') < (b.id||'') ? -1 : 1;
+    });
+    // Anggota pertama (createdAt paling awal) tetap pegang kode lama;
+    // sisanya (yang belakangan) dapat kode baru yang belum pernah dipakai.
+    list.slice(1).forEach(it=>{
+      nextSeq += 1;
+      const kodeLama = it.kode;
+      it.kode = prefix + String(nextSeq).padStart(padLen,'0');
+      touch(it);
+      logActivity('sistem', 'Perbaiki tabrakan kode (sinkron multi-perangkat)', `${kodeLama} → ${it.kode}`);
+    });
+  });
+  if(seqFieldName) state[seqFieldName] = Math.max(state[seqFieldName]||0, nextSeq);
+  return true;
+}
+function ensureUniqueCodes(){
+  let changed = false;
+  if(resolveCodeCollisions(state.cars, 'MBL-', 4, 'carCodeSeq')) changed = true;
+  if(resolveCodeCollisions(state.usage, 'PJL-', 5, 'usageCodeSeq')) changed = true;
+  if(resolveCodeCollisions(state.services, 'SRV-', 4, 'serviceCodeSeq')) changed = true;
+  if(resolveCodeCollisions(state.destinations, 'TJN-', 4, 'destinationCodeSeq')) changed = true;
+  if(resolveCodeCollisions(state.drivers, 'SPR-', 4, 'driverCodeSeq')) changed = true;
+  if(resolveCodeCollisions(state.documents, 'DOK-', 4, 'documentCodeSeq')) changed = true;
+  if(resolveCodeCollisions(state.bookings, 'BKG-', 4, 'bookingCodeSeq')) changed = true;
+  if(resolveCodeCollisions(state.etollCards, 'ETC-', 4, 'etollCardCodeSeq')) changed = true;
+  if(changed) saveData();
+  return changed;
+}
+
 function saveData(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -1446,6 +1525,7 @@ function importBackupFile(file){
         state = loadDataFromObject(incoming);
         ensureDestinationsArray();
         ensureCodesAssigned();
+        ensureUniqueCodes();
         saveData();
         logActivity('sistem', 'Pulihkan data dari file backup', file.name + (meta?.exportedAt ? ` (dibuat ${tanggalBackup})` : ''));
         showToast('Data berhasil dipulihkan dari backup.');
@@ -1698,6 +1778,12 @@ async function fetchFromGithub(){
     // menambahkan nama tujuan yang sama sebelum sinkron, gabungkan sekarang
     // juga supaya tidak sempat tampil dobel di layar (lihat dedupeDestinations).
     if(dedupeDestinations()) localChanged = true;
+    // Kalau 2 perangkat sama-sama bikin data baru (kode apa pun -- mobil,
+    // perjalanan, servis, tujuan, dst.) sebelum sempat sinkron, counter kode
+    // lokal masing-masing bisa menghasilkan kode kembar untuk 2 data yang
+    // beda -- perbaiki itu sekarang juga (lihat catatan lengkap di
+    // ensureUniqueCodes), sebelum hasil gabungan ini disimpan/ditampilkan.
+    if(ensureUniqueCodes()) localChanged = true;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     saveTombstones();
     if(localChanged){
@@ -4114,6 +4200,7 @@ function durasiAnomaliBadgeHtml(u){
 function renderDestinations(){
   ensureDestinationsArray();
   dedupeDestinations(); // gabungkan baris duplikat (nama sama) -- lihat catatan di atas fungsinya
+  ensureUniqueCodes(); // perbaiki tabrakan kode antar-perangkat kalau ada -- lihat catatan di fungsinya
   backfillDestinationEstimates(); // isi celah Jarak/BBM yang masih kosong, kalau riwayatnya sudah tersedia sekarang
   document.getElementById('header-actions').innerHTML =
     `<button class="btn btn-primary" id="btn-add-destination">+ Tambah Tujuan Baru</button>${exportBtnHtml('btn-export-destination')}`;
@@ -8255,6 +8342,13 @@ function openModal({title, body, onSave}){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '3.53.1',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan menyeluruh: tabrakan Kode antar-perangkat (2 data BEDA kebagian Kode yang SAMA, mis. 2 baris sama-sama "TJN-0001") -- bisa kejadian kalau 2 HP/perangkat sama-sama membuat data baru sebelum sempat sinkron Cloud. Sekarang sistem otomatis mendeteksi & memperbaiki tabrakan ini (data yang lebih dulu dibuat tetap pegang kode lama, yang belakangan dapat kode baru) -- berjalan sendiri tiap aplikasi dibuka DAN tiap selesai sinkron Cloud, untuk SEMUA jenis data berkode (Mobil, Perjalanan, Servis, Tujuan, Sopir, Dokumen, Booking, Kartu E-Toll), bukan cuma memperbaiki sekali lalu bisa kejadian lagi.',
+    ]
+  },
+  {
     v: '3.53.0',
     date: '25 Jul 2026',
     notes: [
@@ -9287,6 +9381,7 @@ try{
   if(savedRoute && ROUTES[savedRoute]) startRoute = savedRoute;
 }catch(e){}
 ensureCodesAssigned();
+ensureUniqueCodes();
 ensureDestinationsSeeded();
 migrateCatatanToLog();
 navigate(startRoute);
