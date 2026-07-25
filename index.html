@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.58.3">
+<meta name="app-version" content="3.59.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -979,7 +979,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.58.3';
+const APP_VERSION = '3.59.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2422,13 +2422,26 @@ function escapeHtml(s){
 // Booking Mobil, bubble perjalanan aktif) supaya SATU markup/gaya yang sama,
 // bukan ditulis ulang 3x. Kembalikan string kosong kalau mapsLink kosong,
 // jadi caller cukup taruh hasilnya langsung tanpa perlu cek null sendiri.
+// Ikon pin tujuan (SVG, bukan emoji) -- dipakai konsisten di semua tempat
+// yang menampilkan label tujuan, supaya tampil identik di semua perangkat
+// (emoji 📍 bisa beda bentuk/warna tergantung HP/OS/browser).
+function tujuanPinIconHtml(){
+  return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;flex-shrink:0;"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z" stroke="#E0507A" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.3" stroke="#E0507A" stroke-width="1.8"/></svg>`;
+}
+// Ikon kompas (bukan pin lagi) untuk tombol/link "Navigasi" -- SENGAJA beda
+// bentuk dari ikon pin tujuan di atas, supaya keduanya tidak mirip & bikin
+// bingung (pin = "ini lokasinya", kompas = "buka arah ke sini").
+function navCompassIconHtml(color){
+  color = color || 'var(--blue-dark)';
+  return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="vertical-align:-1px;flex-shrink:0;"><circle cx="12" cy="12" r="9" stroke="${color}" stroke-width="1.8"/><path d="M12 6.5l2.1 5.6-2.1 1.4-2.1-1.4z" fill="${color}"/></svg>`;
+}
 function mapsNavButtonHtml(mapsLink){
   if(!mapsLink || !/^https?:\/\//i.test(mapsLink.trim())) return ''; // jaga-jaga: tolak skema selain http(s), mis. javascript:
   // stopPropagation: beberapa tempat pemasangan (mis. trip-card di bubble)
   // punya klik-handler sendiri di elemen pembungkusnya -- tanpa ini, klik
   // tombol ini akan IKUT memicu handler pembungkus itu (mis. buka menu aksi)
   // di atas navigasi yang sebenarnya dituju.
-  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps">📍 Navigasi</a>`;
+  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps">${navCompassIconHtml()} Navigasi</a>`;
 }
 
 // Varian RINGKAS (ikon saja, tanpa teks "Navigasi") -- KHUSUS dipakai di
@@ -2440,7 +2453,7 @@ function mapsNavButtonHtml(mapsLink){
 // supaya perubahan ukuran di sini tidak ikut mengubah tombol di tempat lain.
 function mapsNavButtonCompactHtml(mapsLink){
   if(!mapsLink || !/^https?:\/\//i.test(mapsLink.trim())) return '';
-  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps-compact" title="Buka Navigasi">📍</a>`;
+  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps-compact" title="Buka Navigasi">${navCompassIconHtml()}</a>`;
 }
 
 // Cari Link Maps dari riwayat TUJUAN YANG SAMA PERSIS (case-insensitive) --
@@ -4477,7 +4490,7 @@ function wireDestinationRefHint(tujuanInputId, hintElId){
       const parts = [];
       if(dest.jarakKm!=null) parts.push(`~${Number(dest.jarakKm).toLocaleString('id-ID')} KM`);
       if(dest.bbmLiter!=null) parts.push(`~${Number(dest.bbmLiter).toLocaleString('id-ID')} L BBM`);
-      hintEl.innerHTML = `📍 Referensi tujuan ini (dari Data Tujuan): <b>${parts.join(' · ')}</b>`;
+      hintEl.innerHTML = `${tujuanPinIconHtml()} Referensi tujuan ini (dari Data Tujuan): <b>${parts.join(' · ')}</b>`;
       hintEl.style.display = 'block';
     } else {
       hintEl.style.display = 'none';
@@ -4796,7 +4809,7 @@ function renderUsage(){
           <div class="triprow">
             <div class="triprow-top">
               <div>
-                <div class="triprow-dest">${codeBadgeHtml(u.kode)} 📍 ${escapeHtml(u.tujuan)}${mapsNavButtonCompactHtml(u.mapsLink)}</div>
+                <div class="triprow-dest">${codeBadgeHtml(u.kode)} ${tujuanPinIconHtml()} ${escapeHtml(u.tujuan)}${mapsNavButtonCompactHtml(u.mapsLink)}</div>
                 <div class="triprow-meta">${escapeHtml(carLabel(u.carId))} · ${escapeHtml(driverLabel(u.driverId,u.driver))} · ${u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman'} · ${fmtDate(u.tglKeluar)} ${u.jamKeluar||''} → ${u.tglKembali?fmtDate(u.tglKembali):'-'} ${u.jamKembali||''}</div>
               </div>
               <div class="triprow-right">
@@ -4828,7 +4841,7 @@ function renderUsage(){
               <span class="usage-card-mobil car-with-thumb-sm">${carPhotoHtml(r.carForRow,'car-thumb-sm')}<span>${escapeHtml(carLabel(u.carId))}</span></span>
               ${u.status==='digunakan' ? `<span class="badge warn">Digunakan</span>` : `<span class="badge ok">Selesai</span>`}
             </div>
-            <div class="usage-card-tujuan">📍 ${escapeHtml(u.tujuan)} ${mapsNavButtonHtml(u.mapsLink)}</div>
+            <div class="usage-card-tujuan">${tujuanPinIconHtml()} ${escapeHtml(u.tujuan)} ${mapsNavButtonHtml(u.mapsLink)}</div>
             <div class="usage-card-meta">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${fmtDate(u.tglKeluar)}${u.tglKembali?' → '+fmtDate(u.tglKembali):''}</div>
             <div style="margin-top:6px;">${codeBadgeHtml(u.kode)}</div>
             <div class="usage-card-detail-toggle" data-toggle="${idx}">▾ Lihat detail (Jarak, BBM, Efisiensi, dst)</div>
@@ -5050,7 +5063,7 @@ function renderUsage(){
         <div class="trip-timeline-date"><div class="day">${dp.day}</div><div class="mon">${dp.mon}</div><div class="yr">${dp.yr}</div></div>
         <div class="trip-timeline-body">
           <div class="trip-timeline-time">${u.jamKeluar||'-'} – ${u.jamKembali||'-'}${u.jamKeluar&&u.jamKembali?` <span style="color:var(--muted);">(${fmtDuration(u)})</span>${durasiAnomaliBadgeHtml(u)}`:''}</div>
-          <div class="trip-timeline-dest">📍 ${escapeHtml(u.tujuan||'-')}${mapsNavButtonCompactHtml(u.mapsLink)}</div>
+          <div class="trip-timeline-dest">${tujuanPinIconHtml()} ${escapeHtml(u.tujuan||'-')}${mapsNavButtonCompactHtml(u.mapsLink)}</div>
           <div class="trip-timeline-meta">${u.literBensin?u.literBensin+' L':'-'}${u.biayaBensin?' · '+fmtMoney(u.biayaBensin):''}${gapHtml?' · '+gapHtml.trim():''}</div>
         </div>
         <div class="trip-timeline-right">
@@ -5084,7 +5097,7 @@ function renderUsage(){
     return `
       <div class="trip-detail-back" data-back-to-riwayat="1">← Kembali ke Riwayat Perjalanan</div>
       <div class="trip-detail-view-top">
-        <div class="trip-timeline-dest" style="font-size:14px;">📍 ${escapeHtml(u.tujuan||'-')}${mapsNavButtonHtml(u.mapsLink)}</div>
+        <div class="trip-timeline-dest" style="font-size:14px;">${tujuanPinIconHtml()} ${escapeHtml(u.tujuan||'-')}${mapsNavButtonHtml(u.mapsLink)}</div>
         <span class="badge ${u.status==='digunakan'?'warn':'ok'}">${u.status==='digunakan'?'Digunakan':'Selesai'}</span>
       </div>
       <div class="trip-timeline-meta" style="margin-top:6px;">${escapeHtml(driverLabel(u.driverId,u.driver))} · ${fmtDate(u.tglKeluar)}${u.tglKembali?' → '+fmtDate(u.tglKembali):''}</div>
@@ -8366,6 +8379,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.59.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Ikon pin tujuan (📍) di semua tempat Catat Perjalanan diganti jadi ikon SVG rose konsisten (bukan emoji lagi -- tampil identik di semua perangkat). Tombol/link "Navigasi" sekarang pakai ikon kompas, bukan pin lagi -- supaya tidak lagi terlihat sama dengan pin label tujuan di sebelahnya (2 elemen beda fungsi, sekarang bentuknya jelas beda juga).',
+    ]
+  },
   {
     v: '3.58.3',
     date: '25 Jul 2026',
