@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.59.2">
+<meta name="app-version" content="3.60.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -386,21 +386,21 @@
      terlihat dibanding badge kecil sebelumnya, tanpa terlalu "ramai" kalau
      berdampingan dengan tombol aksi lain (Edit, Biaya Operasional, dll). */
   .btn-nav-maps{
-    display:inline-flex;align-items:center;gap:6px;
-    background:#fff;color:var(--blue-dark);text-decoration:none;
-    padding:6px 12px;border-radius:8px;font-size:12.5px;font-weight:700;
-    border:1.5px solid var(--blue);white-space:nowrap;
+    display:inline-flex;align-items:center;gap:7px;
+    background:#2E7D82;color:#fff;text-decoration:none;
+    padding:7px 16px;border-radius:22px;font-size:12.5px;font-weight:700;
+    border:none;white-space:nowrap;
   }
 
   /* Varian ringkas (ikon saja) -- KHUSUS kolom Tujuan tabel desktop Catat
      Perjalanan. Class terpisah dari .btn-nav-maps supaya tidak memengaruhi
-     tombol Navigasi di Booking/Dashboard/Servis/kartu mobile. */
+     tombol Rute di Booking/Dashboard/Servis/kartu mobile. */
   .btn-nav-maps-compact{
     display:inline-flex;align-items:center;justify-content:center;
-    width:22px;height:22px;flex:none;
-    background:#fff;text-decoration:none;
-    border-radius:6px;font-size:12px;line-height:1;
-    border:1.5px solid var(--blue);vertical-align:middle;
+    width:24px;height:24px;flex:none;
+    background:#2E7D82;text-decoration:none;
+    border-radius:50%;font-size:12px;line-height:1;
+    border:none;vertical-align:middle;
   }
 
   .empty-state{
@@ -551,7 +551,7 @@
   /* ---------------- Bubble melayang: indikator mobil sedang dalam perjalanan ---------------- */
   #trip-bubble{position:fixed;bottom:20px;right:20px;z-index:150;}
   .trip-bubble-btn{
-    background:var(--navy);color:#fff;border:none;border-radius:26px;
+    background:#2E7D82;color:#fff;border:none;border-radius:26px;
     padding:11px 16px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px;
     box-shadow:0 10px 24px rgba(0,0,0,0.22);cursor:pointer;font-family:inherit;
   }
@@ -650,6 +650,25 @@
   .field{margin-bottom:13px;}
   .field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:5px;color:#374151;}
   .field .hint{font-size:11px;color:var(--muted);margin-top:4px;}
+  /* v3.60.0 -- reset tampilan bawaan OS/browser utk SEMUA <select> (panah
+     kotak dropdown-nya SELALU beda tiap OS/browser & sering terlihat kasar/
+     tidak konsisten dgn gaya app) -- diganti panah kustom (chevron SVG) yang
+     seragam. CATATAN JUJUR: ini cuma mengubah tampilan KOTAK TERTUTUPnya.
+     Daftar PILIHAN yang muncul saat di-tap (native dropdown list) TETAP
+     dirender OS/browser sendiri -- CSS situs web TIDAK BISA menata ulang
+     tampilan list itu (keterbatasan platform, bukan keterbatasan kode ini).
+     Kalau daftar pilihan itu sendiri mau ikut ditata, perlu dibangun ulang
+     jadi komponen dropdown kustom (bukan <select> asli) -- proyek terpisah
+     yang jauh lebih besar. */
+  select{
+    appearance:none;-webkit-appearance:none;-moz-appearance:none;
+    background-image:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center;background-size:12px;
+    padding-right:34px !important;
+    cursor:pointer;
+  }
+  select::-ms-expand{display:none;}
+
   .field input, .field select, .field textarea{
     width:100%;
     border:1px solid var(--line);
@@ -980,7 +999,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.59.2';
+const APP_VERSION = '3.60.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2433,8 +2452,8 @@ function tujuanPinIconHtml(){
 // bentuk dari ikon pin tujuan di atas, supaya keduanya tidak mirip & bikin
 // bingung (pin = "ini lokasinya", kompas = "buka arah ke sini").
 function navCompassIconHtml(color){
-  color = color || 'var(--blue-dark)';
-  return `<svg width="15" height="15" viewBox="0 0 20 20" style="vertical-align:-2px;flex-shrink:0;"><circle cx="10" cy="10" r="9" fill="${color}"/><path d="M10 5L13.5 12.5L10 11L6.5 12.5Z" fill="#fff"/></svg>`;
+  color = color || '#fff';
+  return `<svg width="15" height="15" viewBox="0 0 20 20" style="vertical-align:-2px;flex-shrink:0;"><circle cx="10" cy="10" r="9" fill="${color}"/><path d="M10 5L13.5 12.5L10 11L6.5 12.5Z" fill="#2E7D82"/></svg>`;
 }
 function mapsNavButtonHtml(mapsLink){
   if(!mapsLink || !/^https?:\/\//i.test(mapsLink.trim())) return ''; // jaga-jaga: tolak skema selain http(s), mis. javascript:
@@ -2442,19 +2461,19 @@ function mapsNavButtonHtml(mapsLink){
   // punya klik-handler sendiri di elemen pembungkusnya -- tanpa ini, klik
   // tombol ini akan IKUT memicu handler pembungkus itu (mis. buka menu aksi)
   // di atas navigasi yang sebenarnya dituju.
-  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps">${navCompassIconHtml()} Navigasi</a>`;
+  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps">${navCompassIconHtml()} Rute</a>`;
 }
 
-// Varian RINGKAS (ikon saja, tanpa teks "Navigasi") -- KHUSUS dipakai di
+// Varian RINGKAS (ikon saja, tanpa teks "Rute") -- KHUSUS dipakai di
 // kolom Tujuan tabel desktop Catat Perjalanan, supaya tidak mendominasi
-// kolom yang sempit (tombol penuh "📍 Navigasi" di situ kelihatan kebesaran
+// kolom yang sempit (tombol penuh "Rute" di situ kelihatan kebesaran
 // & bikin baris jadi tinggi). TIDAK dipakai di tempat lain (Booking,
 // Dashboard, Servis, kartu mobile Catat Perjalanan tetap pakai
 // mapsNavButtonHtml() yang biasa) -- sengaja fungsi & class CSS terpisah
 // supaya perubahan ukuran di sini tidak ikut mengubah tombol di tempat lain.
 function mapsNavButtonCompactHtml(mapsLink){
   if(!mapsLink || !/^https?:\/\//i.test(mapsLink.trim())) return '';
-  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps-compact" title="Buka Navigasi">${navCompassIconHtml()}</a>`;
+  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps-compact" title="Buka Rute">${navCompassIconHtml()}</a>`;
 }
 
 // Cari Link Maps dari riwayat TUJUAN YANG SAMA PERSIS (case-insensitive) --
@@ -3158,11 +3177,17 @@ function renderTripBubblePanelContent(){
     <rect x="60" y="92" width="14" height="3" rx="1.5" fill="#fff"/>
 </svg> Mobil Sedang Jalan (${active.length})</div>` +
     (active.length===0 ? `<div style="padding:18px;text-align:center;color:var(--muted);font-size:12px;">Tidak ada mobil yang sedang jalan.</div>` :
-    active.map(u=>`
-      <div class="trip-card" data-trip="${u.id}">
-        <b>${escapeHtml(carLabel(u.carId))}</b>
-        <div class="desc">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${escapeHtml(u.tujuan||'-')}${u.jamKeluar?' · sejak '+u.jamKeluar:''} ${mapsNavButtonHtml(u.mapsLink)}</div>
-      </div>`).join(''));
+    active.map(u=>{
+      const carForBubble = state.cars.find(c=>c.id===u.carId);
+      return `
+      <div class="trip-card" data-trip="${u.id}" style="display:flex;gap:12px;align-items:flex-start;">
+        ${carPhotoHtml(carForBubble, 'car-thumb')}
+        <div style="flex:1;min-width:0;">
+          <b>${escapeHtml(carLabel(u.carId))}</b>
+          <div class="desc">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${escapeHtml(u.tujuan||'-')}${u.jamKeluar?' · sejak '+u.jamKeluar:''} ${mapsNavButtonHtml(u.mapsLink)}</div>
+        </div>
+      </div>`;
+    }).join(''));
   panel.querySelectorAll('[data-trip]').forEach(el=>{
     el.addEventListener('click', (e)=> openTripActionMenu(el.dataset.trip, e.currentTarget));
   });
@@ -6088,7 +6113,7 @@ function openUsageModal(editId){
       <label>Link Google Maps Tujuan (opsional)</label>
       <input type="text" id="in-maps-link" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
       <div id="maps-link-preview" style="margin-top:6px;"></div>
-      <div class="hint">Terisi otomatis kalau tujuan ini sudah pernah dicatat. Klik "📍 Navigasi" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- otomatis ikut memperbarui Data Tujuan supaya perjalanan berikutnya ke tujuan ini pakai link terbaru juga. Bisa juga diperbarui langsung lewat menu Data Tujuan.</div>
+      <div class="hint">Terisi otomatis kalau tujuan ini sudah pernah dicatat. Klik "Rute" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- otomatis ikut memperbarui Data Tujuan supaya perjalanan berikutnya ke tujuan ini pakai link terbaru juga. Bisa juga diperbarui langsung lewat menu Data Tujuan.</div>
     </div>
     <div class="grid-2">
       <div class="field">
@@ -6461,7 +6486,7 @@ function openBookingModal(editId){
       <label>Link Google Maps Tujuan (opsional)</label>
       <input type="text" id="in-maps-link" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
       <div id="maps-link-preview" style="margin-top:6px;"></div>
-      <div class="hint">Terisi otomatis kalau tujuan ini sudah pernah dicatat. Klik "📍 Navigasi" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- otomatis ikut memperbarui Data Tujuan. Bisa juga diperbarui langsung lewat menu Data Tujuan.</div>
+      <div class="hint">Terisi otomatis kalau tujuan ini sudah pernah dicatat. Klik "Rute" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- otomatis ikut memperbarui Data Tujuan. Bisa juga diperbarui langsung lewat menu Data Tujuan.</div>
     </div>
     <div class="panel-head" style="padding:0;border:none;margin:14px 0 8px 0;"><h2 style="font-size:13px;">Jadwal Mulai</h2></div>
     <div class="grid-2">
@@ -6802,7 +6827,7 @@ function openServiceModal(editId){
       <label>Link Google Maps Bengkel (opsional)</label>
       <input type="text" id="in-maps-bengkel" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
       <div id="maps-bengkel-preview" style="margin-top:6px;"></div>
-      <div class="hint">Terisi otomatis kalau bengkel ini sudah pernah dicatat sebelumnya. Klik "📍 Navigasi" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- kamu akan ditanya apakah mau ikut menerapkannya ke SEMUA riwayat servis bengkel yang sama.</div>
+      <div class="hint">Terisi otomatis kalau bengkel ini sudah pernah dicatat sebelumnya. Klik "Rute" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- kamu akan ditanya apakah mau ikut menerapkannya ke SEMUA riwayat servis bengkel yang sama.</div>
     </div>
     <div class="panel-head" style="padding:0;border:none;margin:16px 0 8px 0;display:flex;justify-content:space-between;align-items:center;">
       <h2 style="font-size:13px;">Item Servis / Perbaikan *</h2>
@@ -8380,6 +8405,16 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.60.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Tombol/link "Navigasi" diganti nama jadi "Rute" dan tampilannya jadi pil teal solid (#2E7D82) dengan ikon kompas putih -- di semua tempat (Catat Perjalanan, Booking, Dashboard, Servis, bubble Mobil Jalan). Ikonnya sendiri tidak diubah bentuknya, cuma warnanya disesuaikan supaya kontras di latar teal.',
+      'Bubble mengambang "Mobil Jalan" di pojok kanan bawah warnanya diganti dari navy jadi teal yang sama dengan tombol Rute, supaya konsisten.',
+      'Panel "Mobil Sedang Jalan" (isi bubble Mobil Jalan) sekarang menampilkan foto mobil di sebelah kiri tiap baris (pakai Foto Kendaraan yang sudah diisi di Data Mobil) -- sebelumnya cuma teks.',
+      'SEMUA kotak dropdown (<select>) di aplikasi sekarang pakai panah kustom yang seragam, menggantikan panah bawaan OS/browser yang tampilannya beda-beda & kadang terlihat kasar. Catatan jujur: ini cuma mengubah tampilan KOTAK TERTUTUPnya -- daftar pilihan yang muncul saat di-tap tetap dirender native oleh OS/browser (keterbatasan platform web, bukan bisa diatasi lewat CSS).',
+    ]
+  },
   {
     v: '3.59.2',
     date: '25 Jul 2026',
