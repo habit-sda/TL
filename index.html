@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.73.3">
+<meta name="app-version" content="3.74.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -264,24 +264,28 @@
   .hapus-kode-notes{margin:0 0 16px 0;padding-left:18px;font-size:12px;color:var(--muted);line-height:1.8;}
 
   .etoll-card-preview{
-    display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:8px;
-    border:1px solid var(--line);border-radius:10px;background:#FAFBFC;
+    display:flex;align-items:center;gap:10px;
     animation:etollPreviewIn .15s ease-out;
   }
   .etoll-card-preview-info{display:flex;flex-direction:column;gap:1px;min-width:0;}
   .etoll-card-preview-nomor{font-size:12.5px;font-weight:700;letter-spacing:0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .etoll-card-preview-mobil{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  /* Saldo terakhir kartu -- diletakkan di ruang kosong kanan (dulu kosong).
-     Batas atas SALDO E-TOLL SESUNGGUHNYA di sistem ini: Rp 90.000.000 ("Rp
-     90.000.000" = 13 karakter) -- font & max-width di bawah sengaja diuji
-     pas di angka itu (lihat referensi sebelum deploy), BUKAN cuma
-     asal-asalan, supaya tidak pernah terpotong pada nilai yang mungkin
-     benar-benar terjadi. max-width tetap dikasih & overflow:ellipsis
-     sebagai jaring pengaman kalau suatu saat batasnya berubah lebih besar.*/
-  .etoll-card-preview-saldo{margin-left:auto;padding-left:10px;text-align:right;flex:none;min-width:0;max-width:160px;}
-  .etoll-card-preview-saldo-label{font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
-  .etoll-card-preview-saldo-value{font-size:17px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;}
   @keyframes etollPreviewIn{from{opacity:0;transform:translateY(-2px);}to{opacity:1;transform:translateY(0);}}
+
+  /* v3.74.0: Kartu gabungan untuk field "Saldo E-Toll Saat Berangkat" --
+     preview kartu (foto/nomor/mobil) + label saldo + input jadi 1 kartu
+     visual utuh (bukan kartu abu-abu terpisah + input putih polos dengan
+     gap di antaranya seperti sebelumnya). Divider cuma render kalau ada
+     preview kartu terisi (etollCardPreviewHtml mengembalikan '' kalau
+     belum ada kartu dipilih, jadi otomatis tidak ada garis menggantung). */
+  .etoll-merged-wrap{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#FAFBFC;}
+  .etoll-merged-divider{border-top:1px dashed var(--line);margin:11px 0;}
+  .etoll-saldo-label-row{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
+  .etoll-saldo-label-row .tag{font-size:9.5px;font-weight:700;color:var(--blue);background:#EAF1FE;padding:1px 6px;border-radius:10px;text-transform:none;letter-spacing:0;}
+  .etoll-input-row{display:flex;align-items:center;background:#fff;border:1.5px solid var(--blue);border-radius:8px;padding:0 12px;}
+  .etoll-input-row .prefix{font-size:16px;font-weight:700;color:var(--muted);margin-right:2px;}
+  .etoll-input-row input{border:none;outline:none;flex:1;font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace;padding:9px 0;color:var(--text);background:transparent;width:100%;min-width:0;}
+  .etoll-input-row input:focus{box-shadow:none;}
 
   /* ---------------- Catat Perjalanan: layout Card (grouped per mobil) + panel detail ---------------- */
   .trip-search-row{display:flex;gap:10px;margin-bottom:16px;align-items:stretch;}
@@ -1106,7 +1110,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.73.3';
+const APP_VERSION = '3.74.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2508,6 +2512,13 @@ function etollCardPhotoHtml(card, sizeClass){
 // atas field Saldo E-Toll Saat Berangkat begitu kartu dipilih di Catat
 // Perjalanan, supaya petugas gampang mengenali kartu fisiknya tanpa perlu
 // baca nomor panjang satu-satu.
+// v3.74.0: Blok "Saldo Terakhir" yang dulu ada di sini SENGAJA DIHAPUS --
+// itu penyebab utama saldo tertulis 2x (di preview & di field input di
+// bawahnya), yang bikin field-nya terasa "terisolasi"/tidak fokus. Sekarang
+// preview ini cuma info kartu (foto/nomor/mobil), lalu divider tipis, dan
+// SATU-SATUNYA tempat angka saldo muncul adalah field input itu sendiri
+// (lihat pembungkus .etoll-merged-wrap di openUsageModal) -- preview + input
+// sekarang 1 kartu visual utuh, bukan 2 elemen terpisah.
 function etollCardPreviewHtml(card){
   if(!card) return '';
   return `
@@ -2517,12 +2528,8 @@ function etollCardPreviewHtml(card){
         <div class="etoll-card-preview-nomor">${escapeHtml(card.nomorKartu)}</div>
         ${card.mobilId ? `<div class="etoll-card-preview-mobil">${escapeHtml(carLabel(card.mobilId))}</div>` : ''}
       </div>
-      ${card.saldo!=null ? `
-      <div class="etoll-card-preview-saldo">
-        <div class="etoll-card-preview-saldo-label">Saldo Terakhir</div>
-        <div class="etoll-card-preview-saldo-value">${fmtMoney(card.saldo)}</div>
-      </div>` : ''}
     </div>
+    <div class="etoll-merged-divider"></div>
   `;
 }
 function driverLabel(driverId, legacyDriverText){
@@ -6478,10 +6485,15 @@ function openUsageModal(editId){
       </select>
     </div>
     <div class="field">
-      <label>Saldo E-Toll Saat Berangkat (Rp)</label>
-      <div id="etoll-card-preview">${editing && editing.etollCardId ? etollCardPreviewHtml(state.etollCards.find(c=>c.id===editing.etollCardId)) : ''}</div>
-      <input type="text" inputmode="numeric" id="in-etoll" placeholder="Contoh: 100.000" value="${editing?fmtRibuanInitial(editing.saldoEtollAwal):''}">
-      <div class="hint" id="etoll-hint">Pilih kartu di atas supaya saldo terisi otomatis, atau isi manual kalau bayar tunai/kartu belum terdaftar. Nilai ini disimpan tersendiri (tidak tertimpa saat trip selesai), dipakai untuk hitung "Biaya Tol Terpakai" secara akurat.</div>
+      <div class="etoll-merged-wrap">
+        <div id="etoll-card-preview">${editing && editing.etollCardId ? etollCardPreviewHtml(state.etollCards.find(c=>c.id===editing.etollCardId)) : ''}</div>
+        <div class="etoll-saldo-label-row"><span>Saldo E-Toll Saat Berangkat</span><span class="tag">Bisa diedit</span></div>
+        <div class="etoll-input-row">
+          <span class="prefix">Rp</span>
+          <input type="text" inputmode="numeric" id="in-etoll" placeholder="Contoh: 100.000" value="${editing?fmtRibuanInitial(editing.saldoEtollAwal):''}">
+        </div>
+        <div class="hint" id="etoll-hint" style="margin-top:8px;">Pilih kartu di atas supaya saldo terisi otomatis, atau isi manual kalau bayar tunai/kartu belum terdaftar. Nilai ini disimpan tersendiri (tidak tertimpa saat trip selesai), dipakai untuk hitung "Biaya Tol Terpakai" secara akurat.</div>
+      </div>
     </div>
     <div id="fuel-range-insight"></div>
   `;
@@ -8742,6 +8754,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.74.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Catat Perjalanan: field "Saldo E-Toll Saat Berangkat" dirombak -- sebelumnya saldo ditulis 2x (di kartu preview "Saldo Terakhir", lalu di input terpisah di bawahnya) dan terasa terputus/tidak fokus. Sekarang preview kartu (foto/nomor/mobil) dan field saldo digabung jadi 1 kartu visual utuh dengan pemisah tipis -- angka saldo cuma muncul 1x, langsung sebagai isi field yang bisa diedit (ditandai border biru + label "Bisa diedit").',
+    ]
+  },
   {
     v: '3.73.3',
     date: '25 Jul 2026',
