@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.59.1">
+<meta name="app-version" content="3.59.2">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -980,7 +980,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.59.1';
+const APP_VERSION = '3.59.2';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2434,7 +2434,7 @@ function tujuanPinIconHtml(){
 // bingung (pin = "ini lokasinya", kompas = "buka arah ke sini").
 function navCompassIconHtml(color){
   color = color || 'var(--blue-dark)';
-  return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;flex-shrink:0;"><circle cx="12" cy="12" r="9.5" stroke="${color}" stroke-width="2"/><path d="M12 5L16.5 13L12 11L7.5 13Z" fill="${color}"/></svg>`;
+  return `<svg width="15" height="15" viewBox="0 0 20 20" style="vertical-align:-2px;flex-shrink:0;"><circle cx="10" cy="10" r="9" fill="${color}"/><path d="M10 5L13.5 12.5L10 11L6.5 12.5Z" fill="#fff"/></svg>`;
 }
 function mapsNavButtonHtml(mapsLink){
   if(!mapsLink || !/^https?:\/\//i.test(mapsLink.trim())) return ''; // jaga-jaga: tolak skema selain http(s), mis. javascript:
@@ -8380,6 +8380,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.59.2',
+    date: '25 Jul 2026',
+    notes: [
+      'Ikon kompas tombol Navigasi diganti jadi versi kontras tinggi: lingkaran biru terisi penuh (bukan cuma garis tipis) dengan jarum putih di tengah -- jauh lebih jelas terlihat di ukuran kecil dibanding versi outline sebelumnya.',
+    ]
+  },
   {
     v: '3.59.1',
     date: '25 Jul 2026',
