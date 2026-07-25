@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.69.0">
+<meta name="app-version" content="3.71.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -723,24 +723,26 @@
   }
   .cdd.disabled .cdd-control{background:#F5F6F8;color:var(--muted);cursor:not-allowed;}
   .cdd-control-label{
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+    overflow:hidden;text-overflow:ellipsis;min-width:0;line-height:1.35;
   }
   .cdd-control-label.placeholder{color:#9AA1AC;}
   .cdd-chevron{transition:transform .18s;flex-shrink:0;}
   .cdd.open .cdd-chevron{transform:rotate(180deg);}
   .cdd-panel{
-    position:absolute;top:calc(100% + 5px);left:0;z-index:60;
-    /* v3.69.0 -- SEBELUMNYA "right:0" (lebar panel dipaksa SAMA PERSIS
-       dengan kotak tertutupnya) -- kalau kotaknya sempit (mis. di dalam
-       .grid-2), teks pilihan yang panjang ikut sempit & melipat berantakan.
-       Sekarang panel boleh lebih LEBAR dari kotaknya (menyesuaikan teks
-       terpanjang di antara pilihannya, sampai batas wajar) supaya teks
-       tetap 1 baris rapi -- kotak tertutupnya sendiri tetap ikut lebar
-       kolom aslinya (lihat .cdd-control di atas, teksnya dipotong "..."). */
-    min-width:100%;width:max-content;max-width:min(340px, 88vw);
+    position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:60;
+    /* v3.70.0 -- v3.69.0 sempat coba bikin panel LEBIH LEBAR dari kotaknya
+       biar teks panjang tidak melipat -- ternyata itu yang memicu geser
+       horizontal (panel bisa mendorong keluar batas modal/layar). SEKARANG
+       panel WAJIB sama persis lebarnya dengan kotak (left:0;right:0, TIDAK
+       ADA pengecualian) -- tidak pernah lebih lebar dari itu, jadi tidak
+       mungkin memicu scroll ke samping di mana pun. Teks pilihan yang
+       panjang cukup dibiarkan turun ke baris baru DI DALAM panelnya sendiri
+       (lihat .cdd-option di bawah) -- baris jadi lebih tinggi, bukan lebih
+       lebar dari layar. */
     background:#fff;border:1px solid var(--line);border-radius:10px;
     box-shadow:0 14px 34px rgba(16,24,40,0.16);
-    padding:5px;max-height:260px;overflow-y:auto;
+    padding:5px;max-height:260px;overflow-y:auto;overflow-x:hidden;
     display:none;
   }
   .cdd.open .cdd-panel{display:block;}
@@ -748,7 +750,7 @@
     display:flex;align-items:center;justify-content:space-between;gap:8px;
     padding:9px 10px;border-radius:7px;cursor:pointer;font-size:13px;
   }
-  .cdd-option span:first-child{white-space:normal;word-break:break-word;}
+  .cdd-option span:first-child{white-space:normal;word-break:break-word;flex:1;min-width:0;}
   .cdd-option:hover, .cdd-option.active{background:#F5F7FA;}
   .cdd-option.selected{background:var(--blue-bg,#EAF0FF);color:var(--blue-dark);font-weight:700;}
   .cdd-option.selected.active{background:#DCE7FF;}
@@ -1087,7 +1089,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.69.0';
+const APP_VERSION = '3.71.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -6430,7 +6432,11 @@ function openUsageModal(editId){
         <label>Kartu E-Toll Dipakai</label>
         <select id="in-etoll-card">
           <option value="">— tidak pakai kartu / isi manual —</option>
-          ${state.etollCards.map(card=>`<option value="${card.id}" ${editing&&editing.etollCardId===card.id?'selected':''}>${escapeHtml(card.nomorKartu)}${card.mobilId?' — '+escapeHtml(carLabel(card.mobilId)):''} (saldo: ${fmtMoney(card.saldo)})</option>`).join('')}
+          ${state.etollCards.map(card=>{
+            const nomor = String(card.nomorKartu||'');
+            const nomorRingkas = nomor.length>4 ? '•••• '+nomor.slice(-4) : nomor;
+            return `<option value="${card.id}" ${editing&&editing.etollCardId===card.id?'selected':''}>${escapeHtml(nomorRingkas)}${card.mobilId?' — '+escapeHtml(carLabel(card.mobilId)):''}</option>`;
+          }).join('')}
         </select>
       </div>
     </div>
@@ -8699,6 +8705,21 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.71.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Teks di kotak dropdown tertutup tidak lagi dipotong "..." di 1 baris -- sekarang boleh turun sampai 2 baris dulu (lebih enak dibaca) sebelum dipotong.',
+      'Field "Kartu E-Toll Dipakai" (Catat Perjalanan) teksnya dipersingkat jadi info penting saja -- nomor kartu cuma tampil 4 digit terakhir (mis. "•••• 3671") + nama mobil, saldo dihilangkan dari label (sudah kelihatan di preview & field Saldo E-Toll setelah kartu dipilih, jadi tidak perlu diulang di label dropdown).',
+    ]
+  },
+  {
+    v: '3.70.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan bug lanjutan Dropdown Kustom: perbaikan v3.69.0 (biar teks panjang tidak melipat) sempat memicu masalah BARU -- panel boleh melebar lebih dari kotaknya, dan itu yang bikin muncul geser horizontal. Sekarang DIBATALKAN -- panel dikunci mati sama persis lebar kotaknya (tidak ada pengecualian) + dipasang pengaman overflow-x:hidden. Teks pilihan yang panjang tetap ditangani (turun ke baris baru DI DALAM panel, bukan geser ke samping) -- dipastikan lagi span teksnya benar-benar bisa menyusut, tidak cuma "diizinkan" di atas kertas.',
+    ]
+  },
   {
     v: '3.69.0',
     date: '25 Jul 2026',
