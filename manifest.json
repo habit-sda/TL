@@ -33,5 +33,25 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Catat Perjalanan",
+      "short_name": "Catat Perjalanan",
+      "description": "Langsung buka form Tambah Perjalanan",
+      "url": "./?shortcut=usage"
+    },
+    {
+      "name": "Rute Pulang",
+      "short_name": "Rute Pulang",
+      "description": "Langsung pilih mobil untuk lihat rute pulangnya",
+      "url": "./?shortcut=rutepulang"
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Buka ringkasan kondisi armada",
+      "url": "./?shortcut=dashboard"
+    }
   ]
 }

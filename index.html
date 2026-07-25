@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.78.0">
+<meta name="app-version" content="3.91.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -379,7 +379,7 @@
   .trip-timeline-dest{font-size:12.5px;font-weight:600;margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
   .trip-timeline-meta{font-size:11px;color:var(--muted);margin-top:3px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 0;}
   .trip-timeline-meta .badge{white-space:nowrap;}
-  .trip-timeline-right{text-align:right;flex-shrink:0;font-size:11px;max-width:118px;}
+  .trip-timeline-right{text-align:right;flex-shrink:0;font-size:11px;max-width:118px;overflow-x:hidden;}
   .trip-timeline-right > div:first-child{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
   .trip-timeline-right .km{color:var(--muted);margin-top:4px;}
 
@@ -554,6 +554,18 @@
      Default: sembunyikan kartu, tampilkan tabel (perilaku desktop). Media
      query di bawah membalik ini khusus layar sempit. */
   .mobile-usage-cards{display:none;}
+  /* Laporan Bulanan (v3.80.0) -- SENGAJA maks 3 warna (navy teks, 1 biru
+     aksen utk Grand Total, abu-abu label) supaya tidak melelahkan mata
+     dibanding tampilan warna-warni menu lain. */
+  .report-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:16px;}
+  .report-summary-item .k{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;}
+  .report-summary-item .v{display:block;font-size:16px;font-weight:800;color:var(--text);}
+  .report-grand-total{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--blue-bg,#EAF0FF);border-radius:10px;padding:14px 16px;
+    font-size:13px;font-weight:700;color:var(--blue-dark);
+  }
+  .report-grand-total b{font-size:19px;}
   /* Kontrol paginasi (v3.78.0) -- List view Catat Perjalanan. */
   .list-pagination{
     display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
@@ -596,8 +608,9 @@
   .usage-card-detail-toggle{font-size:11px;color:var(--blue);font-weight:700;margin-top:8px;cursor:pointer;}
   .usage-card-detail{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);}
   .usage-card-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 10px;font-size:11px;}
+  .usage-card-detail-grid > div{min-width:0;}
   .usage-card-detail-grid .k{color:var(--muted);display:block;}
-  .usage-card-detail-grid .v{font-weight:700;}
+  .usage-card-detail-grid .v{font-weight:700;overflow-wrap:break-word;}
   .usage-card-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid #F0F1F3;}
   .usage-card-actions .btn{font-size:10.5px;padding:6px 9px;}
 
@@ -652,12 +665,18 @@
   .trip-card b{display:block;font-size:15px;}
   .trip-card .desc{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5;}
   .trip-action-menu{
-    position:fixed;background:#fff;border:1px solid var(--line);border-radius:12px;
-    box-shadow:0 16px 36px rgba(0,0,0,0.22);width:230px;z-index:250;overflow:hidden;
+    position:fixed;background:#fff;border:1.5px solid #D8DCE3;border-radius:12px;
+    box-shadow:0 20px 44px rgba(0,0,0,0.32);width:230px;z-index:250;overflow:hidden;
   }
   .trip-action-item{padding:14px 16px;font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:10px;cursor:pointer;}
   .trip-action-item:hover{background:#F5F7FA;}
   .trip-action-item.danger{color:var(--red);}
+  /* v3.90.0 -- baris "✕ Batal" dikasih latar abu-abu muda supaya jadi
+     "header" yang jelas beda dari isi menu di bawahnya, sekaligus
+     menegaskan batas atas popup ini terhadap latar halaman yang putih
+     juga -- sebelumnya popup ini nyaris tak terlihat batasnya. */
+  .trip-action-item[data-act="cancel"]{background:#F5F6F8;}
+  .trip-action-item[data-act="cancel"]:hover{background:#EAECEF;}
   @media(max-width:768px){
     #trip-bubble{bottom:16px;right:16px;}
     .trip-action-menu{width:88vw;max-width:280px;}
@@ -996,6 +1015,7 @@
     <div class="menu-item" data-route="etoll"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="1.5" y="4" width="21" height="15" rx="2.2" stroke="#161C27" stroke-width="1.9"/><rect x="1.5" y="7" width="21" height="3.2" fill="#161C27"/><path d="M9 16.5l3-5 3 5" stroke="#0E9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="11.5" x2="12" y2="16.5" stroke="#0E9488" stroke-width="2" stroke-linecap="round"/></svg></span>Kartu E-Toll</div>
     <div class="menu-section-label">Lainnya</div>
     <div class="menu-item" data-route="bbm"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="3" y="2" width="9" height="20" rx="1.5" stroke="#161C27" stroke-width="1.9"/><rect x="5.5" y="4.5" width="4" height="4" rx="0.5" stroke="#161C27" stroke-width="1.7"/><line x1="5" y1="12.5" x2="10" y2="12.5" stroke="#161C27" stroke-width="1.7" stroke-linecap="round"/><line x1="5" y1="15.5" x2="10" y2="15.5" stroke="#161C27" stroke-width="1.7" stroke-linecap="round"/><path d="M12.5 8h4a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 0 3 0v-9L19 6.5" stroke="#161C27" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 5.3c1 1.1 1.5 1.9 1.5 2.6a1.5 1.5 0 0 1-3 0c0-.7.5-1.5 1.5-2.6z" fill="#E0762A"/></svg></span>BBM</div>
+    <div class="menu-item" data-route="monthlyreport"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#161C27" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2.5H6.5A1.5 1.5 0 0 0 5 4v16a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 20V7.5z"/><path d="M14 2.5V7.5H19"/><line x1="8" y1="18" x2="8" y2="15" stroke="#0891B2" stroke-width="1.9"/><line x1="11.3" y1="18" x2="11.3" y2="12.5" stroke="#0891B2" stroke-width="1.9"/><line x1="14.6" y1="18" x2="14.6" y2="14.3" stroke="#0891B2" stroke-width="1.9"/></svg></span>Laporan Bulanan</div>
     <div class="menu-item" data-route="hapusdata"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#161C27" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><polyline points="3 6 5 6 21 6" stroke="#C4302B"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke="#C4302B"/></svg></span>Hapus Data</div>
     <div class="menu-item" data-route="settings"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#161C27" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="#2F6FED" stroke="#2F6FED"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Pengaturan</div>
   </nav>
@@ -1143,7 +1163,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.78.0';
+const APP_VERSION = '3.91.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1363,6 +1383,32 @@ function logActivity(tipe, judul, keterangan){
   if(state.activityLog.length > ACTIVITY_LOG_MAX){
     state.activityLog = state.activityLog.slice(0, ACTIVITY_LOG_MAX);
   }
+}
+// Riwayat Perubahan / Audit Trail (v3.86.0) -- SENGAJA numpang di
+// activityLog yang sudah ada (bukan sistem baru terpisah dengan UI baru)
+// supaya langsung terlihat di menu Log Aktivitas tanpa perlu dikerjakan
+// dari nol. Membandingkan field PENTING sebelum & sesudah disimpan --
+// kalau ADA yang beda, dicatat sebagai 1 entri aktivitas dengan detail
+// "Field: nilai lama -> nilai baru" per field yang berubah. Field yang
+// TIDAK berubah tidak ikut dicatat (supaya keterangannya tetap ringkas &
+// relevan, bukan dump semua field setiap kali).
+function logFieldChanges(tipe, judul, oldObj, newObj, fieldDefs){
+  const perubahan = [];
+  fieldDefs.forEach(([key, label, formatter])=>{
+    const lama = oldObj ? oldObj[key] : undefined;
+    const baru = newObj[key];
+    // Bandingkan sebagai STRING supaya "15" (number) vs "15" (string) tidak
+    // dianggap "berubah" cuma karena beda tipe data -- yang dicek murni
+    // beda NILAI, bukan beda representasi teknis di JS.
+    const lamaStr = lama==null ? '' : String(lama);
+    const baruStr = baru==null ? '' : String(baru);
+    if(lamaStr !== baruStr){
+      const fmt = formatter || (v=> v==null||v===''? '-' : v);
+      perubahan.push(`${label}: ${fmt(lama)} → ${fmt(baru)}`);
+    }
+  });
+  if(perubahan.length===0) return; // tidak ada yang benar-benar berubah, tidak perlu dicatat
+  logActivity(tipe, judul, perubahan.join(' · '));
 }
 function formatActivityTime(ts){
   const d = new Date(ts);
@@ -2411,6 +2457,31 @@ function monthsBetween(dateStr, todayStr){
 /* Menghitung status pengingat servis/ganti oli untuk satu mobil.
    Mengembalikan null kalau mobil tidak mengaktifkan pengingat (interval kosong),
    supaya mobil yang belum diatur tidak memunculkan peringatan palsu. */
+// Rata-rata KM/hari mobil ini, berbasis riwayat NYATA (bukan asumsi) --
+// dipakai untuk MEMPREDIKSI tanggal servis berikutnya, bukan cuma bilang
+// "sudah X% dari jadwal". Jendela waktu 90 hari terakhir (bukan sepanjang
+// riwayat) supaya perkiraannya mencerminkan pola pemakaian TERKINI mobil
+// itu -- kalau dipakai lebih jarang belakangan ini (mis. sopir cuti),
+// perkiraannya otomatis ikut mundur, bukan berdasar rata-rata lama yang
+// sudah tidak relevan.
+const RATA2_KM_HARIAN_JENDELA_HARI = 90;
+function computeAvgKmPerDay(carId){
+  const batasBawah = new Date();
+  batasBawah.setDate(batasBawah.getDate() - RATA2_KM_HARIAN_JENDELA_HARI);
+  const batasBawahStr = batasBawah.toISOString().slice(0,10);
+  const trips = state.usage.filter(u=> u.carId===carId && (u.tglKeluar||'') >= batasBawahStr);
+  const totalKm = trips.reduce((sum,u)=>{
+    if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) return sum + (u.odoKembali-u.odoKeluar);
+    return sum;
+  }, 0);
+  if(totalKm<=0) return null;
+  // Dibagi JUMLAH HARI KALENDER (bukan cuma "hari yang ada trip") --
+  // supaya hari-hari mobil idle (tidak jalan) ikut "menurunkan" rata-rata,
+  // mencerminkan pola pemakaian sesungguhnya (bukan cuma rata-rata di
+  // hari-hari sibuk saja).
+  return totalKm / RATA2_KM_HARIAN_JENDELA_HARI;
+}
+
 function serviceReminderInfo(car){
   if(!car.intervalKm && !car.intervalBulan) return null;
 
@@ -2435,9 +2506,35 @@ function serviceReminderInfo(car){
     return {level:'warn', text:'Data odometer belum cukup untuk hitung pengingat'};
   }
   const pct = Math.max(pctKm||0, pctBulan||0);
-  if(pct >= 1) return {level:'danger', text:'Sudah waktunya servis/ganti oli'};
-  if(pct >= 0.8) return {level:'warn', text:'Segera servis (mendekati jadwal)'};
-  return {level:'ok', text:'Servis masih jauh'};
+
+  // Perkiraan TANGGAL servis berikutnya -- ambil yang PALING CEPAT antara
+  // batas KM (diprediksi dari rata-rata KM/hari) dan batas bulan (tanggal
+  // pasti, tidak butuh prediksi). SENGAJA "yang paling cepat", bukan
+  // rata-rata keduanya -- prinsip yang sama dgn pengecekan pct di atas
+  // (mana pun yang duluan tercapai, itu yang jadi patokan).
+  let perkiraanTanggal = null;
+  if(car.intervalBulan && lastService.tanggal){
+    const d = new Date(lastService.tanggal);
+    d.setMonth(d.getMonth() + car.intervalBulan);
+    perkiraanTanggal = d;
+  }
+  if(car.intervalKm && lastService.odometer!=null && car.odometerSaatIni!=null){
+    const sisaKm = car.intervalKm - (car.odometerSaatIni - lastService.odometer);
+    const avgKmPerDay = computeAvgKmPerDay(car.id);
+    if(avgKmPerDay && avgKmPerDay>0){
+      const sisaHari = sisaKm / avgKmPerDay; // boleh negatif kalau sudah lewat -- artinya "harusnya sudah dari X hari lalu"
+      const dKm = new Date();
+      dKm.setDate(dKm.getDate() + Math.round(sisaHari));
+      if(!perkiraanTanggal || dKm < perkiraanTanggal) perkiraanTanggal = dKm;
+    }
+  }
+  const perkiraanText = perkiraanTanggal
+    ? ` (perkiraan ${perkiraanTanggal.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})})`
+    : '';
+
+  if(pct >= 1) return {level:'danger', text:'Sudah waktunya servis/ganti oli'+perkiraanText};
+  if(pct >= 0.8) return {level:'warn', text:'Segera servis (mendekati jadwal)'+perkiraanText};
+  return {level:'ok', text:'Servis masih jauh'+perkiraanText};
 }
 
 const SERVICE_CATEGORIES = ['Ganti Oli','Servis Berkala / Tune Up','Rem','Ban & Balancing','AC','Kelistrikan','Suspensi/Understel','Aki','Lainnya'];
@@ -2965,6 +3062,24 @@ function renderSettings(){
       </div>
     </div>
     <div class="panel">
+      <div class="panel-head"><h2>🔔 Notifikasi</h2></div>
+      <div class="panel-body">
+        <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
+          Kalau diaktifkan, notifikasi (dokumen kadaluarsa, servis jatuh tempo, BBM rendah, dst -- sama
+          persis dengan yang muncul di ikon lonceng 🔔) akan tetap muncul di HP Anda selama aplikasi
+          ini masih terbuka di background (tab tidak ditutup total) -- <b>tidak perlu membuka aplikasi
+          secara aktif</b> untuk melihatnya.
+        </p>
+        <p style="font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.6;">
+          ⚠️ Catatan jujur soal batasannya: ini BUKAN notifikasi "push" sungguhan yang tetap jalan
+          walau browser/HP benar-benar ditutup total -- itu butuh server khusus (Web Push) yang belum
+          ada di aplikasi ini. Supaya tetap dapat notifikasi, cukup jangan tutup tab/app-nya (boleh
+          minimize/pindah app lain, itu tidak masalah).
+        </p>
+        <div id="notif-permission-status"></div>
+      </div>
+    </div>
+    <div class="panel">
       <div class="panel-head"><h2>Toleransi Gap Odometer Tak Tercatat</h2></div>
       <div class="panel-body">
         <p style="color:var(--muted);margin:0 0 12px;">
@@ -2997,6 +3112,7 @@ function renderSettings(){
     this.value = ''; // reset supaya bisa pilih file yang sama lagi kalau perlu
   });
   attachIntegerOnlyInput('in-toleransi-gap');
+  renderNotifPermissionStatus();
   document.getElementById('btn-save-toleransi-gap').onclick = () => {
     const val = Number(document.getElementById('in-toleransi-gap').value || 0);
     state.toleransiGapKm = val >= 0 ? val : 0;
@@ -3005,6 +3121,29 @@ function renderSettings(){
   };
   renderAdminList();
 }
+// Skor Kepatuhan Data (v3.84.0) -- BUKAN menilai sopir, tapi menilai
+// KELENGKAPAN pencatatan tiap petugas: dari trip yang SUDAH SELESAI yang
+// dibuat petugas itu, berapa persen yang field-field pentingnya (Odometer
+// Tiba, BBM Awal, BBM Akhir) terisi lengkap -- field ini yang paling
+// menentukan akurat/tidaknya Efisiensi BBM yang dihitung sistem.
+// CATATAN JUJUR soal keterbatasan: field u.petugas dicatat SEKALI saat
+// trip DIBUAT (Tambah Perjalanan) dan TIDAK diperbarui saat trip
+// diselesaikan (Tandai Tiba) -- jadi skor ini sebenarnya menilai siapa
+// yang MEMBUAT catatan, bukan sungguh-sungguh siapa yang mengisi data
+// kembalinya (bisa jadi orang lain). Tidak ada field terpisah "petugas
+// penyelesai" yang tercatat saat ini -- perlu diketahui sebagai batasan.
+function computeDataCompletenessScore(petugasName){
+  const trips = state.usage.filter(u=> u.petugas===petugasName && u.status==='selesai');
+  if(trips.length===0) return null;
+  let lengkap = 0;
+  trips.forEach(u=>{
+    const odoOk = u.odoKeluar!=null && u.odoKembali!=null;
+    const bensinOk = getBensinKeluar(u)!=null && getBensinKembali(u)!=null;
+    if(odoOk && bensinOk) lengkap++;
+  });
+  return { totalTrip: trips.length, lengkap, persen: Math.round((lengkap/trips.length)*100) };
+}
+
 function renderAdminList(){
   const wrap = document.getElementById('admin-list-wrap');
   if(state.admins.length===0){
@@ -3013,35 +3152,47 @@ function renderAdminList(){
   }
   wrap.innerHTML = `
     <div class="table-scroll desktop-data-table"><table>
-      <thead><tr><th>Nama</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Nama</th><th>Status</th><th>Kelengkapan Data</th><th></th></tr></thead>
       <tbody>
-        ${state.admins.map(name=>`
+        ${state.admins.map(name=>{
+          const score = computeDataCompletenessScore(name);
+          const scoreBadge = !score ? `<span class="badge neutral">Belum ada trip selesai</span>`
+            : `<span class="badge ${score.persen>=90?'ok':score.persen>=70?'warn':'danger'}">${score.persen}% (${score.lengkap}/${score.totalTrip} trip)</span>`;
+          return `
           <tr>
             <td>${escapeHtml(name)}</td>
             <td>
               ${name===currentAdmin ? `<span class="badge ok">Sedang aktif</span>` : ''}
               ${ADMIN_NAMES_DILINDUNGI.includes(name) ? `<span class="badge neutral">🔒 Terlindungi</span>` : (name===currentAdmin?'':'-')}
             </td>
+            <td>${scoreBadge}</td>
             <td style="text-align:right;white-space:nowrap;">
               <button class="btn btn-ghost btn-sm" data-edit-admin="${escapeHtml(name)}">Edit</button>
               ${ADMIN_NAMES_DILINDUNGI.includes(name) ? '' : `<button class="btn btn-danger btn-sm" data-del-admin="${escapeHtml(name)}">Hapus</button>`}
             </td>
-          </tr>`).join('')}
+          </tr>`;
+        }).join('')}
       </tbody>
     </table></div>
     <div class="data-card-list">
-      ${state.admins.map(name=>`
+      ${state.admins.map(name=>{
+        const score = computeDataCompletenessScore(name);
+        const scoreBadge = !score ? `<span class="badge neutral">Belum ada trip selesai</span>`
+          : `<span class="badge ${score.persen>=90?'ok':score.persen>=70?'warn':'danger'}">${score.persen}% (${score.lengkap}/${score.totalTrip})</span>`;
+        return `
         <div class="data-card">
           <div class="data-card-title">
             <span>${escapeHtml(name)}</span>
             ${name===currentAdmin ? `<span class="badge ok">Aktif</span>` : ''}
           </div>
           ${ADMIN_NAMES_DILINDUNGI.includes(name) ? `<div class="data-card-row"><span class="k">Status</span><span class="v"><span class="badge neutral">🔒 Terlindungi</span></span></div>` : ''}
+          <div class="data-card-row"><span class="k">Kelengkapan Data</span><span class="v">${scoreBadge}</span></div>
           <div class="data-card-actions">
             <button class="btn btn-ghost btn-sm" data-edit-admin="${escapeHtml(name)}">✏️ Edit</button>
             ${ADMIN_NAMES_DILINDUNGI.includes(name) ? '' : `<button class="btn btn-danger btn-sm" data-del-admin="${escapeHtml(name)}">🗑️ Hapus</button>`}
           </div>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>
   `;
   wrap.querySelectorAll('[data-edit-admin]').forEach(b=> b.onclick = ()=> openAdminModal(b.dataset.editAdmin));
@@ -3117,6 +3268,7 @@ const ROUTES = {
   docs:      {title:'Dokumen', sub:'STNK, pajak, dan asuransi kendaraan', render: renderDocs},
   etoll:     {title:'Kartu E-Toll', sub:'Data kartu E-Toll dan saldo per mobil', render: renderEtollCards},
   bbm:       {title:'BBM', sub:'Tracking pembelian & pemakaian BBM per mobil', render: renderBBM},
+  monthlyreport: {title:'Laporan Bulanan', sub:'Ringkasan biaya & pemakaian armada per bulan', render: renderMonthlyReport},
   hapusdata: {title:'Hapus Data', sub:'Hapus Data Mobil / Perjalanan pakai kode khusus', render: renderHapusData},
   settings:  {title:'Pengaturan', sub:'Kelola nama petugas/admin', render: renderSettings},
 };
@@ -3448,6 +3600,8 @@ async function sha256Hex(text){
 function refreshInsightPanels(){
   if(currentRoute==='bbm') renderBBM();
   if(currentRoute==='service') renderService();
+  if(currentRoute==='etoll') renderEtollCards(); // v3.89.0 -- sempat kelewat waktu Deteksi Anomali E-Toll ditambah
+  if(currentRoute==='dashboard') renderDashboard(); // v3.89.0 -- panel gabungan "Insight Terbaru"
 }
 // Modal konfirmasi custom (Iya/Tidak) -- dipakai khusus untuk aksi hapus
 // yang butuh penekanan ekstra (mis. Hapus Data), menggantikan window.confirm
@@ -4025,6 +4179,32 @@ function renderDashboard(){
     </div>
   </div>
 
+  ${(() => {
+    if(!insightUnlocked) return '';
+    const allInsights = computeAllInsights();
+    return `
+    <div class="panel">
+      <div class="panel-head">
+        <h2>🔎 Insight Terbaru</h2>
+        ${allInsights.length>0 ? `<span class="badge ${allInsights.some(a=>a.level==='danger')?'danger':'warn'}">${allInsights.length} ditemukan</span>` : ''}
+      </div>
+      <div class="panel-body">
+        <p style="font-size:11.5px;color:var(--muted);margin:0 0 12px;line-height:1.6;">
+          Gabungan dari SEMUA insight (BBM, Servis, E-Toll, Durasi, Jarak, Efisiensi Wajar) dalam 1 daftar prioritas -- tidak perlu cek satu-satu ke 6 halaman berbeda.
+        </p>
+        ${allInsights.length===0 ? emptyState('✅','Tidak ada pola yang mencurigakan dari seluruh data sejauh ini.') : `
+        <div class="alert-list">
+          ${allInsights.slice(0,20).map(a=>`
+            <div class="alert-list-item">
+              <div class="ic">${a.level==='danger'?'🔴':'🟡'}</div>
+              <div class="body"><b>${escapeHtml(a.judul)}</b><div class="desc">${a.detail}</div></div>
+            </div>`).join('')}
+          ${allInsights.length>20 ? `<p style="font-size:11.5px;color:var(--muted);margin:8px 0 0;text-align:center;">+ ${allInsights.length-20} lainnya -- cek halaman masing-masing modul untuk daftar lengkap.</p>` : ''}
+        </div>`}
+      </div>
+    </div>`;
+  })()}
+
   <div class="panel">
     <div class="panel-head"><h2>Statistik Bulan Ini</h2></div>
     <div class="panel-body">
@@ -4081,6 +4261,7 @@ function renderDashboard(){
         <button class="quick-action-btn" data-action="doc"><span class="ic icon-badge purple">📄</span>Tambah Dokumen</button>
         <button class="quick-action-btn" data-action="etoll"><span class="ic icon-badge blue">💳</span>Kartu E-Toll</button>
         <button class="quick-action-btn" data-action="booking"><span class="ic icon-badge amber">📅</span>Buat Booking</button>
+        <button class="quick-action-btn" data-action="rutepulang"><span class="ic icon-badge green">🏠</span>Rute Pulang</button>
       </div>
     </div>
   </div>
@@ -4091,7 +4272,7 @@ function renderDashboard(){
     car: openCarModal, driver: openDriverModal,
     usage: openUsageModal, service: openServiceModal,
     doc: openDocModal, etoll: openEtollCardModal,
-    booking: openBookingModal,
+    booking: openBookingModal, rutepulang: openRutePulangPicker,
   };
   document.querySelectorAll('.quick-action-btn').forEach(b=>{
     b.addEventListener('click', ()=>{
@@ -4163,6 +4344,7 @@ function renderCars(){
               <td>${activeUsage ? `<span class="badge warn">Dipakai — ${escapeHtml(driverLabel(activeUsage.driverId, activeUsage.driver))}</span>` : `<span class="badge ok">Tersedia</span>`}</td>
               <td>${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Pengingat nonaktif</span>`}</td>
               <td style="text-align:right;white-space:nowrap;">
+                <button class="btn btn-ghost btn-sm" data-qr="${c.id}" title="Kode QR untuk mobil ini">📱 QR</button>
                 <button class="btn btn-ghost btn-sm" data-edit="${c.id}">Edit</button>
               </td>
             </tr>`;
@@ -4186,6 +4368,7 @@ function renderCars(){
             <div class="data-card-row"><span class="k">Status</span><span class="v">${activeUsage ? `<span class="badge warn">Dipakai</span>` : `<span class="badge ok">Tersedia</span>`}</span></div>
             <div class="data-card-row"><span class="k">Servis Berikutnya</span><span class="v">${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Nonaktif</span>`}</span></div>
             <div class="data-card-actions">
+              <button class="btn btn-ghost btn-sm" data-qr="${c.id}">📱 QR</button>
               <button class="btn btn-ghost btn-sm" data-edit="${c.id}">✏️ Edit</button>
             </div>
           </div>`;
@@ -4193,6 +4376,7 @@ function renderCars(){
       </div>
     `;
     wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openCarModal(b.dataset.edit));
+    wrap.querySelectorAll('[data-qr]').forEach(b=> b.onclick = ()=> openCarQrModal(b.dataset.qr));
     wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteCar(b.dataset.del));
   }
   renderTable(list);
@@ -4278,6 +4462,11 @@ function openCarModal(editId){
         <input type="text" id="in-foto-url" data-no-uppercase="1" placeholder="https://... (CDN perusahaan, GitHub, dsb.)" value="${editing&&editing.fotoUrl?escapeHtml(editing.fotoUrl):''}" style="flex:1;">
       </div>
       <div class="hint">Tempelkan URL gambar mobil ini. Satu URL di sini otomatis dipakai di semua tampilan yang menunjukkan foto mobil (Data Mobil &amp; Catat Perjalanan) -- ganti di sini saja, tidak perlu edit halaman lain. Kosong/gagal dimuat akan memakai gambar mobil generik.</div>
+    </div>
+    <div class="field">
+      <label>Link Maps Rute Pulang (opsional)</label>
+      <input type="text" id="in-maps-pulang" data-no-uppercase="1" placeholder="Tempel link Google Maps rute pulang mobil ini" value="${editing&&editing.mapsRutePulang?escapeHtml(editing.mapsRutePulang):''}">
+      <div class="hint">Rute yang biasa dilewati mobil ini saat pulang (mis. ke garasi/pool). Muncul di tombol "🏠 Rute Pulang" pada Aksi Cepat Dashboard -- pilih mobil ini, langsung buka rute ini di Google Maps.</div>
     </div>
     <div class="field">
       <label>Odometer Saat Ini (KM)</label>
@@ -4371,6 +4560,7 @@ function openCarModal(editId){
     onSave: () => {
       const merk = document.getElementById('in-merk').value.trim();
       const fotoUrl = document.getElementById('in-foto-url').value.trim();
+      const mapsRutePulang = document.getElementById('in-maps-pulang').value.trim();
       const modelMobil = document.getElementById('in-model').value.trim();
       const tahun = document.getElementById('in-tahun').value.trim();
       const warna = document.getElementById('in-warna').value.trim();
@@ -4425,12 +4615,12 @@ function openCarModal(editId){
       if(ccMesin!=null && ccMesin<=0) ccMesin = null;
 
       if(editing){
-        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin});
+        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin});
         touch(editing);
         logActivity('mobil', 'Edit data mobil', `${merk} ${modelMobil} — ${plat}`);
         showToast('Data mobil diperbarui.');
       } else {
-        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, createdAt: today(), petugas: currentAdmin}));
+        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, createdAt: today(), petugas: currentAdmin}));
         logActivity('mobil', 'Tambah mobil baru', `${merk} ${modelMobil} — ${plat}`);
         showToast('Mobil baru ditambahkan.');
       }
@@ -4695,6 +4885,10 @@ function computeAvgDurasiForTujuan(nama){
 // (macet, singgah dulu, atau justru salah ketik jam) yang cuma petugas
 // yang tahu jawabannya, bukan sistem.
 function durasiAnomaliBadgeHtml(u){
+  // v3.88.0 -- ikut dikunci sistem PIN "Insight" yang sama dengan Deteksi
+  // Anomali BBM/Servis/E-Toll, supaya konsisten (SEMUA insight butuh PIN
+  // yang sama, tidak ada yang "bocor" tampil bebas tanpa PIN).
+  if(!insightUnlocked) return '';
   const menit = getTripDurationMinutes(u);
   if(menit==null) return '';
   const needle = (u.tujuan||'').trim().toLowerCase();
@@ -4714,6 +4908,42 @@ function durasiAnomaliBadgeHtml(u){
   }
   if(rasio <= 0.5){
     return ` <span class="badge neutral" title="Durasi trip ini (${menitLabel}) jauh lebih cepat dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${sampelLain.length} perjalanan lain) -- cek lagi jam berangkat/tiba yang diisi, kemungkinan salah ketik.">⏱️ Lebih Cepat dari Biasanya</span>`;
+  }
+  return '';
+}
+
+// Pasangan durasiAnomaliBadgeHtml() di atas, tapi utk JARAK -- kalau jarak
+// ke tujuan yang SAMA jauh beda dari kebiasaan (mis. biasanya 149 KM,
+// sekali ini 300 KM), bisa jadi salah catat odometer atau ambil rute
+// memutar -- ditandai untuk dicek, pola & ambang SAMA PERSIS dengan versi
+// durasi supaya konsisten (butuh minimal 2 sampel pembanding dulu).
+function jarakAnomaliBadgeHtml(u, compact){
+  if(!insightUnlocked) return '';
+  if(u.odoKeluar==null || u.odoKembali==null || u.odoKembali<u.odoKeluar) return '';
+  const jarak = u.odoKembali - u.odoKeluar;
+  const needle = (u.tujuan||'').trim().toLowerCase();
+  if(!needle) return '';
+  const sampelLain = state.usage
+    .filter(x=> x.id!==u.id && (x.tujuan||'').trim().toLowerCase()===needle && x.odoKeluar!=null && x.odoKembali!=null && x.odoKembali>=x.odoKeluar)
+    .map(x=> x.odoKembali-x.odoKeluar);
+  if(sampelLain.length < 2) return '';
+  const rata2 = sampelLain.reduce((a,b)=>a+b,0)/sampelLain.length;
+  if(rata2<=0) return '';
+  const rasio = jarak/rata2;
+  const rata2Label = Math.round(rata2).toLocaleString('id-ID')+' KM';
+  const jarakLabel = jarak.toLocaleString('id-ID')+' KM';
+  // v3.89.0 -- mode compact (icon SAJA, penjelasan lengkap tetap ada di
+  // tooltip) -- KHUSUS dipakai di kolom kanan Card view timeline yang
+  // sangat sempit (max-width:118px). Teks penuh "📏 Jarak Tidak Wajar"
+  // beresiko meluber di situ -- beda dari List view yang kolomnya lebih
+  // lega, jadi tetap boleh teks penuh di sana.
+  if(rasio >= 1.7){
+    const teks = compact ? '📏' : '📏 Jarak Tidak Wajar';
+    return ` <span class="badge warn" title="Jarak trip ini (${jarakLabel}) jauh lebih besar dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${sampelLain.length} perjalanan lain) -- kemungkinan salah catat odometer, atau memang ambil rute memutar.">${teks}</span>`;
+  }
+  if(rasio <= 0.5){
+    const teks = compact ? '📏' : '📏 Jarak Tidak Wajar';
+    return ` <span class="badge neutral" title="Jarak trip ini (${jarakLabel}) jauh lebih kecil dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${sampelLain.length} perjalanan lain) -- cek lagi Odometer Berangkat/Tiba yang diisi, kemungkinan salah ketik.">${teks}</span>`;
   }
   return '';
 }
@@ -5304,7 +5534,7 @@ function renderUsage(){
     let jarakBadge = '-';
     if(u.odoKeluar!=null && u.odoKembali!=null){
       const jarak = u.odoKembali - u.odoKeluar;
-      jarakBadge = jarak >= 0 ? `${jarak.toLocaleString('id-ID')} KM` : `<span class="badge danger">Data tidak valid</span>`;
+      jarakBadge = jarak >= 0 ? `${jarak.toLocaleString('id-ID')} KM${jarakAnomaliBadgeHtml(u)}` : `<span class="badge danger">Data tidak valid</span>`;
     } else if(u.odoKeluar!=null){
       jarakBadge = `<span class="badge neutral">Belum kembali</span>`;
     }
@@ -5624,7 +5854,7 @@ function renderUsage(){
         </div>
         <div class="trip-timeline-right">
           <div>${ratioHtml}</div>
-          <div class="km">${jarakVal!=null?jarakVal.toLocaleString('id-ID')+' KM':'-'}</div>
+          <div class="km">${jarakVal!=null?jarakVal.toLocaleString('id-ID')+' KM'+jarakAnomaliBadgeHtml(u, true):'-'}</div>
         </div>
         <span class="vehicle-card-chevron">›</span>
       </div>`;
@@ -5673,7 +5903,7 @@ function renderUsage(){
         <div><span class="k">Saldo E-Toll</span> <span class="v">${r.etoll!==null&&!isNaN(r.etoll)?fmtMoney(r.etoll):'-'}</span></div>
         ${r.biayaTolInfo ? `<div><span class="k">🛣️ Tol Terpakai</span> <span class="v">${fmtMoney(r.biayaTolInfo.biayaTol)} ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn" title="Saldo E-Toll Saat Berangkat trip ini tidak diisi -- dipakai Saldo E-Toll Saat Tiba dari trip sebelumnya (kartu sama) sebagai gantinya.">Estimasi</span>' : '<span class="badge ok">Akurat</span>'}</span></div>` : ''}
       </div>
-      <div class="usage-card-actions" style="margin-top:16px;">${r.actionButtonsHtml}</div>
+      <div class="usage-card-actions" style="margin-top:16px;">${r.actionButtonsHtml}${u.status==='selesai' ? `<button class="btn btn-ghost btn-sm" data-trip-receipt="${u.id}">🧾 Tanda Terima</button>` : ''}</div>
     `;
   }
 
@@ -5791,6 +6021,7 @@ function renderUsage(){
     document.querySelectorAll('.trip-detail-body [data-share]').forEach(b=> b.onclick = ()=> shareUsageReport(b.dataset.share));
     document.querySelectorAll('.trip-detail-body [data-copy-img]').forEach(b=> b.onclick = ()=> copyUsageReportToClipboard(b.dataset.copyImg));
     document.querySelectorAll('.trip-detail-body [data-return]').forEach(b=> b.onclick = ()=> markReturned(b.dataset.return));
+    document.querySelectorAll('.trip-detail-body [data-trip-receipt]').forEach(b=> b.onclick = ()=> openTripReceiptModal(b.dataset.tripReceipt));
     const editCarBtn = document.querySelector('[data-edit-car]');
     if(editCarBtn) editCarBtn.addEventListener('click', ()=>{
       const carId = editCarBtn.dataset.editCar;
@@ -5919,6 +6150,7 @@ function renderUsage(){
 function markReturned(id){
   const u = state.usage.find(x=>x.id===id);
   if(!u) return;
+  const before = {...u}; // salinan dangkal SEBELUM diedit -- utk audit trail (lihat logFieldChanges di onSave)
   const linkedCard = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
   const carForFuel = state.cars.find(c=>c.id===u.carId); // mobil sudah tetap di form ini, tidak perlu reaktif
   const body = `
@@ -6033,9 +6265,22 @@ function markReturned(id){
 
       saveData();
       logActivity('penggunaan', 'Mobil kembali', `${carLabel(u.carId)} — ${u.tujuan||''}`);
+      // Audit trail KHUSUS kalau ini EDIT ULANG data yang sudah pernah
+      // selesai sebelumnya (bukan penyelesaian pertama kali) -- itu kasus
+      // yang paling perlu jejak, karena mengubah data yang tadinya sudah
+      // dianggap final.
+      if(before.status==='selesai'){
+        logFieldChanges('penggunaan', `Edit Data Tiba — ${carLabel(u.carId)}`, before, u, [
+          ['odoKembali', 'Odometer Tiba', v=> v==null?'-':Number(v).toLocaleString('id-ID')+' KM'],
+          ['bensinKembali', 'BBM Akhir', v=> v==null?'-':formatBensinDisplay(v, carForFuel)],
+          ['literBensin', 'Liter BBM', v=> v==null?'-':v+' L'],
+          ['biayaBensin', 'Biaya BBM', v=> v==null?'-':fmtMoney(v)],
+        ]);
+      }
       showToast('Mobil ditandai telah kembali.');
       renderActiveTripBubble();
       renderUsage();
+      setTimeout(()=> openTripReceiptModal(u.id), 350); // ditunda dikit -- biar modal Tandai Tiba ini selesai tertutup dulu
       return true;
     }
   });
@@ -6388,6 +6633,162 @@ function buildReceiptElement(u){
 // Menghasilkan gambar PNG dari laporan (dipakai bersama oleh tombol "Bagikan"
 // dan "Salin Gambar" — supaya logika "potret" laporannya cuma ditulis sekali).
 
+/* ========================================================================
+   TANDA TERIMA PERJALANAN (v3.83.0) -- BEDA dari "Laporan Biaya
+   Operasional" di atas (yang cuma rincian biaya lain-lain): ini ringkasan
+   LENGKAP 1 perjalanan (jarak, durasi, efisiensi BBM, semua biaya jadi 1
+   dokumen). Munculnya HANYA lewat 2 jalan (SENGAJA, biar tidak menambah
+   tombol ke-7 di baris luar yang sudah ramai): (1) popup otomatis begitu
+   "Tandai Tiba" berhasil disimpan, (2) tombol di dalam panel DETAIL trip
+   (bukan di baris ringkas luar).
+   ======================================================================== */
+function buildTripReceiptElement(u){
+  const jarak = (u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) ? (u.odoKembali-u.odoKeluar) : null;
+  const car = state.cars.find(c=>c.id===u.carId);
+  // Rasio Efisiensi -- pakai buildFuelChain LANGSUNG (bukan duplikasi logika
+  // badge lengkap dari renderUsage) supaya tetap 1 sumber kebenaran yang
+  // sama, tapi disederhanakan jadi teks polos (tanda terima bukan tempat
+  // utk badge status/gap yang rinci -- cukup angka atau "-" kalau belum
+  // cukup data, jujur apa adanya).
+  let ratio = null;
+  if(car && jarak!=null){
+    const entry = buildFuelChain(u.carId).get(u.id);
+    if(entry && entry.resolved) ratio = entry.ratio;
+  }
+  const biayaTolInfo = getBiayaTolTerpakai(u);
+  const biayaTol = biayaTolInfo ? biayaTolInfo.biayaTol : 0;
+  const biayaOpItems = usageBiayaOpItems(u);
+  const biayaOpTotal = usageBiayaOpTotal(u);
+  const grandTotal = (Number(u.biayaBensin)||0) + biayaTol + biayaOpTotal;
+
+  const el = document.createElement('div');
+  el.style.cssText = 'width:380px;background:#fff;font-family:Inter,sans-serif;color:#1A2130;padding:22px;';
+  el.innerHTML = `
+    <div style="text-align:center;margin-bottom:14px;">
+      <img src="icons/icon-192.png" style="width:34px;height:34px;margin:0 auto 6px auto;display:block;" alt="FleetOps">
+      <div style="font-weight:800;font-size:15px;">FleetOps</div>
+      <div style="font-size:9.5px;letter-spacing:.08em;color:#8993A4;text-transform:uppercase;margin-top:1px;">Stay in Control</div>
+      <div style="font-size:13px;font-weight:700;margin-top:8px;color:#374151;">Tanda Terima Perjalanan</div>
+    </div>
+    <div style="border-top:1.5px dashed #C7CCD4;border-bottom:1.5px dashed #C7CCD4;padding:10px 0;margin-bottom:12px;font-size:12.5px;line-height:1.7;">
+      <div><b>Mobil:</b> ${escapeHtml(carLabel(u.carId))}</div>
+      <div><b>Sopir:</b> ${escapeHtml(driverLabel(u.driverId, u.driver))}</div>
+      <div><b>Tujuan:</b> ${escapeHtml(u.tujuan||'-')}</div>
+      <div><b>Berangkat:</b> ${fmtDate(u.tglKeluar)}${u.jamKeluar ? ', '+u.jamKeluar : ''}</div>
+      <div><b>Tiba:</b> ${u.tglKembali ? fmtDate(u.tglKembali)+(u.jamKembali?', '+u.jamKembali:'') : '-'}</div>
+      <div><b>Durasi:</b> ${fmtDuration(u)}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px;">
+      <tr><td style="padding:4px 0;">Jarak Tempuh</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${jarak!=null?jarak.toLocaleString('id-ID')+' KM':'-'}</td></tr>
+      <tr><td style="padding:4px 0;">Efisiensi BBM</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${ratio!=null?ratio.toFixed(1)+' KM/L':'-'}</td></tr>
+      ${u.literBensin ? `<tr><td style="padding:4px 0;">BBM Diisi</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${u.literBensin} L</td></tr>` : ''}
+      <tr><td style="padding:4px 0;">Biaya BBM</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${fmtMoney(u.biayaBensin||0)}</td></tr>
+      ${biayaTolInfo ? `<tr><td style="padding:4px 0;">Biaya Tol</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${fmtMoney(biayaTol)}</td></tr>` : ''}
+      ${biayaOpItems.map(it=>`
+        <tr>
+          <td style="padding:4px 0;">${escapeHtml(it.kategori)}${it.catatan?`<div style="font-size:10.5px;color:#6B7280;">${escapeHtml(it.catatan)}</div>`:''}</td>
+          <td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${fmtMoney(it.nominal)}</td>
+        </tr>`).join('')}
+    </table>
+    <div style="border-top:1.5px solid #1A2130;padding-top:8px;display:flex;justify-content:space-between;font-weight:800;font-size:14px;">
+      <span>TOTAL BIAYA</span><span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(grandTotal)}</span>
+    </div>
+    <div style="text-align:center;margin-top:16px;font-size:10.5px;color:#8993A4;">
+      Dilaporkan oleh ${escapeHtml(currentAdmin)} · ${new Date().toLocaleString('id-ID')}
+    </div>
+  `;
+  return el;
+}
+
+async function generateTripReceiptBlob(u){
+  await loadHtml2Canvas();
+  const holder = document.getElementById('print-holder');
+  const el = buildTripReceiptElement(u);
+  holder.innerHTML = '';
+  holder.appendChild(el);
+  const canvas = await window.html2canvas(el, { scale: 2, backgroundColor: '#ffffff' });
+  holder.innerHTML = '';
+  return new Promise((resolve, reject)=>{
+    canvas.toBlob((blob)=> blob ? resolve(blob) : reject(new Error('Gagal membuat gambar.')), 'image/png');
+  });
+}
+
+async function shareTripReceipt(usageId){
+  const u = state.usage.find(x=>x.id===usageId);
+  if(!u) return;
+  showToast('Menyiapkan gambar tanda terima...');
+  try{
+    const blob = await generateTripReceiptBlob(u);
+    const fileName = `tanda-terima-${u.tglKeluar}.png`;
+    const file = new File([blob], fileName, { type: 'image/png' });
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      try{ await navigator.share({ files:[file], title:'Tanda Terima Perjalanan' }); return; }
+      catch(e){ if(e && e.name==='AbortError') return; }
+    }
+    if(navigator.clipboard && window.ClipboardItem){
+      try{
+        await navigator.clipboard.write([ new ClipboardItem({ 'image/png': blob }) ]);
+        showToast('Gambar tanda terima disalin — tinggal paste (Ctrl+V) di WhatsApp/chat.');
+        return;
+      }catch(e){ /* lanjut ke fallback berikutnya */ }
+    }
+    downloadBlob(blob, fileName);
+    showToast('Gambar tanda terima diunduh (share/salin otomatis tidak didukung browser ini).');
+  }catch(e){
+    console.error('Gagal membuat tanda terima:', e);
+    showToast(e.message || 'Gagal membuat tanda terima.', true);
+  }
+}
+async function copyTripReceiptToClipboard(usageId){
+  const u = state.usage.find(x=>x.id===usageId);
+  if(!u) return;
+  showToast('Menyiapkan gambar tanda terima...');
+  try{
+    const blob = await generateTripReceiptBlob(u);
+    if(navigator.clipboard && window.ClipboardItem){
+      await navigator.clipboard.write([ new ClipboardItem({ 'image/png': blob }) ]);
+      showToast('Gambar tanda terima disalin ke clipboard.');
+    } else {
+      downloadBlob(blob, `tanda-terima-${u.tglKeluar}.png`);
+      showToast('Salin otomatis tidak didukung browser ini -- gambar diunduh sebagai gantinya.');
+    }
+  }catch(e){
+    console.error('Gagal menyalin tanda terima:', e);
+    showToast(e.message || 'Gagal menyalin tanda terima.', true);
+  }
+}
+
+// Popup dgn PREVIEW ASLI (bukan cuma tombol) -- elemen tanda terima yang
+// SAMA PERSIS dipakai utk generate gambar PNG (di atas) ditampilkan
+// langsung sebagai live-preview HTML (diskalakan supaya muat), baru
+// dikonversi jadi PNG kalau tombol Bagikan/Salin ditekan -- jadi preview
+// muncul instan tanpa nunggu proses html2canvas dulu.
+function openTripReceiptModal(usageId){
+  const u = state.usage.find(x=>x.id===usageId);
+  if(!u) return;
+  openModal({
+    title: 'Tanda Terima Perjalanan',
+    body: `
+      <div style="display:flex;justify-content:center;margin-bottom:16px;overflow:hidden;">
+        <div id="trip-receipt-preview" style="transform:scale(0.9);transform-origin:top center;border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08);"></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+        <button type="button" class="btn btn-ghost" id="btn-copy-trip-receipt">📋 Salin Gambar</button>
+        <button type="button" class="btn btn-primary" id="btn-share-trip-receipt">📤 Bagikan</button>
+      </div>
+    `,
+    onSave: () => true
+  });
+  const saveBtn = document.getElementById('modal-save');
+  if(saveBtn) saveBtn.textContent = 'Tutup';
+  const cancelBtn = document.getElementById('modal-cancel');
+  if(cancelBtn) cancelBtn.style.display = 'none';
+  const previewHolder = document.getElementById('trip-receipt-preview');
+  if(previewHolder) previewHolder.appendChild(buildTripReceiptElement(u));
+  document.getElementById('btn-copy-trip-receipt').onclick = () => copyTripReceiptToClipboard(usageId);
+  document.getElementById('btn-share-trip-receipt').onclick = () => shareTripReceipt(usageId);
+}
+
 async function generateUsageReportBlob(u){
   await loadHtml2Canvas();
   const holder = document.getElementById('print-holder');
@@ -6646,13 +7047,14 @@ function buildDriverOptions(selectedId){
     + `<option value="__new__">+ Tambah sopir baru...</option>`;
 }
 
-function openUsageModal(editId){
+function openUsageModal(editId, presetCarId){
   const editing = editId ? state.usage.find(u=>u.id===editId) : null;
   const carOptions = state.cars.map(c=>{
     // Mobil yang lagi dipakai tetap dikunci dipilih, KECUALI itu mobil yang
     // sudah dipakai di catatan yang sedang diedit sekarang (jangan mengunci diri sendiri).
     const busy = state.usage.some(u=>u.carId===c.id && u.status==='digunakan' && u.id!==editId);
-    return `<option value="${c.id}" ${busy?'disabled':''} ${editing&&editing.carId===c.id?'selected':''}>${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}${busy?' (sedang dipakai)':''}</option>`;
+    const isSelected = (editing && editing.carId===c.id) || (!editing && presetCarId===c.id);
+    return `<option value="${c.id}" ${busy?'disabled':''} ${isSelected?'selected':''}>${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}${busy?' (sedang dipakai)':''}</option>`;
   }).join('');
 
   if(state.cars.length===0){
@@ -6772,6 +7174,7 @@ function openUsageModal(editId){
       if(!valid) return false;
 
       if(editing){
+        const before = {...editing}; // salinan dangkal SEBELUM ditimpa -- utk audit trail di bawah
         Object.assign(editing, {
           carId, driverId, jenisPenggunaan, tujuan, mapsLink: mapsLink || null, tglKeluar, jamKeluar,
           odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
@@ -6784,6 +7187,11 @@ function openUsageModal(editId){
           saldoEtollAwal: etollVal === '' ? null : Number(etollVal),
         });
         touch(editing);
+        logFieldChanges('penggunaan', `Edit Perjalanan — ${carLabel(editing.carId)}`, before, editing, [
+          ['tujuan', 'Tujuan'],
+          ['odoKeluar', 'Odometer Berangkat', v=> v==null?'-':Number(v).toLocaleString('id-ID')+' KM'],
+          ['bensinKeluar', 'BBM Awal', v=> v==null?'-':formatBensinDisplay(v, state.cars.find(c=>c.id===editing.carId))],
+        ]);
         // Keperluan Pribadi TIDAK disimpan/disinkronkan ke Data Tujuan --
         // ini bukan tujuan operasional yang perlu direkomendasikan lagi ke
         // perjalanan berikutnya (beda konteks/privasi dari pengiriman).
@@ -7189,6 +7597,168 @@ function openBookingModal(editId){
       (bukan campur semua kategori -- "Ganti Oli" vs "Servis Berkala" wajar
       beda jauh, kalau dicampur semuanya kelihatan "anomali" padahal wajar).
    2) Kategori sama diulang terlalu cepat -- indikasi masalah belum tuntas. */
+// Deteksi Anomali E-Toll (v3.79.0) -- pola SAMA dengan computeServiceAnomalies
+// di bawah (level warn/danger, urutan danger dulu, ambang didokumentasikan
+// alasannya). Memanfaatkan field saldoSebelum & saldoSesudah yang SUDAH
+// dicatat per transaksi (lihat logEtollTransaction) -- jadi pengecekan
+// kesesuaian data di bawah ini murni MEMBACA yang sudah ada, tidak
+// menambah field baru/mengubah cara data disimpan.
+// Panel Gabungan "Insight Terbaru" (v3.89.0) -- menggabungkan SEMUA
+// insight (BBM, Servis, E-Toll, Durasi, Jarak, Efisiensi Wajar) jadi 1
+// daftar prioritas, supaya begitu PIN dibuka tidak perlu cek 1-per-1 ke
+// 6 halaman berbeda. Level "danger" selalu di atas "warn". Sumber
+// list-based (BBM/Servis/E-Toll) dipakai APA ADANYA (bukan hitung ulang);
+// sumber per-trip (Durasi/Jarak/Efisiensi Wajar) SENGAJA ditulis ulang
+// jadi versi "list" di sini (bukan reuse fungsi badge HTML per-trip yang
+// sudah ada) -- karena badge HTML itu dirancang utk ditempel LANGSUNG ke
+// 1 baris trip di List/Card, bukan utk dikumpulkan jadi daftar terpisah;
+// logika deteksinya (ambang 1.7x/0.5x, minimal 2 sampel) tetap SAMA
+// PERSIS supaya hasilnya konsisten dengan yang tampil di masing-masing
+// trip.
+function computeAllInsights(){
+  if(!insightUnlocked) return [];
+  const hasil = [
+    ...computeBbmAnomalies(),
+    ...computeServiceAnomalies(),
+    ...computeEtollAnomalies(),
+  ];
+
+  state.usage.forEach(u=>{
+    const needle = (u.tujuan||'').trim().toLowerCase();
+    if(!needle) return;
+
+    // Durasi
+    const menit = getTripDurationMinutes(u);
+    if(menit!=null){
+      const sampelDurasi = state.usage
+        .filter(x=> x.id!==u.id && (x.tujuan||'').trim().toLowerCase()===needle)
+        .map(x=> getTripDurationMinutes(x)).filter(v=> v!=null);
+      if(sampelDurasi.length>=2){
+        const rata2 = sampelDurasi.reduce((a,b)=>a+b,0)/sampelDurasi.length;
+        if(rata2>0){
+          const rasio = menit/rata2;
+          if(rasio>=1.7 || rasio<=0.5){
+            hasil.push({level:'warn', judul:'Durasi perjalanan tidak wajar',
+              detail:`${escapeHtml(u.tujuan)} (${fmtDate(u.tglKeluar)}) — ${fmtDurationMinutes(menit)}, biasanya ${fmtDurationMinutes(Math.round(rata2))}`, route:'usage'});
+          }
+        }
+      }
+    }
+
+    // Jarak
+    if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar){
+      const jarak = u.odoKembali-u.odoKeluar;
+      const sampelJarak = state.usage
+        .filter(x=> x.id!==u.id && (x.tujuan||'').trim().toLowerCase()===needle && x.odoKeluar!=null && x.odoKembali!=null && x.odoKembali>=x.odoKeluar)
+        .map(x=> x.odoKembali-x.odoKeluar);
+      if(sampelJarak.length>=2){
+        const rata2 = sampelJarak.reduce((a,b)=>a+b,0)/sampelJarak.length;
+        if(rata2>0){
+          const rasio = jarak/rata2;
+          if(rasio>=1.7 || rasio<=0.5){
+            hasil.push({level:'warn', judul:'Jarak perjalanan tidak wajar',
+              detail:`${escapeHtml(u.tujuan)} (${fmtDate(u.tglKeluar)}) — ${jarak.toLocaleString('id-ID')} KM, biasanya ${Math.round(rata2).toLocaleString('id-ID')} KM`, route:'usage'});
+          }
+        }
+      }
+    }
+
+    // Efisiensi Wajar (cuma trip yang sudah RESOLVED angkanya, bukan yg masih "Menunggu Akumulasi")
+    if(u.status==='selesai' && u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar){
+      const car = state.cars.find(c=>c.id===u.carId);
+      if(car && (car.efisiensiMinKmL!=null || car.efisiensiMaxKmL!=null)){
+        const entry = buildFuelChain(u.carId).get(u.id);
+        if(entry && entry.resolved){
+          const diBawah = car.efisiensiMinKmL!=null && entry.ratio < car.efisiensiMinKmL;
+          const diAtas = car.efisiensiMaxKmL!=null && entry.ratio > car.efisiensiMaxKmL;
+          if(diBawah || diAtas){
+            hasil.push({level:'danger', judul:`Efisiensi BBM ${diBawah?'di bawah':'di atas'} wajar`,
+              detail:`${escapeHtml(carLabel(u.carId))} — ${entry.ratio.toFixed(1)} KM/L (${fmtDate(u.tglKeluar)}), rentang wajar ${car.efisiensiMinKmL??'-'}–${car.efisiensiMaxKmL??'-'} KM/L`, route:'usage'});
+          }
+        }
+      }
+    }
+  });
+
+  hasil.sort((a,b)=> (a.level==='danger'?0:1) - (b.level==='danger'?0:1));
+  return hasil;
+}
+
+function computeEtollAnomalies(){
+  const anomalies = [];
+  const AMBANG_TOLERANSI_RP = 1; // toleransi pembulatan kecil, bukan celah -- perbedaan >Rp1 dianggap nyata
+  const AMBANG_PEMAKAIAN_ATAS = 2.5; // pemakaian >250% rata-rata riwayat kartu itu sendiri
+  const MIN_SAMPEL_KARTU = 3; // minimal 3 riwayat pemakaian kartu itu dulu, baru baseline dianggap layak
+
+  state.etollCards.forEach(card=>{
+    const trxKartu = state.etollTransactions
+      .filter(t=>t.cardId===card.id)
+      .sort((a,b)=> (a.updatedAt||0)-(b.updatedAt||0)); // urut KRONOLOGIS (lama->baru) utk cek rantai saldo
+
+    // 1) Saldo Sesudah negatif -- secara fisik tidak mungkin, pasti salah input.
+    trxKartu.forEach(t=>{
+      if(Number(t.saldoSesudah) < 0){
+        anomalies.push({
+          level:'danger', judul:'Saldo E-Toll negatif',
+          detail:`${escapeHtml(card.nomorKartu)} — Saldo Sesudah tercatat ${fmtMoney(t.saldoSesudah)} pada ${fmtDate(t.tanggal)}. Cek lagi Nominal atau Saldo Sebelum transaksi ini.`
+        });
+      }
+    });
+
+    // 2) Nominal transaksi tidak cocok dengan perubahan Saldo Sebelum ->
+    // Saldo Sesudah -- kalau beda, salah satu dari 3 angka itu (Saldo
+    // Sebelum/Nominal/Saldo Sesudah) pasti keliru diisi.
+    trxKartu.forEach(t=>{
+      if(t.saldoSebelum==null || t.saldoSesudah==null || t.nominal==null) return;
+      const selisih = Number(t.saldoSesudah) - Number(t.saldoSebelum) - Number(t.nominal);
+      if(Math.abs(selisih) > AMBANG_TOLERANSI_RP){
+        anomalies.push({
+          level:'danger', judul:'Nominal transaksi tidak cocok dengan perubahan saldo',
+          detail:`${escapeHtml(card.nomorKartu)} — ${fmtDate(t.tanggal)}: Saldo Sebelum ${fmtMoney(t.saldoSebelum)} + Nominal ${fmtMoney(t.nominal)} seharusnya ${fmtMoney(Number(t.saldoSebelum)+Number(t.nominal))}, tapi Saldo Sesudah tercatat ${fmtMoney(t.saldoSesudah)} (beda ${fmtMoney(Math.abs(selisih))}).`
+        });
+      }
+    });
+
+    // 3) Rantai saldo terputus -- Saldo Sebelum transaksi ini seharusnya
+    // SAMA dengan Saldo Sesudah transaksi sebelumnya (kartu yang sama).
+    // Beda berarti ada transaksi yang hilang/terhapus/diedit manual di
+    // antaranya. Ditandai NETRAL-WARN (bukan danger) -- banyak penyebab
+    // wajar (mis. transaksi lama yang belum sempat dicatat sistem ini),
+    // bukan otomatis berarti salah.
+    for(let i=1;i<trxKartu.length;i++){
+      const prev = trxKartu[i-1], cur = trxKartu[i];
+      if(prev.saldoSesudah==null || cur.saldoSebelum==null) continue;
+      const selisih = Number(cur.saldoSebelum) - Number(prev.saldoSesudah);
+      if(Math.abs(selisih) > AMBANG_TOLERANSI_RP){
+        anomalies.push({
+          level:'warn', judul:'Rantai saldo E-Toll terputus',
+          detail:`${escapeHtml(card.nomorKartu)} — Saldo Sesudah transaksi ${fmtDate(prev.tanggal)} (${fmtMoney(prev.saldoSesudah)}) tidak nyambung dengan Saldo Sebelum transaksi ${fmtDate(cur.tanggal)} (${fmtMoney(cur.saldoSebelum)}) -- selisih ${fmtMoney(Math.abs(selisih))}. Kemungkinan ada transaksi yang belum tercatat di antaranya.`
+        });
+      }
+    }
+
+    // 4) Pemakaian (biaya tol) jauh di atas kebiasaan kartu itu SENDIRI --
+    // dibandingkan riwayat kartu yang sama (bukan kartu lain), karena rute
+    // tiap kartu bisa beda jauh karakternya.
+    const pemakaian = trxKartu.filter(t=> t.jenis==='pemakaian' && Number(t.nominal)<0);
+    if(pemakaian.length >= MIN_SAMPEL_KARTU){
+      const avgAbs = pemakaian.reduce((s,t)=> s+Math.abs(Number(t.nominal)), 0) / pemakaian.length;
+      pemakaian.forEach(t=>{
+        const nilaiAbs = Math.abs(Number(t.nominal));
+        if(nilaiAbs > avgAbs*AMBANG_PEMAKAIAN_ATAS){
+          anomalies.push({
+            level:'warn', judul:'Pemakaian E-Toll jauh di atas kebiasaan',
+            detail:`${escapeHtml(card.nomorKartu)} — ${fmtDate(t.tanggal)}: ${fmtMoney(nilaiAbs)} (biasanya ${fmtMoney(Math.round(avgAbs))} per pemakaian)${t.keterangan?' · '+escapeHtml(t.keterangan):''}`
+          });
+        }
+      });
+    }
+  });
+
+  anomalies.sort((a,b)=> (a.level==='danger'?0:1) - (b.level==='danger'?0:1));
+  return anomalies;
+}
+
 function computeServiceAnomalies(){
   const anomalies = [];
 
@@ -7322,17 +7892,30 @@ function renderService(){
   </div></div>`;
   document.getElementById('content').innerHTML = html;
 
+  // Paginasi (v3.79.0) -- sama pola dgn Catat Perjalanan List (v3.78.0).
+  // Reset ke halaman 1 tiap kata kunci ATAU kategori berubah (lihat
+  // applyFilter di bawah).
+  const SERVICE_PAGE_SIZE = 25;
+  let servicePage = 1;
+  let lastServiceFilterKey = null;
+
   function renderTable(list){
     const wrap = document.getElementById('service-table-wrap');
     if(list.length===0){
       wrap.innerHTML = emptyState('🔧','Belum ada riwayat servis yang cocok.');
       return;
     }
+    const totalItems = list.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / SERVICE_PAGE_SIZE));
+    if(servicePage > totalPages) servicePage = totalPages;
+    if(servicePage < 1) servicePage = 1;
+    const pageStart = (servicePage - 1) * SERVICE_PAGE_SIZE;
+    const pageList = list.slice(pageStart, pageStart + SERVICE_PAGE_SIZE);
     wrap.innerHTML = `
       <div class="table-scroll desktop-data-table"><table>
         <thead><tr><th>Kode</th><th>Tanggal</th><th>Mobil</th><th>Kategori</th><th>Odometer</th><th>Bengkel</th><th>Maps</th><th>Biaya</th><th>Catatan</th><th></th></tr></thead>
         <tbody>
-          ${list.map(r=>`
+          ${pageList.map(r=>`
             <tr>
               <td>${codeBadgeHtml(r.service.kode)}</td>
               <td>${fmtDate(r.service.tanggal)}</td>
@@ -7350,7 +7933,7 @@ function renderService(){
         </tbody>
       </table></div>
       <div class="data-card-list">
-        ${list.map(r=>`
+        ${pageList.map(r=>`
           <div class="data-card">
             <div class="data-card-title"><span>${escapeHtml(carLabel(r.service.carId))}</span><span class="badge neutral">${escapeHtml(r.item.kategori)}</span></div>
             <div class="data-card-row"><span class="k">Kode</span><span class="v">${codeBadgeHtml(r.service.kode)}</span></div>
@@ -7365,14 +7948,29 @@ function renderService(){
             </div>
           </div>`).join('')}
       </div>
+      ${totalPages<=1 ? '' : `
+      <div class="list-pagination">
+        <span class="list-pagination-info">Menampilkan ${(pageStart+1).toLocaleString('id-ID')}–${Math.min(pageStart+SERVICE_PAGE_SIZE,totalItems).toLocaleString('id-ID')} dari ${totalItems.toLocaleString('id-ID')} data</span>
+        <span class="list-pagination-nav">
+          <button type="button" class="btn btn-ghost btn-sm" id="service-page-prev" ${servicePage<=1?'disabled':''}>‹ Sebelumnya</button>
+          <span class="list-pagination-num">Hal. ${servicePage} / ${totalPages}</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="service-page-next" ${servicePage>=totalPages?'disabled':''}>Berikutnya ›</button>
+        </span>
+      </div>`}
     `;
     wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openServiceModal(b.dataset.edit));
+    const prevBtn = document.getElementById('service-page-prev');
+    if(prevBtn) prevBtn.addEventListener('click', ()=>{ servicePage--; renderTable(list); });
+    const nextBtn = document.getElementById('service-page-next');
+    if(nextBtn) nextBtn.addEventListener('click', ()=>{ servicePage++; renderTable(list); });
   }
   renderTable(rows);
 
   function applyFilter(){
     const q = document.getElementById('service-search').value.trim().toLowerCase();
     const kategori = document.getElementById('service-filter-kategori').value;
+    const filterKey = q + '|' + kategori;
+    if(filterKey !== lastServiceFilterKey){ servicePage = 1; lastServiceFilterKey = filterKey; }
     const filtered = rows.filter(r=>{
       const matchQ = !q ||
         carLabel(r.service.carId).toLowerCase().includes(q) ||
@@ -7742,6 +8340,7 @@ function openDocModal(){
         <label>Masa Berlaku Sampai *</label>
         <input type="date" id="in-expired">
         <div class="err-msg">Tanggal masa berlaku wajib diisi.</div>
+        <div class="hint">STNK &amp; Pajak Kendaraan terisi otomatis sesuai siklus baku (5 tahun / 1 tahun dari Tanggal Terbit) begitu Jenis dipilih -- boleh diubah manual kalau perlu.</div>
       </div>
     </div>
   `;
@@ -7769,6 +8368,29 @@ function openDocModal(){
       return true;
     }
   });
+
+  // v3.85.0 -- saran otomatis Masa Berlaku sesuai siklus BAKU tiap jenis
+  // dokumen (di Indonesia siklusnya BEDA: STNK ganti fisik tiap 5 tahun,
+  // Pajak Kendaraan tiap 1 tahun -- kalau digabung/disamaratakan gampang
+  // salah hitung manual). Asuransi SENGAJA tidak disarankan (masa
+  // berlakunya beda-beda tergantung polis, tidak ada siklus baku).
+  // Cuma menyarankan, TIDAK memaksa -- begitu petugas mengetik SENDIRI di
+  // field Masa Berlaku, saran otomatis berhenti menimpa lagi.
+  const SIKLUS_DOKUMEN_TAHUN = { 'STNK': 5, 'Pajak Kendaraan': 1 };
+  let expiredDiisiManual = false;
+  document.getElementById('in-expired').addEventListener('input', ()=>{ expiredDiisiManual = true; });
+  function saranMasaBerlaku(){
+    if(expiredDiisiManual) return;
+    const jenis = document.getElementById('in-jenis').value;
+    const siklusTahun = SIKLUS_DOKUMEN_TAHUN[jenis];
+    if(!siklusTahun) return;
+    const tglTerbit = document.getElementById('in-terbit').value || today();
+    const d = new Date(tglTerbit);
+    d.setFullYear(d.getFullYear() + siklusTahun);
+    document.getElementById('in-expired').value = d.toISOString().slice(0,10);
+  }
+  document.getElementById('in-jenis').addEventListener('change', saranMasaBerlaku);
+  document.getElementById('in-terbit').addEventListener('change', saranMasaBerlaku);
 }
 
 /* ========================================================================
@@ -7954,6 +8576,7 @@ function calibratedTankContent(carId, barLevel){
    fungsi ini tidak menandai apa-apa (null-safe, tidak memaksa semua mobil
    harus diisi). */
 function efisiensiWajarBadgeHtml(ratio, car){
+  if(!insightUnlocked) return '';
   if(ratio==null || !car) return '';
   const min = car.efisiensiMinKmL, max = car.efisiensiMaxKmL;
   if(min==null && max==null) return '';
@@ -8728,8 +9351,31 @@ function renderEtollCards(){
     })));
   };
 
+  const etollAnomalies = insightUnlocked ? computeEtollAnomalies() : [];
+  const anomalyPanelEtoll = !insightUnlocked ? '' : `
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Deteksi Anomali E-Toll</h2>
+        ${etollAnomalies.length>0 ? `<span class="badge ${etollAnomalies.some(a=>a.level==='danger')?'danger':'warn'}">${etollAnomalies.length} ditemukan</span>` : ''}
+      </div>
+      <div class="panel-body">
+        <p style="font-size:11.5px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
+          Mengecek kesesuaian Saldo Sebelum/Sesudah tiap transaksi, dan biaya pemakaian dibandingkan riwayat kartu itu sendiri. Ini bahan cek awal, bukan vonis otomatis.
+        </p>
+        ${etollAnomalies.length===0 ? emptyState('✅','Tidak ada pola yang mencurigakan dari riwayat E-Toll sejauh ini.') : `
+        <div class="alert-list">
+          ${etollAnomalies.map(a=>`
+            <div class="alert-list-item">
+              <div class="ic">${a.level==='danger'?'🔴':'🟡'}</div>
+              <div class="body"><b>${escapeHtml(a.judul)}</b><div class="desc">${a.detail}</div></div>
+            </div>`).join('')}
+        </div>`}
+      </div>
+    </div>
+  `;
+
   const allItems = [...state.etollCards].sort((a,b)=> a.nomorKartu.localeCompare(b.nomorKartu));
-  const html = `<div class="panel"><div class="panel-body">
+  const html = anomalyPanelEtoll + `<div class="panel"><div class="panel-body">
     <div class="search-row"><input type="text" id="etoll-search" placeholder="Cari nomor kartu atau mobil..."></div>
     <div id="etoll-table-wrap"></div>
   </div></div>`;
@@ -8820,10 +9466,22 @@ function openEtollHistoryModal(cardId){
   // yang sengaja dibuat ramping. Sekarang SELALU pakai kartu (bukan cuma di
   // HP) -- tidak ada geser horizontal sama sekali, semua info tetap
   // kebaca tanpa terpotong.
-  const body = trx.length===0
-    ? emptyState('🧾','Belum ada riwayat transaksi untuk kartu ini.')
-    : `<div class="etoll-history-cards">
-        ${trx.map(t=>`
+  // v3.79.0 -- ditambah paginasi (pola sama dgn Catat Perjalanan & Servis)
+  // supaya kartu yang riwayat transaksinya sudah panjang tidak digambar
+  // sekaligus semua ke layar.
+  const ETOLL_TRX_PAGE_SIZE = 20;
+  let trxPage = 1;
+
+  function trxBodyHtml(){
+    if(trx.length===0) return emptyState('🧾','Belum ada riwayat transaksi untuk kartu ini.');
+    const totalItems = trx.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / ETOLL_TRX_PAGE_SIZE));
+    if(trxPage > totalPages) trxPage = totalPages;
+    if(trxPage < 1) trxPage = 1;
+    const pageStart = (trxPage - 1) * ETOLL_TRX_PAGE_SIZE;
+    const pageTrx = trx.slice(pageStart, pageStart + ETOLL_TRX_PAGE_SIZE);
+    return `<div class="etoll-history-cards">
+        ${pageTrx.map(t=>`
           <div class="data-card">
             <div class="data-card-title">
               <span>${fmtDate(t.tanggal)}</span>
@@ -8834,12 +9492,37 @@ function openEtollHistoryModal(cardId){
             <div class="data-card-row"><span class="k">Keterangan</span><span class="v">${escapeHtml(t.keterangan||'-')}</span></div>
             <div class="data-card-row"><span class="k">Petugas</span><span class="v">${escapeHtml(t.petugas||'-')}</span></div>
           </div>`).join('')}
-      </div>`;
+      </div>
+      ${totalPages<=1 ? '' : `
+      <div class="list-pagination">
+        <span class="list-pagination-info">Menampilkan ${(pageStart+1).toLocaleString('id-ID')}–${Math.min(pageStart+ETOLL_TRX_PAGE_SIZE,totalItems).toLocaleString('id-ID')} dari ${totalItems.toLocaleString('id-ID')} data</span>
+        <span class="list-pagination-nav">
+          <button type="button" class="btn btn-ghost btn-sm" id="etoll-trx-prev" ${trxPage<=1?'disabled':''}>‹ Sebelumnya</button>
+          <span class="list-pagination-num">Hal. ${trxPage} / ${totalPages}</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="etoll-trx-next" ${trxPage>=totalPages?'disabled':''}>Berikutnya ›</button>
+        </span>
+      </div>`}`;
+  }
+
+  function refreshTrxBody(){
+    const modalBody = document.querySelector('#modal-root .modal-body');
+    if(!modalBody) return; // modal sudah ditutup sebelum sempat dipanggil ulang
+    modalBody.innerHTML = trxBodyHtml();
+    wireTrxPagination();
+  }
+  function wireTrxPagination(){
+    const prevBtn = document.getElementById('etoll-trx-prev');
+    if(prevBtn) prevBtn.addEventListener('click', ()=>{ trxPage--; refreshTrxBody(); });
+    const nextBtn = document.getElementById('etoll-trx-next');
+    if(nextBtn) nextBtn.addEventListener('click', ()=>{ trxPage++; refreshTrxBody(); });
+  }
+
   openModal({
     title: `Riwayat Transaksi — ${card.nomorKartu}`,
-    body,
+    body: trxBodyHtml(),
     onSave: () => true
   });
+  wireTrxPagination();
   const saveBtn = document.getElementById('modal-save');
   if(saveBtn) saveBtn.textContent = 'Tutup';
   const cancelBtn = document.getElementById('modal-cancel');
@@ -8965,6 +9648,500 @@ function openEtollCardModal(editId){
 }
 
 /* ========================================================================
+   MODUL: LAPORAN BULANAN (v3.80.0)
+   Ringkasan biaya & pemakaian armada untuk 1 bulan pilihan -- menggabungkan
+   angka yang sudah dihitung di modul lain (Catat Perjalanan, Servis,
+   E-Toll), BUKAN menghitung ulang dari nol, supaya angkanya selalu
+   konsisten dengan yang tampil di masing-masing modul aslinya.
+   DESAIN WARNA: sengaja dibatasi MAKSIMAL 3 warna (navy teks, 1 biru aksen,
+   abu-abu sekunder) -- TIDAK ikut skema warna-warni sidebar, supaya laporan
+   yang isinya banyak angka tetap enak dibaca/tidak melelahkan mata.
+   ======================================================================== */
+
+// yearMonth format "YYYY-MM". Mengembalikan { totalJarak, totalLiterBeli,
+// totalBiayaBbm, totalBiayaTol, totalBiayaServis, totalBiayaOperasional,
+// grandTotal, perMobil: [...] }
+function computeMonthlyReport(yearMonth){
+  const usageBulanIni = state.usage.filter(u=> (u.tglKeluar||'').startsWith(yearMonth));
+  const servicesBulanIni = state.services.filter(s=> (s.tanggal||'').startsWith(yearMonth));
+
+  const perMobil = state.cars.map(car=>{
+    const trips = usageBulanIni.filter(u=> u.carId===car.id);
+    const jarak = trips.reduce((sum,u)=>{
+      if(u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) return sum + (u.odoKembali-u.odoKeluar);
+      return sum;
+    }, 0);
+    const literBeli = trips.reduce((sum,u)=> sum + (Number(u.literBensin)||0), 0);
+    const biayaBbm = trips.reduce((sum,u)=> sum + (Number(u.biayaBensin)||0), 0);
+    const biayaTol = trips.reduce((sum,u)=>{
+      const info = getBiayaTolTerpakai(u);
+      return sum + (info ? info.biayaTol : 0);
+    }, 0);
+    const biayaOperasional = trips.reduce((sum,u)=> sum + usageBiayaOpTotal(u), 0);
+    const biayaServis = servicesBulanIni
+      .filter(s=> s.carId===car.id)
+      .reduce((sum,s)=> sum + serviceItems(s).reduce((s2,it)=> s2 + (Number(it.biaya)||0), 0), 0);
+    const efisiensi = (jarak>0 && literBeli>0) ? jarak/literBeli : null;
+    const grandTotal = biayaBbm + biayaTol + biayaOperasional + biayaServis;
+    return { car, jumlahTrip: trips.length, jarak, literBeli, biayaBbm, biayaTol, biayaOperasional, biayaServis, efisiensi, grandTotal };
+  }).filter(r=> r.jumlahTrip>0 || r.biayaServis>0); // sembunyikan mobil yg sama sekali tidak ada aktivitas bulan itu
+
+  const totalJarak = perMobil.reduce((s,r)=>s+r.jarak,0);
+  const totalLiterBeli = perMobil.reduce((s,r)=>s+r.literBeli,0);
+  const totalBiayaBbm = perMobil.reduce((s,r)=>s+r.biayaBbm,0);
+  const totalBiayaTol = perMobil.reduce((s,r)=>s+r.biayaTol,0);
+  const totalBiayaServis = perMobil.reduce((s,r)=>s+r.biayaServis,0);
+  const totalBiayaOperasional = perMobil.reduce((s,r)=>s+r.biayaOperasional,0);
+  const grandTotal = totalBiayaBbm + totalBiayaTol + totalBiayaServis + totalBiayaOperasional;
+
+  perMobil.sort((a,b)=> b.grandTotal - a.grandTotal); // biaya terbesar dulu
+  return { yearMonth, totalJarak, totalLiterBeli, totalBiayaBbm, totalBiayaTol, totalBiayaServis, totalBiayaOperasional, grandTotal, perMobil };
+}
+
+function fmtYearMonthLabel(yearMonth){
+  const [y,m] = yearMonth.split('-').map(Number);
+  const d = new Date(y, m-1, 1);
+  return d.toLocaleDateString('id-ID', {month:'long', year:'numeric'});
+}
+
+function renderMonthlyReport(){
+  const now = new Date();
+  const defaultYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  document.getElementById('header-actions').innerHTML = `
+    <button class="btn btn-ghost" id="btn-export-report-excel">📊 Export Excel</button>
+    <button class="btn btn-primary" id="btn-export-report-pdf">📄 Export PDF</button>
+  `;
+
+  document.getElementById('content').innerHTML = `
+    <div class="panel">
+      <div class="panel-body">
+        <div class="field" style="max-width:240px;">
+          <label>Pilih Bulan</label>
+          <input type="month" id="in-report-month" value="${defaultYM}" max="${defaultYM}">
+        </div>
+      </div>
+    </div>
+    <div id="monthly-report-body"></div>
+  `;
+
+  function draw(){
+    const yearMonth = document.getElementById('in-report-month').value || defaultYM;
+    const r = computeMonthlyReport(yearMonth);
+    const body = document.getElementById('monthly-report-body');
+
+    if(r.perMobil.length===0){
+      body.innerHTML = `<div class="panel"><div class="panel-body">${emptyState('📄', `Belum ada aktivitas tercatat di ${fmtYearMonthLabel(yearMonth)}.`)}</div></div>`;
+      return;
+    }
+
+    // Perbandingan vs bulan lalu (v3.81.0) -- pola & helper SAMA PERSIS
+    // dengan panel "Statistik Bulan Ini" di Dashboard (trendLabel()),
+    // supaya konsisten & tidak menduplikasi logika baru. Bulan lalu
+    // dihitung dari yearMonth yang SEDANG DIPILIH (bukan selalu bulan
+    // kalender sekarang) -- kalau Anda lihat laporan Maret, pembandingnya
+    // otomatis Februari, bukan bulan lalu dari HARI INI.
+    const [thYear, thMonth] = yearMonth.split('-').map(Number);
+    const prevDate = new Date(thYear, thMonth-2, 1); // thMonth-1 (0-based) - 1 bulan
+    const prevYearMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
+    const rPrev = computeMonthlyReport(prevYearMonth);
+    const hasPrev = rPrev.perMobil.length > 0;
+    const trendJarak = hasPrev ? trendLabel(r.totalJarak, rPrev.totalJarak, false) : '';
+    const trendBbm = hasPrev ? trendLabel(r.totalBiayaBbm, rPrev.totalBiayaBbm, true) : '';
+    const trendTol = hasPrev ? trendLabel(r.totalBiayaTol, rPrev.totalBiayaTol, true) : '';
+    const trendServis = hasPrev ? trendLabel(r.totalBiayaServis, rPrev.totalBiayaServis, true) : '';
+    const trendOperasional = hasPrev ? trendLabel(r.totalBiayaOperasional, rPrev.totalBiayaOperasional, true) : '';
+    const trendGrand = hasPrev ? trendLabel(r.grandTotal, rPrev.grandTotal, true) : '';
+
+    body.innerHTML = `
+      <div class="panel">
+        <div class="panel-head"><h2>Ringkasan ${fmtYearMonthLabel(yearMonth)}</h2></div>
+        <div class="panel-body">
+          ${!hasPrev ? `<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px;">Belum ada data ${fmtYearMonthLabel(prevYearMonth)} untuk dibandingkan.</p>` : ''}
+          <div class="report-summary-grid">
+            <div class="report-summary-item"><span class="k">Total Jarak</span><span class="v">${r.totalJarak.toLocaleString('id-ID')} KM</span>${trendJarak}</div>
+            <div class="report-summary-item"><span class="k">Total BBM</span><span class="v">${r.totalLiterBeli.toLocaleString('id-ID')} L</span></div>
+            <div class="report-summary-item"><span class="k">Biaya BBM</span><span class="v">${fmtMoney(r.totalBiayaBbm)}</span>${trendBbm}</div>
+            <div class="report-summary-item"><span class="k">Biaya Tol</span><span class="v">${fmtMoney(r.totalBiayaTol)}</span>${trendTol}</div>
+            <div class="report-summary-item"><span class="k">Biaya Servis</span><span class="v">${fmtMoney(r.totalBiayaServis)}</span>${trendServis}</div>
+            <div class="report-summary-item"><span class="k">Biaya Operasional Lain</span><span class="v">${fmtMoney(r.totalBiayaOperasional)}</span>${trendOperasional}</div>
+          </div>
+          <div class="report-grand-total">
+            <span>Grand Total Biaya Bulan Ini ${trendGrand}</span>
+            <b>${fmtMoney(r.grandTotal)}</b>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Rincian per Mobil</h2></div>
+        <div class="panel-body">
+          <div class="table-scroll desktop-data-table"><table>
+            <thead><tr><th>Mobil</th><th>Trip</th><th>Jarak</th><th>Efisiensi</th><th>Biaya BBM</th><th>Biaya Tol</th><th>Biaya Servis</th><th>Operasional</th><th>Total</th></tr></thead>
+            <tbody>
+              ${r.perMobil.map(x=>`
+                <tr>
+                  <td>${escapeHtml(carLabel(x.car.id))}</td>
+                  <td>${x.jumlahTrip}</td>
+                  <td>${x.jarak.toLocaleString('id-ID')} KM</td>
+                  <td>${x.efisiensi!=null ? x.efisiensi.toFixed(1)+' KM/L' : '-'}</td>
+                  <td>${fmtMoney(x.biayaBbm)}</td>
+                  <td>${fmtMoney(x.biayaTol)}</td>
+                  <td>${fmtMoney(x.biayaServis)}</td>
+                  <td>${fmtMoney(x.biayaOperasional)}</td>
+                  <td><b>${fmtMoney(x.grandTotal)}</b></td>
+                </tr>`).join('')}
+            </tbody>
+          </table></div>
+          <div class="data-card-list">
+            ${r.perMobil.map(x=>`
+              <div class="data-card">
+                <div class="data-card-title"><span>${escapeHtml(carLabel(x.car.id))}</span><span class="v" style="font-weight:800;">${fmtMoney(x.grandTotal)}</span></div>
+                <div class="data-card-row"><span class="k">Jumlah Trip</span><span class="v">${x.jumlahTrip}</span></div>
+                <div class="data-card-row"><span class="k">Jarak</span><span class="v">${x.jarak.toLocaleString('id-ID')} KM</span></div>
+                <div class="data-card-row"><span class="k">Efisiensi</span><span class="v">${x.efisiensi!=null ? x.efisiensi.toFixed(1)+' KM/L' : '-'}</span></div>
+                <div class="data-card-row"><span class="k">Biaya BBM</span><span class="v">${fmtMoney(x.biayaBbm)}</span></div>
+                <div class="data-card-row"><span class="k">Biaya Tol</span><span class="v">${fmtMoney(x.biayaTol)}</span></div>
+                <div class="data-card-row"><span class="k">Biaya Servis</span><span class="v">${fmtMoney(x.biayaServis)}</span></div>
+                <div class="data-card-row"><span class="k">Operasional Lain</span><span class="v">${fmtMoney(x.biayaOperasional)}</span></div>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  draw();
+  document.getElementById('in-report-month').addEventListener('change', draw);
+
+  document.getElementById('btn-export-report-excel').onclick = () => {
+    const yearMonth = document.getElementById('in-report-month').value || defaultYM;
+    const r = computeMonthlyReport(yearMonth);
+    if(r.perMobil.length===0){ showToast('Tidak ada data untuk di-export.', true); return; }
+    exportToExcel(`laporan-bulanan-${yearMonth}`, 'Laporan Bulanan', r.perMobil.map(x=>({
+      Mobil: carLabel(x.car.id), 'Jumlah Trip': x.jumlahTrip, 'Jarak (KM)': x.jarak, 'Efisiensi (KM/L)': x.efisiensi!=null?x.efisiensi.toFixed(1):'',
+      'Biaya BBM': x.biayaBbm, 'Biaya Tol': x.biayaTol, 'Biaya Servis': x.biayaServis, 'Biaya Operasional Lain': x.biayaOperasional, 'Total': x.grandTotal,
+    })));
+  };
+  document.getElementById('btn-export-report-pdf').onclick = () => {
+    const yearMonth = document.getElementById('in-report-month').value || defaultYM;
+    exportMonthlyReportPdf(computeMonthlyReport(yearMonth));
+  };
+}
+
+// Lazy-load jsPDF dari CDN -- pola SAMA PERSIS dengan loadXLSX() (dimuat
+// sekali saat pertama dibutuhkan, bukan di setiap pemuatan aplikasi).
+let jspdfLoading = null;
+function loadJsPDF(){
+  if(window.jspdf) return Promise.resolve();
+  if(jspdfLoading) return jspdfLoading;
+  jspdfLoading = new Promise((resolve, reject)=>{
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Gagal memuat pustaka PDF (perlu koneksi internet).'));
+    document.head.appendChild(script);
+  });
+  return jspdfLoading;
+}
+
+/* ========================================================================
+   KODE QR PER MOBIL (v3.82.0) -- stiker QR ditempel di dashboard mobil,
+   sopir tinggal scan pakai kamera HP untuk langsung buka form Catat
+   Perjalanan dengan mobil itu SUDAH otomatis terpilih (lihat
+   handleQrQuickstart() yang dipanggil sekali saat aplikasi dibuka).
+   ======================================================================== */
+let qrcodeLoading = null;
+function loadQrCodeLib(){
+  if(window.QRCode) return Promise.resolve();
+  if(qrcodeLoading) return qrcodeLoading;
+  qrcodeLoading = new Promise((resolve, reject)=>{
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Gagal memuat pustaka QR Code (perlu koneksi internet).'));
+    document.head.appendChild(script);
+  });
+  return qrcodeLoading;
+}
+// URL quickstart -- SENGAJA pakai query string "?quickcar=ID" (bukan hash)
+// supaya tetap kompatibel dengan cara routing hash (#/usage dst) yang
+// sudah dipakai app ini, tidak saling menimpa. Dibaca 1x saat app dibuka
+// lewat handleQrQuickstart(), lalu langsung dibersihkan dari address bar
+// (history.replaceState) supaya tidak terpicu lagi kalau di-refresh.
+function buildCarQrUrl(carId){
+  const base = location.origin + location.pathname;
+  return `${base}?quickcar=${encodeURIComponent(carId)}`;
+}
+async function openCarQrModal(carId){
+  const car = state.cars.find(c=>c.id===carId);
+  if(!car) return;
+  const url = buildCarQrUrl(carId);
+  openModal({
+    title: `Kode QR — ${car.merk} ${car.modelMobil}`,
+    body: `
+      <div style="text-align:center;">
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 16px;line-height:1.6;">
+          Cetak &amp; tempel di dashboard mobil ini. Sopir tinggal <b>scan pakai kamera HP</b> (tidak perlu app khusus, kamera bawaan HP modern otomatis mendeteksi QR) untuk langsung buka form Catat Perjalanan dengan mobil ini sudah otomatis terpilih -- tidak perlu cari-cari lagi di dropdown.
+        </p>
+        <div id="qr-container" style="display:flex;justify-content:center;padding:16px;background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:12px;"></div>
+        <p style="font-size:11px;color:var(--muted);word-break:break-all;">${escapeHtml(url)}</p>
+      </div>
+    `,
+    onSave: () => true
+  });
+  const saveBtn = document.getElementById('modal-save');
+  if(saveBtn) saveBtn.textContent = 'Tutup';
+  const cancelBtn = document.getElementById('modal-cancel');
+  if(cancelBtn) cancelBtn.style.display = 'none';
+  try{
+    await loadQrCodeLib();
+    const container = document.getElementById('qr-container');
+    if(container){
+      new QRCode(container, { text: url, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+    }
+  }catch(e){
+    console.error('Gagal membuat QR Code:', e);
+    const container = document.getElementById('qr-container');
+    if(container) container.innerHTML = `<p style="color:var(--red);font-size:12.5px;">${escapeHtml(e.message||'Gagal membuat QR Code.')}</p>`;
+  }
+}
+// Dipanggil SEKALI saat aplikasi pertama dibuka (lihat pemanggilan di baris
+// inisialisasi app paling bawah) -- cek apakah URL-nya hasil scan QR mobil
+// (?quickcar=ID). Kalau ya: pindah ke Catat Perjalanan, langsung buka form
+// Tambah Perjalanan dengan mobil itu sudah terpilih, lalu BERSIHKAN query
+// string dari address bar (supaya kalau di-refresh manual tidak terus-
+// menerus lompat ke form yang sama).
+// v3.87.0 -- "Rute Pulang" (Aksi Cepat Dashboard): 2 langkah SENGAJA
+// dipisah (bukan langsung buka Maps) karena armada bisa lebih dari 1
+// mobil -- klik tombol Aksi Cepat dulu MUNCUL daftar mobil (yang sudah
+// diisi Link Maps Rute Pulang di Data Mobil), klik salah satu BARU muncul
+// tombol Navigasi ke Maps utk mobil itu. Mobil yang belum diisi link-nya
+// TIDAK muncul di daftar (bukan ditampilkan kosong/error).
+function openRutePulangPicker(){
+  const carsWithRoute = state.cars.filter(c=> c.mapsRutePulang);
+  if(carsWithRoute.length===0){
+    showToast('Belum ada mobil yang diisi Link Maps Rute Pulang -- isi dulu di Data Mobil (Edit → Link Maps Rute Pulang).', true);
+    return;
+  }
+  function draw(selectedCarId){
+    const selectedCar = selectedCarId ? state.cars.find(c=>c.id===selectedCarId) : null;
+    const body = selectedCar ? `
+        <div style="text-align:center;">
+          <div style="display:flex;justify-content:center;margin-bottom:10px;">${carPhotoHtml(selectedCar,'car-thumb-lg')}</div>
+          <div style="font-weight:800;font-size:15px;margin-bottom:4px;">${escapeHtml(carLabel(selectedCar.id))}</div>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 16px;">Buka rute pulang mobil ini di Google Maps.</p>
+          <a href="${escapeHtml(selectedCar.mapsRutePulang)}" target="_blank" rel="noopener" id="rp-navigate" class="btn btn-primary" style="width:100%;justify-content:center;display:flex;">🧭 Navigasi ke Maps</a>
+          <button type="button" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:8px;" id="rp-back">← Pilih Mobil Lain</button>
+        </div>
+      ` : `
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">Pilih mobil untuk lihat rute pulangnya.</p>
+        ${carsWithRoute.map(c=>`
+          <button type="button" class="btn btn-ghost" style="width:100%;justify-content:flex-start;gap:10px;margin-bottom:6px;display:flex;align-items:center;" data-rp-car="${c.id}">
+            ${carPhotoHtml(c,'car-thumb-sm')}<span>${escapeHtml(carLabel(c.id))}</span>
+          </button>`).join('')}
+      `;
+    openModal({ title: '🏠 Rute Pulang', body, onSave: ()=>true });
+    const saveBtn = document.getElementById('modal-save'); if(saveBtn) saveBtn.style.display='none';
+    const cancelBtn = document.getElementById('modal-cancel'); if(cancelBtn) cancelBtn.textContent='Tutup';
+    if(!selectedCar){
+      document.querySelectorAll('[data-rp-car]').forEach(b=> b.onclick = ()=> draw(b.dataset.rpCar));
+    } else {
+      const backBtn = document.getElementById('rp-back');
+      if(backBtn) backBtn.onclick = ()=> draw(null);
+      const navBtn = document.getElementById('rp-navigate');
+      if(navBtn) navBtn.addEventListener('click', ()=> setTimeout(()=>{ const root=document.getElementById('modal-root'); if(root) root.innerHTML=''; }, 100));
+    }
+  }
+  draw(null);
+}
+
+function handleQrQuickstart(){
+  try{
+    const params = new URLSearchParams(location.search);
+    const carId = params.get('quickcar');
+    if(!carId) return;
+    // Bersihkan URL SEGERA (sebelum cek validitas carId) -- supaya refresh
+    // manual tidak pernah mengulang alur ini, apa pun hasilnya.
+    history.replaceState(null, '', location.pathname);
+    const car = state.cars.find(c=>c.id===carId);
+    if(!car){ showToast('Kode QR ini menunjuk ke mobil yang sudah tidak ada.', true); return; }
+    navigate('usage');
+    setTimeout(()=> openUsageModal(null, carId), 200); // ditunda dikit -- biar halaman Catat Perjalanan selesai render dulu
+  }catch(e){
+    console.error('Gagal memproses QR quickstart:', e);
+  }
+}
+
+// v3.91.0 -- Pintasan PWA (long-press ikon app di HP -> muncul menu
+// pintasan, mirip WhatsApp "Chat Baru"). Didaftarkan di manifest.json
+// (shortcuts[].url = "./?shortcut=XXX"), dibaca & DIBERSIHKAN dari URL di
+// sini -- pola SAMA PERSIS dgn handleQrQuickstart() di atas, supaya
+// konsisten & refresh manual tidak mengulang aksinya.
+function handleShortcutQuickstart(){
+  try{
+    const params = new URLSearchParams(location.search);
+    const shortcut = params.get('shortcut');
+    if(!shortcut) return;
+    history.replaceState(null, '', location.pathname);
+    if(shortcut==='usage'){
+      navigate('usage');
+      setTimeout(()=> openUsageModal(), 200);
+    } else if(shortcut==='rutepulang'){
+      navigate('dashboard');
+      setTimeout(()=> openRutePulangPicker(), 200);
+    } else if(shortcut==='dashboard'){
+      navigate('dashboard');
+    }
+  }catch(e){
+    console.error('Gagal memproses shortcut PWA:', e);
+  }
+}
+
+/* ========================================================================
+   NOTIFIKASI (v3.82.0) -- SENGAJA memakai ULANG computeUndismissedAlerts()
+   yang sudah dipakai ikon lonceng 🔔, BUKAN logika terpisah -- supaya isi
+   notifikasi selalu identik/konsisten dengan yang tampil di dalam app.
+   BATASAN JUJUR: ini pakai Notification API browser biasa (lewat Service
+   Worker showNotification supaya tetap muncul walau tab tidak fokus) --
+   BUKAN Web Push sungguhan yang tetap jalan walau browser/app ditutup
+   TOTAL (itu butuh server Push + VAPID key, di luar cakupan app statis
+   ini). Selama tab/app masih terbuka di background (boleh minimize),
+   notifikasi tetap bisa muncul.
+   ======================================================================== */
+const NOTIF_PUSHED_KEY = 'fleetops_pushed_alert_ids';
+function loadPushedAlertIds(){
+  try{ return JSON.parse(localStorage.getItem(NOTIF_PUSHED_KEY)) || []; }catch(e){ return []; }
+}
+function savePushedAlertIds(ids){
+  try{ localStorage.setItem(NOTIF_PUSHED_KEY, JSON.stringify(ids.slice(-300))); }catch(e){} // batasi jaga2 jangan membengkak tanpa henti
+}
+
+function renderNotifPermissionStatus(){
+  const el = document.getElementById('notif-permission-status');
+  if(!el) return;
+  if(!('Notification' in window)){
+    el.innerHTML = `<span class="badge neutral">Tidak didukung di browser ini</span>`;
+    return;
+  }
+  const status = Notification.permission;
+  if(status === 'granted'){
+    el.innerHTML = `<span class="badge ok">✅ Notifikasi aktif</span>`;
+  } else if(status === 'denied'){
+    el.innerHTML = `<span class="badge danger">Diblokir</span> <span style="font-size:11.5px;color:var(--muted);">Anda pernah menolak izin ini -- aktifkan manual lewat pengaturan browser/HP (biasanya: ikon gembok di address bar → Notifikasi → Izinkan).</span>`;
+  } else {
+    el.innerHTML = `<button class="btn btn-primary btn-sm" id="btn-enable-notif">Aktifkan Notifikasi</button>`;
+    document.getElementById('btn-enable-notif').onclick = async () => {
+      try{
+        const result = await Notification.requestPermission();
+        renderNotifPermissionStatus();
+        if(result==='granted'){ showToast('Notifikasi diaktifkan.'); checkAndPushNotifications(); }
+      }catch(e){ console.error('Gagal minta izin notifikasi:', e); }
+    };
+  }
+}
+
+// Dipanggil saat app dibuka (lihat inisialisasi di bawah) -- HANYA
+// menampilkan notifikasi utk alert yang BELUM PERNAH dinotifikasi
+// sebelumnya (dilacak via NOTIF_PUSHED_KEY), supaya tidak berulang-ulang
+// menampilkan hal yang sama tiap app dibuka.
+async function checkAndPushNotifications(){
+  try{
+    if(!('Notification' in window) || Notification.permission !== 'granted') return;
+    const alerts = computeUndismissedAlerts();
+    if(alerts.length===0) return;
+    const pushedIds = loadPushedAlertIds();
+    const pushedSet = new Set(pushedIds);
+    const newAlerts = alerts.filter(a=> !pushedSet.has(a.id));
+    if(newAlerts.length===0) return;
+    const reg = await navigator.serviceWorker.ready;
+    newAlerts.forEach(a=>{
+      reg.showNotification(a.judul, {
+        body: a.keterangan,
+        icon: './icons/icon-192.png',
+        tag: a.id, // id sama -> notif lama digantikan, tidak dobel muncul
+      });
+    });
+    savePushedAlertIds([...pushedIds, ...newAlerts.map(a=>a.id)]);
+  }catch(e){
+    console.error('Gagal menampilkan notifikasi:', e);
+  }
+}
+async function exportMonthlyReportPdf(r){
+  if(r.perMobil.length===0){ showToast('Tidak ada data untuk di-export.', true); return; }
+  try{
+    await loadJsPDF();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4' });
+    const NAVY = [22,28,39], BLUE = [30,79,187], GRAY = [107,114,128]; // MAKS 3 warna, sesuai permintaan
+
+    doc.setFontSize(16); doc.setTextColor(...NAVY); doc.setFont(undefined,'bold');
+    doc.text('Laporan Bulanan FleetOps', 14, 18);
+    doc.setFontSize(11); doc.setFont(undefined,'normal'); doc.setTextColor(...GRAY);
+    doc.text(fmtYearMonthLabel(r.yearMonth), 14, 25);
+
+    doc.setDrawColor(...GRAY); doc.line(14, 29, 196, 29);
+
+    let y = 38;
+    doc.setFontSize(10); doc.setTextColor(...NAVY);
+    const ringkasan = [
+      ['Total Jarak', r.totalJarak.toLocaleString('id-ID')+' KM'],
+      ['Total BBM', r.totalLiterBeli.toLocaleString('id-ID')+' L'],
+      ['Biaya BBM', fmtMoney(r.totalBiayaBbm)],
+      ['Biaya Tol', fmtMoney(r.totalBiayaTol)],
+      ['Biaya Servis', fmtMoney(r.totalBiayaServis)],
+      ['Biaya Operasional Lain', fmtMoney(r.totalBiayaOperasional)],
+    ];
+    ringkasan.forEach(([k,v])=>{
+      doc.setTextColor(...GRAY); doc.text(k, 14, y);
+      doc.setTextColor(...NAVY); doc.text(v, 90, y);
+      y += 6;
+    });
+    y += 2;
+    doc.setDrawColor(...BLUE); doc.setLineWidth(0.5); doc.line(14, y, 196, y); y += 8;
+    doc.setFontSize(12); doc.setFont(undefined,'bold'); doc.setTextColor(...BLUE);
+    doc.text('Grand Total: ' + fmtMoney(r.grandTotal), 14, y);
+    doc.setFont(undefined,'normal');
+
+    y += 14;
+    doc.setFontSize(12); doc.setTextColor(...NAVY); doc.setFont(undefined,'bold');
+    doc.text('Rincian per Mobil', 14, y);
+    y += 8;
+
+    const colX = [14, 65, 80, 105, 125, 148, 171];
+    const headers = ['Mobil','Trip','Jarak','Efisiensi','Biaya BBM','Biaya Lain','Total'];
+    doc.setFontSize(8.5); doc.setFont(undefined,'bold'); doc.setTextColor(...GRAY);
+    headers.forEach((h,i)=> doc.text(h, colX[i], y));
+    y += 2;
+    doc.setDrawColor(...GRAY); doc.setLineWidth(0.2); doc.line(14, y, 196, y);
+    y += 5;
+    doc.setFont(undefined,'normal'); doc.setTextColor(...NAVY);
+    r.perMobil.forEach(x=>{
+      if(y > 280){ doc.addPage(); y = 20; } // pindah halaman kalau sudah mepet bawah
+      const biayaLain = x.biayaTol + x.biayaServis + x.biayaOperasional;
+      const cells = [
+        carLabel(x.car.id).slice(0,26),
+        String(x.jumlahTrip),
+        x.jarak.toLocaleString('id-ID')+' KM',
+        x.efisiensi!=null ? x.efisiensi.toFixed(1) : '-',
+        fmtMoney(x.biayaBbm).replace('Rp ',''),
+        fmtMoney(biayaLain).replace('Rp ',''),
+        fmtMoney(x.grandTotal).replace('Rp ',''),
+      ];
+      cells.forEach((c,i)=> doc.text(c, colX[i], y));
+      y += 6;
+    });
+
+    doc.setFontSize(8); doc.setTextColor(...GRAY);
+    doc.text(`Dibuat otomatis oleh FleetOps · ${new Date().toLocaleString('id-ID')}`, 14, 290);
+
+    doc.save(`laporan-bulanan-${r.yearMonth}.pdf`);
+    showToast('File PDF berhasil diunduh.');
+  }catch(e){
+    console.error('Gagal export PDF:', e);
+    showToast(e.message || 'Gagal export PDF.', true);
+  }
+}
+
+/* ========================================================================
    Modal engine (dipakai bersama oleh semua modul)
    ======================================================================== */
 function toggleFieldError(fieldId, hasError){
@@ -9006,6 +10183,103 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.91.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Fitur baru: Pintasan PWA. Tahan lama ikon FleetOps di homescreen HP (mirip WhatsApp "Chat Baru") sekarang muncul 3 pintasan: "Catat Perjalanan" (langsung buka form Tambah Perjalanan), "Rute Pulang" (langsung pilih mobil untuk lihat rute pulangnya), dan "Dashboard". Perlu update manifest.json (disertakan) -- setelah update, hapus & install ulang app dari browser (Tambah ke Layar Utama) supaya HP mendeteksi pintasan barunya (perubahan manifest tidak selalu otomatis terbaca di app yang sudah terlanjur ter-install).',
+    ]
+  },
+  {
+    v: '3.90.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Menu aksi popup (Edit/Biaya Operasional/Tiba/Salin Kode, muncul dari bubble "Mobil Jalan" & baris Catat Perjalanan) diperjelas -- border dipertebal & lebih gelap, bayangan diperkuat, dan baris "✕ Batal" dikasih latar abu-abu muda jadi header yang jelas. Sebelumnya popup ini nyaris tak terlihat batasnya karena latar putih polos mirip dengan latar halaman.',
+    ]
+  },
+  {
+    v: '3.89.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan audit menyeluruh (diminta khusus): badge "📏 Jarak Tidak Wajar" yang baru ditambahkan sempat berisiko meluber di kolom sempit panel Riwayat Perjalanan (Card view, max 118px) -- sekarang otomatis jadi ikon saja (📏) di kolom sempit itu, tetap teks lengkap di tampilan List yang lebih lega. Sekalian dipasang pengaman tambahan (overflow-x:hidden + word-break) di 2 tempat yang berpotensi sama, walau belum pernah dilaporkan bermasalah.',
+      'Fitur baru: panel "🔎 Insight Terbaru" di Dashboard -- menggabungkan SEMUA insight (Anomali BBM, Servis, E-Toll, Durasi, Jarak, Efisiensi Wajar) jadi 1 daftar prioritas begitu PIN Insight dibuka, tidak perlu cek satu-satu ke 6 halaman berbeda. Level danger selalu di atas warn. Sudah diverifikasi lewat simulasi gabungan.',
+      'Perbaikan kecil: menu Kartu E-Toll & Dashboard sempat tidak ikut ter-refresh otomatis saat PIN Insight dibuka/dikunci (cuma BBM & Servis yang ter-refresh) -- sekarang keduanya ikut.',
+    ]
+  },
+  {
+    v: '3.88.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Konsistensi sistem PIN "Insight": badge Deteksi Anomali Durasi (⏱️), Deteksi Jarak Tidak Wajar (📏), dan Di Atas/Di Bawah Wajar (Efisiensi BBM) sekarang ikut dikunci PIN yang sama dengan Deteksi Anomali BBM/Servis/E-Toll -- sebelumnya 3 badge ini tampil bebas tanpa PIN, sekarang semua insight konsisten butuh PIN yang sama untuk terlihat.',
+    ]
+  },
+  {
+    v: '3.87.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Fitur baru: Rute Pulang. Data Mobil punya field baru "Link Maps Rute Pulang" (opsional). Aksi Cepat Dashboard punya tombol "🏠 Rute Pulang" -- klik, pilih mobil, muncul tombol Navigasi langsung ke Google Maps untuk rute pulang mobil itu.',
+      'Fitur baru: Deteksi Jarak Tidak Wajar (📏) -- pasangan Deteksi Anomali Durasi yang sudah ada, tapi untuk jarak. Kalau jarak ke tujuan yang sama jauh beda dari kebiasaan (≥1.7x atau ≤0.5x rata-rata riwayat ke tujuan itu), ditandai untuk dicek -- kemungkinan salah catat odometer atau rute memutar. Sudah diverifikasi lewat simulasi.',
+    ]
+  },
+  {
+    v: '3.86.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Fitur baru: Riwayat Perubahan (audit trail) untuk Catat Perjalanan -- setiap kali Odometer, BBM Awal/Akhir, Liter/Biaya BBM, atau Tujuan diedit (termasuk edit ulang data yang sudah pernah "Selesai"), tercatat otomatis di Log Aktivitas dengan format "Field: nilai lama → nilai baru" -- siapa mengubah, kapan, dan field mana saja. Numpang di sistem Log Aktivitas yang sudah ada (tidak ada menu baru). Cuma field yang BENAR-BENAR berubah yang dicatat -- sudah diverifikasi lewat simulasi (termasuk memastikan tidak ada log kosong kalau tidak ada perubahan).',
+    ]
+  },
+  {
+    v: '3.85.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Form Tambah Dokumen: Masa Berlaku sekarang terisi otomatis sesuai siklus baku tiap jenis dokumen -- STNK (5 tahun dari Tanggal Terbit) dan Pajak Kendaraan (1 tahun) SENGAJA dibedakan karena siklusnya memang beda di Indonesia. Asuransi dibiarkan manual (tidak ada siklus baku, tergantung polis). Boleh diubah manual kalau perlu -- begitu diketik sendiri, saran otomatis berhenti menimpa.',
+    ]
+  },
+  {
+    v: '3.84.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Fitur baru: Skor Kepatuhan Data per petugas (Pengaturan → Nama Petugas/Admin). Menampilkan % trip selesai yang field pentingnya (Odometer Tiba, BBM Awal, BBM Akhir) terisi lengkap -- BUKAN menilai sopir, tapi membantu tahu petugas mana yang perlu diingatkan mencatat lebih teliti. Catatan jujur: skor ini berbasis siapa yang MEMBUAT catatan trip, karena aplikasi belum melacak siapa yang menyelesaikannya secara terpisah -- bisa jadi orang lain yang mengisi data kembalinya. Sudah diverifikasi lewat simulasi.',
+    ]
+  },
+  {
+    v: '3.83.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Prediksi tanggal servis berikutnya (Data Mobil) sekarang dihitung dari rata-rata KM/hari NYATA mobil itu (90 hari terakhir), bukan cuma "sudah X% dari jadwal" -- muncul sebagai "(perkiraan 12 Sep 2026)" di badge pengingat servis.',
+      'Fitur baru: Tanda Terima Perjalanan -- ringkasan LENGKAP 1 perjalanan (jarak, durasi, efisiensi BBM, semua biaya jadi 1 dokumen), beda dari "Laporan Biaya Operasional" yang sudah ada (cuma rincian biaya lain-lain). Muncul otomatis begitu Tandai Tiba berhasil (dengan preview asli, bukan cuma tombol), atau lewat tombol "🧾 Tanda Terima" di panel detail trip (Card view) -- SENGAJA tidak ditambah ke baris ringkas luar supaya tidak menambah tombol ke-7 yang sudah ramai.',
+    ]
+  },
+  {
+    v: '3.82.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Fitur baru: Kode QR per Mobil (Data Mobil → tombol "📱 QR"). Cetak & tempel di dashboard mobil -- sopir scan pakai kamera HP, langsung terbuka form Catat Perjalanan dengan mobil itu sudah otomatis terpilih, tidak perlu cari di dropdown lagi.',
+      'Fitur baru: Notifikasi (menu Pengaturan → "🔔 Notifikasi"). Kalau diaktifkan, notifikasi yang sama dengan ikon lonceng (dokumen kadaluarsa, servis jatuh tempo, BBM rendah, dst) tetap muncul selama aplikasi masih terbuka di background. Catatan jujur: ini BUKAN Web Push sungguhan yang jalan walau app ditutup total (butuh server Push terpisah) -- cukup jangan tutup tab/app-nya sepenuhnya.',
+    ]
+  },
+  {
+    v: '3.81.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Laporan Bulanan sekarang menampilkan perbandingan vs bulan sebelumnya (↑/↓ berapa persen) untuk Total Jarak, Biaya BBM, Tol, Servis, Operasional, dan Grand Total -- bulan pembandingnya mengikuti bulan yang SEDANG dipilih (bukan selalu bulan lalu dari hari ini), termasuk lintas tahun (Januari otomatis dibandingkan Desember tahun sebelumnya, sudah diverifikasi).',
+    ]
+  },
+  {
+    v: '3.80.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Menu baru: Laporan Bulanan. Pilih bulan & tahun, lihat ringkasan armada (total jarak, BBM, biaya tol, biaya servis, biaya operasional lain, grand total) dan rincian per mobil. Angkanya dihitung dari fungsi yang SAMA dengan yang sudah dipakai di Catat Perjalanan/Servis/E-Toll (bukan hitung ulang dari nol), jadi selalu konsisten. Bisa di-export ke Excel maupun PDF. Desain SENGAJA dibatasi maksimal 3 warna (navy, 1 biru aksen, abu-abu) supaya tidak melelahkan mata untuk laporan berisi banyak angka. Sudah diverifikasi lewat simulasi (termasuk memastikan data bulan lain tidak ikut tercampur).',
+    ]
+  },
+  {
+    v: '3.79.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Fitur baru: Deteksi Anomali E-Toll (menu Kartu E-Toll), pola sama dengan BBM & Servis. Mengecek: (1) Saldo Sesudah negatif, (2) Nominal transaksi tidak cocok dengan perubahan Saldo Sebelum→Sesudah, (3) rantai saldo antar-transaksi terputus (kemungkinan ada transaksi yang belum tercatat), (4) pemakaian jauh di atas kebiasaan kartu itu sendiri. Sudah diverifikasi lewat simulasi dengan 4 skenario anomali sengaja.',
+      'Paginasi ditambahkan ke Servis & Maintenance dan modal Riwayat Transaksi E-Toll (pola sama dengan Catat Perjalanan v3.78.0) -- 25 baris/20 transaksi per halaman, Export Excel & pencarian tetap membaca seluruh data.',
+    ]
+  },
   {
     v: '3.78.0',
     date: '25 Jul 2026',
@@ -10328,6 +11602,10 @@ ensureDestinationsSeeded();
 migrateCatatanToLog();
 navigate(startRoute);
 setTimeout(checkAutoBackup, 1500); // ditunda sedikit -- biarkan tampilan awal selesai render dulu
+handleQrQuickstart();
+handleShortcutQuickstart();
+setTimeout(checkAndPushNotifications, 2000);
+setInterval(checkAndPushNotifications, 20*60*1000); // cek ulang tiap 20 menit selama app tetap terbuka
 
 /* ---------------- Tombol "Kembali" HP/browser ----------------
    Sengaja "ditangkap" supaya tidak langsung keluar aplikasi tanpa
