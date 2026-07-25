@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.55.0">
+<meta name="app-version" content="3.56.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -977,7 +977,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.55.0';
+const APP_VERSION = '3.56.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -4651,13 +4651,14 @@ function renderUsage(){
     if(!chainCache.has(carId)) chainCache.set(carId, buildFuelChain(carId));
     return chainCache.get(carId);
   }
-  function ratioLabel(u){
-    if(u.odoKeluar==null || u.odoKembali==null || u.odoKembali<u.odoKeluar) return '-';
-    const car = state.cars.find(c=>c.id===u.carId);
-    if(!car) return '-';
-
-    const entry = getChainFor(u.carId).get(u.id);
-
+  // v3.56.0 -- dipecah jadi 2 bagian supaya bisa ditempatkan terpisah:
+  // gapBadgeHtml() (badge gap odometer) dan ratioStatusHtml() (badge status
+  // Efisiensi: resolved/pending/fallback). List view tetap pakai ratioLabel()
+  // yang menggabungkan keduanya (tidak berubah sama sekali). Card view pakai
+  // keduanya secara terpisah -- gap taruh di baris meta, status Efisiensi
+  // taruh di kolom kanan -- supaya tidak ada 2 badge menumpuk di 1 kolom
+  // sempit yang bikin layout meluber/scroll horizontal seperti sebelumnya.
+  function gapBadgeHtml(entry){
     // Gap odometer (trip sebelumnya tidak nyambung ke trip ini, mobil sama).
     // DUA kondisi beda, DUA tampilan beda:
     //  - Gap KECIL (<= toleransi, lihat state.toleransiGapKm di Pengaturan):
@@ -4670,18 +4671,20 @@ function renderUsage(){
     //    dicatat -- TIDAK digabung otomatis (supaya biaya/e-toll yang
     //    mungkin ikut hilang tidak "tertutupi" diam-diam), tetap ditandai
     //    merah untuk dicek manual. Data historis tetap TIDAK diubah.
-    let gapBadge = '';
     if(entry && entry.gapTolerated){
       const gapKmAbs = Math.abs(entry.gapKm).toLocaleString('id-ID');
-      gapBadge = ` <span class="badge neutral" title="Selisih ${gapKmAbs} KM dari trip sebelumnya (mobil yang sama) dianggap jarak harian wajar yang memang tidak dicatat (mis. ke masjid, beli makan dekat) -- KM & estimasi BBM-nya sudah otomatis disertakan ke perhitungan Efisiensi di trip ini. Ambang toleransi bisa diatur di menu Pengaturan.">↔️ Gap ${gapKmAbs} KM (Disertakan)</span>`;
-    } else if(entry && entry.gapFlagged){
+      return ` <span class="badge neutral" title="Selisih ${gapKmAbs} KM dari trip sebelumnya (mobil yang sama) dianggap jarak harian wajar yang memang tidak dicatat (mis. ke masjid, beli makan dekat) -- KM & estimasi BBM-nya sudah otomatis disertakan ke perhitungan Efisiensi di trip ini. Ambang toleransi bisa diatur di menu Pengaturan.">↔️ Gap ${gapKmAbs} KM (Disertakan)</span>`;
+    }
+    if(entry && entry.gapFlagged){
       const gapKmAbs = Math.abs(entry.gapKm).toLocaleString('id-ID');
       const overlapMsg = `Odometer Keluar trip ini LEBIH KECIL dari Odometer Kembali trip sebelumnya (mobil yang sama) -- tumpang tindih ${gapKmAbs} KM. Ini TIDAK MUNGKIN terjadi secara fisik (odometer tidak bisa mundur), jadi pasti ada salah input (mis. Odometer Keluar ke-copy dari catatan yang salah). Perlu dicek & diperbaiki manual -- data historis TIDAK diubah otomatis.`;
       const missingMsg = `Odometer Keluar trip ini tidak nyambung dengan Odometer Kembali trip sebelumnya (mobil yang sama) -- selisih ${gapKmAbs} KM tidak tercatat di mana pun & melebihi ambang toleransi. Kemungkinan ada perjalanan yang lupa dicatat. Data historis TIDAK diubah, ini cuma penanda untuk dicek ulang.`;
-      gapBadge = ` <span class="badge danger" title="${entry.gapOverlap ? overlapMsg : missingMsg}">⚠️ ${entry.gapOverlap ? `Tumpang Tindih ${gapKmAbs} KM` : `Gap ${gapKmAbs} KM (Belum Teralokasi)`}</span>`;
+      return ` <span class="badge danger" title="${entry.gapOverlap ? overlapMsg : missingMsg}">⚠️ ${entry.gapOverlap ? `Tumpang Tindih ${gapKmAbs} KM` : `Gap ${gapKmAbs} KM (Belum Teralokasi)`}</span>`;
     }
+    return '';
+  }
 
-
+  function ratioStatusHtml(u, entry, car){
     if(entry && entry.resolved){
       const isFullToFull = getBensinKeluar(u)===100 && getBensinKembali(u)===100;
       const badgeCls = isFullToFull ? 'ok' : 'warn';
@@ -4689,9 +4692,8 @@ function renderUsage(){
       const titleAttr = entry.carriedInKm>0
         ? ` title="Termasuk ${entry.carriedInKm.toLocaleString('id-ID')} KM dari trip sebelumnya yang belum sempat terdeteksi indikator"`
         : '';
-      return `<span${titleAttr}>${entry.ratio.toFixed(1)} KM/L</span> <span class="badge ${badgeCls}">${badgeText}</span>${efisiensiWajarBadgeHtml(entry.ratio, car)}${gapBadge}`;
+      return `<span${titleAttr}>${entry.ratio.toFixed(1)} KM/L</span> <span class="badge ${badgeCls}">${badgeText}</span>${efisiensiWajarBadgeHtml(entry.ratio, car)}`;
     }
-
     if(entry && entry.method==='pending'){
       // Jujur ke petugas: BUKAN "tidak ada data", tapi "belum cukup untuk
       // dihitung sendiri" -- baik karena indikator belum bergerak SAMA
@@ -4699,16 +4701,23 @@ function renderUsage(){
       // resolusi alat ukur) untuk dipercaya jadi 1 angka rasio -- akan
       // otomatis digabung ke perjalanan berikutnya (mobil yang sama) begitu
       // pergeserannya cukup besar untuk diandalkan.
-      return `<span class="badge neutral" title="Jarak ${entry.ownKm.toLocaleString('id-ID')} KM ditunda, akan otomatis digabung ke perjalanan berikutnya (mobil yang sama) begitu indikator bensin bergerak cukup besar untuk dipercaya (menghindari efisiensi yang keliatan terlalu irit dari pergeseran indikator yang masih tipis)">Menunggu Akumulasi</span>${gapBadge}`;
+      return `<span class="badge neutral" title="Jarak ${entry.ownKm.toLocaleString('id-ID')} KM ditunda, akan otomatis digabung ke perjalanan berikutnya (mobil yang sama) begitu indikator bensin bergerak cukup besar untuk dipercaya (menghindari efisiensi yang keliatan terlalu irit dari pergeseran indikator yang masih tipis)">Menunggu Akumulasi</span>`;
     }
-
     // Fallback: data indikator/kapasitas tangki tidak lengkap -> rumus lama.
     const jarak = u.odoKembali - u.odoKeluar;
     const literBeli = u.literBensin ? Number(u.literBensin) : 0;
-    if(!literBeli) return `-${gapBadge}`;
+    if(!literBeli) return '-';
     const rasio = jarak / literBeli;
-    if(!isFinite(rasio) || rasio<=0) return `-${gapBadge}`;
-    return `${rasio.toFixed(1)} KM/L${efisiensiWajarBadgeHtml(rasio, car)}${gapBadge}`;
+    if(!isFinite(rasio) || rasio<=0) return '-';
+    return `${rasio.toFixed(1)} KM/L${efisiensiWajarBadgeHtml(rasio, car)}`;
+  }
+
+  function ratioLabel(u){
+    if(u.odoKeluar==null || u.odoKembali==null || u.odoKembali<u.odoKeluar) return '-';
+    const car = state.cars.find(c=>c.id===u.carId);
+    if(!car) return '-';
+    const entry = getChainFor(u.carId).get(u.id);
+    return ratioStatusHtml(u, entry, car) + gapBadgeHtml(entry);
   }
 
   // ======================================================================
@@ -5031,21 +5040,16 @@ function renderUsage(){
     return trips.map(u=>{
       const dp = tripDateParts(u.tglKeluar);
       const jarakVal = (u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) ? (u.odoKembali-u.odoKeluar) : null;
-      // v3.55.0 -- SEBELUMNYA di sini dihitung ulang secara terpisah (cuma
-      // cek chainEntry.resolved, tanpa fallback "Menunggu Akumulasi" ATAU
-      // rumus lama jarak/literBeli yang dipakai List) -- akibatnya trip yang
-      // sebenarnya BISA dihitung (lewat salah satu fallback itu) malah
-      // tampil kosong "-" di sini walau di List tampil angka/badge yang
-      // benar. Sekarang pakai ratioLabel(u) yang SAMA PERSIS dipakai List,
-      // supaya kedua tampilan tidak pernah lagi beda hasil.
-      const ratioHtml = ratioLabel(u);
+      const chainEntry = (u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) ? getChainFor(u.carId).get(u.id) : null;
+      const ratioHtml = ratioStatusHtml(u, chainEntry, vs.car);
+      const gapHtml = gapBadgeHtml(chainEntry);
       return `
       <div class="trip-timeline-item" data-view-trip="${u.id}">
         <div class="trip-timeline-date"><div class="day">${dp.day}</div><div class="mon">${dp.mon}</div><div class="yr">${dp.yr}</div></div>
         <div class="trip-timeline-body">
           <div class="trip-timeline-time">${u.jamKeluar||'-'} – ${u.jamKembali||'-'}${u.jamKeluar&&u.jamKembali?` <span style="color:var(--muted);">(${fmtDuration(u)})</span>${durasiAnomaliBadgeHtml(u)}`:''}</div>
           <div class="trip-timeline-dest">📍 ${escapeHtml(u.tujuan||'-')}${mapsNavButtonCompactHtml(u.mapsLink)}</div>
-          <div class="trip-timeline-meta">${u.literBensin?u.literBensin+' L':'-'}${u.biayaBensin?' · '+fmtMoney(u.biayaBensin):''}</div>
+          <div class="trip-timeline-meta">${u.literBensin?u.literBensin+' L':'-'}${u.biayaBensin?' · '+fmtMoney(u.biayaBensin):''}${gapHtml?' · '+gapHtml.trim():''}</div>
         </div>
         <div class="trip-timeline-right">
           <div>${ratioHtml}</div>
@@ -8368,6 +8372,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.56.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan bug tampilan (regresi dari v3.55.0): perbaikan Efisiensi BBM kemarin sempat memasukkan badge status DAN badge Gap sekaligus ke kolom kanan yang sempit di panel Riwayat Perjalanan (Card) -- bikin layout meluber & muncul scroll horizontal. Sekarang dipisah lagi: badge Gap kembali ke baris meta (dekat Liter/Biaya BBM), badge status Efisiensi tetap di kolom kanan -- tanpa mengorbankan perbaikan kemarin (List & Card tetap pakai logika yang sama persis).',
+    ]
+  },
   {
     v: '3.55.0',
     date: '25 Jul 2026',
