@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.63.0">
+<meta name="app-version" content="3.68.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -238,6 +238,25 @@
   .car-with-thumb{display:flex;align-items:center;gap:10px;}
   .car-with-thumb-sm{display:flex;align-items:center;gap:8px;}
 
+  /* Foto Kartu E-Toll (v3.68.0) -- class TERPISAH dari .car-thumb* (yang
+     dipakai foto kendaraan) supaya ukuran mobil sama sekali tidak ikut
+     berubah. Proporsi lebih LEBAR (mendekati rasio kartu fisik ~1.55:1,
+     bukan persegi seperti foto mobil) + object-fit:contain (bukan cover)
+     -- supaya foto kartu (biasanya landscape/lebar) SELALU tampil utuh,
+     tidak pernah terpotong sisi kiri-kanannya, apa pun rasio asli fotonya. */
+  .etoll-thumb{
+    width:52px;height:34px;border-radius:6px;object-fit:contain;
+    border:1px solid var(--line);background:#F4F5F7;flex-shrink:0;display:block;
+  }
+  .etoll-thumb-sm{
+    width:38px;height:25px;border-radius:5px;object-fit:contain;
+    border:1px solid var(--line);background:#F4F5F7;flex-shrink:0;display:block;
+  }
+  .etoll-thumb-lg{
+    width:76px;height:50px;border-radius:8px;object-fit:contain;
+    border:1px solid var(--line);background:#F4F5F7;flex-shrink:0;display:block;
+  }
+
   .hapus-kode-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 16px;margin-bottom:14px;}
   .hapus-kode-grid > div{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;padding:7px 0;border-bottom:1px dashed var(--line);}
   .hapus-kode-grid .k{color:var(--muted);}
@@ -394,15 +413,20 @@
   }
 
   /* Varian ringkas (ikon saja) -- KHUSUS kolom Tujuan tabel desktop Catat
-     Perjalanan. Class terpisah dari .btn-nav-maps supaya tidak memengaruhi
-     tombol Rute di Booking/Dashboard/Servis/kartu mobile. */
+     Perjalanan & panel Riwayat Perjalanan (Card). Class terpisah dari
+     .btn-nav-maps supaya tidak memengaruhi tombol Rute di Booking/Dashboard/
+     Servis/kartu mobile. Dikasih bayangan + sedikit lebih besar (v3.64.0)
+     supaya jelas kebaca sebagai TOMBOL yang bisa disentuh, bukan cuma
+     ikon datar biasa. */
   .btn-nav-maps-compact{
     display:inline-flex;align-items:center;justify-content:center;
-    width:24px;height:24px;flex:none;
+    width:27px;height:27px;flex:none;
     background:#2E7D4F;text-decoration:none;
     border-radius:50%;font-size:12px;line-height:1;
-    border:none;vertical-align:middle;
+    border:1.5px solid #fff;box-shadow:0 2px 6px rgba(46,125,79,0.45);
+    vertical-align:middle;transition:transform .1s;
   }
+  .btn-nav-maps-compact:active{transform:scale(0.92);}
 
   .empty-state{
     text-align:center;
@@ -465,26 +489,30 @@
   .bar-picker-widget{
     border:1px solid var(--line);
     background:#FAFBFC;
-    border-radius:12px;
-    padding:14px;
+    border-radius:14px;
+    padding:16px;
   }
   .bar-picker-title{font-size:13.5px;font-weight:800;color:var(--text);margin-bottom:2px;}
-  .bar-picker-subtitle{font-size:12px;font-weight:600;color:#4B5563;margin-bottom:12px;}
-  .bar-picker-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+  .bar-picker-subtitle{font-size:12px;font-weight:600;color:#4B5563;margin-bottom:14px;}
+  /* v3.65.0 -- disederhanakan dari grid 46px kotak (bisa melipat 2 baris)
+     jadi pil bulat 34px 1 baris rapi -- lebih elegan & tidak makan tempat.
+     overflow-x:auto cuma jaga-jaga di layar SANGAT sempit (biasanya tidak
+     kepakai karena 9 tombol muat 1 baris di kebanyakan lebar HP). */
+  .bar-picker-grid{display:flex;gap:6px;margin-bottom:18px;overflow-x:auto;padding-bottom:2px;}
   .bar-picker-btn{
-    width:46px;height:46px;flex-shrink:0;
-    border:1.5px solid var(--line);border-radius:9px;background:#fff;
-    font-size:15px;font-weight:800;color:var(--text);cursor:pointer;font-family:'JetBrains Mono',monospace;
+    width:34px;height:34px;flex-shrink:0;
+    border:1.5px solid var(--line);border-radius:8px;background:#fff;
+    font-size:13px;font-weight:800;color:var(--text);cursor:pointer;font-family:'JetBrains Mono',monospace;
     display:flex;align-items:center;justify-content:center;transition:all .12s ease;
   }
   .bar-picker-btn:hover{border-color:var(--blue);}
-  .bar-picker-btn.selected{color:#fff;box-shadow:0 0 0 3px rgba(47,111,237,0.22);}
+  .bar-picker-btn.selected{color:#fff;box-shadow:0 0 0 3px rgba(30,79,187,0.18);transform:scale(1.06);}
   .bar-picker-summary{text-align:center;margin-bottom:6px;}
-  .bar-picker-label{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;margin-bottom:10px;}
-  .bar-picker-strip{display:flex;gap:5px;margin-bottom:12px;}
-  .bar-picker-seg{flex:1;height:32px;border-radius:6px;background:#EEF0F3;transition:background .15s ease;}
-  .bar-picker-percent{font-size:28px;font-weight:800;font-family:'JetBrains Mono',monospace;}
-  .bar-picker-percent-label{font-size:11px;color:var(--muted);margin-top:2px;margin-bottom:14px;}
+  .bar-picker-label{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13.5px;color:var(--muted);margin-bottom:10px;}
+  .bar-picker-strip{display:flex;gap:4px;margin-bottom:14px;}
+  .bar-picker-seg{flex:1;height:9px;border-radius:5px;background:#EEF0F3;transition:background .15s ease;}
+  .bar-picker-percent{font-size:26px;font-weight:800;font-family:'JetBrains Mono',monospace;}
+  .bar-picker-percent-label{font-size:11px;color:var(--muted);margin-top:2px;margin-bottom:2px;}
 
   /* ---------------- Kartu Catat Perjalanan (khusus tampilan mobile) ----------------
      Default: sembunyikan kartu, tampilkan tabel (perilaku desktop). Media
@@ -1044,7 +1072,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.63.0';
+const APP_VERSION = '3.68.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2437,7 +2465,7 @@ const DEFAULT_ETOLL_PHOTO = 'data:image/svg+xml;utf8,' + encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#EEF0F3"/><g transform="translate(10,17)" fill="none" stroke="#9AA3AF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="0" y="0" width="44" height="30" rx="4"/><rect x="6" y="7" width="11" height="8" rx="1.5" fill="#9AA3AF" stroke="none"/><line x1="6" y1="21" x2="26" y2="21"/><line x1="6" y1="25.5" x2="17" y2="25.5"/></g></svg>`
 );
 function etollCardPhotoHtml(card, sizeClass){
-  sizeClass = sizeClass || 'car-thumb';
+  sizeClass = sizeClass || 'etoll-thumb';
   const src = (card && card.fotoUrl) ? escapeHtml(card.fotoUrl) : DEFAULT_ETOLL_PHOTO;
   const alt = card ? escapeHtml(card.nomorKartu) : 'Kartu E-Toll';
   return `<img src="${src}" alt="${alt}" class="${sizeClass}" loading="lazy" onerror="this.onerror=null;this.src='${DEFAULT_ETOLL_PHOTO}';">`;
@@ -2450,7 +2478,7 @@ function etollCardPreviewHtml(card){
   if(!card) return '';
   return `
     <div class="etoll-card-preview">
-      ${etollCardPhotoHtml(card, 'car-thumb')}
+      ${etollCardPhotoHtml(card, 'etoll-thumb')}
       <div class="etoll-card-preview-info">
         <div class="etoll-card-preview-nomor">${escapeHtml(card.nomorKartu)}</div>
         ${card.mobilId ? `<div class="etoll-card-preview-mobil">${escapeHtml(carLabel(card.mobilId))}</div>` : ''}
@@ -2530,9 +2558,20 @@ function mapsNavButtonHtml(mapsLink){
 // Dashboard, Servis, kartu mobile Catat Perjalanan tetap pakai
 // mapsNavButtonHtml() yang biasa) -- sengaja fungsi & class CSS terpisah
 // supaya perubahan ukuran di sini tidak ikut mengubah tombol di tempat lain.
+// v3.67.0 -- ikon SEDERHANA (cuma panah putih, TANPA lingkaran latar
+// sendiri) -- khusus dipakai di tombol Rute versi RINGKAS (bulatan kecil
+// 27px). Ikon lengkap (navCompassIconHtml, lingkaran putih + jarum) dulu
+// dipakai di sini juga, tapi jadinya "lingkaran DI DALAM lingkaran" yang
+// buram/rancu di ukuran sekecil itu -- lingkaran latar 15px sendiri di
+// dalam tombol bulat 27px cuma nyisa sedikit ruang, kelihatan seperti 2
+// lapis bulatan, bukan 1 panah yang jelas. Panah polos langsung di atas
+// warna tombol jauh lebih bersih & jelas di ukuran kecil.
+function navArrowSimpleHtml(){
+  return `<svg width="13" height="13" viewBox="0 0 20 20" style="vertical-align:-2px;flex-shrink:0;"><path d="M10 2.5L16.5 17L10 13L3.5 17Z" fill="#fff"/></svg>`;
+}
 function mapsNavButtonCompactHtml(mapsLink){
   if(!mapsLink || !/^https?:\/\//i.test(mapsLink.trim())) return '';
-  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps-compact" title="Buka Rute">${navCompassIconHtml()}</a>`;
+  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps-compact" title="Buka Rute">${navArrowSimpleHtml()}</a>`;
 }
 
 // Cari Link Maps dari riwayat TUJUAN YANG SAMA PERSIS (case-insensitive) --
@@ -5167,26 +5206,6 @@ function renderUsage(){
 
   function statsFor(carId){ return vehicleStats.find(vs=>vs.car.id===carId); }
 
-  // Interpolasi warna hex linear -- dipakai fuelGaugeSegColor() di bawah
-  // untuk bikin gradasi halus antar segmen (bukan warna solid rata).
-  function lerpHexColor(hex1, hex2, t){
-    const c1 = hex1.match(/\w\w/g).map(x=>parseInt(x,16));
-    const c2 = hex2.match(/\w\w/g).map(x=>parseInt(x,16));
-    const tt = Math.max(0, Math.min(1, t));
-    return '#' + c1.map((v,i)=> Math.round(v + (c2[i]-v)*tt).toString(16).padStart(2,'0')).join('');
-  }
-  // Warna gauge "BBM Saat Ini" (v3.54.0, Varian 2): SATU gradasi warna yang
-  // konsisten (biru), BUKAN 5 tingkat warna berjenjang seperti sebelumnya
-  // (dirasa terlalu ramai/norak). Ambang "rendah" (<20%) SENGAJA disamakan
-  // dengan ambang merah di bensinLevelColor() (dipakai widget input Bensin
-  // Keluar/Kembali) supaya kedua tempat konsisten -- di bawah ambang itu,
-  // gauge ini beralih total ke gradasi merah sebagai alarm visual, di atas
-  // ambang itu selalu biru apa pun levelnya persisnya.
-  function fuelGaugeSegColor(percent, posRatio){
-    return percent < 20
-      ? lerpHexColor('#B91C1C', '#EF4444', posRatio)
-      : lerpHexColor('#1E4FBB', '#6EB4FA', posRatio);
-  }
   // Ikon pompa bensin (SVG stroke, konsisten gaya ikon lain di aplikasi
   // seperti ikon Driver) -- ditaruh di samping label "BBM Saat Ini".
   const FUEL_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="3" width="11" height="18" rx="1.5"/><line x1="3" y1="11" x2="14" y2="11"/><path d="M14 8h3a2 2 0 0 1 2 2v7a1.5 1.5 0 0 0 3 0v-6"/><path d="M19 8l2 2"/></svg>';
@@ -6187,6 +6206,28 @@ function bensinLevelColor(percent){
   return '#2563EB';                  // biru -- penuh/prima
 }
 
+// Interpolasi warna hex linear -- dipakai fuelGaugeSegColor() di bawah
+// untuk bikin gradasi halus antar segmen (bukan warna solid rata).
+function lerpHexColor(hex1, hex2, t){
+  const c1 = hex1.match(/\w\w/g).map(x=>parseInt(x,16));
+  const c2 = hex2.match(/\w\w/g).map(x=>parseInt(x,16));
+  const tt = Math.max(0, Math.min(1, t));
+  return '#' + c1.map((v,i)=> Math.round(v + (c2[i]-v)*tt).toString(16).padStart(2,'0')).join('');
+}
+// Warna gauge "BBM Saat Ini" (v3.54.0, Varian 2; v3.66.0 dipindah jadi
+// global): SATU gradasi warna yang konsisten (biru), BUKAN 5 tingkat warna
+// berjenjang. Ambang "rendah" (<20%) SENGAJA disamakan dengan ambang merah
+// di bensinLevelColor() di atas supaya konsisten -- di bawah ambang itu,
+// gauge beralih total ke gradasi merah sebagai alarm visual. Dipakai
+// BERSAMA oleh gauge "BBM Saat Ini" (kartu mobil) DAN widget input pemilih
+// Bar (Tandai Berangkat/Tiba, dst.) -- supaya keduanya SELALU tampil
+// senada, tidak ada 2 versi warna berbeda utk hal yang sama.
+function fuelGaugeSegColor(percent, posRatio){
+  return percent < 20
+    ? lerpHexColor('#B91C1C', '#EF4444', posRatio)
+    : lerpHexColor('#1E4FBB', '#6EB4FA', posRatio);
+}
+
 function renderFuelFieldHTML(inputId, labelPrefix, currentPercentValue, car){
   if(car && car.tipeIndikatorBbm === 'bar'){
     const maxBar = car.maxBarBbm || 8;
@@ -6226,7 +6267,13 @@ function wireBarPickerWidget(widgetSelector, inputId, onChangeCallback){
 
   function updateVisual(bar){
     const pct = convertBarToPercent(bar, maxBar); // nilai eksak (bisa desimal) -- disimpan apa adanya
-    const color = bensinLevelColor(pct);
+    // v3.66.0 -- SEBELUMNYA pakai bensinLevelColor() (5 warna berjenjang
+    // abu/merah/oranye/kuning/hijau/biru, 1 warna solid rata). Sekarang
+    // pakai fuelGaugeSegColor() yang SAMA PERSIS dipakai gauge "BBM Saat
+    // Ini" di kartu mobil -- gradasi biru per-segmen (makin terang ke
+    // kanan), otomatis beralih merah kalau di bawah 20% -- supaya widget
+    // INPUT ini & gauge TAMPILAN senada, tidak 2 gaya warna berbeda.
+    const solidColor = fuelGaugeSegColor(pct, maxBar>1 ? (bar-1)/(maxBar-1) : 0); // dipakai utk tombol terpilih & teks persen (representasi 1 warna)
     // PENTING: bersihkan warna SEMUA tombol dulu tiap kali ganti pilihan --
     // sebelumnya warna yang pernah dipilih menempel permanen di tombolnya
     // karena cuma tombol yang lagi "selected" yang diberi warna baru, tombol
@@ -6236,15 +6283,16 @@ function wireBarPickerWidget(widgetSelector, inputId, onChangeCallback){
       b.style.background = '';
       b.style.borderColor = '';
     });
-    widget.querySelectorAll('.bar-picker-btn.selected').forEach(b=>{ b.style.background=color; b.style.borderColor=color; });
+    widget.querySelectorAll('.bar-picker-btn.selected').forEach(b=>{ b.style.background=solidColor; b.style.borderColor=solidColor; });
     const strip = widget.querySelector('[data-role="strip"]');
-    strip.innerHTML = Array.from({length:maxBar}).map((_,idx)=>
-      `<div class="bar-picker-seg${idx<bar?' filled':''}" style="background:${idx<bar?color:''};"></div>`
-    ).join('');
+    strip.innerHTML = Array.from({length:maxBar}).map((_,idx)=>{
+      const posRatio = maxBar>1 ? idx/(maxBar-1) : 0;
+      return `<div class="bar-picker-seg${idx<bar?' filled':''}" style="${idx<bar?`background:${fuelGaugeSegColor(pct,posRatio)};`:''}"></div>`;
+    }).join('');
     widget.querySelector('[data-role="label"]').textContent = `${bar} / ${maxBar} Bar`;
     const percentEl = widget.querySelector('[data-role="percent"]');
     percentEl.textContent = Math.round(pct) + '%'; // label dibulatkan biar enak dibaca
-    percentEl.style.color = color;
+    percentEl.style.color = solidColor;
     hiddenInput.value = pct; // nilai TERSIMPAN tetap eksak, tidak dibulatkan
   }
 
@@ -8385,7 +8433,7 @@ function renderEtollCards(){
             return `
             <tr>
               <td>${codeBadgeHtml(card.kode)}</td>
-              <td><span class="car-with-thumb-sm">${etollCardPhotoHtml(card,'car-thumb-sm')}<span class="plate">${escapeHtml(card.nomorKartu)}</span></span></td>
+              <td><span class="car-with-thumb-sm">${etollCardPhotoHtml(card,'etoll-thumb-sm')}<span class="plate">${escapeHtml(card.nomorKartu)}</span></span></td>
               <td>${card.mobilId ? escapeHtml(carLabel(card.mobilId)) : '<span class="badge neutral">Tidak terpasang</span>'}</td>
               <td>${saldoBadge}</td>
               <td>${fmtMoney(batas)}</td>
@@ -8409,7 +8457,7 @@ function renderEtollCards(){
           else saldoBadge = `<span class="badge ok">${fmtMoney(saldo)}</span>`;
           return `
           <div class="data-card">
-            <div class="data-card-title car-with-thumb-sm">${etollCardPhotoHtml(card,'car-thumb-sm')}<span class="plate">${escapeHtml(card.nomorKartu)}</span></div>
+            <div class="data-card-title car-with-thumb-sm">${etollCardPhotoHtml(card,'etoll-thumb-sm')}<span class="plate">${escapeHtml(card.nomorKartu)}</span></div>
             <div class="data-card-row"><span class="k">Kode</span><span class="v">${codeBadgeHtml(card.kode)}</span></div>
             <div class="data-card-row"><span class="k">Mobil</span><span class="v">${card.mobilId ? escapeHtml(carLabel(card.mobilId)) : '<span class="badge neutral">Tidak terpasang</span>'}</span></div>
             <div class="data-card-row"><span class="k">Saldo</span><span class="v">${saldoBadge}</span></div>
@@ -8522,7 +8570,7 @@ function openEtollCardModal(editId){
     <div class="field">
       <label>Foto Kartu (Image URL)</label>
       <div class="car-with-thumb">
-        ${etollCardPhotoHtml(editing, 'car-thumb-lg')}
+        ${etollCardPhotoHtml(editing, 'etoll-thumb-lg')}
         <input type="text" id="in-foto-url" data-no-uppercase="1" placeholder="https://... (CDN perusahaan, GitHub, dsb.)" value="${editing&&editing.fotoUrl?escapeHtml(editing.fotoUrl):''}" style="flex:1;">
       </div>
       <div class="hint">Tempelkan URL gambar kartu ini. Satu URL di sini otomatis dipakai di semua tampilan yang menunjukkan kartu ini (menu Kartu E-Toll). Kosong/gagal dimuat akan memakai ikon kartu generik.</div>
@@ -8589,7 +8637,7 @@ function openEtollCardModal(editId){
   });
   attachRibuanInput('in-saldo');
   document.getElementById('in-foto-url').addEventListener('input', function(){
-    const preview = document.querySelector('#f-nomor + .field .car-thumb-lg');
+    const preview = document.querySelector('#f-nomor + .field .etoll-thumb-lg');
     if(preview){ preview.src = this.value.trim() || DEFAULT_ETOLL_PHOTO; }
   });
 }
@@ -8636,6 +8684,42 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.68.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Foto Kartu E-Toll sekarang punya ukuran/class tampilan SENDIRI (etoll-thumb/-sm/-lg) -- sebelumnya numpang pakai class foto kendaraan (car-thumb) yang persegi & object-fit:cover (memotong sisi gambar supaya pas kotak). Sekarang proporsinya lebih lebar seperti kartu asli, dan pakai object-fit:contain supaya foto kartu SELALU tampil utuh, tidak terpotong. Ukuran/tampilan foto kendaraan (Data Mobil) TIDAK berubah sama sekali.',
+    ]
+  },
+  {
+    v: '3.67.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan akar masalah ikon Rute versi ringkas (bulatan kecil di List & Card Catat Perjalanan): ternyata ikonnya sendiri punya lingkaran latar putih (dari desain ikon lengkap), sehingga di dalam tombol bulat hijau kecil (27px) jadinya terlihat "lingkaran di dalam lingkaran" yang buram. Sekarang versi ringkas pakai ikon panah putih polos tanpa lingkaran latar sendiri -- jauh lebih jelas & tegas di ukuran kecil. Tombol Rute lengkap (dengan teks) tidak berubah, karena di situ ruangnya cukup dan tidak bermasalah.',
+    ]
+  },
+  {
+    v: '3.66.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Pemilih level BBM (Bar): tombol angka dikembalikan jadi kotak (bukan bulat lagi), dan warnanya diganti dari 5-tingkat berjenjang (abu/merah/oranye/kuning/hijau/biru) jadi gradasi biru per-segmen yang SAMA PERSIS dengan gauge "BBM Saat Ini" di kartu mobil -- supaya widget input & tampilan gauge senada. Tetap otomatis merah kalau BBM di bawah 20%.',
+      'Perbaikan internal: fungsi warna gradasi (lerpHexColor, fuelGaugeSegColor) yang sebelumnya cuma bisa dipakai di 1 tempat (gauge kartu mobil) dipindah jadi fungsi global -- supaya bisa dipakai bersama di tempat lain (seperti widget pemilih Bar ini) tanpa duplikat kode.',
+    ]
+  },
+  {
+    v: '3.65.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Pemilih level BBM (Bar) diperhalus: tombol angka diperkecil & dibuat bulat (34px, sebelumnya kotak 46px yang bisa melipat 2 baris) supaya muat rapi 1 baris, dan strip bar-nya dibuat lebih ramping berbentuk pil (9px, sebelumnya 32px). Konsep tetap sama (pilih angka + ilustrasi bar di bawahnya), cuma tampilannya lebih elegan & tidak terlalu besar.',
+    ]
+  },
+  {
+    v: '3.64.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Ikon "Rute" ringkas (bulatan kecil di panel Riwayat Perjalanan) diperjelas jadi tombol -- diberi bayangan, border putih, sedikit diperbesar, dan efek tertekan saat disentuh, supaya jelas terlihat bisa diklik (sebelumnya cuma ikon datar).',
+    ]
+  },
   {
     v: '3.63.0',
     date: '25 Jul 2026',
