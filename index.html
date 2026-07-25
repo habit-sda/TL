@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.75.1">
+<meta name="app-version" content="3.76.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -603,8 +603,11 @@
   .trip-bubble-btn{
     background:#231F1C;color:#fff;border:none;border-radius:26px;
     padding:11px 16px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px;
-    box-shadow:0 10px 24px rgba(0,0,0,0.22);cursor:pointer;font-family:inherit;
+    box-shadow:0 10px 24px rgba(0,0,0,0.22);cursor:grab;font-family:inherit;touch-action:none;user-select:none;
   }
+  .trip-bubble-btn:active{cursor:grabbing;}
+  #trip-bubble.dragging .trip-bubble-btn{cursor:grabbing;}
+  #trip-bubble.dragging{transition:none !important;}
   .trip-bubble-btn .count-badge{
     background:#C97B4A;color:#fff;min-width:18px;height:18px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;padding:0 4px;
@@ -1110,7 +1113,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.75.1';
+const APP_VERSION = '3.76.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3720,7 +3723,87 @@ function openListActionMenu(usageId, anchorEl){
     });
   }, 0);
 }
-document.getElementById('trip-bubble-btn').addEventListener('click', (e)=>{ e.stopPropagation(); toggleTripBubblePanel(); });
+// ---------------- Bubble "Mobil Jalan": bisa digeser (drag & drop) ----------------
+// Posisi tersimpan di localStorage supaya tetap di tempat yang sama walau
+// halaman dibuka ulang. Perilaku tertutup-otomatis-saat-trip-sudah-Selesai
+// SAMA SEKALI TIDAK berubah -- itu logika renderActiveTripBubble() (cuma
+// display:none/block berdasarkan status trip), berjalan independen dari
+// fitur geser ini, jadi tetap bekerja di posisi mana pun bubble digeser.
+(function(){
+  const wrap = document.getElementById('trip-bubble');
+  const btn = document.getElementById('trip-bubble-btn');
+  if(!wrap || !btn) return;
+  const POS_KEY = 'tripBubblePos';
+
+  function clampPos(pos){
+    const w = wrap.offsetWidth || 140, h = wrap.offsetHeight || 40;
+    const maxLeft = Math.max(8, window.innerWidth - w - 8);
+    const maxTop = Math.max(8, window.innerHeight - h - 8);
+    return { left: Math.min(Math.max(8, pos.left), maxLeft), top: Math.min(Math.max(8, pos.top), maxTop) };
+  }
+  function applyPos(pos){
+    wrap.style.left = pos.left+'px';
+    wrap.style.top = pos.top+'px';
+    wrap.style.right = 'auto';
+    wrap.style.bottom = 'auto';
+  }
+  try{
+    const saved = JSON.parse(localStorage.getItem(POS_KEY)||'null');
+    if(saved && typeof saved.left==='number' && typeof saved.top==='number') applyPos(clampPos(saved));
+  }catch(e){}
+
+  let startX=0, startY=0, startLeft=0, startTop=0, dragging=false, moved=false;
+
+  btn.addEventListener('pointerdown', (e)=>{
+    if(e.button!==undefined && e.button!==0) return; // tombol kiri mouse / sentuhan saja
+    const rect = wrap.getBoundingClientRect();
+    startX = e.clientX; startY = e.clientY;
+    startLeft = rect.left; startTop = rect.top;
+    dragging = true; moved = false;
+    btn.setPointerCapture(e.pointerId);
+  });
+  btn.addEventListener('pointermove', (e)=>{
+    if(!dragging) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if(!moved && (Math.abs(dx)>4 || Math.abs(dy)>4)){
+      moved = true;
+      wrap.classList.add('dragging');
+      // Tutup panel begitu mulai digeser, supaya panel tidak ikut
+      // "mengambang" jauh dari tombolnya selagi ditarik.
+      const panel = document.getElementById('trip-bubble-panel');
+      if(panel) panel.style.display = 'none';
+    }
+    if(moved) applyPos(clampPos({ left: startLeft+dx, top: startTop+dy }));
+  });
+  function endDrag(){
+    if(!dragging) return;
+    dragging = false;
+    wrap.classList.remove('dragging');
+    if(moved){
+      const rect = wrap.getBoundingClientRect();
+      try{ localStorage.setItem(POS_KEY, JSON.stringify({left:rect.left, top:rect.top})); }catch(err){}
+    }
+  }
+  btn.addEventListener('pointerup', endDrag);
+  btn.addEventListener('pointercancel', endDrag);
+  // Kalau posisi tersimpan jadi di luar layar (mis. HP diputar, atau dibuka
+  // di layar yang lebih kecil), tarik kembali otomatis ke dalam batas layar.
+  window.addEventListener('resize', ()=>{
+    if(wrap.style.left){
+      const rect = wrap.getBoundingClientRect();
+      applyPos(clampPos({left:rect.left, top:rect.top}));
+    }
+  });
+
+  // Klik murni (tanpa gerakan berarti) tetap buka/tutup panel seperti
+  // biasa; kalau barusan selesai menggeser, klik ini DIABAIKAN supaya
+  // menggeser tidak ikut membuka panel begitu jari/mouse dilepas.
+  btn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    if(moved){ moved = false; return; }
+    toggleTripBubblePanel();
+  });
+})();
 document.addEventListener('click', (e)=>{
   const panel = document.getElementById('trip-bubble-panel');
   if(panel && panel.style.display==='block' && !panel.contains(e.target) && !e.target.closest('#trip-bubble-btn')){
@@ -8793,6 +8876,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.76.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Bubble "Mobil Jalan" sekarang bisa digeser bebas ke posisi mana pun di layar (tahan lalu tarik) -- posisinya diingat sampai halaman dibuka lagi. Perilaku tertutup otomatis begitu semua perjalanan sudah "Selesai" tidak berubah sama sekali, tetap bekerja di posisi mana pun bubble digeser.',
+    ]
+  },
   {
     v: '3.75.1',
     date: '25 Jul 2026',
