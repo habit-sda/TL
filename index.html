@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.60.0">
+<meta name="app-version" content="3.63.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -315,7 +315,7 @@
   .trip-detail-back:hover{background:#DCE7FF;}
   .trip-detail-view-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
 
-  .trip-timeline-item{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #F0F1F3;cursor:pointer;position:relative;}
+  .trip-timeline-item{display:flex;gap:10px;padding:14px 0;border-bottom:1px solid #F0F1F3;cursor:pointer;position:relative;align-items:flex-start;}
   .trip-timeline-item:last-child{border-bottom:none;}
   .trip-timeline-item:hover .trip-timeline-dest{color:var(--blue);}
   .trip-timeline-date{width:44px;flex-shrink:0;text-align:center;position:relative;}
@@ -331,7 +331,8 @@
   .trip-timeline-dest{font-size:12.5px;font-weight:600;margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
   .trip-timeline-meta{font-size:11px;color:var(--muted);margin-top:3px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 0;}
   .trip-timeline-meta .badge{white-space:nowrap;}
-  .trip-timeline-right{text-align:right;flex-shrink:0;font-size:11px;}
+  .trip-timeline-right{text-align:right;flex-shrink:0;font-size:11px;max-width:118px;}
+  .trip-timeline-right > div:first-child{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
   .trip-timeline-right .km{color:var(--muted);margin-top:4px;}
 
   @media(max-width:1024px){
@@ -387,7 +388,7 @@
      berdampingan dengan tombol aksi lain (Edit, Biaya Operasional, dll). */
   .btn-nav-maps{
     display:inline-flex;align-items:center;gap:7px;
-    background:#2E7D82;color:#fff;text-decoration:none;
+    background:#2E7D4F;color:#fff;text-decoration:none;
     padding:7px 16px;border-radius:22px;font-size:12.5px;font-weight:700;
     border:none;white-space:nowrap;
   }
@@ -398,7 +399,7 @@
   .btn-nav-maps-compact{
     display:inline-flex;align-items:center;justify-content:center;
     width:24px;height:24px;flex:none;
-    background:#2E7D82;text-decoration:none;
+    background:#2E7D4F;text-decoration:none;
     border-radius:50%;font-size:12px;line-height:1;
     border:none;vertical-align:middle;
   }
@@ -551,23 +552,23 @@
   /* ---------------- Bubble melayang: indikator mobil sedang dalam perjalanan ---------------- */
   #trip-bubble{position:fixed;bottom:20px;right:20px;z-index:150;}
   .trip-bubble-btn{
-    background:#2E7D82;color:#fff;border:none;border-radius:26px;
+    background:#231F1C;color:#fff;border:none;border-radius:26px;
     padding:11px 16px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px;
     box-shadow:0 10px 24px rgba(0,0,0,0.22);cursor:pointer;font-family:inherit;
   }
   .trip-bubble-btn .count-badge{
-    background:var(--amber);color:#161C27;min-width:18px;height:18px;border-radius:50%;
+    background:#C97B4A;color:#fff;min-width:18px;height:18px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;padding:0 4px;
   }
   .trip-bubble-panel{
     position:absolute;bottom:calc(100% + 12px);right:0;width:360px;max-width:90vw;
-    background:#fff;border:1px solid var(--line);border-radius:14px;
+    background:#FBF8F5;border:1px solid #E8DFD5;border-radius:14px;
     box-shadow:0 18px 44px rgba(0,0,0,0.22);max-height:420px;overflow-y:auto;
   }
-  .trip-bubble-head{padding:16px 18px;border-bottom:1px solid var(--line);font-weight:800;font-size:15px;background:#FAFBFC;}
-  .trip-card{padding:16px 18px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .trip-bubble-head{padding:16px 18px;font-weight:800;font-size:15px;background:#231F1C;color:#fff;}
+  .trip-card{padding:16px 18px;border-bottom:1px solid #E8DFD5;cursor:pointer;}
   .trip-card:last-child{border-bottom:none;}
-  .trip-card:hover{background:#FAFBFC;}
+  .trip-card:hover{background:#F5EFE8;}
   .trip-card b{display:block;font-size:15px;}
   .trip-card .desc{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5;}
   .trip-action-menu{
@@ -668,6 +669,50 @@
     cursor:pointer;
   }
   select::-ms-expand{display:none;}
+
+  /* ---------------- Dropdown Kustom (v3.61.0) ----------------
+     Membungkus <select> ASLI (disembunyikan, tetap "sumber kebenaran" nilai
+     -- semua document.getElementById(id).value di seluruh app tetap jalan
+     tanpa perubahan) dengan panel bergaya app. Lihat enhanceSelectAsDropdown(). */
+  .cdd{position:relative;}
+  .cdd-native-select{
+    position:absolute !important;opacity:0;pointer-events:none;
+    width:1px;height:1px;overflow:hidden;
+  }
+  .cdd-control{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    border:1px solid var(--line);border-radius:7px;padding:9px 10px;
+    background:#fff;cursor:pointer;font-size:13px;font-family:inherit;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .cdd-control:hover{border-color:#C7CDD8;}
+  .cdd-control:focus{outline:none;}
+  .cdd.open .cdd-control, .cdd-control:focus{
+    border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,111,237,0.12);
+  }
+  .cdd.disabled .cdd-control{background:#F5F6F8;color:var(--muted);cursor:not-allowed;}
+  .cdd-control-label.placeholder{color:#9AA1AC;}
+  .cdd-chevron{transition:transform .18s;flex-shrink:0;}
+  .cdd.open .cdd-chevron{transform:rotate(180deg);}
+  .cdd-panel{
+    position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:60;
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 14px 34px rgba(16,24,40,0.16);
+    padding:5px;max-height:260px;overflow-y:auto;
+    display:none;
+  }
+  .cdd.open .cdd-panel{display:block;}
+  .cdd-option{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:9px 10px;border-radius:7px;cursor:pointer;font-size:13px;
+  }
+  .cdd-option:hover, .cdd-option.active{background:#F5F7FA;}
+  .cdd-option.selected{background:var(--blue-bg,#EAF0FF);color:var(--blue-dark);font-weight:700;}
+  .cdd-option.selected.active{background:#DCE7FF;}
+  .cdd-option .check{color:var(--blue);font-weight:900;opacity:0;flex-shrink:0;}
+  .cdd-option.selected .check{opacity:1;}
+  .cdd-option.disabled{color:#B7BDC7;cursor:not-allowed;}
+  .cdd-option.disabled:hover{background:none;}
 
   .field input, .field select, .field textarea{
     width:100%;
@@ -999,7 +1044,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.60.0';
+const APP_VERSION = '3.63.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2001,6 +2046,20 @@ function fmtDurationMinutes(mins){
   if(minutes>0 || parts.length===0) parts.push(minutes+' menit');
   return parts.join(' ');
 }
+// v3.63.0 -- KHUSUS Data Tujuan (Rata-rata Durasi): SENGAJA TIDAK dikonversi
+// ke "hari" biar pun angkanya lewat 24 jam -- beda dari fmtDurationMinutes()
+// di atas yang dipakai Catat Perjalanan (yang MEMANG dikonversi ke hari).
+// Satuan jam di sini dibiarkan naik terus (mis. 25 jam, bukan "1 hari 1 jam").
+function fmtDurationMinutesNoHari(mins){
+  if(mins==null || !isFinite(mins) || mins<0) return '-';
+  mins = Math.round(mins);
+  const hours = Math.floor(mins / 60);
+  const minutes = mins % 60;
+  const parts = [];
+  if(hours>0) parts.push(hours+' jam');
+  if(minutes>0 || parts.length===0) parts.push(minutes+' menit');
+  return parts.join(' ');
+}
 function fmtDuration(u){
   return fmtDurationMinutes(getTripDurationMinutes(u));
 }
@@ -2453,7 +2512,7 @@ function tujuanPinIconHtml(){
 // bingung (pin = "ini lokasinya", kompas = "buka arah ke sini").
 function navCompassIconHtml(color){
   color = color || '#fff';
-  return `<svg width="15" height="15" viewBox="0 0 20 20" style="vertical-align:-2px;flex-shrink:0;"><circle cx="10" cy="10" r="9" fill="${color}"/><path d="M10 5L13.5 12.5L10 11L6.5 12.5Z" fill="#2E7D82"/></svg>`;
+  return `<svg width="15" height="15" viewBox="0 0 20 20" style="vertical-align:-2px;flex-shrink:0;"><circle cx="10" cy="10" r="9" fill="${color}"/><path d="M10 5L13.5 12.5L10 11L6.5 12.5Z" fill="#2E7D4F"/></svg>`;
 }
 function mapsNavButtonHtml(mapsLink){
   if(!mapsLink || !/^https?:\/\//i.test(mapsLink.trim())) return ''; // jaga-jaga: tolak skema selain http(s), mis. javascript:
@@ -2623,6 +2682,7 @@ function renderPetugasSelect(){
     }
     localStorage.setItem('fleetops_current_admin', currentAdmin);
   };
+  refreshSelectDropdown(sel);
 }
 
 /* ========================================================================
@@ -2977,6 +3037,7 @@ function navigate(route, opts){
   document.getElementById('page-title').textContent = r.title;
   document.getElementById('page-sub').textContent = r.sub;
   r.render();
+  enhanceAllSelects();
   closeDrawer();
   renderNotifBell();
   renderActiveTripBubble();
@@ -3219,6 +3280,173 @@ function refreshInsightPanels(){
 // Modal konfirmasi custom (Iya/Tidak) -- dipakai khusus untuk aksi hapus
 // yang butuh penekanan ekstra (mis. Hapus Data), menggantikan window.confirm
 // bawaan browser yang tampilannya polos & tidak konsisten dengan gaya app.
+/* ========================================================================
+   DROPDOWN KUSTOM (v3.61.0) -- pengganti tampilan <select> native.
+   PRINSIP UTAMA: <select> ASLI tidak dihapus, cuma disembunyikan secara
+   visual -- dia tetap "sumber kebenaran" nilai yang sesungguhnya. Ini
+   berarti SEMUA kode yang sudah ada di seluruh app (ratusan tempat yang
+   baca lewat document.getElementById(id).value, atau dengar 'change'
+   event) TETAP JALAN PERSIS SAMA tanpa perlu disentuh satu-persatu --
+   yang berubah cuma LAPISAN TAMPILANNYA.
+   Sinkronisasi 2 ARAH:
+   - User klik/pilih di panel kustom -> ditulis ke select asli + trigger
+     event 'change' (supaya listener yang sudah ada tetap kepanggil).
+   - Kode lain di app set `select.value = ...` secara langsung (mis. saat
+     form Edit dibuka & field di-preset) -> lewat properti value yang
+     di-override di bawah, otomatis ikut menyinkronkan tampilan kustomnya
+     -- TANPA perlu saya cari & ubah satu-satu titik yang menyentuh select
+     ini di seluruh file (rawan kelewatan & extra rapuh kalau manual).
+   KEYBOARD: kotak bisa difokus (Tab), Enter/Spasi/Panah Bawah buka panel,
+   Panah Atas/Bawah pindah sorotan, Enter pilih yang disorot, Esc tutup.
+   ======================================================================== */
+function enhanceSelectAsDropdown(select){
+  if(!select || select.dataset.cddEnhanced) return;
+  if(select.multiple) return; // di luar cakupan -- tidak ada <select multiple> di app ini saat ini
+  select.dataset.cddEnhanced = '1';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'cdd' + (select.disabled ? ' disabled' : '');
+  select.parentNode.insertBefore(wrap, select);
+  wrap.appendChild(select);
+  select.classList.add('cdd-native-select');
+  select.setAttribute('tabindex', '-1'); // fokus keyboard lewat .cdd-control, bukan select aslinya
+
+  const control = document.createElement('div');
+  control.className = 'cdd-control';
+  control.tabIndex = 0;
+  control.setAttribute('role', 'button');
+  const labelSpan = document.createElement('span');
+  labelSpan.className = 'cdd-control-label';
+  control.appendChild(labelSpan);
+  control.insertAdjacentHTML('beforeend', '<svg class="cdd-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
+  wrap.appendChild(control);
+
+  const panel = document.createElement('div');
+  panel.className = 'cdd-panel';
+  wrap.appendChild(panel);
+
+  let activeIdx = -1; // indeks opsi yang sedang disorot keyboard (bukan yang terpilih)
+
+  function optionRows(){ return Array.from(panel.querySelectorAll('.cdd-option:not(.disabled)')); }
+
+  function renderOptions(){
+    panel.innerHTML = '';
+    Array.from(select.options).forEach((opt, i)=>{
+      const row = document.createElement('div');
+      row.className = 'cdd-option' + (opt.value===select.value?' selected':'') + (opt.disabled?' disabled':'');
+      row.dataset.idx = i;
+      row.innerHTML = `<span>${opt.textContent}</span><span class="check">✓</span>`;
+      if(!opt.disabled){
+        row.addEventListener('click', ()=> choose(i));
+        row.addEventListener('mouseenter', ()=> setActive(optionRows().indexOf(row)));
+      }
+      panel.appendChild(row);
+    });
+    activeIdx = optionRows().findIndex(r=>Number(r.dataset.idx)===select.selectedIndex);
+    updateActiveHighlight();
+  }
+
+  function updateActiveHighlight(){
+    optionRows().forEach((r,i)=> r.classList.toggle('active', i===activeIdx));
+    const activeRow = optionRows()[activeIdx];
+    if(activeRow) activeRow.scrollIntoView({block:'nearest'});
+  }
+
+  function setActive(i){
+    const rows = optionRows();
+    if(rows.length===0) return;
+    activeIdx = Math.max(0, Math.min(i, rows.length-1));
+    updateActiveHighlight();
+  }
+
+  function choose(origIdx){
+    select.value = select.options[origIdx].value;
+    select.dispatchEvent(new Event('input', {bubbles:true}));
+    select.dispatchEvent(new Event('change', {bubbles:true}));
+    closePanel();
+    control.focus();
+  }
+
+  function syncLabel(){
+    const opt = select.options[select.selectedIndex];
+    labelSpan.textContent = opt ? opt.textContent : '';
+    labelSpan.classList.toggle('placeholder', !!(opt && opt.value===''));
+  }
+
+  function openPanel(){
+    if(wrap.classList.contains('disabled')) return;
+    document.querySelectorAll('.cdd.open').forEach(o=>{ if(o!==wrap){ o.classList.remove('open'); } });
+    renderOptions();
+    wrap.classList.add('open');
+  }
+  function closePanel(){ wrap.classList.remove('open'); }
+  function togglePanel(){ wrap.classList.contains('open') ? closePanel() : openPanel(); }
+
+  control.addEventListener('click', (e)=>{ e.stopPropagation(); togglePanel(); });
+
+  // --- Navigasi keyboard: Panah Bawah/Atas geser sorotan, Enter/Spasi
+  //     pilih (atau buka panel kalau masih tertutup), Esc tutup. ---
+  control.addEventListener('keydown', (e)=>{
+    if(select.disabled) return;
+    if(e.key==='ArrowDown'){
+      e.preventDefault();
+      if(!wrap.classList.contains('open')) openPanel(); else setActive(activeIdx+1);
+    } else if(e.key==='ArrowUp'){
+      e.preventDefault();
+      if(!wrap.classList.contains('open')) openPanel(); else setActive(activeIdx-1);
+    } else if(e.key==='Enter' || e.key===' '){
+      e.preventDefault();
+      if(!wrap.classList.contains('open')){ openPanel(); }
+      else{
+        const rows = optionRows();
+        if(rows[activeIdx]) choose(Number(rows[activeIdx].dataset.idx));
+      }
+    } else if(e.key==='Escape'){
+      if(wrap.classList.contains('open')){ e.preventDefault(); closePanel(); }
+    } else if(e.key==='Tab'){
+      closePanel();
+    }
+  });
+
+  // Sinkron OTOMATIS kalau kode lain di tempat lain set `select.value = ...`
+  // secara langsung (properti, bukan lewat klik di panel ini) -- meng-
+  // override setter bawaan HTMLSelectElement KHUSUS di instance select ini
+  // (tidak memengaruhi select lain yang belum di-enhance).
+  const proto = Object.getPrototypeOf(select);
+  const nativeDesc = Object.getOwnPropertyDescriptor(proto, 'value') || Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+  if(nativeDesc && nativeDesc.set){
+    Object.defineProperty(select, 'value', {
+      configurable:true,
+      get(){ return nativeDesc.get.call(select); },
+      set(v){ nativeDesc.set.call(select, v); syncLabel(); if(panel.childElementCount) renderOptions(); },
+    });
+  }
+
+  syncLabel();
+  select._cddRefresh = () => { syncLabel(); renderOptions(); };
+}
+
+// Dipanggil oleh kode yang REPOPULATE isi <option> suatu select secara
+// langsung (mis. renderPetugasSelect() menimpa sel.innerHTML tiap ada
+// petugas baru) -- select yang BELUM pernah dibungkus akan dibungkus dulu,
+// yang SUDAH dibungkus cukup disinkronkan ulang labelnya tanpa dobel-bungkus.
+function refreshSelectDropdown(select){
+  if(!select) return;
+  if(!select.dataset.cddEnhanced) enhanceSelectAsDropdown(select);
+  else if(select._cddRefresh) select._cddRefresh();
+}
+
+// Panggil ulang tiap kali ada bagian DOM baru yang mungkin berisi <select>
+// (habis render halaman, buka modal, atau tambah baris dinamis) -- aman
+// dipanggil berkali-kali (select yang sudah pernah dibungkus dilewati
+// lewat penanda data-cdd-enhanced di dalam enhanceSelectAsDropdown()).
+function enhanceAllSelects(root){
+  (root || document).querySelectorAll('select:not([data-cdd-enhanced])').forEach(enhanceSelectAsDropdown);
+}
+document.addEventListener('click', ()=>{
+  document.querySelectorAll('.cdd.open').forEach(o=>o.classList.remove('open'));
+});
+
 function openConfirmModal(message, onConfirm){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -4249,7 +4477,7 @@ function renderDestinations(){
   document.getElementById('btn-export-destination').onclick = () => {
     exportToExcel('data-tujuan', 'Data Tujuan', state.destinations.map(d=>({
       Kode: d.kode||'', Nama: d.nama, 'Jarak (KM)': d.jarakKm!=null?d.jarakKm:'', 'Perkiraan BBM (L)': d.bbmLiter!=null?d.bbmLiter:'',
-      'Rata-rata Durasi': fmtDurationMinutes(computeAvgDurasiForTujuan(d.nama)), 'Link Maps': d.mapsLink||'',
+      'Rata-rata Durasi': fmtDurationMinutesNoHari(computeAvgDurasiForTujuan(d.nama)), 'Link Maps': d.mapsLink||'',
     })));
   };
 
@@ -4276,7 +4504,7 @@ function renderDestinations(){
               <td>${escapeHtml(d.nama)}</td>
               <td>${d.jarakKm!=null?Number(d.jarakKm).toLocaleString('id-ID')+' KM':'-'}</td>
               <td>${d.bbmLiter!=null?Number(d.bbmLiter).toLocaleString('id-ID')+' L':'-'}</td>
-              <td>${fmtDurationMinutes(computeAvgDurasiForTujuan(d.nama))}</td>
+              <td>${fmtDurationMinutesNoHari(computeAvgDurasiForTujuan(d.nama))}</td>
               <td>${mapsNavButtonHtml(d.mapsLink) || '-'}</td>
               <td style="text-align:right;white-space:nowrap;">
                 <button class="btn btn-ghost btn-sm" data-edit="${d.id}">Edit</button>
@@ -4291,7 +4519,7 @@ function renderDestinations(){
             <div class="data-card-row"><span class="k">Kode</span><span class="v">${codeBadgeHtml(d.kode)}</span></div>
             <div class="data-card-row"><span class="k">Jarak</span><span class="v">${d.jarakKm!=null?Number(d.jarakKm).toLocaleString('id-ID')+' KM':'-'}</span></div>
             <div class="data-card-row"><span class="k">Perkiraan BBM</span><span class="v">${d.bbmLiter!=null?Number(d.bbmLiter).toLocaleString('id-ID')+' L':'-'}</span></div>
-            <div class="data-card-row"><span class="k">Rata-rata Durasi</span><span class="v">${fmtDurationMinutes(computeAvgDurasiForTujuan(d.nama))}</span></div>
+            <div class="data-card-row"><span class="k">Rata-rata Durasi</span><span class="v">${fmtDurationMinutesNoHari(computeAvgDurasiForTujuan(d.nama))}</span></div>
             <div class="data-card-row"><span class="k">Maps</span><span class="v">${mapsNavButtonHtml(d.mapsLink) || '-'}</span></div>
             <div class="data-card-actions">
               <button class="btn btn-ghost btn-sm" data-edit="${d.id}">✏️ Edit</button>
@@ -5679,6 +5907,7 @@ function openBiayaOperasionalModal(usageId){
         ${formItems.length>1 ? `<button type="button" class="btn btn-danger btn-sm" data-remove-boitem="${it.id}">Hapus Item Ini</button>` : ''}
       </div>
     `).join('');
+    enhanceAllSelects(wrap);
 
     formItems.forEach(it=>{
       const katEl = document.getElementById('bo-kat-'+it.id);
@@ -6903,6 +7132,7 @@ function openServiceModal(editId){
         ${formItems.length>1 ? `<button type="button" class="btn btn-danger btn-sm" data-remove-item="${it.id}">Hapus Item Ini</button>` : ''}
       </div>
     `).join('');
+    enhanceAllSelects(wrap);
 
     formItems.forEach(it=>{
       const katEl = document.getElementById('item-kat-'+it.id);
@@ -8392,6 +8622,7 @@ function openModal({title, body, onSave}){
   const close = () => { root.innerHTML = ''; };
   document.getElementById('modal-close').onclick = close;
   document.getElementById('modal-cancel').onclick = close;
+  enhanceAllSelects(root);
   document.getElementById('modal-overlay').addEventListener('click', (e)=>{
     if(e.target.id === 'modal-overlay') close();
   });
@@ -8405,6 +8636,30 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.63.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Satuan durasi di Catat Perjalanan sekarang otomatis dikonversi ke "hari" begitu sampai 24 jam (mis. 25 jam tampil "1 hari 1 jam") -- KHUSUS di Catat Perjalanan saja. Rata-rata Durasi di Data Tujuan SENGAJA dibiarkan tetap dalam satuan jam saja (tidak dikonversi ke hari), sesuai permintaan.',
+    ]
+  },
+  {
+    v: '3.62.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan bug tampilan: kolom kanan panel Riwayat Perjalanan (badge Efisiensi BBM) sebelumnya bisa menabrak/menimpa teks jam & tujuan di sebelahnya kalau badge-nya banyak (mis. "Estimasi" + "Di Atas Wajar" sekaligus) -- sekarang lebar kolom itu dibatasi & badge-nya rapi turun baris kalau tidak muat, bukan meluber.',
+      'Tombol/link "Rute" warnanya diganti jadi hijau (#2E7D4F) dengan ikon lingkaran putih + jarum hijau -- kontras jelas & konsisten di semua tempat.',
+      'Bubble mengambang "Mobil Jalan" dan panel "Mobil Sedang Jalan" warnanya diganti jadi charcoal hangat + aksen tembaga -- sebelumnya header panel nyaris putih (mirip warna latar utama, susah dibedakan), sekarang jelas terlihat sebagai elemen terpisah begitu dibuka.',
+    ]
+  },
+  {
+    v: '3.61.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Fitur besar: Dropdown Kustom. Semua kotak pilihan (<select>) di aplikasi -- Data Mobil, Catat Perjalanan, Booking, Servis, BBM, dsb -- sekarang tampil sebagai panel bergaya app sendiri (bukan lagi tampilan bawaan Android/browser yang beda-beda & kadang terlihat kasar). Bisa dioperasikan dengan sentuh MAUPUN keyboard (Tab utk fokus, Panah Atas/Bawah geser pilihan, Enter/Spasi pilih, Esc tutup).',
+      'Dikerjakan dengan pendekatan aman: <select> ASLI tetap ada di balik layar sebagai sumber data sebenarnya -- semua logika yang sudah berjalan (validasi, filter, auto-isi, dst.) tetap jalan tanpa perlu ditulis ulang, cuma lapisan tampilannya yang diganti.',
+    ]
+  },
   {
     v: '3.60.0',
     date: '25 Jul 2026',
