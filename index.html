@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.50.0">
+<meta name="app-version" content="3.52.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -237,6 +237,22 @@
   }
   .car-with-thumb{display:flex;align-items:center;gap:10px;}
   .car-with-thumb-sm{display:flex;align-items:center;gap:8px;}
+
+  .hapus-kode-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 16px;margin-bottom:14px;}
+  .hapus-kode-grid > div{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;padding:7px 0;border-bottom:1px dashed var(--line);}
+  .hapus-kode-grid .k{color:var(--muted);}
+  .hapus-kode-grid code{font-size:11px;background:#F4F5F7;padding:2px 6px;border-radius:5px;color:var(--text);white-space:nowrap;}
+  .hapus-kode-notes{margin:0 0 16px 0;padding-left:18px;font-size:12px;color:var(--muted);line-height:1.8;}
+
+  .etoll-card-preview{
+    display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:8px;
+    border:1px solid var(--line);border-radius:10px;background:#FAFBFC;
+    animation:etollPreviewIn .15s ease-out;
+  }
+  .etoll-card-preview-info{display:flex;flex-direction:column;gap:1px;min-width:0;}
+  .etoll-card-preview-nomor{font-size:12.5px;font-weight:700;letter-spacing:0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .etoll-card-preview-mobil{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  @keyframes etollPreviewIn{from{opacity:0;transform:translateY(-2px);}to{opacity:1;transform:translateY(0);}}
 
   /* ---------------- Catat Perjalanan: layout Card (grouped per mobil) + panel detail ---------------- */
   .trip-search-row{display:flex;gap:10px;margin-bottom:16px;align-items:stretch;}
@@ -961,7 +977,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.50.0';
+const APP_VERSION = '3.52.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2246,6 +2262,35 @@ function carPhotoHtml(car, sizeClass){
   const alt = car ? escapeHtml(car.merk+' '+car.modelMobil) : 'Mobil';
   return `<img src="${src}" alt="${alt}" class="${sizeClass}" loading="lazy" onerror="this.onerror=null;this.src='${DEFAULT_CAR_PHOTO}';">`;
 }
+// Sama seperti foto mobil di atas, tapi untuk Kartu E-Toll -- ikon kartu
+// generik (SVG inline) sebagai fallback kalau card.fotoUrl kosong/gagal
+// dimuat. Field card.fotoUrl diisi sekali di menu Kartu E-Toll, lalu
+// dipakai ulang di semua tempat yang menampilkan kartu itu.
+const DEFAULT_ETOLL_PHOTO = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#EEF0F3"/><g transform="translate(10,17)" fill="none" stroke="#9AA3AF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="0" y="0" width="44" height="30" rx="4"/><rect x="6" y="7" width="11" height="8" rx="1.5" fill="#9AA3AF" stroke="none"/><line x1="6" y1="21" x2="26" y2="21"/><line x1="6" y1="25.5" x2="17" y2="25.5"/></g></svg>`
+);
+function etollCardPhotoHtml(card, sizeClass){
+  sizeClass = sizeClass || 'car-thumb';
+  const src = (card && card.fotoUrl) ? escapeHtml(card.fotoUrl) : DEFAULT_ETOLL_PHOTO;
+  const alt = card ? escapeHtml(card.nomorKartu) : 'Kartu E-Toll';
+  return `<img src="${src}" alt="${alt}" class="${sizeClass}" loading="lazy" onerror="this.onerror=null;this.src='${DEFAULT_ETOLL_PHOTO}';">`;
+}
+// Preview kompak kartu E-Toll (foto + nomor + mobil terpasang) -- muncul di
+// atas field Saldo E-Toll Saat Berangkat begitu kartu dipilih di Catat
+// Perjalanan, supaya petugas gampang mengenali kartu fisiknya tanpa perlu
+// baca nomor panjang satu-satu.
+function etollCardPreviewHtml(card){
+  if(!card) return '';
+  return `
+    <div class="etoll-card-preview">
+      ${etollCardPhotoHtml(card, 'car-thumb')}
+      <div class="etoll-card-preview-info">
+        <div class="etoll-card-preview-nomor">${escapeHtml(card.nomorKartu)}</div>
+        ${card.mobilId ? `<div class="etoll-card-preview-mobil">${escapeHtml(carLabel(card.mobilId))}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
 function driverLabel(driverId, legacyDriverText){
   // Defensive: catatan lama (sebelum modul Data Sopir ada) menyimpan nama sopir
   // sebagai teks bebas (legacyDriverText). Fallback ini menjaga data lama tetap tampil.
@@ -2486,14 +2531,23 @@ function renderHapusData(){
     <div class="panel">
       <div class="panel-head"><h2>⚠️ Hapus Data</h2></div>
       <div class="panel-body">
-        <p class="hint" style="margin-top:0;">
-          Tempel/ketik salah satu Kode berikut — sistem otomatis kenali jenisnya dari awalan kode:
-          Mobil (<code>MBL-0001</code>), Perjalanan (<code>PJL-00001</code>), Servis (<code>SRV-0001</code>),
-          Tujuan (<code>TJN-0001</code>), Sopir (<code>SPR-0001</code>), Dokumen (<code>DOK-0001</code>),
-          Booking (<code>BKG-0001</code>), atau Kartu E-Toll (<code>ETC-0001</code>). Khusus Data Tujuan, boleh
-          juga langsung ketik NAMA tujuannya persis (tidak perlu kodenya). Untuk menghapus item Biaya
-          Operasional, tetap lewat menu Catat Perjalanan seperti biasa — bukan di sini.
+        <p class="hint" style="margin:0 0 12px 0;">
+          Tempel atau ketik salah satu kode di bawah ini — sistem otomatis mengenali jenis datanya dari awalan kode.
         </p>
+        <div class="hapus-kode-grid">
+          <div><span class="k">Mobil</span><code>MBL-0001</code></div>
+          <div><span class="k">Perjalanan</span><code>PJL-00001</code></div>
+          <div><span class="k">Servis</span><code>SRV-0001</code></div>
+          <div><span class="k">Tujuan</span><code>TJN-0001</code></div>
+          <div><span class="k">Sopir</span><code>SPR-0001</code></div>
+          <div><span class="k">Dokumen</span><code>DOK-0001</code></div>
+          <div><span class="k">Booking</span><code>BKG-0001</code></div>
+          <div><span class="k">Kartu E-Toll</span><code>ETC-0001</code></div>
+        </div>
+        <ul class="hapus-kode-notes">
+          <li>Khusus Data Tujuan, boleh langsung ketik <b>nama tujuannya</b> — tidak perlu kode.</li>
+          <li>Untuk menghapus Biaya Operasional, gunakan menu <b>Catat Perjalanan</b> — bukan di sini.</li>
+        </ul>
         <div class="field">
           <label>Kode, atau Nama Tujuan</label>
           <input type="text" id="in-hapus-kode" placeholder="Contoh: MBL-0001, PJL-00001, SRV-0001, atau ketik nama tujuan" style="text-transform:uppercase;">
@@ -5903,6 +5957,7 @@ function openUsageModal(editId){
     </div>
     <div class="field">
       <label>Saldo E-Toll Saat Berangkat (Rp)</label>
+      <div id="etoll-card-preview">${editing && editing.etollCardId ? etollCardPreviewHtml(state.etollCards.find(c=>c.id===editing.etollCardId)) : ''}</div>
       <input type="text" inputmode="numeric" id="in-etoll" placeholder="Contoh: 100.000" value="${editing?fmtRibuanInitial(editing.saldoEtollAwal):''}">
       <div class="hint" id="etoll-hint">Pilih kartu di atas supaya saldo terisi otomatis, atau isi manual kalau bayar tunai/kartu belum terdaftar. Nilai ini disimpan tersendiri (tidak tertimpa saat trip selesai), dipakai untuk hitung "Biaya Tol Terpakai" secara akurat.</div>
     </div>
@@ -6024,6 +6079,7 @@ function openUsageModal(editId){
     const card = state.etollCards.find(c=>c.id===this.value);
     const etollInput = document.getElementById('in-etoll');
     const hint = document.getElementById('etoll-hint');
+    document.getElementById('etoll-card-preview').innerHTML = etollCardPreviewHtml(card);
     if(card){
       etollInput.value = Number(card.saldo||0).toLocaleString('id-ID');
       hint.textContent = `Otomatis dari kartu ${card.nomorKartu}. Bisa diedit kalau saldo fisik berbeda.`;
@@ -7881,7 +7937,7 @@ function renderEtollCards(){
   document.getElementById('btn-export-etoll').onclick = () => {
     exportToExcel('kartu-etoll', 'Kartu E-Toll', state.etollCards.map(card=>({
       'Nomor Kartu': card.nomorKartu||'', Mobil: card.mobilId?carLabel(card.mobilId):'',
-      Saldo: card.saldo||0, 'Batas Minimum': card.batasMinimum!=null?card.batasMinimum:25000, Catatan: card.catatan||'',
+      Saldo: card.saldo||0, 'Batas Minimum': card.batasMinimum!=null?card.batasMinimum:25000, Catatan: card.catatan||'', 'Foto URL': card.fotoUrl||'',
     })));
   };
 
@@ -7912,7 +7968,7 @@ function renderEtollCards(){
             return `
             <tr>
               <td>${codeBadgeHtml(card.kode)}</td>
-              <td><span class="plate">${escapeHtml(card.nomorKartu)}</span></td>
+              <td><span class="car-with-thumb-sm">${etollCardPhotoHtml(card,'car-thumb-sm')}<span class="plate">${escapeHtml(card.nomorKartu)}</span></span></td>
               <td>${card.mobilId ? escapeHtml(carLabel(card.mobilId)) : '<span class="badge neutral">Tidak terpasang</span>'}</td>
               <td>${saldoBadge}</td>
               <td>${fmtMoney(batas)}</td>
@@ -7936,7 +7992,7 @@ function renderEtollCards(){
           else saldoBadge = `<span class="badge ok">${fmtMoney(saldo)}</span>`;
           return `
           <div class="data-card">
-            <div class="data-card-title"><span class="plate">${escapeHtml(card.nomorKartu)}</span></div>
+            <div class="data-card-title car-with-thumb-sm">${etollCardPhotoHtml(card,'car-thumb-sm')}<span class="plate">${escapeHtml(card.nomorKartu)}</span></div>
             <div class="data-card-row"><span class="k">Kode</span><span class="v">${codeBadgeHtml(card.kode)}</span></div>
             <div class="data-card-row"><span class="k">Mobil</span><span class="v">${card.mobilId ? escapeHtml(carLabel(card.mobilId)) : '<span class="badge neutral">Tidak terpasang</span>'}</span></div>
             <div class="data-card-row"><span class="k">Saldo</span><span class="v">${saldoBadge}</span></div>
@@ -8055,6 +8111,14 @@ function openEtollCardModal(editId){
       <div class="err-msg">Nomor kartu wajib diisi dan tidak boleh sama dengan kartu lain.</div>
     </div>
     <div class="field">
+      <label>Foto Kartu (Image URL)</label>
+      <div class="car-with-thumb">
+        ${etollCardPhotoHtml(editing, 'car-thumb-lg')}
+        <input type="text" id="in-foto-url" data-no-uppercase="1" placeholder="https://... (CDN perusahaan, GitHub, dsb.)" value="${editing&&editing.fotoUrl?escapeHtml(editing.fotoUrl):''}" style="flex:1;">
+      </div>
+      <div class="hint">Tempelkan URL gambar kartu ini. Satu URL di sini otomatis dipakai di semua tampilan yang menunjukkan kartu ini (menu Kartu E-Toll). Kosong/gagal dimuat akan memakai ikon kartu generik.</div>
+    </div>
+    <div class="field">
       <label>Terpasang di Mobil</label>
       <select id="in-mobil">
         <option value="">— tidak terpasang / kartu cadangan —</option>
@@ -8081,6 +8145,7 @@ function openEtollCardModal(editId){
     body,
     onSave: () => {
       const nomorKartu = document.getElementById('in-nomor').value.trim();
+      const fotoUrl = document.getElementById('in-foto-url').value.trim();
       const mobilId = document.getElementById('in-mobil').value || null;
       const saldo = Number(getRibuanValue('in-saldo')) || 0;
       const batasMinimumVal = getRibuanValue('in-batas-minimum');
@@ -8094,7 +8159,7 @@ function openEtollCardModal(editId){
 
       if(editing){
         const saldoSebelum = Number(editing.saldo)||0;
-        Object.assign(editing, {nomorKartu, mobilId, saldo, batasMinimum, catatan});
+        Object.assign(editing, {nomorKartu, fotoUrl, mobilId, saldo, batasMinimum, catatan});
         touch(editing);
         if(saldo !== saldoSebelum){
           logEtollTransaction(editing.id, 'penyesuaian', saldo-saldoSebelum, saldoSebelum, saldo, 'Koreksi manual lewat form edit');
@@ -8102,7 +8167,7 @@ function openEtollCardModal(editId){
         logActivity('etoll', 'Edit kartu E-Toll', nomorKartu);
         showToast('Data kartu E-Toll diperbarui.');
       } else {
-        const newCard = touch({id: uid(), kode: nextEtollCardCode(), nomorKartu, mobilId, saldo, batasMinimum, catatan, createdAt: today(), petugas: currentAdmin});
+        const newCard = touch({id: uid(), kode: nextEtollCardCode(), nomorKartu, fotoUrl, mobilId, saldo, batasMinimum, catatan, createdAt: today(), petugas: currentAdmin});
         state.etollCards.push(newCard);
         if(saldo > 0) logEtollTransaction(newCard.id, 'topup', saldo, 0, saldo, 'Saldo awal kartu didaftarkan');
         logActivity('etoll', 'Tambah kartu E-Toll', nomorKartu);
@@ -8114,6 +8179,10 @@ function openEtollCardModal(editId){
     }
   });
   attachRibuanInput('in-saldo');
+  document.getElementById('in-foto-url').addEventListener('input', function(){
+    const preview = document.querySelector('#f-nomor + .field .car-thumb-lg');
+    if(preview){ preview.src = this.value.trim() || DEFAULT_ETOLL_PHOTO; }
+  });
 }
 
 /* ========================================================================
@@ -8157,6 +8226,27 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.52.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Catat Perjalanan: begitu Kartu E-Toll dipilih, muncul preview kompak (foto kartu + nomor + mobil terpasang) tepat di atas field "Saldo E-Toll Saat Berangkat" -- membantu petugas mengenali kartu fisiknya dengan cepat, tanpa perlu menghafal nomor panjang.',
+    ]
+  },
+  {
+    v: '3.51.1',
+    date: '25 Jul 2026',
+    notes: [
+      'Menu Hapus Data: teks penjelasan yang tadinya 1 paragraf padat (semua jenis kode digabung jadi satu kalimat panjang) dirapikan jadi daftar kode yang jelas per baris, plus 2 catatan singkat terpisah -- lebih gampang dipindai, bukan cuma dibaca.',
+    ]
+  },
+  {
+    v: '3.51.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Kartu E-Toll sekarang bisa diberi foto (URL gambar), sama seperti foto mobil di Data Mobil. Diisi sekali lewat menu Kartu E-Toll (field "Foto Kartu"), otomatis tampil sebagai thumbnail di daftar Kartu E-Toll (tabel & tampilan kartu). Kosong/gagal dimuat otomatis memakai ikon kartu generik, tidak ada tampilan rusak.',
+    ]
+  },
   {
     v: '3.50.0',
     date: '24 Jul 2026',
