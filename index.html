@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.71.0">
+<meta name="app-version" content="3.73.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -329,7 +329,7 @@
   .trip-detail-tabs{display:flex;gap:18px;padding:16px 16px 0 16px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto;}
   .trip-detail-tabs button{background:none;border:none;font-size:12px;font-weight:700;color:var(--muted);padding:0 0 12px 0;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;}
   .trip-detail-tabs button.active{color:var(--blue);border-bottom-color:var(--blue);}
-  .trip-detail-body{padding:6px 16px 8px 16px;max-height:520px;overflow-y:auto;}
+  .trip-detail-body{padding:6px 16px 8px 16px;max-height:520px;overflow-y:auto;overflow-x:hidden;}
   .trip-detail-back{font-size:12.5px;font-weight:700;color:var(--blue-dark);cursor:pointer;margin-bottom:14px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:7px;background:#EAF0FF;}
   .trip-detail-back:hover{background:#DCE7FF;}
   .trip-detail-view-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
@@ -444,7 +444,7 @@
   }
   .modal{
     background:#fff;border-radius:12px;max-width:480px;width:100%;
-    max-height:88vh;overflow-y:auto;
+    max-height:88vh;overflow-y:auto;overflow-x:hidden;
     box-shadow:0 20px 60px rgba(0,0,0,0.25);
   }
   .modal-head{
@@ -469,7 +469,7 @@
   .notif-dropdown{
     position:absolute;top:calc(100% + 8px);right:0;width:320px;max-width:85vw;
     background:#fff;border:1px solid var(--line);border-radius:12px;
-    box-shadow:0 12px 32px rgba(0,0,0,0.15);z-index:120;max-height:400px;overflow-y:auto;
+    box-shadow:0 12px 32px rgba(0,0,0,0.15);z-index:120;max-height:400px;overflow-y:auto;overflow-x:hidden;
   }
   .notif-dropdown-head{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px;}
   .notif-item{padding:11px 16px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:10px;align-items:flex-start;}
@@ -555,7 +555,7 @@
   /* ---------------- Kartu data GENERIK (dipakai semua menu di HP) ---------------- */
   .data-card-list{display:none;}
   .data-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fff;}
-  .etoll-history-cards{max-height:60vh;overflow-y:auto;}
+  .etoll-history-cards{max-height:60vh;overflow-y:auto;overflow-x:hidden;}
   .data-card-title{font-weight:800;font-size:13.5px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   .data-card-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;}
   .data-card-row .k{color:var(--muted);flex-shrink:0;}
@@ -591,7 +591,7 @@
   .trip-bubble-panel{
     position:absolute;bottom:calc(100% + 12px);right:0;width:360px;max-width:90vw;
     background:#FBF8F5;border:1px solid #E8DFD5;border-radius:14px;
-    box-shadow:0 18px 44px rgba(0,0,0,0.22);max-height:420px;overflow-y:auto;
+    box-shadow:0 18px 44px rgba(0,0,0,0.22);max-height:420px;overflow-y:auto;overflow-x:hidden;
   }
   .trip-bubble-head{padding:16px 18px;font-weight:800;font-size:15px;background:#231F1C;color:#fff;}
   .trip-card{padding:16px 18px;border-bottom:1px solid #E8DFD5;cursor:pointer;}
@@ -824,7 +824,7 @@
   .autocomplete-box{
     display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;
     background:#fff;border:1px solid var(--line);border-radius:8px;
-    box-shadow:0 8px 20px rgba(0,0,0,0.12);z-index:50;max-height:180px;overflow-y:auto;
+    box-shadow:0 8px 20px rgba(0,0,0,0.12);z-index:50;max-height:180px;overflow-y:auto;overflow-x:hidden;
   }
   .ac-item{padding:8px 12px;font-size:13px;cursor:pointer;}
   .ac-item:hover, .ac-item.active{background:#EEF3FF;color:var(--blue);}
@@ -1089,7 +1089,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.71.0';
+const APP_VERSION = '3.73.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -6431,6 +6431,14 @@ function openUsageModal(editId){
       <div class="field" id="f-etoll-card">
         <label>Kartu E-Toll Dipakai</label>
         <select id="in-etoll-card">
+          <!-- v3.73.0 -- diaktifkan LAGI ke Dropdown Kustom. Akar masalah
+               "geser" ternyata BUKAN dropdown ini (lihat v3.72.0: celah
+               overflow-x di .modal) -- sekarang ada 2 lapis pengaman (panel
+               dropdown dikunci lebar SAMA PERSIS kotaknya + modal dikunci
+               overflow-x:hidden), jadi wajar dicoba aktif lagi. Kalau
+               ternyata MASIH bermasalah, tinggal tambahkan lagi atribut
+               data-cdd-enhanced="skip" di tag <select> ini utk kembali ke
+               native (lihat riwayat v3.72.0 di atas). -->
           <option value="">— tidak pakai kartu / isi manual —</option>
           ${state.etollCards.map(card=>{
             const nomor = String(card.nomorKartu||'');
@@ -8705,6 +8713,21 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.73.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Field "Kartu E-Toll Dipakai" (Catat Perjalanan) diaktifkan lagi ke Dropdown Kustom -- akar masalah "geser" sebenarnya ada di modal (v3.72.0), bukan dropdown ini, jadi sekarang wajar dicoba lagi dengan 2 lapis pengaman yang sudah terpasang. Kalau ternyata masih ada masalah, cukup 1 baris kode untuk mengembalikannya ke versi native (sudah dicatat caranya di komentar kode).',
+    ]
+  },
+  {
+    v: '3.72.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan akar masalah SEBENARNYA dari keluhan "geser kanan-kiri" yang berulang: ternyata BUKAN cuma soal dropdown, tapi celah CSS di modal & panel-panel scroll (overflow-y:auto tanpa overflow-x eksplisit -- secara teknis CSS ini otomatis membuat overflow-x jadi "auto" juga, jadi bisa memicu scrollbar horizontal kalau ada isi yang sedikit saja lebih lebar). Ditemukan & dikunci di 6 tempat sekaligus: Modal (form Tambah/Edit), panel Riwayat Perjalanan (Card), notifikasi lonceng, bubble Mobil Jalan, kotak saran autocomplete, dan Riwayat Transaksi E-Toll -- semuanya sekarang TIDAK MUNGKIN lagi memicu geser horizontal, isi yang kepanjangan akan terpotong rapi, bukan bikin scroll.',
+      'Field "Kartu E-Toll Dipakai" (Catat Perjalanan) dikembalikan ke tampilan dropdown bawaan HP/browser (bukan Dropdown Kustom lagi) -- sudah 3x dicoba diperbaiki tapi masih bermasalah tanpa bisa diuji langsung di browser sungguhan, jadi dikembalikan native supaya pasti aman. Dropdown lain di aplikasi tidak terpengaruh.',
+    ]
+  },
   {
     v: '3.71.0',
     date: '25 Jul 2026',
