@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.76.0">
+<meta name="app-version" content="3.76.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -613,9 +613,9 @@
     display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;padding:0 4px;
   }
   .trip-bubble-panel{
-    position:absolute;bottom:calc(100% + 12px);right:0;width:360px;max-width:90vw;
+    position:fixed;z-index:151;
     background:#FBF8F5;border:1px solid #E8DFD5;border-radius:14px;
-    box-shadow:0 18px 44px rgba(0,0,0,0.22);max-height:420px;overflow-y:auto;overflow-x:hidden;
+    box-shadow:0 18px 44px rgba(0,0,0,0.22);overflow-y:auto;overflow-x:hidden;
   }
   .trip-bubble-head{padding:16px 18px;font-weight:800;font-size:15px;background:#231F1C;color:#fff;}
   .trip-card{padding:16px 18px;border-bottom:1px solid #E8DFD5;cursor:pointer;}
@@ -632,7 +632,6 @@
   .trip-action-item.danger{color:var(--red);}
   @media(max-width:768px){
     #trip-bubble{bottom:16px;right:16px;}
-    .trip-bubble-panel{position:fixed;bottom:78px;left:12px;right:12px;width:auto;max-width:none;max-height:60vh;}
     .trip-action-menu{width:88vw;max-width:280px;}
     .trip-action-item{padding:16px 18px;font-size:15px;}
     /* Khusus layar sempit: tampilkan kartu Catat Perjalanan, sembunyikan
@@ -1113,7 +1112,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.76.0';
+const APP_VERSION = '3.76.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3305,7 +3304,42 @@ function toggleTripBubblePanel(){
   if(panel.style.display === 'block'){ panel.style.display = 'none'; return; }
   renderTripBubblePanelContent();
   panel.style.display = 'block';
+  positionTripBubblePanel();
 }
+// Panel "Mobil Sedang Jalan" dulu posisinya dikunci lewat CSS relatif ke
+// sudut tombolnya (di desktop) atau dipaku ke bawah layar (di mobile).
+// Sejak bubble-nya bisa DIGESER ke mana pun, penguncian itu bikin panel
+// "ketinggalan" jauh dari tombol begitu tombolnya dipindah. Sekarang posisi
+// panel selalu dihitung ulang lewat JS berdasarkan posisi TOMBOL SAAT INI --
+// dibuka ke atas kalau ruang di atas cukup (atau lebih lega dari ruang di
+// bawah), kalau tidak dibuka ke bawah; sisi kanan disejajarkan dengan sisi
+// kanan tombol tapi tetap ditahan di dalam batas layar.
+function positionTripBubblePanel(){
+  const wrap = document.getElementById('trip-bubble');
+  const panel = document.getElementById('trip-bubble-panel');
+  if(!wrap || !panel || panel.style.display!=='block') return;
+  const margin = 10;
+  const btnRect = wrap.getBoundingClientRect();
+  const panelWidth = Math.min(360, window.innerWidth - margin*2);
+  panel.style.width = panelWidth + 'px';
+  const panelHeight = Math.min(panel.scrollHeight || 420, window.innerHeight * 0.6);
+  panel.style.maxHeight = panelHeight + 'px';
+
+  const spaceAbove = btnRect.top - margin;
+  const spaceBelow = window.innerHeight - btnRect.bottom - margin;
+  let top;
+  if(spaceAbove >= panelHeight || spaceAbove >= spaceBelow){
+    top = Math.max(margin, btnRect.top - panelHeight - 12);
+  } else {
+    top = Math.max(margin, Math.min(btnRect.bottom + 12, window.innerHeight - panelHeight - margin));
+  }
+  let left = btnRect.right - panelWidth;
+  left = Math.min(Math.max(margin, left), window.innerWidth - panelWidth - margin);
+
+  panel.style.top = top + 'px';
+  panel.style.left = left + 'px';
+}
+window.addEventListener('resize', ()=> positionTripBubblePanel());
 function renderTripBubblePanelContent(){
   const panel = document.getElementById('trip-bubble-panel');
   const active = state.usage.filter(u=>u.status==='digunakan');
@@ -8876,6 +8910,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.76.1',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan bug dari fitur geser bubble "Mobil Jalan" yang baru ditambahkan: panel "Mobil Sedang Jalan" sebelumnya posisinya terkunci ke sudut layar (bukan mengikuti tombolnya), jadi begitu bubble digeser ke tempat lain, panelnya kelihatan "ketinggalan" jauh dan terpisah dari tombol. Sekarang posisi panel selalu dihitung ulang mengikuti posisi tombol saat itu -- di manapun bubble digeser, panel akan tetap terbuka tepat di dekatnya.',
+    ]
+  },
   {
     v: '3.76.0',
     date: '25 Jul 2026',
