@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.73.2">
+<meta name="app-version" content="3.73.3">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -504,13 +504,20 @@
   }
   .bar-picker-title{font-size:13.5px;font-weight:800;color:var(--text);margin-bottom:2px;}
   .bar-picker-subtitle{font-size:12px;font-weight:600;color:#4B5563;margin-bottom:14px;}
-  /* v3.65.0 -- disederhanakan dari grid 46px kotak (bisa melipat 2 baris)
-     jadi pil bulat 34px 1 baris rapi -- lebih elegan & tidak makan tempat.
-     overflow-x:auto cuma jaga-jaga di layar SANGAT sempit (biasanya tidak
-     kepakai karena 9 tombol muat 1 baris di kebanyakan lebar HP). */
-  .bar-picker-grid{display:flex;gap:6px;margin-bottom:18px;overflow-x:auto;padding-bottom:2px;}
+  /* v3.73.3 -- diganti dari flex 1-baris + overflow-x:auto (bikin tombol
+     7-8 "ngumpet" & harus digeser di HP sempit -- keluhan nyata pengguna)
+     jadi CSS GRID auto-wrap: tombol otomatis melipat ke baris ke-2 kalau
+     tidak muat 1 baris, TIDAK PERNAH perlu di-scroll. justify-content:center
+     supaya baris terakhir yang tidak penuh (mis. cuma 2 tombol sisa) tetap
+     rapi di tengah, bukan menempel kiri/melebar aneh. Berlaku otomatis utk
+     berapa pun jumlah Bar (maxBarBbm beda-beda per mobil), tidak digantung
+     asumsi "biasanya muat 1 baris" seperti versi sebelumnya. */
+  .bar-picker-grid{
+    display:grid;grid-template-columns:repeat(auto-fit, minmax(32px, 40px));
+    justify-content:center;gap:6px;margin-bottom:18px;
+  }
   .bar-picker-btn{
-    width:34px;height:34px;flex-shrink:0;
+    width:100%;height:34px;
     border:1.5px solid var(--line);border-radius:8px;background:#fff;
     font-size:13px;font-weight:800;color:var(--text);cursor:pointer;font-family:'JetBrains Mono',monospace;
     display:flex;align-items:center;justify-content:center;transition:all .12s ease;
@@ -1099,7 +1106,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.73.2';
+const APP_VERSION = '3.73.3';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -8735,6 +8742,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.73.3',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan bug PENTING: pemilih level BBM (tombol angka 0-8 Bar) di Catat Perjalanan bisa "ngumpet" di luar layar & harus digeser kanan/kiri di HP dengan layar sempit (dari v3.65.0 -- sempat disederhanakan dgn asumsi "biasanya muat 1 baris" yang ternyata tidak selalu benar). Sekarang tombolnya otomatis melipat ke baris ke-2 kalau tidak muat 1 baris -- SEMUA tombol selalu langsung terlihat & bisa ditekan, tidak perlu scroll sama sekali. Berlaku untuk mobil dengan jumlah Bar berapa pun.',
+    ]
+  },
   {
     v: '3.73.2',
     date: '25 Jul 2026',
