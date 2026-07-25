@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.73.0">
+<meta name="app-version" content="3.72.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1089,7 +1089,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.73.0';
+const APP_VERSION = '3.72.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -6430,15 +6430,12 @@ function openUsageModal(editId){
       </div>
       <div class="field" id="f-etoll-card">
         <label>Kartu E-Toll Dipakai</label>
-        <select id="in-etoll-card">
-          <!-- v3.73.0 -- diaktifkan LAGI ke Dropdown Kustom. Akar masalah
-               "geser" ternyata BUKAN dropdown ini (lihat v3.72.0: celah
-               overflow-x di .modal) -- sekarang ada 2 lapis pengaman (panel
-               dropdown dikunci lebar SAMA PERSIS kotaknya + modal dikunci
-               overflow-x:hidden), jadi wajar dicoba aktif lagi. Kalau
-               ternyata MASIH bermasalah, tinggal tambahkan lagi atribut
-               data-cdd-enhanced="skip" di tag <select> ini utk kembali ke
-               native (lihat riwayat v3.72.0 di atas). -->
+        <select id="in-etoll-card" data-cdd-enhanced="skip">
+          <!-- v3.72.0 -- SENGAJA dikecualikan dari Dropdown Kustom (data-cdd-enhanced="skip" membuat
+               enhanceSelectAsDropdown() melewatinya), balik ke tampilan bawaan HP/browser. Sudah 3x
+               dicoba perbaiki (v3.69/3.70/3.71) tapi masih melebar tanpa saya bisa uji langsung di
+               browser sungguhan -- daripada terus menebak, field INI SAJA dikembalikan native. Semua
+               dropdown lain di aplikasi TIDAK terpengaruh, tetap pakai Dropdown Kustom seperti biasa. -->
           <option value="">— tidak pakai kartu / isi manual —</option>
           ${state.etollCards.map(card=>{
             const nomor = String(card.nomorKartu||'');
@@ -8713,13 +8710,6 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
-  {
-    v: '3.73.0',
-    date: '25 Jul 2026',
-    notes: [
-      'Field "Kartu E-Toll Dipakai" (Catat Perjalanan) diaktifkan lagi ke Dropdown Kustom -- akar masalah "geser" sebenarnya ada di modal (v3.72.0), bukan dropdown ini, jadi sekarang wajar dicoba lagi dengan 2 lapis pengaman yang sudah terpasang. Kalau ternyata masih ada masalah, cukup 1 baris kode untuk mengembalikannya ke versi native (sudah dicatat caranya di komentar kode).',
-    ]
-  },
   {
     v: '3.72.0',
     date: '25 Jul 2026',
