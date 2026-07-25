@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.52.0">
+<meta name="app-version" content="3.53.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -977,7 +977,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.52.0';
+const APP_VERSION = '3.53.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -4268,10 +4268,38 @@ function openDestinationModal(editId){
       const bbmLiter = bbmRaw === '' ? null : Number(bbmRaw);
 
       if(editing){
+        const namaLama = editing.nama;
         Object.assign(editing, {nama, jarakKm, bbmLiter, mapsLink: mapsLink || null});
         touch(editing);
         logActivity('tujuan', 'Edit data tujuan', nama);
         showToast('Data tujuan diperbarui.');
+        // Nama Tujuan di sini CUMA data master (sumber rekomendasi & Jarak/
+        // BBM/Maps) -- teks "Tujuan" yang tersimpan di tiap catatan Catat
+        // Perjalanan/Booking LAMA berdiri sendiri (bukan rujukan/link ke
+        // baris ini), jadi mengganti nama di sini TIDAK otomatis mengubah
+        // catatan lama. Supaya tidak membingungkan ("kok di tempat lain
+        // nama lamanya masih ada?"), begitu nama berubah kita tawarkan
+        // untuk menyamakan juga teks Tujuan di catatan-catatan lama itu.
+        if(namaLama && namaLama.trim().toLowerCase() !== nama.toLowerCase()){
+          const needle = namaLama.trim().toLowerCase();
+          const affectedUsage = state.usage.filter(u=> (u.tujuan||'').trim().toLowerCase()===needle);
+          const affectedBooking = state.bookings.filter(b=> (b.tujuan||'').trim().toLowerCase()===needle);
+          const total = affectedUsage.length + affectedBooking.length;
+          if(total>0){
+            openConfirmModal(
+              `Nama "${escapeHtml(namaLama)}" dipakai di ${total} catatan Perjalanan/Booking lama. Perbarui juga teks tujuan di catatan-catatan itu jadi "${escapeHtml(nama)}", supaya tidak ada 2 nama untuk tempat yang sama?`,
+              ()=>{
+                affectedUsage.forEach(u=>{ u.tujuan = nama; touch(u); });
+                affectedBooking.forEach(b=>{ b.tujuan = nama; touch(b); });
+                saveData();
+                logActivity('tujuan', 'Samakan nama tujuan di catatan lama', `"${namaLama}" → "${nama}" (${total} catatan)`);
+                showToast(`${total} catatan diperbarui.`);
+                if(currentRoute==='usage') renderUsage();
+                if(currentRoute==='bookings') renderBookings();
+              }
+            );
+          }
+        }
       } else {
         state.destinations.push(touch({id: uid(), kode: nextDestinationCode(), nama, jarakKm, bbmLiter, mapsLink: mapsLink || null, createdAt: today(), petugas: currentAdmin}));
         logActivity('tujuan', 'Tambah tujuan baru', nama);
@@ -8226,6 +8254,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.53.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Data Tujuan: mengganti Nama Tujuan sebelumnya HANYA mengubah data master (tidak ikut mengubah teks Tujuan di catatan Catat Perjalanan/Booking lama, karena keduanya tersimpan terpisah). Sekarang begitu nama diganti, sistem menawarkan untuk sekalian menyamakan teks Tujuan di semua catatan lama yang masih pakai nama sebelumnya -- supaya tidak ada 2 nama untuk 1 tempat yang sama.',
+    ]
+  },
   {
     v: '3.52.0',
     date: '25 Jul 2026',
