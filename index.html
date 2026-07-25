@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.54.0">
+<meta name="app-version" content="3.55.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -977,7 +977,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.54.0';
+const APP_VERSION = '3.55.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -5031,28 +5031,24 @@ function renderUsage(){
     return trips.map(u=>{
       const dp = tripDateParts(u.tglKeluar);
       const jarakVal = (u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) ? (u.odoKembali-u.odoKeluar) : null;
-      const isEstimasi = !(getBensinKeluar(u)===100 && getBensinKembali(u)===100);
-      const chainEntry = getChainFor(u.carId).get(u.id);
-      const ratioVal = (chainEntry && chainEntry.resolved) ? chainEntry.ratio : null;
-      const ratioTxt = ratioVal!=null ? ratioVal.toFixed(1)+' KM/L' : '-';
-      let gapNote = '';
-      if(chainEntry && chainEntry.gapTolerated){
-        const gapKmAbs = Math.abs(chainEntry.gapKm).toLocaleString('id-ID');
-        gapNote = ` · <span class="badge neutral" title="Selisih ${gapKmAbs} KM sebelum trip ini dianggap jarak harian wajar (mis. ke masjid, beli makan dekat) -- sudah otomatis ikut dihitung ke Efisiensi.">↔️ Gap ${gapKmAbs} KM</span>`;
-      } else if(chainEntry && chainEntry.gapFlagged){
-        const gapKmAbs = Math.abs(chainEntry.gapKm).toLocaleString('id-ID');
-        gapNote = ` · <span class="badge danger" title="${chainEntry.gapOverlap ? 'Odometer tumpang tindih -- pasti salah input, cek & perbaiki manual.' : 'Selisih tidak tercatat di mana pun, melebihi ambang toleransi -- kemungkinan ada perjalanan yang lupa dicatat.'}">⚠️ ${chainEntry.gapOverlap?'Tumpang Tindih':'Gap'} ${gapKmAbs} KM</span>`;
-      }
+      // v3.55.0 -- SEBELUMNYA di sini dihitung ulang secara terpisah (cuma
+      // cek chainEntry.resolved, tanpa fallback "Menunggu Akumulasi" ATAU
+      // rumus lama jarak/literBeli yang dipakai List) -- akibatnya trip yang
+      // sebenarnya BISA dihitung (lewat salah satu fallback itu) malah
+      // tampil kosong "-" di sini walau di List tampil angka/badge yang
+      // benar. Sekarang pakai ratioLabel(u) yang SAMA PERSIS dipakai List,
+      // supaya kedua tampilan tidak pernah lagi beda hasil.
+      const ratioHtml = ratioLabel(u);
       return `
       <div class="trip-timeline-item" data-view-trip="${u.id}">
         <div class="trip-timeline-date"><div class="day">${dp.day}</div><div class="mon">${dp.mon}</div><div class="yr">${dp.yr}</div></div>
         <div class="trip-timeline-body">
           <div class="trip-timeline-time">${u.jamKeluar||'-'} – ${u.jamKembali||'-'}${u.jamKeluar&&u.jamKembali?` <span style="color:var(--muted);">(${fmtDuration(u)})</span>${durasiAnomaliBadgeHtml(u)}`:''}</div>
           <div class="trip-timeline-dest">📍 ${escapeHtml(u.tujuan||'-')}${mapsNavButtonCompactHtml(u.mapsLink)}</div>
-          <div class="trip-timeline-meta">${u.literBensin?u.literBensin+' L':'-'}${u.biayaBensin?' · '+fmtMoney(u.biayaBensin):''}${gapNote}</div>
+          <div class="trip-timeline-meta">${u.literBensin?u.literBensin+' L':'-'}${u.biayaBensin?' · '+fmtMoney(u.biayaBensin):''}</div>
         </div>
         <div class="trip-timeline-right">
-          <div><span class="badge ${isEstimasi?'warn':'ok'}">${ratioTxt}</span>${efisiensiWajarBadgeHtml(ratioVal, vs.car)}</div>
+          <div>${ratioHtml}</div>
           <div class="km">${jarakVal!=null?jarakVal.toLocaleString('id-ID')+' KM':'-'}</div>
         </div>
         <span class="vehicle-card-chevron">›</span>
@@ -8372,6 +8368,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.55.0',
+    date: '25 Jul 2026',
+    notes: [
+      'Perbaikan bug PENTING: Efisiensi BBM di panel Riwayat Perjalanan (tampilan Card) bisa tampil kosong "-" untuk trip yang sebenarnya BISA dihitung -- penyebabnya, tampilan Card selama ini pakai perhitungan sendiri yang cuma menangani kasus "resolved", tidak seperti tampilan List yang juga punya fallback "Menunggu Akumulasi" dan rumus cadangan (jarak/liter) untuk trip yang datanya belum lengkap (mis. trip PERTAMA suatu mobil, sebelum ada riwayat BBM Awal/Akhir sama sekali). Sekarang tampilan Card memakai fungsi yang SAMA PERSIS dengan List, supaya kedua tampilan tidak pernah lagi menunjukkan hasil berbeda untuk trip yang sama.',
+    ]
+  },
   {
     v: '3.54.0',
     date: '25 Jul 2026',
