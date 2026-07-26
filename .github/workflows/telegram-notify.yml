@@ -1,17 +1,27 @@
 name: FleetOps - Notifikasi Telegram Otomatis
 
-# Jalan tiap jam (menit ke-0, waktu UTC) SELAMA 24 JAM PENUH, tanpa perlu ada
-# siapa pun yang membuka aplikasi FleetOps di HP/komputer. Bisa juga dites
-# manual lewat tombol "Run workflow" di tab Actions (workflow_dispatch).
+# Jalan tiap 5 menit SELAMA 24 JAM PENUH, tanpa perlu ada siapa pun yang
+# membuka aplikasi FleetOps di HP/komputer. Bisa juga dites manual lewat
+# tombol "Run workflow" di tab Actions (workflow_dispatch). Seberapa sering
+# notifikasi BERKALA (bukan Resi Perjalanan) benar-benar diproses diatur
+# dari dalam aplikasi, lihat komentar "on:" di bawah.
 #
 # Catatan: GitHub otomatis MENONAKTIFKAN cron schedule kalau repo ini tidak
 # ada aktivitas (commit) sama sekali selama 60 hari -- kalau itu terjadi,
 # tinggal buka tab Actions -> workflow ini -> "Enable workflow" untuk
 # mengaktifkan lagi. Ini batasan bawaan GitHub, bukan sesuatu yang bisa
 # dihindari dari sisi workflow ini.
+# v3.104.0 -- Cron di-set ke TIAP 5 MENIT (paling rapat yang wajar dipakai) --
+# ini cuma "detak jantung" dasarnya. Seberapa sering notifikasi BERKALA
+# (dokumen/servis/BBM/E-Toll/booking) benar-benar diproses & dikirim
+# sekarang diatur dari APLIKASI (Pengaturan -> Ambang Batas Notifikasi,
+# dikunci PIN), field "Cek notifikasi berkala setiap" -- script akan skip
+# sendiri kalau belum waktunya, TANPA perlu edit file ini lagi.
+# 🧾 Resi Perjalanan (begitu status diubah "Selesai") TIDAK ikut aturan
+# interval itu -- selalu dicek tiap tick di sini (maks. 5 menit).
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
     inputs:
       test_chat_id:
