@@ -40,6 +40,45 @@ if (!BOT_TOKEN) {
   process.exit(1);
 }
 
+// ============================================================================
+// MODE TES (v3.97.0) -- dipicu lewat "Run workflow" manual di tab Actions
+// dengan input test_chat_id diisi (lihat tombol "🧪 Test Notifikasi" di
+// Data Sopir, index.html, yang menyiapkan Chat ID-nya + link ke sini).
+// Kirim 1 pesan tes SEDERHANA langsung ke Chat ID itu, TIDAK menyentuh
+// logika deteksi alert/anti-spam sama sekali -- supaya bisa dites kapan
+// saja tanpa terpengaruh status notif-state.json yang sudah ada, dan tidak
+// perlu file data.json ada dulu.
+// ============================================================================
+const TEST_CHAT_ID = (process.env.TEST_CHAT_ID || '').trim();
+if (TEST_CHAT_ID) {
+  console.log(`🧪 Mode tes -- mengirim 1 pesan percobaan ke Chat ID ${TEST_CHAT_ID}...`);
+  const testText = [
+    '🧪 <b>Ini pesan TES dari FleetOps</b>',
+    '',
+    'Kalau Anda menerima pesan ini, artinya notifikasi Telegram sudah tersambung dengan benar ke nomor ini.',
+    '',
+    `<i>Dikirim manual (mode tes) ${new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' })} WIB</i>`,
+  ].join('\n');
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TEST_CHAT_ID, text: testText, parse_mode: 'HTML' })
+    });
+    const resBody = await res.json().catch(() => ({}));
+    if (!res.ok || !resBody.ok) {
+      console.error(`❌ Gagal kirim pesan tes ke ${TEST_CHAT_ID}:`, JSON.stringify(resBody));
+      console.error('   Penyebab tersering: sopir belum pernah mengirim pesan APA PUN ke bot ini dulu (Telegram mewajibkan itu sebelum bot boleh kirim duluan), atau Chat ID-nya salah ketik.');
+      process.exit(1);
+    }
+    console.log(`✅ Pesan tes berhasil terkirim ke ${TEST_CHAT_ID}.`);
+    process.exit(0);
+  } catch (e) {
+    console.error(`❌ Gagal kirim pesan tes ke ${TEST_CHAT_ID}:`, e.message);
+    process.exit(1);
+  }
+}
+
 if (!existsSync(DATA_PATH)) {
   console.log(`ℹ️  Belum ada file data di "${DATA_PATH}" — kemungkinan belum pernah ada device yang sinkron ke repo ini. Dilewati (bukan error, tidak ada yang dikirim).`);
   process.exit(0);
@@ -66,6 +105,16 @@ state.etollCards = state.etollCards || [];
    ============================================================================ */
 
 function today() { return new Date().toISOString().slice(0, 10); }
+
+// v3.95.0 -- PORTING PERSIS dari getNotifSettings() di index.html. Ambang
+// batas notifikasi sekarang bisa diatur admin lewat menu Pengaturan (dikunci
+// PIN Insight) -- dibaca dari state.notifSettings (ikut tersinkron lewat
+// data.json yang sama), dengan fallback default SAMA PERSIS dengan index.html
+// kalau field-nya belum ada (data lama / belum pernah diatur).
+const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000 };
+function getNotifSettings() {
+  return { ...NOTIF_SETTINGS_DEFAULT, ...(state.notifSettings || {}) };
+}
 
 function daysBetween(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
@@ -158,7 +207,7 @@ function serviceReminderInfo(car) {
     : '';
 
   if (pct >= 1) return { level: 'danger', text: 'Sudah waktunya servis/ganti oli' + perkiraanText };
-  if (pct >= 0.8) return { level: 'warn', text: 'Segera servis (mendekati jadwal)' + perkiraanText };
+  if (pct >= (getNotifSettings().serviceWarnPct / 100)) return { level: 'warn', text: 'Segera servis (mendekati jadwal)' + perkiraanText };
   return { level: 'ok', text: 'Servis masih jauh' + perkiraanText };
 }
 
@@ -176,7 +225,7 @@ function getBensinTerkini(u) {
   return getBensinKeluar(u);
 }
 function fuelBatasFor(car) {
-  return car.batasMinimumBensin != null ? Number(car.batasMinimumBensin) : 20;
+  return car.batasMinimumBensin != null ? Number(car.batasMinimumBensin) : getNotifSettings().bbmMinDefault;
 }
 function fuelLatestReading(carId) {
   return state.usage
@@ -187,10 +236,11 @@ function fuelLatestReading(carId) {
 // ---- computeAlerts() -- PERSIS SAMA dgn index.html (4 jenis alert) ----
 function computeAlerts() {
   const alerts = [];
+  const ns = getNotifSettings();
 
   state.documents.forEach(d => {
     const sisa = daysBetween(d.tglExpired);
-    if (sisa <= 30) {
+    if (sisa <= ns.docExpiryDays) {
       alerts.push({
         id: 'doc-' + d.id,
         ic: sisa < 0 ? '⛔' : '📄', level: sisa < 0 ? 'danger' : 'warn',
@@ -208,7 +258,7 @@ function computeAlerts() {
   });
 
   state.etollCards.forEach(card => {
-    const batas = card.batasMinimum != null ? Number(card.batasMinimum) : 25000;
+    const batas = card.batasMinimum != null ? Number(card.batasMinimum) : ns.etollMinDefault;
     const saldo = Number(card.saldo) || 0;
     if (saldo < batas) {
       alerts.push({ id: 'etoll-' + card.id, ic: '💳', level: 'danger', judul: 'Saldo E-Toll rendah', keterangan: `${card.nomorKartu} — ${fmtMoney(saldo)}` });

@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.92.1">
+<meta name="app-version" content="3.98.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -566,6 +566,31 @@
     font-size:13px;font-weight:700;color:var(--blue-dark);
   }
   .report-grand-total b{font-size:19px;}
+  /* Kartu Info Darurat (v3.94.0) -- didesain jelas terbaca di kertas cetak
+     hitam-putih (kontras tinggi, bukan warna-warni), karena kartu ini akan
+     disimpan fisik & mungkin difoto-copy. */
+  .emergency-card{
+    max-width:360px;margin:0 auto;border:2px solid #161C27;border-radius:10px;
+    padding:18px;background:#fff;
+  }
+  .emergency-card-head{text-align:center;border-bottom:1.5px dashed #C7CCD4;padding-bottom:10px;margin-bottom:10px;}
+  .emergency-card-title{font-weight:800;font-size:15px;color:#C4302B;letter-spacing:.02em;}
+  .emergency-card-sub{font-size:10.5px;color:#6B7280;margin-top:2px;}
+  .emergency-card-plat{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:24px;text-align:center;letter-spacing:.05em;margin-bottom:2px;}
+  .emergency-card-model{text-align:center;font-size:12.5px;color:#374151;margin-bottom:12px;}
+  .emergency-card-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .emergency-card-table td{padding:6px 0;border-bottom:1px solid #F0F1F3;}
+  .emergency-card-table td:first-child{color:#6B7280;width:45%;}
+  .emergency-card-table td:last-child{font-weight:700;text-align:right;}
+  .emergency-card-foot{text-align:center;font-size:10px;color:#9AA1AC;margin-top:12px;}
+  /* Saat dicetak (tombol "🖨️ Cetak" -> window.print()): SEMBUNYIKAN semua
+     isi halaman KECUALI kartunya sendiri -- supaya hasil cetak bersih
+     (tidak ikut ke-print sidebar/modal/tombol dsb). */
+  @media print{
+    body *{visibility:hidden;}
+    #emergency-card-print, #emergency-card-print *{visibility:visible;}
+    #emergency-card-print{position:fixed;top:0;left:0;right:0;margin:20px auto;border-width:1px;box-shadow:none;}
+  }
   /* Kontrol paginasi (v3.78.0) -- List view Catat Perjalanan. */
   .list-pagination{
     display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
@@ -1163,7 +1188,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.93.0';
+const APP_VERSION = '3.98.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1513,7 +1538,18 @@ function loadData(){
   }
 }
 function defaultData(){
-  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15 };
+  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
+    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000 } };
+}
+// v3.95.0 -- Pengaturan Notifikasi (nilai ambang batas dipakai computeAlerts()
+// & telegram-notify.mjs). PENTING: dibaca lewat fungsi ini SAJA (bukan baca
+// state.notifSettings langsung) supaya data LAMA (dibuat sebelum fitur ini
+// ada, belum punya field notifSettings sama sekali) tetap otomatis dapat
+// nilai default yang SAMA PERSIS dengan perilaku sebelumnya -- tidak perlu
+// migrasi data terpisah, dan tidak mungkin error kalau field-nya belum ada.
+const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000 };
+function getNotifSettings(){
+  return { ...NOTIF_SETTINGS_DEFAULT, ...(state.notifSettings||{}) };
 }
 // Kode unik Mobil & Perjalanan -- dipakai KHUSUS untuk menu "Hapus Data"
 // (lihat konsep di bawah). Format sengaja pendek & mudah dibaca/disalin,
@@ -2533,7 +2569,7 @@ function serviceReminderInfo(car){
     : '';
 
   if(pct >= 1) return {level:'danger', text:'Sudah waktunya servis/ganti oli'+perkiraanText};
-  if(pct >= 0.8) return {level:'warn', text:'Segera servis (mendekati jadwal)'+perkiraanText};
+  if(pct >= (getNotifSettings().serviceWarnPct/100)) return {level:'warn', text:'Segera servis (mendekati jadwal)'+perkiraanText};
   return {level:'ok', text:'Servis masih jauh'+perkiraanText};
 }
 
@@ -2726,7 +2762,7 @@ function mapsNavButtonHtml(mapsLink){
   // punya klik-handler sendiri di elemen pembungkusnya -- tanpa ini, klik
   // tombol ini akan IKUT memicu handler pembungkus itu (mis. buka menu aksi)
   // di atas navigasi yang sebenarnya dituju.
-  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps">${navCompassIconHtml()} Rute</a>`;
+  return `<a href="${escapeHtml(normalizeMapsUrl(mapsLink))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps">${navCompassIconHtml()} Rute</a>`;
 }
 
 // Varian RINGKAS (ikon saja, tanpa teks "Rute") -- KHUSUS dipakai di
@@ -2749,7 +2785,7 @@ function navArrowSimpleHtml(){
 }
 function mapsNavButtonCompactHtml(mapsLink){
   if(!mapsLink || !/^https?:\/\//i.test(mapsLink.trim())) return '';
-  return `<a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps-compact" title="Buka Rute">${navArrowSimpleHtml()}</a>`;
+  return `<a href="${escapeHtml(normalizeMapsUrl(mapsLink))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps-compact" title="Buka Rute">${navArrowSimpleHtml()}</a>`;
 }
 
 // Cari Link Maps dari riwayat TUJUAN YANG SAMA PERSIS (case-insensitive) --
@@ -3082,6 +3118,50 @@ function renderSettings(){
       </div>
     </div>
     <div class="panel">
+      <div class="panel-head">
+        <h2>⏰ Ambang Batas Notifikasi</h2>
+        ${insightUnlocked ? '' : '<span class="badge neutral">🔒 Terkunci</span>'}
+      </div>
+      <div class="panel-body">
+        ${!insightUnlocked ? `
+          <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
+            Atur kapan notifikasi "Perlu Perhatian" mulai muncul (dokumen kadaluarsa, servis jatuh tempo, BBM &amp; saldo E-Toll menipis) -- dikunci PIN yang sama dengan Insight, supaya cuma yang berwenang yang bisa mengubah ambang batas ini.
+          </p>
+          <button class="btn btn-primary btn-sm" id="btn-unlock-notif-settings">🔒 Buka dengan PIN</button>
+        ` : `
+          <p style="color:var(--muted);margin:0 0 14px;line-height:1.6;">
+            Nilai di bawah ini dipakai bersama oleh lonceng notifikasi di aplikasi <b>dan</b> Notifikasi Telegram Otomatis (GitHub Actions) -- ubah di sini, otomatis berlaku ke keduanya begitu tersinkron.
+          </p>
+          <div class="grid-2">
+            <div class="field">
+              <label>Dokumen: ingatkan berapa hari sebelum kadaluarsa</label>
+              <input type="text" inputmode="numeric" id="in-notif-doc-days" value="${getNotifSettings().docExpiryDays}">
+            </div>
+            <div class="field">
+              <label>Servis: mulai peringatan di berapa % dari jadwal</label>
+              <input type="text" inputmode="numeric" id="in-notif-service-pct" value="${getNotifSettings().serviceWarnPct}">
+            </div>
+            <div class="field">
+              <label>BBM: batas minimum default (%) jika mobil belum diatur sendiri</label>
+              <input type="text" inputmode="numeric" id="in-notif-bbm-min" value="${getNotifSettings().bbmMinDefault}">
+            </div>
+            <div class="field">
+              <label>E-Toll: batas minimum saldo default (Rp) jika kartu belum diatur sendiri</label>
+              <input type="text" inputmode="numeric" id="in-notif-etoll-min" value="${getNotifSettings().etollMinDefault}">
+            </div>
+          </div>
+          <div class="hint" style="margin:-4px 0 12px;">Nilai "default" di sini cuma dipakai untuk mobil/kartu yang BELUM diisi batasnya sendiri-sendiri (di Data Mobil / Kartu E-Toll) -- mengisi batas di situ tetap didahulukan.</div>
+          <button class="btn btn-primary btn-sm" id="btn-save-notif-settings">Simpan Ambang Batas</button>
+          <div style="border-top:1px solid var(--line);margin:16px 0 0;padding-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <span style="font-size:12.5px;color:var(--muted);">
+              📨 <b>${state.drivers.filter(d=>d.telegramChatId).length} dari ${state.drivers.length}</b> sopir sudah terdaftar Telegram Chat ID
+            </span>
+            <button class="btn btn-ghost btn-sm" id="btn-goto-drivers-telegram">Kelola di Data Sopir →</button>
+          </div>
+        `}
+      </div>
+    </div>
+    <div class="panel">
       <div class="panel-head"><h2>Toleransi Gap Odometer Tak Tercatat</h2></div>
       <div class="panel-body">
         <p style="color:var(--muted);margin:0 0 12px;">
@@ -3115,6 +3195,33 @@ function renderSettings(){
   });
   attachIntegerOnlyInput('in-toleransi-gap');
   renderNotifPermissionStatus();
+  if(!insightUnlocked){
+    const unlockBtn = document.getElementById('btn-unlock-notif-settings');
+    if(unlockBtn) unlockBtn.onclick = openInsightPinModal;
+  } else {
+    ['in-notif-doc-days','in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) attachIntegerOnlyInput(id);
+    });
+    const saveBtn = document.getElementById('btn-save-notif-settings');
+    if(saveBtn) saveBtn.onclick = () => {
+      const docDays = Number(document.getElementById('in-notif-doc-days').value || 0);
+      const svcPct = Number(document.getElementById('in-notif-service-pct').value || 0);
+      const bbmMin = Number(document.getElementById('in-notif-bbm-min').value || 0);
+      const etollMin = Number(document.getElementById('in-notif-etoll-min').value || 0);
+      state.notifSettings = {
+        docExpiryDays: docDays>=0 ? docDays : NOTIF_SETTINGS_DEFAULT.docExpiryDays,
+        serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
+        bbmMinDefault: bbmMin>=0 ? bbmMin : NOTIF_SETTINGS_DEFAULT.bbmMinDefault,
+        etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
+      };
+      saveData();
+      showToast('Ambang batas notifikasi disimpan.');
+      renderNotifBell();
+    };
+    const gotoDriversBtn = document.getElementById('btn-goto-drivers-telegram');
+    if(gotoDriversBtn) gotoDriversBtn.onclick = () => navigate('drivers');
+  }
   document.getElementById('btn-save-toleransi-gap').onclick = () => {
     const val = Number(document.getElementById('in-toleransi-gap').value || 0);
     state.toleransiGapKm = val >= 0 ? val : 0;
@@ -3356,9 +3463,10 @@ document.getElementById('drawer-overlay').addEventListener('click', closeDrawer)
 /* ---------------- Notifikasi (lonceng) — dipakai di semua halaman ---------------- */
 function computeAlerts(){
   const alerts = [];
+  const ns = getNotifSettings();
   state.documents.forEach(d=>{
     const sisa = daysBetween(d.tglExpired);
-    if(sisa <= 30){
+    if(sisa <= ns.docExpiryDays){
       alerts.push({
         id: 'doc-'+d.id,
         route:'docs', ic: sisa<0?'⛔':'📄', level: sisa<0?'danger':'warn',
@@ -3374,7 +3482,7 @@ function computeAlerts(){
     }
   });
   state.etollCards.forEach(card=>{
-    const batas = card.batasMinimum!=null ? Number(card.batasMinimum) : 25000;
+    const batas = card.batasMinimum!=null ? Number(card.batasMinimum) : ns.etollMinDefault;
     const saldo = Number(card.saldo)||0;
     if(saldo < batas){
       alerts.push({ id:'etoll-'+card.id, route:'etoll', ic:'💳', level:'danger', judul:'Saldo E-Toll rendah', keterangan: `${card.nomorKartu} — ${fmtMoney(saldo)}` });
@@ -3604,6 +3712,8 @@ function refreshInsightPanels(){
   if(currentRoute==='service') renderService();
   if(currentRoute==='etoll') renderEtollCards(); // v3.89.0 -- sempat kelewat waktu Deteksi Anomali E-Toll ditambah
   if(currentRoute==='dashboard') renderDashboard(); // v3.89.0 -- panel gabungan "Insight Terbaru"
+  if(currentRoute==='settings') renderSettings(); // v3.95.0 -- panel Ambang Batas Notifikasi
+  if(currentRoute==='drivers') renderDrivers(); // v3.96.0 -- status Telegram Chat ID dikunci PIN
 }
 // Modal konfirmasi custom (Iya/Tidak) -- dipakai khusus untuk aksi hapus
 // yang butuh penekanan ekstra (mis. Hapus Data), menggantikan window.confirm
@@ -4347,6 +4457,7 @@ function renderCars(){
               <td>${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Pengingat nonaktif</span>`}</td>
               <td style="text-align:right;white-space:nowrap;">
                 <button class="btn btn-ghost btn-sm" data-qr="${c.id}" title="Kode QR untuk mobil ini">📱 QR</button>
+                <button class="btn btn-ghost btn-sm" data-darurat="${c.id}" title="Kartu Info Darurat">🆘</button>
                 <button class="btn btn-ghost btn-sm" data-edit="${c.id}">Edit</button>
               </td>
             </tr>`;
@@ -4371,6 +4482,7 @@ function renderCars(){
             <div class="data-card-row"><span class="k">Servis Berikutnya</span><span class="v">${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Nonaktif</span>`}</span></div>
             <div class="data-card-actions">
               <button class="btn btn-ghost btn-sm" data-qr="${c.id}">📱 QR</button>
+              <button class="btn btn-ghost btn-sm" data-darurat="${c.id}">🆘 Info Darurat</button>
               <button class="btn btn-ghost btn-sm" data-edit="${c.id}">✏️ Edit</button>
             </div>
           </div>`;
@@ -4379,6 +4491,7 @@ function renderCars(){
     `;
     wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openCarModal(b.dataset.edit));
     wrap.querySelectorAll('[data-qr]').forEach(b=> b.onclick = ()=> openCarQrModal(b.dataset.qr));
+    wrap.querySelectorAll('[data-darurat]').forEach(b=> b.onclick = ()=> openEmergencyCardModal(b.dataset.darurat));
     wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteCar(b.dataset.del));
   }
   renderTable(list);
@@ -4469,6 +4582,21 @@ function openCarModal(editId){
       <label>Link Maps Rute Pulang (opsional)</label>
       <input type="text" id="in-maps-pulang" data-no-uppercase="1" placeholder="Tempel link Google Maps rute pulang mobil ini" value="${editing&&editing.mapsRutePulang?escapeHtml(editing.mapsRutePulang):''}">
       <div class="hint">Rute yang biasa dilewati mobil ini saat pulang (mis. ke garasi/pool). Muncul di tombol "🏠 Rute Pulang" pada Aksi Cepat Dashboard -- pilih mobil ini, langsung buka rute ini di Google Maps.</div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Nomor Rangka (opsional)</label>
+        <input type="text" id="in-nomor-rangka" placeholder="Contoh: MHKV1BA2JBJ012345" value="${editing&&editing.nomorRangka?escapeHtml(editing.nomorRangka):''}">
+      </div>
+      <div class="field">
+        <label>Nomor Mesin (opsional)</label>
+        <input type="text" id="in-nomor-mesin" placeholder="Contoh: DVVT123456" value="${editing&&editing.nomorMesin?escapeHtml(editing.nomorMesin):''}">
+      </div>
+    </div>
+    <div class="field">
+      <label>Kontak Bengkel Langganan (opsional)</label>
+      <input type="text" id="in-kontak-bengkel" placeholder="Contoh: Bengkel Jaya Motor - 0812xxxxxxx" value="${editing&&editing.kontakBengkel?escapeHtml(editing.kontakBengkel):''}">
+      <div class="hint">Muncul di Kartu Info Darurat mobil ini (tombol "🆘 Info Darurat") -- dicetak & disimpan di dalam mobil, bukan cuma di HP, untuk situasi darurat/kecelakaan saat tidak ada sinyal.</div>
     </div>
     <div class="field">
       <label>Odometer Saat Ini (KM)</label>
@@ -4563,6 +4691,9 @@ function openCarModal(editId){
       const merk = document.getElementById('in-merk').value.trim();
       const fotoUrl = document.getElementById('in-foto-url').value.trim();
       const mapsRutePulang = document.getElementById('in-maps-pulang').value.trim();
+      const nomorRangka = document.getElementById('in-nomor-rangka').value.trim();
+      const nomorMesin = document.getElementById('in-nomor-mesin').value.trim();
+      const kontakBengkel = document.getElementById('in-kontak-bengkel').value.trim();
       const modelMobil = document.getElementById('in-model').value.trim();
       const tahun = document.getElementById('in-tahun').value.trim();
       const warna = document.getElementById('in-warna').value.trim();
@@ -4617,12 +4748,12 @@ function openCarModal(editId){
       if(ccMesin!=null && ccMesin<=0) ccMesin = null;
 
       if(editing){
-        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin});
+        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin});
         touch(editing);
         logActivity('mobil', 'Edit data mobil', `${merk} ${modelMobil} — ${plat}`);
         showToast('Data mobil diperbarui.');
       } else {
-        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, createdAt: today(), petugas: currentAdmin}));
+        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, createdAt: today(), petugas: currentAdmin}));
         logActivity('mobil', 'Tambah mobil baru', `${merk} ${modelMobil} — ${plat}`);
         showToast('Mobil baru ditambahkan.');
       }
@@ -4742,10 +4873,11 @@ function renderDrivers(){
               <td>${escapeHtml(d.noSim||'-')}</td>
               <td>${escapeHtml(d.noHp||'-')}</td>
               <td>${escapeHtml(d.alamat||'-')}</td>
-              <td>${d.telegramChatId ? '<span class="badge ok">🔔 Aktif</span>' : '<span class="badge neutral">-</span>'}</td>
+              <td>${!insightUnlocked ? '<span class="badge neutral">🔒</span>' : (d.telegramChatId ? '<span class="badge ok">🔔 Aktif</span>' : '<span class="badge neutral">-</span>')}</td>
               <td>${t.totalKm>0?t.totalKm.toLocaleString('id-ID')+' KM':'-'}</td>
               <td>${t.totalMenit>0?fmtDurationMinutes(t.totalMenit):'-'}</td>
               <td style="text-align:right;white-space:nowrap;">
+                ${(insightUnlocked && d.telegramChatId) ? `<button class="btn btn-ghost btn-sm" data-testnotif="${d.id}" title="Test kirim notifikasi ke sopir ini">🧪 Test</button>` : ''}
                 <button class="btn btn-ghost btn-sm" data-edit="${d.id}">Edit</button>
               </td>
             </tr>`;
@@ -4762,10 +4894,11 @@ function renderDrivers(){
             <div class="data-card-row"><span class="k">No. SIM</span><span class="v">${escapeHtml(d.noSim||'-')}</span></div>
             <div class="data-card-row"><span class="k">No. HP</span><span class="v">${escapeHtml(d.noHp||'-')}</span></div>
             <div class="data-card-row"><span class="k">Alamat</span><span class="v">${escapeHtml(d.alamat||'-')}</span></div>
-            <div class="data-card-row"><span class="k">Notifikasi Telegram</span><span class="v">${d.telegramChatId ? '<span class="badge ok">🔔 Aktif</span>' : '<span class="badge neutral">-</span>'}</span></div>
+            <div class="data-card-row"><span class="k">Notifikasi Telegram</span><span class="v">${!insightUnlocked ? '<span class="badge neutral">🔒</span>' : (d.telegramChatId ? '<span class="badge ok">🔔 Aktif</span>' : '<span class="badge neutral">-</span>')}</span></div>
             <div class="data-card-row"><span class="k">Total KM</span><span class="v">${t.totalKm>0?t.totalKm.toLocaleString('id-ID')+' KM':'-'}</span></div>
             <div class="data-card-row"><span class="k">Total Jam Jalan</span><span class="v">${t.totalMenit>0?fmtDurationMinutes(t.totalMenit):'-'}</span></div>
             <div class="data-card-actions">
+              ${(insightUnlocked && d.telegramChatId) ? `<button class="btn btn-ghost btn-sm" data-testnotif="${d.id}">🧪 Test Notifikasi</button>` : ''}
               <button class="btn btn-ghost btn-sm" data-edit="${d.id}">✏️ Edit</button>
             </div>
           </div>`;
@@ -4773,6 +4906,7 @@ function renderDrivers(){
       </div>
     `;
     wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openDriverModal(b.dataset.edit));
+    wrap.querySelectorAll('[data-testnotif]').forEach(b=> b.onclick = ()=> openTestNotifModal(b.dataset.testnotif));
   }
   renderTable(allItems);
 
@@ -4825,9 +4959,16 @@ function openDriverModal(editId){
       <textarea id="in-alamat" rows="2" placeholder="Opsional">${editing?escapeHtml(editing.alamat||''):''}</textarea>
     </div>
     <div class="field">
-      <label>Telegram Chat ID</label>
-      <input type="text" id="in-telegramchatid" data-no-uppercase="1" placeholder="Opsional — supaya sopir ini dapat notifikasi armada" value="${editing?escapeHtml(editing.telegramChatId||''):''}">
-      <div class="hint">Cara dapatnya: sopir chat dulu ke bot Telegram FleetOps, lalu buka <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> dan cari angka <code>"chat":{"id": ...}</code>. Kosongkan kalau sopir ini tidak perlu dapat notifikasi.</div>
+      <label>Telegram Chat ID ${insightUnlocked ? '' : '<span class="badge neutral" style="font-weight:600;">🔒 Dikunci</span>'}</label>
+      ${insightUnlocked ? `
+        <input type="text" id="in-telegramchatid" data-no-uppercase="1" placeholder="Opsional — supaya sopir ini dapat notifikasi armada" value="${editing?escapeHtml(editing.telegramChatId||''):''}">
+        <div class="hint">Cara dapatnya: sopir chat dulu ke bot Telegram FleetOps, lalu buka <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> dan cari angka <code>"chat":{"id": ...}</code>. Kosongkan kalau sopir ini tidak perlu dapat notifikasi.</div>
+      ` : `
+        <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:7px;padding:9px 10px;background:#F5F6F8;">
+          <span style="font-size:12.5px;color:var(--muted);flex:1;">Data kontak notifikasi disembunyikan -- perlu PIN Insight untuk lihat/ubah.</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-unlock-telegram-field">🔒 Buka PIN</button>
+        </div>
+      `}
     </div>
   `;
   openModal({
@@ -4838,7 +4979,12 @@ function openDriverModal(editId){
       const noSim = document.getElementById('in-nosim').value.trim();
       const noHp = document.getElementById('in-nohp').value.trim();
       const alamat = document.getElementById('in-alamat').value.trim();
-      const telegramChatId = document.getElementById('in-telegramchatid').value.trim();
+      // v3.96.0 -- kalau field-nya lagi DIKUNCI (tidak dirender ke DOM sama
+      // sekali), JANGAN sentuh nilai telegramChatId yang sudah ada -- bukan
+      // ditimpa jadi kosong. Cuma dibaca & diubah kalau PIN sedang terbuka
+      // (field-nya benar-benar ada di form).
+      const telegramInput = document.getElementById('in-telegramchatid');
+      const telegramChatId = telegramInput ? telegramInput.value.trim() : (editing ? (editing.telegramChatId||'') : '');
 
       let valid = true;
       toggleFieldError('f-nama', !nama); if(!nama) valid=false;
@@ -4859,6 +5005,16 @@ function openDriverModal(editId){
       return true;
     }
   });
+  if(!insightUnlocked){
+    const unlockBtn = document.getElementById('btn-unlock-telegram-field');
+    // v3.96.0 -- SENGAJA cuma buka modal PIN langsung (bukan coba "menumpuk"
+    // modal Data Sopir di baliknya) -- openModal() cuma dukung 1 modal aktif
+    // sekaligus (isi #modal-root ditimpa, bukan ditumpuk), jadi mencoba
+    // menumpuk 2 modal lewat kode custom rawan rapuh/rusak. Setelah PIN
+    // benar, tinggal klik "Edit" lagi di baris sopirnya -- 1 langkah ekstra
+    // tapi jauh lebih aman & sederhana daripada memaksa alur bertumpuk.
+    if(unlockBtn) unlockBtn.onclick = openInsightPinModal;
+  }
 }
 
 /* ========================================================================
@@ -6779,8 +6935,8 @@ function openTripReceiptModal(usageId){
   openModal({
     title: 'Tanda Terima Perjalanan',
     body: `
-      <div style="display:flex;justify-content:center;margin-bottom:16px;overflow:hidden;">
-        <div id="trip-receipt-preview" style="transform:scale(0.9);transform-origin:top center;border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08);"></div>
+      <div id="trip-receipt-preview-wrap" style="display:flex;justify-content:center;margin-bottom:16px;overflow:hidden;">
+        <div id="trip-receipt-preview" style="border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.08);"></div>
       </div>
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
         <button type="button" class="btn btn-ghost" id="btn-copy-trip-receipt">📋 Salin Gambar</button>
@@ -6794,7 +6950,31 @@ function openTripReceiptModal(usageId){
   const cancelBtn = document.getElementById('modal-cancel');
   if(cancelBtn) cancelBtn.style.display = 'none';
   const previewHolder = document.getElementById('trip-receipt-preview');
-  if(previewHolder) previewHolder.appendChild(buildTripReceiptElement(u));
+  if(previewHolder){
+    const receiptEl = buildTripReceiptElement(u);
+    previewHolder.appendChild(receiptEl);
+    // v3.98.0 -- SEBELUMNYA pakai transform:scale(0.9) TETAP -- itu cuma
+    // mengecilkan TAMPILAN, bukan ruang yang "dijatah" di layout (CSS
+    // transform memang begitu, tidak memengaruhi ukuran box aslinya) --
+    // akibatnya di modal/layar sempit, sisi kanan resi tetap kepotong
+    // karena browser masih menghitung lebar ASLI (380px) buat jatah
+    // ruangnya, padahal yang kelihatan cuma versi kecilnya. Sekarang
+    // diukur & discale SESUAI ruang yang benar-benar tersedia (beda-beda
+    // tiap ukuran layar), plus wrapper-nya diberi ukuran PERSIS hasil
+    // scale itu -- supaya tidak ada lagi kelebihan lebar yang terpotong.
+    requestAnimationFrame(()=>{
+      const wrap = document.getElementById('trip-receipt-preview-wrap');
+      if(!wrap) return;
+      const naturalWidth = receiptEl.offsetWidth;
+      const naturalHeight = receiptEl.offsetHeight;
+      const maxAvailable = wrap.clientWidth - 4; // -4px jaga2 spasi tipis
+      const scale = Math.min(1, maxAvailable / naturalWidth);
+      receiptEl.style.transform = `scale(${scale})`;
+      receiptEl.style.transformOrigin = 'top left';
+      previewHolder.style.width = (naturalWidth*scale) + 'px';
+      previewHolder.style.height = (naturalHeight*scale) + 'px';
+    });
+  }
   document.getElementById('btn-copy-trip-receipt').onclick = () => copyTripReceiptToClipboard(usageId);
   document.getElementById('btn-share-trip-receipt').onclick = () => shareTripReceipt(usageId);
 }
@@ -8415,7 +8595,7 @@ function openDocModal(){
    ringkasan + peringatan di atas data yang sudah ada.
    ======================================================================== */
 function fuelBatasFor(car){
-  return car.batasMinimumBensin!=null ? Number(car.batasMinimumBensin) : 20;
+  return car.batasMinimumBensin!=null ? Number(car.batasMinimumBensin) : getNotifSettings().bbmMinDefault;
 }
 // Estimasi liter BBM yang BENAR-BENAR terpakai di 1 perjalanan -- rumus
 // NERACA TANGKI, SAMA PERSIS dengan yang dipakai kolom "Rasio" di Catat
@@ -9914,6 +10094,114 @@ async function openCarQrModal(carId){
     if(container) container.innerHTML = `<p style="color:var(--red);font-size:12.5px;">${escapeHtml(e.message||'Gagal membuat QR Code.')}</p>`;
   }
 }
+
+/* ========================================================================
+   KARTU INFO DARURAT (v3.94.0) -- kartu ringkas per mobil (plat, nomor
+   rangka/mesin, kontak bengkel langganan, nomor asuransi) yang DICETAK &
+   disimpan FISIK DI DALAM MOBIL (bukan di HP) -- supaya tetap bisa diakses
+   saat darurat/kecelakaan tanpa sinyal/tanpa HP menyala.
+   Nomor Asuransi diambil OTOMATIS dari menu Dokumen (jenis="Asuransi")
+   kalau ada -- tidak perlu diisi dobel di Data Mobil.
+   ======================================================================== */
+function openEmergencyCardModal(carId){
+  const car = state.cars.find(c=>c.id===carId);
+  if(!car) return;
+  const asuransi = state.documents
+    .filter(d=> d.carId===carId && d.jenis==='Asuransi')
+    .sort((a,b)=> (b.tglTerbit||'').localeCompare(a.tglTerbit||''))[0]; // ambil yang paling baru kalau lebih dari 1
+
+  const cardHtml = `
+    <div id="emergency-card-print" class="emergency-card">
+      <div class="emergency-card-head">
+        <div class="emergency-card-title">🆘 KARTU INFO DARURAT</div>
+        <div class="emergency-card-sub">FleetOps — Simpan kartu ini di dalam mobil</div>
+      </div>
+      <div class="emergency-card-plat">${escapeHtml(car.plat)}</div>
+      <div class="emergency-card-model">${escapeHtml(car.merk)} ${escapeHtml(car.modelMobil)}${car.tahun?' ('+escapeHtml(String(car.tahun))+')':''}</div>
+      <table class="emergency-card-table">
+        <tr><td>Nomor Rangka</td><td>${escapeHtml(car.nomorRangka||'-')}</td></tr>
+        <tr><td>Nomor Mesin</td><td>${escapeHtml(car.nomorMesin||'-')}</td></tr>
+        <tr><td>Bengkel Langganan</td><td>${escapeHtml(car.kontakBengkel||'-')}</td></tr>
+        <tr><td>Nomor Polis Asuransi</td><td>${asuransi ? escapeHtml(asuransi.nomor||'-') : '-'}</td></tr>
+      </table>
+      <div class="emergency-card-foot">Dicetak ${fmtDate(today())} · FleetOps</div>
+    </div>
+  `;
+
+  openModal({
+    title: `Kartu Info Darurat — ${car.plat}`,
+    body: `
+      ${cardHtml}
+      <p style="font-size:11.5px;color:var(--muted);margin:14px 0 0;line-height:1.6;">
+        Cetak kartu ini (tombol di bawah), lalu simpan di dalam mobil (mis. laci dashboard) -- bukan cuma di HP, supaya tetap bisa diakses saat darurat/kecelakaan tanpa sinyal.
+      </p>
+    `,
+    onSave: () => true
+  });
+  const saveBtn = document.getElementById('modal-save');
+  if(saveBtn){ saveBtn.textContent = '🖨️ Cetak'; saveBtn.onclick = () => { window.print(); return false; }; }
+  const cancelBtn = document.getElementById('modal-cancel');
+  if(cancelBtn) cancelBtn.textContent = 'Tutup';
+}
+
+/* ========================================================================
+   TEST NOTIFIKASI TELEGRAM (v3.97.0) -- KHUSUS per sopir, dikunci PIN
+   Insight (sama dengan field Telegram Chat ID itu sendiri).
+   CATATAN KEAMANAN: browser TIDAK PERNAH memegang Bot Token Telegram (itu
+   cuma ada sebagai Secret di GitHub Actions) -- jadi tombol ini TIDAK BISA
+   langsung "klik kirim" dari sini. Yang bisa dilakukan: siapkan semuanya
+   (salin Chat ID + link ke workflow yang tepat), pengguna tinggal klik
+   "Run workflow" di GitHub -- 2 langkah, tapi tetap aman (tidak ada token
+   yang perlu dibocorkan ke browser).
+   ======================================================================== */
+function openTestNotifModal(driverId){
+  const driver = state.drivers.find(d=>d.id===driverId);
+  if(!driver || !driver.telegramChatId) return;
+  const workflowUrl = isGhConnected()
+    ? `https://github.com/${ghConfig.owner}/${ghConfig.repo}/actions/workflows/telegram-notify.yml`
+    : null;
+
+  openModal({
+    title: `🧪 Test Notifikasi — ${driver.nama}`,
+    body: `
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.6;">
+        Browser ini TIDAK menyimpan Bot Token Telegram (sengaja, demi keamanan -- token cuma ada di GitHub Secrets). Jadi tes ini butuh 2 langkah manual di GitHub -- sudah saya siapkan semuanya, tinggal ikuti:
+      </p>
+      <div class="field">
+        <label>1. Salin Chat ID sopir ini</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="test-notif-chatid" readonly value="${escapeHtml(driver.telegramChatId)}" style="flex:1;font-family:'JetBrains Mono',monospace;">
+          <button type="button" class="btn btn-ghost" id="btn-copy-test-chatid">📋 Salin</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>2. Buka halaman workflow &amp; jalankan</label>
+        ${workflowUrl ? `
+          <a href="${escapeHtml(workflowUrl)}" target="_blank" rel="noopener" class="btn btn-primary" style="width:100%;justify-content:center;display:flex;">🔗 Buka GitHub Actions</a>
+          <div class="hint">Di halaman itu: klik <b>"Run workflow"</b> → tempel Chat ID yang sudah disalin ke kolom <b>test_chat_id</b> → klik <b>"Run workflow"</b> lagi. Sopir ini akan menerima 1 pesan tes dalam beberapa detik.</div>
+        ` : `
+          <div class="hint" style="color:var(--red);">Sinkronisasi Cloud (GitHub) belum terhubung, jadi saya tidak tahu link repo Anda -- hubungkan dulu di menu Pengaturan, atau buka manual: repo Anda → tab Actions → "FleetOps - Notifikasi Telegram Otomatis" → Run workflow → tempel Chat ID ke kolom test_chat_id.</div>
+        `}
+      </div>
+    `,
+    onSave: () => true
+  });
+  const saveBtn = document.getElementById('modal-save');
+  if(saveBtn) saveBtn.style.display = 'none';
+  const cancelBtn2 = document.getElementById('modal-cancel');
+  if(cancelBtn2) cancelBtn2.textContent = 'Tutup';
+  const copyBtn = document.getElementById('btn-copy-test-chatid');
+  if(copyBtn) copyBtn.onclick = async () => {
+    try{
+      await navigator.clipboard.writeText(driver.telegramChatId);
+      showToast('Chat ID disalin.');
+    }catch(e){
+      document.getElementById('test-notif-chatid').select();
+      showToast('Gagal menyalin otomatis -- teksnya sudah disorot, salin manual (Ctrl+C).', true);
+    }
+  };
+}
+
 // Dipanggil SEKALI saat aplikasi pertama dibuka (lihat pemanggilan di baris
 // inisialisasi app paling bawah) -- cek apakah URL-nya hasil scan QR mobil
 // (?quickcar=ID). Kalau ya: pindah ke Catat Perjalanan, langsung buka form
@@ -9930,34 +10218,59 @@ async function openCarQrModal(carId){
 // yang dibuka) TAPI begitu satu mobil diklik, Maps langsung terbuka DAN
 // popup langsung tertutup -- tidak ada lagi layar konfirmasi perantara
 // dengan tombol "Navigasi" terpisah.
+// v3.94.0 -- Coba ekstrak koordinat lat,lng dari link Maps yang ditempel
+// (pola umum: "@lat,lng" atau "q=lat,lng" dari fitur share lokasi Google
+// Maps), lalu bangun ulang jadi format UNIVERSAL Google
+// (maps/dir/?api=1&destination=lat,lng) -- ini format resmi yang paling
+// diandalkan Google utk langsung serah-terima ke APP Maps asli di HP,
+// bukannya nyasar ke halaman upsell "Upgrade ke Maps" di dalam WebView
+// (yang terjadi kalau link mentah dibuka apa adanya di sebagian browser/
+// WebView PWA). Kalau polanya tidak dikenali, link dipakai APA ADANYA --
+// tidak dipaksa ubah, supaya tidak merusak link yang formatnya lain.
+function normalizeMapsUrl(url){
+  if(!url) return url;
+  const match = url.match(/(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/);
+  if(match){
+    return `https://www.google.com/maps/dir/?api=1&destination=${match[1]},${match[2]}`;
+  }
+  return url;
+}
+
 function openRutePulangPicker(){
   const carsWithRoute = state.cars.filter(c=> c.mapsRutePulang);
   if(carsWithRoute.length===0){
     showToast('Belum ada mobil yang diisi Link Maps Rute Pulang -- isi dulu di Data Mobil (Edit → Link Maps Rute Pulang).', true);
     return;
   }
-  if(carsWithRoute.length===1){
-    window.open(carsWithRoute[0].mapsRutePulang, '_blank', 'noopener');
-    return;
-  }
-  const body = `
-    <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">Pilih mobil untuk langsung buka rute pulangnya di Google Maps.</p>
+  // v3.94.0 -- SEBELUMNYA mobil tunggal langsung window.open() otomatis --
+  // itu yang memicu "popup diblokir" kalau alur ini dipicu lewat jalan
+  // TIDAK LANGSUNG (mis. shortcut PWA yang lewat setTimeout), karena
+  // browser menganggapnya BUKAN hasil klik langsung pengguna. Sekarang
+  // SELALU tampilkan link asli (<a href target="_blank">) yang disentuh
+  // sendiri oleh pengguna -- klik pada elemen <a> yang benar-benar ada di
+  // DOM TIDAK PERNAH diblokir sebagai popup, beda dengan window.open()
+  // yang dipanggil dari kode.
+  const body = carsWithRoute.length===1 ? `
+      <div style="text-align:center;">
+        <div style="display:flex;justify-content:center;margin-bottom:10px;">${carPhotoHtml(carsWithRoute[0],'car-thumb-lg')}</div>
+        <div style="font-weight:800;font-size:15px;margin-bottom:4px;">${escapeHtml(carLabel(carsWithRoute[0].id))}</div>
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 16px;">Ketuk tombol di bawah untuk buka rute pulang mobil ini langsung di Google Maps.</p>
+        <a href="${escapeHtml(normalizeMapsUrl(carsWithRoute[0].mapsRutePulang))}" target="_blank" rel="noopener" class="btn btn-primary" style="width:100%;justify-content:center;display:flex;">🧭 Buka di Google Maps</a>
+      </div>
+    ` : `
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">Pilih mobil untuk buka rute pulangnya di Google Maps.</p>
     ${carsWithRoute.map(c=>`
-      <button type="button" class="btn btn-ghost" style="width:100%;justify-content:flex-start;gap:10px;margin-bottom:6px;display:flex;align-items:center;" data-rp-car="${c.id}">
+      <a href="${escapeHtml(normalizeMapsUrl(c.mapsRutePulang))}" target="_blank" rel="noopener" class="btn btn-ghost" style="width:100%;justify-content:flex-start;gap:10px;margin-bottom:6px;display:flex;align-items:center;text-decoration:none;">
         ${carPhotoHtml(c,'car-thumb-sm')}<span>${escapeHtml(carLabel(c.id))}</span>
-      </button>`).join('')}
+      </a>`).join('')}
   `;
   openModal({ title: '🏠 Rute Pulang', body, onSave: ()=>true });
   const saveBtn = document.getElementById('modal-save'); if(saveBtn) saveBtn.style.display='none';
   const cancelBtn = document.getElementById('modal-cancel'); if(cancelBtn) cancelBtn.textContent='Batal';
-  document.querySelectorAll('[data-rp-car]').forEach(b=>{
-    b.onclick = ()=>{
-      const car = carsWithRoute.find(c=>c.id===b.dataset.rpCar);
-      window.open(car.mapsRutePulang, '_blank', 'noopener');
-      const root = document.getElementById('modal-root');
-      if(root) root.innerHTML = '';
-    };
-  });
+  // Link di dalam modal ini sengaja TIDAK auto-menutup modal setelah
+  // diklik (beda dari sebelumnya yang langsung root.innerHTML='') -- kalau
+  // link-nya sempat gagal terbuka (mis. tidak ada app Maps sama sekali),
+  // pengguna tidak kehilangan modalnya & bisa coba lagi/pilih mobil lain.
 }
 
 function handleQrQuickstart(){
@@ -9989,7 +10302,13 @@ function handleShortcutQuickstart(){
     if(!shortcut) return;
     history.replaceState(null, '', location.pathname);
     if(shortcut==='usage'){
-      navigate('usage');
+      // v3.94.0 -- SEBELUMNYA navigate('usage') dulu (pindah ke halaman
+      // Catat Perjalanan), jadi begitu form ditutup, yang tampil adalah
+      // daftar Catat Perjalanan. Sekarang navigate('dashboard') dulu --
+      // SAMA PERSIS seperti tombol "Catat Perjalanan" di Aksi Cepat
+      // (formnya nangkring DI ATAS Dashboard) -- begitu form ditutup,
+      // yang tampil Dashboard, bukan daftar Catat Perjalanan.
+      navigate('dashboard');
       setTimeout(()=> openUsageModal(), 200);
     } else if(shortcut==='rutepulang'){
       navigate('dashboard');
@@ -10189,6 +10508,39 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.98.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Perbaikan bug: preview "Tanda Terima Perjalanan" (muncul setelah Tandai Tiba) sempat terpotong di sisi kanan pada layar sempit -- penyebabnya transform:scale(0.9) tetap yang dipakai sebelumnya cuma mengecilkan TAMPILAN, tidak mengecilkan ruang yang dijatah di layout (perilaku normal CSS transform). Sekarang skalanya dihitung otomatis sesuai lebar layar yang benar-benar tersedia, jadi tidak akan terpotong di ukuran layar mana pun.',
+    ]
+  },
+  {
+    v: '3.97.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Fitur baru: Test Notifikasi per sopir (Data Sopir → tombol "🧪 Test", cuma muncul kalau PIN Insight terbuka & sopir itu sudah punya Telegram Chat ID). Karena Bot Token Telegram sengaja TIDAK PERNAH ada di browser (demi keamanan), tombol ini menyiapkan Chat ID (tinggal salin) + link langsung ke halaman GitHub Actions yang tepat -- 2 klik di GitHub untuk kirim 1 pesan tes ke sopir itu.',
+      'telegram-notify.yml & telegram-notify.mjs diperbarui: workflow_dispatch sekarang punya input "test_chat_id" -- kalau diisi manual, script langsung kirim 1 pesan tes ke Chat ID itu dan berhenti (tidak menyentuh logika deteksi alert/anti-spam sama sekali).',
+    ]
+  },
+  {
+    v: '3.96.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Field "Telegram Chat ID" (Data Sopir) sekarang dikunci PIN Insight yang sama -- kalau PIN belum dibuka: field-nya disembunyikan total di form Edit/Tambah (tidak bisa dilihat/diubah), dan status di tabel/kartu cuma tampil "🔒" (bukan status Aktif/tidak yang sebenarnya). Panel "Ambang Batas Notifikasi" di Pengaturan juga dapat ringkasan "X dari Y sopir sudah terdaftar Telegram" + tombol pintas ke Data Sopir -- supaya tetap ada gambaran dari 1 tempat tanpa datanya didobel-taruh.',
+    ]
+  },
+  {
+    v: '3.95.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Perbaikan: versi aplikasi sempat tidak sinkron antara meta tag & kode (3.92.1 vs 3.93.0) -- sekarang konsisten.',
+      'Pintasan PWA "Catat Perjalanan" & shortcut icon: manifest.json dibangun ulang dengan ikon per-pintasan (sebelumnya kotak putih kosong), dan pintasan "Catat Perjalanan" sekarang membuka form DI ATAS Dashboard (bukan pindah ke halaman Catat Perjalanan) -- sama seperti tombol di Aksi Cepat, begitu form ditutup langsung kembali ke Dashboard.',
+      'Perbaikan PENTING: tombol Rute/Rute Pulang sempat memicu "popup diblokir" & nyasar ke halaman upsell "Upgrade ke Maps" -- akar masalahnya window.open() dipanggil lewat setTimeout (bukan hasil klik langsung, jadi diblokir browser). Diganti total ke link asli (<a target="_blank">) yang disentuh sendiri, plus normalizeMapsUrl() yang membangun ulang link jadi format resmi Google (maps/dir/?api=1) supaya langsung serah-terima ke app Maps, bukan nyasar ke WebView upsell.',
+      'Fitur baru: Kartu Info Darurat per mobil (Data Mobil → tombol "🆘"). Field baru Nomor Rangka, Nomor Mesin, Kontak Bengkel Langganan -- digabung dengan Nomor Polis Asuransi (otomatis dari menu Dokumen) jadi 1 kartu yang bisa dicetak (khusus tampilan cetak, bersih dari elemen app lain) untuk disimpan fisik di dalam mobil.',
+      'Fitur baru: Ambang Batas Notifikasi (Pengaturan → dikunci PIN Insight yang sama). Sekarang bisa diatur: berapa hari sebelum dokumen kadaluarsa mulai diingatkan, berapa % jadwal servis mulai peringatan, batas minimum default BBM & saldo E-Toll (dipakai kalau mobil/kartu belum diatur sendiri). Perubahan ini disalin PERSIS ke telegram-notify.mjs juga (WAJIB sinkron manual, sudah dikerjakan) supaya notifikasi Telegram & lonceng aplikasi selalu konsisten -- sudah diverifikasi lewat simulasi.',
+    ]
+  },
   {
     v: '3.93.0',
     date: '26 Jul 2026',
