@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.105.0">
+<meta name="app-version" content="3.106.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1193,7 +1193,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.105.0';
+const APP_VERSION = '3.106.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3115,7 +3115,35 @@ function renderHapusData(){
   });
 }
 
+// v3.106.0 -- SELURUH halaman Pengaturan sekarang di balik 1 gerbang PIN
+// yang sama dengan Insight (BBM/Servis/dst), TANPA TERKECUALI. Sebelumnya
+// panel "Backup & Pulihkan", "Toleransi Gap Odometer", dan "Nama Petugas/
+// Admin" tidak dikunci PIN sama sekali, dan panel "Notifikasi" & "Ambang
+// Batas Notifikasi" masing-masing punya tombol "Buka dengan PIN" sendiri
+// (isi panel lain tetap kelihatan strukturnya walau terkunci). Sekarang:
+// kalau PIN belum dibuka (lewat titik kecil "·" di footer), yang tampil
+// CUMA 1 gerbang PIN polos -- tidak ada judul panel, tidak ada struktur
+// apa pun yang bocor. Baru setelah PIN benar, SELURUH isi halaman muncul
+// sekaligus (tidak ada lagi kunci per-panel terpisah di dalamnya).
 function renderSettings(){
+  if(!insightUnlocked){
+    document.getElementById('header-actions').innerHTML = '';
+    document.getElementById('content').innerHTML = `
+      <div class="panel">
+        <div class="panel-body" style="text-align:center;padding:52px 20px;">
+          <div style="font-size:34px;margin-bottom:10px;">🔒</div>
+          <div style="font-weight:800;font-size:15px;margin-bottom:6px;">Pengaturan Terkunci</div>
+          <p style="color:var(--muted);font-size:13px;max-width:340px;margin:0 auto 20px;line-height:1.6;">
+            Seluruh isi halaman ini (Backup &amp; Pulihkan Data, Notifikasi, Ambang Batas, Toleransi Gap, Nama Petugas) butuh PIN yang sama dengan Insight untuk dilihat maupun diubah.
+          </p>
+          <button class="btn btn-primary" id="btn-unlock-settings-page">🔒 Buka dengan PIN</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('btn-unlock-settings-page').onclick = openInsightPinModal;
+    return;
+  }
+
   document.getElementById('header-actions').innerHTML =
     `<button class="btn btn-primary" id="btn-add-admin">+ Tambah Petugas</button>${exportBtnHtml('btn-export-admin')}`;
   document.getElementById('btn-add-admin').onclick = () => openAdminModal();
@@ -3158,15 +3186,8 @@ function renderSettings(){
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head">
-        <h2>🔔 Notifikasi</h2>
-        ${insightUnlocked ? '' : '<span class="badge neutral">🔒 Terkunci</span>'}
-      </div>
+      <div class="panel-head"><h2>🔔 Notifikasi</h2></div>
       <div class="panel-body">
-        ${!insightUnlocked ? `
-          <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">Pengaturan notifikasi browser -- dikunci PIN yang sama dengan panel lain di bawah, supaya SEMUA urusan notifikasi konsisten butuh PIN yang sama.</p>
-          <button class="btn btn-primary btn-sm" id="btn-unlock-notif-panel1">🔒 Buka dengan PIN</button>
-        ` : `
         <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
           Kalau diaktifkan, notifikasi (dokumen kadaluarsa, servis jatuh tempo, BBM rendah, dst -- sama
           persis dengan yang muncul di ikon lonceng 🔔) akan tetap muncul di HP Anda selama aplikasi
@@ -3180,88 +3201,77 @@ function renderSettings(){
           minimize/pindah app lain, itu tidak masalah).
         </p>
         <div id="notif-permission-status"></div>
-        `}
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head">
-        <h2>⏰ Ambang Batas Notifikasi</h2>
-        ${insightUnlocked ? '' : '<span class="badge neutral">🔒 Terkunci</span>'}
-      </div>
+      <div class="panel-head"><h2>⏰ Ambang Batas Notifikasi</h2></div>
       <div class="panel-body">
-        ${!insightUnlocked ? `
-          <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
-            Atur kapan notifikasi "Perlu Perhatian" mulai muncul (dokumen kadaluarsa, servis jatuh tempo, BBM &amp; saldo E-Toll menipis) -- dikunci PIN yang sama dengan Insight, supaya cuma yang berwenang yang bisa mengubah ambang batas ini.
-          </p>
-          <button class="btn btn-primary btn-sm" id="btn-unlock-notif-settings">🔒 Buka dengan PIN</button>
-        ` : `
-          <p style="color:var(--muted);margin:0 0 14px;line-height:1.6;">
-            Nilai di bawah ini dipakai bersama oleh lonceng notifikasi di aplikasi <b>dan</b> Notifikasi Telegram Otomatis (GitHub Actions) -- ubah di sini, otomatis berlaku ke keduanya begitu tersinkron.
-          </p>
-          <div class="grid-2">
+        <p style="color:var(--muted);margin:0 0 14px;line-height:1.6;">
+          Nilai di bawah ini dipakai bersama oleh lonceng notifikasi di aplikasi <b>dan</b> Notifikasi Telegram Otomatis (GitHub Actions) -- ubah di sini, otomatis berlaku ke keduanya begitu tersinkron.
+        </p>
+        <div class="grid-2">
+          <div class="field">
+            <label>Dokumen: ingatkan berapa hari sebelum kadaluarsa</label>
+            <input type="text" inputmode="numeric" id="in-notif-doc-days" value="${getNotifSettings().docExpiryDays}">
+          </div>
+          <div class="field">
+            <label>Servis: mulai peringatan di berapa % dari jadwal</label>
+            <input type="text" inputmode="numeric" id="in-notif-service-pct" value="${getNotifSettings().serviceWarnPct}">
+          </div>
+          <div class="field">
+            <label>BBM: batas minimum default (%) jika mobil belum diatur sendiri</label>
+            <input type="text" inputmode="numeric" id="in-notif-bbm-min" value="${getNotifSettings().bbmMinDefault}">
+          </div>
+          <div class="field">
+            <label>E-Toll: batas minimum saldo default (Rp) jika kartu belum diatur sendiri</label>
+            <input type="text" inputmode="numeric" id="in-notif-etoll-min" value="${getNotifSettings().etollMinDefault}">
+          </div>
+        </div>
+        <div class="hint" style="margin:-4px 0 12px;">Nilai "default" di sini cuma dipakai untuk mobil/kartu yang BELUM diisi batasnya sendiri-sendiri (di Data Mobil / Kartu E-Toll) -- mengisi batas di situ tetap didahulukan.</div>
+        <div style="border-top:1px solid var(--line);margin-top:4px;padding-top:14px;">
+          <div class="field" style="max-width:280px;">
+            <label>⏱️ Cek notifikasi berkala setiap</label>
+            <select id="in-notif-check-interval">
+              <option value="5" ${getNotifSettings().checkIntervalMinutes===5?'selected':''}>5 menit</option>
+              <option value="10" ${getNotifSettings().checkIntervalMinutes===10?'selected':''}>10 menit</option>
+              <option value="15" ${getNotifSettings().checkIntervalMinutes===15?'selected':''}>15 menit</option>
+              <option value="30" ${getNotifSettings().checkIntervalMinutes===30?'selected':''}>30 menit</option>
+              <option value="60" ${getNotifSettings().checkIntervalMinutes===60?'selected':''}>60 menit (1 jam)</option>
+            </select>
+            <div class="hint">Berlaku untuk notifikasi Dokumen/Servis/BBM/E-Toll/Booking. Makin kecil = makin cepat, tapi makin sering GitHub Actions jalan. <b>Tidak berlaku</b> untuk 🧾 Resi Perjalanan -- itu selalu dicek maksimal tiap 5 menit, berapa pun angka ini.</div>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="in-notif-quiethours" ${getNotifSettings().quietHoursEnabled?'checked':''} style="width:16px;height:16px;">
+            🌙 Jam Sunyi (tunda notifikasi Telegram level "Perlu Diperhatikan")
+          </label>
+          <div class="hint" style="margin:4px 0 10px;">Notifikasi <b>Mendesak</b> (mis. saldo E-Toll habis) TETAP terkirim kapan pun -- cuma yang levelnya "Perlu Diperhatikan" yang ditunda ke pengecekan berikutnya selama masih dalam rentang jam ini.</div>
+          <div class="grid-2" id="notif-quiethours-times" style="${getNotifSettings().quietHoursEnabled?'':'opacity:0.5;pointer-events:none;'}">
             <div class="field">
-              <label>Dokumen: ingatkan berapa hari sebelum kadaluarsa</label>
-              <input type="text" inputmode="numeric" id="in-notif-doc-days" value="${getNotifSettings().docExpiryDays}">
+              <label>Mulai</label>
+              <input type="time" id="in-notif-quiet-start" value="${getNotifSettings().quietHoursStart}">
             </div>
             <div class="field">
-              <label>Servis: mulai peringatan di berapa % dari jadwal</label>
-              <input type="text" inputmode="numeric" id="in-notif-service-pct" value="${getNotifSettings().serviceWarnPct}">
-            </div>
-            <div class="field">
-              <label>BBM: batas minimum default (%) jika mobil belum diatur sendiri</label>
-              <input type="text" inputmode="numeric" id="in-notif-bbm-min" value="${getNotifSettings().bbmMinDefault}">
-            </div>
-            <div class="field">
-              <label>E-Toll: batas minimum saldo default (Rp) jika kartu belum diatur sendiri</label>
-              <input type="text" inputmode="numeric" id="in-notif-etoll-min" value="${getNotifSettings().etollMinDefault}">
+              <label>Sampai</label>
+              <input type="time" id="in-notif-quiet-end" value="${getNotifSettings().quietHoursEnd}">
             </div>
           </div>
-          <div class="hint" style="margin:-4px 0 12px;">Nilai "default" di sini cuma dipakai untuk mobil/kartu yang BELUM diisi batasnya sendiri-sendiri (di Data Mobil / Kartu E-Toll) -- mengisi batas di situ tetap didahulukan.</div>
-          <div style="border-top:1px solid var(--line);margin-top:4px;padding-top:14px;">
-            <div class="field" style="max-width:280px;">
-              <label>⏱️ Cek notifikasi berkala setiap</label>
-              <select id="in-notif-check-interval">
-                <option value="5" ${getNotifSettings().checkIntervalMinutes===5?'selected':''}>5 menit</option>
-                <option value="10" ${getNotifSettings().checkIntervalMinutes===10?'selected':''}>10 menit</option>
-                <option value="15" ${getNotifSettings().checkIntervalMinutes===15?'selected':''}>15 menit</option>
-                <option value="30" ${getNotifSettings().checkIntervalMinutes===30?'selected':''}>30 menit</option>
-                <option value="60" ${getNotifSettings().checkIntervalMinutes===60?'selected':''}>60 menit (1 jam)</option>
-              </select>
-              <div class="hint">Berlaku untuk notifikasi Dokumen/Servis/BBM/E-Toll/Booking. Makin kecil = makin cepat, tapi makin sering GitHub Actions jalan. <b>Tidak berlaku</b> untuk 🧾 Resi Perjalanan -- itu selalu dicek maksimal tiap 5 menit, berapa pun angka ini.</div>
-            </div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-save-notif-settings">Simpan Ambang Batas</button>
+        <div style="border-top:1px solid var(--line);margin:16px 0 0;padding-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <span style="font-size:12.5px;color:var(--muted);">
+            📨 <b>${state.drivers.filter(d=>d.telegramChatId).length} dari ${state.drivers.length}</b> sopir sudah terdaftar Telegram Chat ID
+          </span>
+          <button class="btn btn-ghost btn-sm" id="btn-goto-drivers-telegram">Kelola di Data Sopir →</button>
+        </div>
+        <div style="border-top:1px solid var(--line);margin:14px 0 0;padding-top:14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <span style="font-weight:700;font-size:13px;">📜 Riwayat Notifikasi Terkirim</span>
+            <button class="btn btn-ghost btn-sm" id="btn-refresh-notif-history">🔄 Muat Ulang</button>
           </div>
-          <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
-            <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
-              <input type="checkbox" id="in-notif-quiethours" ${getNotifSettings().quietHoursEnabled?'checked':''} style="width:16px;height:16px;">
-              🌙 Jam Sunyi (tunda notifikasi Telegram level "Perlu Diperhatikan")
-            </label>
-            <div class="hint" style="margin:4px 0 10px;">Notifikasi <b>Mendesak</b> (mis. saldo E-Toll habis) TETAP terkirim kapan pun -- cuma yang levelnya "Perlu Diperhatikan" yang ditunda ke pengecekan berikutnya selama masih dalam rentang jam ini.</div>
-            <div class="grid-2" id="notif-quiethours-times" style="${getNotifSettings().quietHoursEnabled?'':'opacity:0.5;pointer-events:none;'}">
-              <div class="field">
-                <label>Mulai</label>
-                <input type="time" id="in-notif-quiet-start" value="${getNotifSettings().quietHoursStart}">
-              </div>
-              <div class="field">
-                <label>Sampai</label>
-                <input type="time" id="in-notif-quiet-end" value="${getNotifSettings().quietHoursEnd}">
-              </div>
-            </div>
-          </div>
-          <button class="btn btn-primary btn-sm" id="btn-save-notif-settings">Simpan Ambang Batas</button>
-          <div style="border-top:1px solid var(--line);margin:16px 0 0;padding-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-            <span style="font-size:12.5px;color:var(--muted);">
-              📨 <b>${state.drivers.filter(d=>d.telegramChatId).length} dari ${state.drivers.length}</b> sopir sudah terdaftar Telegram Chat ID
-            </span>
-            <button class="btn btn-ghost btn-sm" id="btn-goto-drivers-telegram">Kelola di Data Sopir →</button>
-          </div>
-          <div style="border-top:1px solid var(--line);margin:14px 0 0;padding-top:14px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-              <span style="font-weight:700;font-size:13px;">📜 Riwayat Notifikasi Terkirim</span>
-              <button class="btn btn-ghost btn-sm" id="btn-refresh-notif-history">🔄 Muat Ulang</button>
-            </div>
-            <div id="notif-history-wrap" style="margin-top:10px;"></div>
-          </div>
-        `}
+          <div id="notif-history-wrap" style="margin-top:10px;"></div>
+        </div>
       </div>
     </div>
     <div class="panel">
@@ -3297,50 +3307,41 @@ function renderSettings(){
     this.value = ''; // reset supaya bisa pilih file yang sama lagi kalau perlu
   });
   attachIntegerOnlyInput('in-toleransi-gap');
-  if(insightUnlocked) renderNotifPermissionStatus();
-  const unlockBtn1 = document.getElementById('btn-unlock-notif-panel1');
-  if(unlockBtn1) unlockBtn1.onclick = openInsightPinModal;
-  if(!insightUnlocked){
-    const unlockBtn = document.getElementById('btn-unlock-notif-settings');
-    if(unlockBtn) unlockBtn.onclick = openInsightPinModal;
-  } else {
-    ['in-notif-doc-days','in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min'].forEach(id=>{
-      const el = document.getElementById(id);
-      if(el) attachIntegerOnlyInput(id);
-    });
-    const saveBtn = document.getElementById('btn-save-notif-settings');
-    if(saveBtn) saveBtn.onclick = () => {
-      const docDays = Number(document.getElementById('in-notif-doc-days').value || 0);
-      const svcPct = Number(document.getElementById('in-notif-service-pct').value || 0);
-      const bbmMin = Number(document.getElementById('in-notif-bbm-min').value || 0);
-      const etollMin = Number(document.getElementById('in-notif-etoll-min').value || 0);
-      const quietHoursEnabled = document.getElementById('in-notif-quiethours').checked;
-      const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
-      const quietHoursEnd = document.getElementById('in-notif-quiet-end').value || NOTIF_SETTINGS_DEFAULT.quietHoursEnd;
-      const checkIntervalMinutes = Number(document.getElementById('in-notif-check-interval').value) || NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes;
-      state.notifSettings = {
-        docExpiryDays: docDays>=0 ? docDays : NOTIF_SETTINGS_DEFAULT.docExpiryDays,
-        serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
-        bbmMinDefault: bbmMin>=0 ? bbmMin : NOTIF_SETTINGS_DEFAULT.bbmMinDefault,
-        etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
-        quietHoursEnabled, quietHoursStart, quietHoursEnd,
-        checkIntervalMinutes: [5,10,15,30,60].includes(checkIntervalMinutes) ? checkIntervalMinutes : NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes,
-      };
-      saveData();
-      showToast('Ambang batas notifikasi disimpan.');
-      renderNotifBell();
+  renderNotifPermissionStatus();
+  ['in-notif-doc-days','in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) attachIntegerOnlyInput(id);
+  });
+  const saveBtn = document.getElementById('btn-save-notif-settings');
+  saveBtn.onclick = () => {
+    const docDays = Number(document.getElementById('in-notif-doc-days').value || 0);
+    const svcPct = Number(document.getElementById('in-notif-service-pct').value || 0);
+    const bbmMin = Number(document.getElementById('in-notif-bbm-min').value || 0);
+    const etollMin = Number(document.getElementById('in-notif-etoll-min').value || 0);
+    const quietHoursEnabled = document.getElementById('in-notif-quiethours').checked;
+    const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
+    const quietHoursEnd = document.getElementById('in-notif-quiet-end').value || NOTIF_SETTINGS_DEFAULT.quietHoursEnd;
+    const checkIntervalMinutes = Number(document.getElementById('in-notif-check-interval').value) || NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes;
+    state.notifSettings = {
+      docExpiryDays: docDays>=0 ? docDays : NOTIF_SETTINGS_DEFAULT.docExpiryDays,
+      serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
+      bbmMinDefault: bbmMin>=0 ? bbmMin : NOTIF_SETTINGS_DEFAULT.bbmMinDefault,
+      etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
+      quietHoursEnabled, quietHoursStart, quietHoursEnd,
+      checkIntervalMinutes: [5,10,15,30,60].includes(checkIntervalMinutes) ? checkIntervalMinutes : NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes,
     };
-    const quietToggle = document.getElementById('in-notif-quiethours');
-    if(quietToggle) quietToggle.addEventListener('change', function(){
-      const timesWrap = document.getElementById('notif-quiethours-times');
-      if(timesWrap) timesWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
-    });
-    const gotoDriversBtn = document.getElementById('btn-goto-drivers-telegram');
-    if(gotoDriversBtn) gotoDriversBtn.onclick = () => navigate('drivers');
-    const refreshHistBtn = document.getElementById('btn-refresh-notif-history');
-    if(refreshHistBtn) refreshHistBtn.onclick = renderNotifHistory;
-    renderNotifHistory();
-  }
+    saveData();
+    showToast('Ambang batas notifikasi disimpan.');
+    renderNotifBell();
+  };
+  const quietToggle = document.getElementById('in-notif-quiethours');
+  quietToggle.addEventListener('change', function(){
+    const timesWrap = document.getElementById('notif-quiethours-times');
+    if(timesWrap) timesWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
+  });
+  document.getElementById('btn-goto-drivers-telegram').onclick = () => navigate('drivers');
+  document.getElementById('btn-refresh-notif-history').onclick = renderNotifHistory;
+  renderNotifHistory();
   document.getElementById('btn-save-toleransi-gap').onclick = () => {
     const val = Number(document.getElementById('in-toleransi-gap').value || 0);
     state.toleransiGapKm = val >= 0 ? val : 0;
@@ -10873,6 +10874,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.106.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Keamanan: SELURUH halaman Pengaturan sekarang di balik 1 gerbang PIN yang sama dengan Insight, tanpa terkecuali -- buka lewat titik kecil "·" di footer. Sebelumnya panel "Backup & Pulihkan Data", "Toleransi Gap Odometer", dan "Nama Petugas/Admin" bisa dilihat & diubah bebas tanpa PIN sama sekali, dan panel Notifikasi/Ambang Batas masing-masing punya tombol buka-PIN sendiri (strukturnya tetap kelihatan walau terkunci). Sekarang kalau PIN belum dibuka, yang tampil cuma 1 gerbang PIN polos -- tidak ada satu pun judul panel atau struktur yang bocor sebelum PIN benar.',
+    ]
+  },
   {
     v: '3.105.0',
     date: '26 Jul 2026',
