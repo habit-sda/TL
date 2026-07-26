@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.108.0">
+<meta name="app-version" content="3.109.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1236,7 +1236,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.108.0';
+const APP_VERSION = '3.109.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -4540,32 +4540,6 @@ function renderDashboard(){
       </div>`}
     </div>
   </div>
-
-  ${(() => {
-    if(!insightUnlocked) return '';
-    const allInsights = computeAllInsights();
-    return `
-    <div class="panel">
-      <div class="panel-head">
-        <h2>🔎 Insight Terbaru</h2>
-        ${allInsights.length>0 ? `<span class="badge ${allInsights.some(a=>a.level==='danger')?'danger':'warn'}">${allInsights.length} ditemukan</span>` : ''}
-      </div>
-      <div class="panel-body">
-        <p style="font-size:11.5px;color:var(--muted);margin:0 0 12px;line-height:1.6;">
-          Gabungan dari SEMUA insight (BBM, Servis, E-Toll, Durasi, Jarak, Efisiensi Wajar) dalam 1 daftar prioritas -- tidak perlu cek satu-satu ke 6 halaman berbeda.
-        </p>
-        ${allInsights.length===0 ? emptyState('✅','Tidak ada pola yang mencurigakan dari seluruh data sejauh ini.') : `
-        <div class="alert-list">
-          ${allInsights.slice(0,20).map(a=>`
-            <div class="alert-list-item">
-              <div class="ic">${a.level==='danger'?'🔴':'🟡'}</div>
-              <div class="body"><b>${escapeHtml(a.judul)}</b><div class="desc">${a.detail}</div></div>
-            </div>`).join('')}
-          ${allInsights.length>20 ? `<p style="font-size:11.5px;color:var(--muted);margin:8px 0 0;text-align:center;">+ ${allInsights.length-20} lainnya -- cek halaman masing-masing modul untuk daftar lengkap.</p>` : ''}
-        </div>`}
-      </div>
-    </div>`;
-  })()}
 
   <div class="panel">
     <div class="panel-head"><h2>Statistik Bulan Ini</h2></div>
@@ -11225,6 +11199,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.109.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Panel "🔎 Insight Terbaru" dihapus dari Dashboard atas permintaan (dirasa mengganggu). Deteksi anomali per-modul (BBM, Servis, E-Toll) tetap ada seperti biasa di halaman masing-masing -- yang dihapus cuma ringkasan gabungannya di Dashboard.',
+    ]
+  },
   {
     v: '3.108.0',
     date: '26 Jul 2026',
