@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.100.1">
+<meta name="app-version" content="3.103.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -393,6 +393,11 @@
     .vehicle-card-stats{grid-template-columns:1fr 1fr;row-gap:12px;}
     .vehicle-card-compact{flex-wrap:wrap;}
     .vehicle-card-compact-bar{width:100%;order:5;}
+    /* v3.103.0 -- utilitas umum: sembunyikan elemen di layar sempit (HP) --
+       dipakai pertama kali utk tombol "Export Excel" di Laporan Bulanan
+       (topbar sudah padat: hamburger+judul+lonceng+tombol, Excel bikin
+       tombol PDF ikut terdesak & teksnya melipat jadi 2 baris). */
+    .hide-mobile{display:none!important;}
   }
 
   .plate{
@@ -1188,7 +1193,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.100.1';
+const APP_VERSION = '3.103.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1539,7 +1544,7 @@ function loadData(){
 }
 function defaultData(){
   return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
-    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000 } };
+    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00' } };
 }
 // v3.95.0 -- Pengaturan Notifikasi (nilai ambang batas dipakai computeAlerts()
 // & telegram-notify.mjs). PENTING: dibaca lewat fungsi ini SAJA (bukan baca
@@ -1547,7 +1552,33 @@ function defaultData(){
 // ada, belum punya field notifSettings sama sekali) tetap otomatis dapat
 // nilai default yang SAMA PERSIS dengan perilaku sebelumnya -- tidak perlu
 // migrasi data terpisah, dan tidak mungkin error kalau field-nya belum ada.
-const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000 };
+const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00' };
+// v3.103.0 -- Langganan notifikasi PER SOPIR: tiap sopir bisa diatur cuma
+// dapat kategori tertentu (mis. Budi cuma dapat Dokumen+Servis, Siti cuma
+// BBM+E-Toll) lewat driver.notifKategori (array key di bawah). PENTING:
+// kalau field ini BELUM ADA (null/undefined, termasuk semua sopir yg sudah
+// terdaftar SEBELUM fitur ini dibuat), dianggap "semua kategori" -- bukan
+// "tidak dapat apa-apa" -- supaya tidak ada yg tiba-tiba berhenti dapat
+// notif cuma karena field barunya belum diisi.
+const NOTIF_CATEGORIES = [
+  { key:'doc', label:'Dokumen Kadaluarsa', prefix:'doc-' },
+  { key:'service', label:'Servis/Ganti Oli', prefix:'svc-' },
+  { key:'etoll', label:'Saldo E-Toll Rendah', prefix:'etoll-' },
+  { key:'bbm', label:'BBM Menipis', prefix:'bbm-' },
+  { key:'booking', label:'Reminder Booking', prefix:'booking-h1-' },
+];
+function categoryOfAlertId(id){
+  const found = NOTIF_CATEGORIES.find(c=> id.startsWith(c.prefix));
+  return found ? found.key : null;
+}
+// Dipakai KHUSUS filter alert utk 1 sopir tertentu (bukan utk lonceng app,
+// yang tetap tampilkan SEMUA ke siapa pun yang buka app-nya) -- ini murni
+// menentukan APA YANG DIKIRIM ke Telegram sopir itu.
+function alertsForDriver(allAlerts, driver){
+  const kategoriDipilih = Array.isArray(driver.notifKategori) ? driver.notifKategori : null;
+  if(!kategoriDipilih) return allAlerts; // belum diatur -> semua (lihat catatan di atas)
+  return allAlerts.filter(a=> kategoriDipilih.includes(categoryOfAlertId(a.id)));
+}
 function getNotifSettings(){
   return { ...NOTIF_SETTINGS_DEFAULT, ...(state.notifSettings||{}) };
 }
@@ -2576,6 +2607,12 @@ function serviceReminderInfo(car){
 const SERVICE_CATEGORIES = ['Ganti Oli','Servis Berkala / Tune Up','Rem','Ban & Balancing','AC','Kelistrikan','Suspensi/Understel','Aki','Lainnya'];
 
 const BIAYA_OP_CATEGORIES = ['Isi BBM','Isi E-Toll','Makan','Parkir','Tol Tunai','Lainnya'];
+// v3.99.0 -- sub-kategori WAJIB kalau kategori = "Isi BBM" (jenis BBM yang
+// diisi) -- daftar dasar cuma 2, tapi bisa ditambah bebas lewat "+ Jenis
+// lain (baru)..." dan otomatis "diingat" (diambil dari riwayat, sama
+// seperti kategori custom Biaya Operasional lainnya) untuk dipakai lagi ke
+// depannya tanpa perlu ketik ulang.
+const JENIS_BBM_DEFAULT = ['Pertalite','Pertamax'];
 function usageBiayaOpItems(u){ return Array.isArray(u.biayaOperasional) ? u.biayaOperasional : []; }
 function usageBiayaOpTotal(u){ return usageBiayaOpItems(u).reduce((sum,it)=> sum + (Number(it.nominal)||0), 0); }
 // Total Biaya E-Toll (Rp E-Toll, gross yang dibayar -- BUKAN nilai bersih
@@ -3100,8 +3137,15 @@ function renderSettings(){
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head"><h2>🔔 Notifikasi</h2></div>
+      <div class="panel-head">
+        <h2>🔔 Notifikasi</h2>
+        ${insightUnlocked ? '' : '<span class="badge neutral">🔒 Terkunci</span>'}
+      </div>
       <div class="panel-body">
+        ${!insightUnlocked ? `
+          <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">Pengaturan notifikasi browser -- dikunci PIN yang sama dengan panel lain di bawah, supaya SEMUA urusan notifikasi konsisten butuh PIN yang sama.</p>
+          <button class="btn btn-primary btn-sm" id="btn-unlock-notif-panel1">🔒 Buka dengan PIN</button>
+        ` : `
         <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
           Kalau diaktifkan, notifikasi (dokumen kadaluarsa, servis jatuh tempo, BBM rendah, dst -- sama
           persis dengan yang muncul di ikon lonceng 🔔) akan tetap muncul di HP Anda selama aplikasi
@@ -3115,6 +3159,7 @@ function renderSettings(){
           minimize/pindah app lain, itu tidak masalah).
         </p>
         <div id="notif-permission-status"></div>
+        `}
       </div>
     </div>
     <div class="panel">
@@ -3151,12 +3196,36 @@ function renderSettings(){
             </div>
           </div>
           <div class="hint" style="margin:-4px 0 12px;">Nilai "default" di sini cuma dipakai untuk mobil/kartu yang BELUM diisi batasnya sendiri-sendiri (di Data Mobil / Kartu E-Toll) -- mengisi batas di situ tetap didahulukan.</div>
+          <div style="border-top:1px solid var(--line);margin-top:4px;padding-top:14px;">
+            <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
+              <input type="checkbox" id="in-notif-quiethours" ${getNotifSettings().quietHoursEnabled?'checked':''} style="width:16px;height:16px;">
+              🌙 Jam Sunyi (tunda notifikasi Telegram level "Perlu Diperhatikan")
+            </label>
+            <div class="hint" style="margin:4px 0 10px;">Notifikasi <b>Mendesak</b> (mis. saldo E-Toll habis) TETAP terkirim kapan pun -- cuma yang levelnya "Perlu Diperhatikan" yang ditunda ke pengecekan berikutnya selama masih dalam rentang jam ini.</div>
+            <div class="grid-2" id="notif-quiethours-times" style="${getNotifSettings().quietHoursEnabled?'':'opacity:0.5;pointer-events:none;'}">
+              <div class="field">
+                <label>Mulai</label>
+                <input type="time" id="in-notif-quiet-start" value="${getNotifSettings().quietHoursStart}">
+              </div>
+              <div class="field">
+                <label>Sampai</label>
+                <input type="time" id="in-notif-quiet-end" value="${getNotifSettings().quietHoursEnd}">
+              </div>
+            </div>
+          </div>
           <button class="btn btn-primary btn-sm" id="btn-save-notif-settings">Simpan Ambang Batas</button>
           <div style="border-top:1px solid var(--line);margin:16px 0 0;padding-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
             <span style="font-size:12.5px;color:var(--muted);">
               📨 <b>${state.drivers.filter(d=>d.telegramChatId).length} dari ${state.drivers.length}</b> sopir sudah terdaftar Telegram Chat ID
             </span>
             <button class="btn btn-ghost btn-sm" id="btn-goto-drivers-telegram">Kelola di Data Sopir →</button>
+          </div>
+          <div style="border-top:1px solid var(--line);margin:14px 0 0;padding-top:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <span style="font-weight:700;font-size:13px;">📜 Riwayat Notifikasi Terkirim</span>
+              <button class="btn btn-ghost btn-sm" id="btn-refresh-notif-history">🔄 Muat Ulang</button>
+            </div>
+            <div id="notif-history-wrap" style="margin-top:10px;"></div>
           </div>
         `}
       </div>
@@ -3194,7 +3263,9 @@ function renderSettings(){
     this.value = ''; // reset supaya bisa pilih file yang sama lagi kalau perlu
   });
   attachIntegerOnlyInput('in-toleransi-gap');
-  renderNotifPermissionStatus();
+  if(insightUnlocked) renderNotifPermissionStatus();
+  const unlockBtn1 = document.getElementById('btn-unlock-notif-panel1');
+  if(unlockBtn1) unlockBtn1.onclick = openInsightPinModal;
   if(!insightUnlocked){
     const unlockBtn = document.getElementById('btn-unlock-notif-settings');
     if(unlockBtn) unlockBtn.onclick = openInsightPinModal;
@@ -3209,18 +3280,30 @@ function renderSettings(){
       const svcPct = Number(document.getElementById('in-notif-service-pct').value || 0);
       const bbmMin = Number(document.getElementById('in-notif-bbm-min').value || 0);
       const etollMin = Number(document.getElementById('in-notif-etoll-min').value || 0);
+      const quietHoursEnabled = document.getElementById('in-notif-quiethours').checked;
+      const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
+      const quietHoursEnd = document.getElementById('in-notif-quiet-end').value || NOTIF_SETTINGS_DEFAULT.quietHoursEnd;
       state.notifSettings = {
         docExpiryDays: docDays>=0 ? docDays : NOTIF_SETTINGS_DEFAULT.docExpiryDays,
         serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
         bbmMinDefault: bbmMin>=0 ? bbmMin : NOTIF_SETTINGS_DEFAULT.bbmMinDefault,
         etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
+        quietHoursEnabled, quietHoursStart, quietHoursEnd,
       };
       saveData();
       showToast('Ambang batas notifikasi disimpan.');
       renderNotifBell();
     };
+    const quietToggle = document.getElementById('in-notif-quiethours');
+    if(quietToggle) quietToggle.addEventListener('change', function(){
+      const timesWrap = document.getElementById('notif-quiethours-times');
+      if(timesWrap) timesWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
+    });
     const gotoDriversBtn = document.getElementById('btn-goto-drivers-telegram');
     if(gotoDriversBtn) gotoDriversBtn.onclick = () => navigate('drivers');
+    const refreshHistBtn = document.getElementById('btn-refresh-notif-history');
+    if(refreshHistBtn) refreshHistBtn.onclick = renderNotifHistory;
+    renderNotifHistory();
   }
   document.getElementById('btn-save-toleransi-gap').onclick = () => {
     const val = Number(document.getElementById('in-toleransi-gap').value || 0);
@@ -3497,6 +3580,15 @@ function computeAlerts(){
         alerts.push({ id:'bbm-'+c.id, route:'bbm', ic:'⛽', level: sisaTerkini<=batas/2?'danger':'warn', judul:'BBM menipis', keterangan: `${carLabel(c.id)} — sisa ${formatBensinDisplay(sisaTerkini, c)}` });
       }
     }
+  });
+  // v3.102.0 -- Reminder Booking H-1: booking yang MASIH aktif ("dipesan",
+  // belum dimulai/dibatalkan) dengan tanggal mulai BESOK -- SENGAJA pesan
+  // pengingat (bukan masalah/anomali) supaya tidak ada yang lupa jadwal.
+  const besok = new Date(); besok.setDate(besok.getDate()+1);
+  const besokStr = `${besok.getFullYear()}-${String(besok.getMonth()+1).padStart(2,'0')}-${String(besok.getDate()).padStart(2,'0')}`;
+  state.bookings.forEach(b=>{
+    if(b.status!=='dipesan' || b.tglMulai!==besokStr) return;
+    alerts.push({ id:'booking-h1-'+b.id, route:'bookings', ic:'📅', level:'warn', judul:'Booking besok', keterangan: `${carLabel(b.carId)} — ${b.tujuan||'(tanpa tujuan)'}${b.jamMulai?' · '+b.jamMulai:''}` });
   });
   alerts.sort((a,b)=> (a.level==='danger'?0:1) - (b.level==='danger'?0:1));
   return alerts;
@@ -5003,6 +5095,18 @@ function openDriverModal(editId){
       ${insightUnlocked ? `
         <input type="text" id="in-telegramchatid" data-no-uppercase="1" placeholder="Opsional — supaya sopir ini dapat notifikasi armada" value="${editing?escapeHtml(editing.telegramChatId||''):''}">
         <div class="hint">Cara dapatnya: sopir chat dulu ke bot Telegram FleetOps, lalu buka <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> dan cari angka <code>"chat":{"id": ...}</code>. Kosongkan kalau sopir ini tidak perlu dapat notifikasi.</div>
+        <div style="margin-top:10px;padding:10px;background:#F9FAFB;border-radius:7px;">
+          <div style="font-size:12px;font-weight:700;margin-bottom:8px;">Kategori notifikasi yang diterima sopir ini:</div>
+          ${NOTIF_CATEGORIES.map(c=>{
+            const kategoriTersimpan = Array.isArray(editing?.notifKategori) ? editing.notifKategori : null;
+            const checked = kategoriTersimpan===null ? true : kategoriTersimpan.includes(c.key); // belum diatur = semua tercentang
+            return `<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 0;cursor:pointer;">
+              <input type="checkbox" class="in-notifkat" value="${c.key}" ${checked?'checked':''} style="width:15px;height:15px;">
+              ${c.label}
+            </label>`;
+          }).join('')}
+          <div class="hint" style="margin-top:4px;">Cuma berlaku untuk pengiriman Telegram -- lonceng 🔔 di aplikasi tetap tampilkan semua ke siapa pun yang buka.</div>
+        </div>
       ` : `
         <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:7px;padding:9px 10px;background:#F5F6F8;">
           <span style="font-size:12.5px;color:var(--muted);flex:1;">Data kontak notifikasi disembunyikan -- perlu PIN Insight untuk lihat/ubah.</span>
@@ -5025,18 +5129,24 @@ function openDriverModal(editId){
       // (field-nya benar-benar ada di form).
       const telegramInput = document.getElementById('in-telegramchatid');
       const telegramChatId = telegramInput ? telegramInput.value.trim() : (editing ? (editing.telegramChatId||'') : '');
+      // Sama seperti telegramChatId -- kalau field checkbox-nya tidak ada
+      // di DOM (PIN terkunci), JANGAN sentuh notifKategori yang sudah ada.
+      const notifKatEls = document.querySelectorAll('.in-notifkat');
+      const notifKategori = notifKatEls.length>0
+        ? Array.from(notifKatEls).filter(el=>el.checked).map(el=>el.value)
+        : (editing ? (editing.notifKategori!==undefined ? editing.notifKategori : null) : null);
 
       let valid = true;
       toggleFieldError('f-nama', !nama); if(!nama) valid=false;
       if(!valid) return false;
 
       if(editing){
-        Object.assign(editing, {nama, noSim, noHp, alamat, telegramChatId});
+        Object.assign(editing, {nama, noSim, noHp, alamat, telegramChatId, notifKategori});
         touch(editing);
         logActivity('sopir', 'Edit data sopir', nama);
         showToast('Data sopir diperbarui.');
       } else {
-        state.drivers.push(touch({id: uid(), kode: nextDriverCode(), nama, noSim, noHp, alamat, telegramChatId, createdAt: today(), petugas: currentAdmin}));
+        state.drivers.push(touch({id: uid(), kode: nextDriverCode(), nama, noSim, noHp, alamat, telegramChatId, notifKategori, createdAt: today(), petugas: currentAdmin}));
         logActivity('sopir', 'Tambah sopir baru', nama);
         showToast('Sopir baru ditambahkan.');
       }
@@ -6568,12 +6678,20 @@ function openBiayaOperasionalModal(usageId){
   if(!u) return;
 
   let formItems = usageBiayaOpItems(u).length > 0
-    ? usageBiayaOpItems(u).map(it=>({ id: it.id||uid(), kategori: it.kategori, kategoriCustom: isBiayaOpCategory(it.kategori)?'':it.kategori, nominal: it.nominal, biayaAdmin: it.biayaAdmin||'', catatan: it.catatan||'' }))
-    : [{ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'' }];
+    ? usageBiayaOpItems(u).map(it=>({ id: it.id||uid(), kategori: it.kategori, kategoriCustom: isBiayaOpCategory(it.kategori)?'':it.kategori, nominal: it.nominal, biayaAdmin: it.biayaAdmin||'', catatan: it.catatan||'', jenisBbm: it.jenisBbm||'', jenisBbmCustom: '' }))
+    : [{ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'', jenisBbm:'', jenisBbmCustom:'' }];
   // Normalisasi: kalau kategori tersimpan bukan salah satu dari daftar baku, anggap "Lainnya" + custom.
   formItems = formItems.map(it=>{
     if(it.kategori && !BIAYA_OP_CATEGORIES.includes(it.kategori)){
       return { ...it, kategoriCustom: it.kategori, kategori: '__lainnya__' };
+    }
+    return it;
+  });
+  // Sama untuk jenis BBM -- kalau nilai tersimpan bukan dari daftar dasar,
+  // anggap custom (supaya tetap terpilih dengan benar saat form dibuka lagi).
+  formItems = formItems.map(it=>{
+    if(it.jenisBbm && !JENIS_BBM_DEFAULT.includes(it.jenisBbm)){
+      return { ...it, jenisBbmCustom: it.jenisBbm, jenisBbm: '__lainnya__' };
     }
     return it;
   });
@@ -6608,6 +6726,10 @@ function openBiayaOperasionalModal(usageId){
     state.usage.flatMap(x => usageBiayaOpItems(x).map(it => it.kategori))
       .filter(k => k && !BIAYA_OP_CATEGORIES.includes(k))
   )).sort((a,b)=> a.localeCompare(b));
+  const customFuelTypesUsed = Array.from(new Set(
+    state.usage.flatMap(x => usageBiayaOpItems(x).map(it => it.jenisBbm))
+      .filter(k => k && !JENIS_BBM_DEFAULT.includes(k))
+  )).sort((a,b)=> a.localeCompare(b));
 
   function syncFromDom(){
     formItems.forEach(it=>{
@@ -6615,11 +6737,15 @@ function openBiayaOperasionalModal(usageId){
       const katCustomEl = document.getElementById('bo-katcustom-'+it.id);
       const adminEl = document.getElementById('bo-biayaadmin-'+it.id);
       const catatanEl = document.getElementById('bo-catatan-'+it.id);
+      const jenisBbmEl = document.getElementById('bo-jenisbbm-'+it.id);
+      const jenisBbmCustomEl = document.getElementById('bo-jenisbbmcustom-'+it.id);
       if(katEl) it.kategori = katEl.value;
       if(katCustomEl) it.kategoriCustom = katCustomEl.value;
       it.nominal = getRibuanValue('bo-nominal-'+it.id);
       if(adminEl) it.biayaAdmin = getRibuanValue('bo-biayaadmin-'+it.id);
       if(catatanEl) it.catatan = catatanEl.value;
+      if(jenisBbmEl) it.jenisBbm = jenisBbmEl.value;
+      if(jenisBbmCustomEl) it.jenisBbmCustom = jenisBbmCustomEl.value;
     });
   }
   function updateTotal(){
@@ -6668,6 +6794,22 @@ function openBiayaOperasionalModal(usageId){
           <label>Nama Kategori Lain</label>
           <input type="text" id="bo-katcustom-${it.id}" placeholder="Contoh: Tiket tol darurat" value="${escapeHtml(it.kategoriCustom||'')}" autocomplete="off">
         </div>` : ''}
+        ${it.kategori==='Isi BBM' ? `
+        <div class="field" id="f-bo-jenisbbm-${it.id}" style="margin-bottom:8px;">
+          <label>Jenis BBM *</label>
+          <select id="bo-jenisbbm-${it.id}">
+            <option value="">— pilih —</option>
+            ${JENIS_BBM_DEFAULT.map(j=>`<option value="${j}" ${it.jenisBbm===j?'selected':''}>${j}</option>`).join('')}
+            ${customFuelTypesUsed.length ? `<optgroup label="Jenis lain (pernah dipakai)">
+              ${customFuelTypesUsed.map(j=>`<option value="${escapeHtml(j)}" ${it.jenisBbm===j?'selected':''}>${escapeHtml(j)}</option>`).join('')}
+            </optgroup>` : ''}
+            <option value="__lainnya__" ${it.jenisBbm==='__lainnya__'?'selected':''}>+ Jenis lain (baru)...</option>
+          </select>
+          <div class="err-msg">Jenis BBM wajib dipilih kalau kategorinya "Isi BBM".</div>
+          ${it.jenisBbm==='__lainnya__' ? `
+          <input type="text" id="bo-jenisbbmcustom-${it.id}" placeholder="Contoh: Dexlite" value="${escapeHtml(it.jenisBbmCustom||'')}" autocomplete="off" style="margin-top:8px;">
+          ` : ''}
+        </div>` : ''}
         ${it.kategori==='Isi E-Toll' ? `
         <div class="field" style="margin-bottom:8px;">
           <label>Biaya Admin (opsional)</label>
@@ -6686,6 +6828,8 @@ function openBiayaOperasionalModal(usageId){
     formItems.forEach(it=>{
       const katEl = document.getElementById('bo-kat-'+it.id);
       if(katEl) katEl.addEventListener('change', ()=>{ syncFromDom(); renderItems(); });
+      const jenisBbmEl = document.getElementById('bo-jenisbbm-'+it.id);
+      if(jenisBbmEl) jenisBbmEl.addEventListener('change', ()=>{ syncFromDom(); renderItems(); });
       attachRibuanInput('bo-nominal-'+it.id);
       const nomEl = document.getElementById('bo-nominal-'+it.id);
       if(nomEl) nomEl.addEventListener('input', ()=>{ updateTotal(); updateEtollNetInfo(it.id); });
@@ -6709,12 +6853,26 @@ function openBiayaOperasionalModal(usageId){
     body,
     onSave: () => {
       syncFromDom();
+
+      // Validasi WAJIB: kalau kategori "Isi BBM", jenis BBM-nya harus dipilih
+      // (baik dari daftar baku/custom yang pernah dipakai, ATAUPUN ketik baru
+      // lewat "+ Jenis lain..." -- yang penting tidak boleh kosong).
+      let valid = true;
+      formItems.forEach(it=>{
+        if(it.kategori !== 'Isi BBM') return;
+        const jenisBbmFinal = it.jenisBbm==='__lainnya__' ? (it.jenisBbmCustom||'').trim() : (it.jenisBbm||'');
+        toggleFieldError('f-bo-jenisbbm-'+it.id, !jenisBbmFinal);
+        if(!jenisBbmFinal) valid = false;
+      });
+      if(!valid){ showToast('Jenis BBM wajib dipilih untuk baris berkategori "Isi BBM".', true); return false; }
+
       const validItems = formItems
         .map(it => ({
           id: it.id,
           kategori: (it.kategori === '__lainnya__' ? it.kategoriCustom.trim() : it.kategori),
           nominal: Number(it.nominal)||0,
           biayaAdmin: it.kategori==='Isi E-Toll' ? (Number(it.biayaAdmin)||0) : undefined,
+          jenisBbm: it.kategori==='Isi BBM' ? (it.jenisBbm==='__lainnya__' ? it.jenisBbmCustom.trim() : it.jenisBbm) : undefined,
           catatan: (it.catatan||'').trim()
         }))
         .filter(it => it.kategori && it.nominal > 0);
@@ -6745,7 +6903,7 @@ function openBiayaOperasionalModal(usageId){
   renderItems();
   document.getElementById('btn-add-biayaop-item').addEventListener('click', ()=>{
     syncFromDom();
-    formItems.push({ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'' });
+    formItems.push({ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'', jenisBbm:'', jenisBbmCustom:'' });
     renderItems();
   });
   const btnCopyBiayaOp = document.getElementById('btn-copy-biayaop-report');
@@ -6902,7 +7060,7 @@ function buildTripReceiptElement(u){
       ${biayaTolInfo ? `<tr><td style="padding:4px 0;">Biaya Tol</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${fmtMoney(biayaTol)}</td></tr>` : ''}
       ${biayaOpItems.map(it=>`
         <tr>
-          <td style="padding:4px 0;">${escapeHtml(it.kategori)}${it.catatan?`<div style="font-size:10.5px;color:#6B7280;">${escapeHtml(it.catatan)}</div>`:''}</td>
+          <td style="padding:4px 0;">${escapeHtml(it.kategori)}${it.jenisBbm?` · <b>${escapeHtml(it.jenisBbm)}</b>`:''}${it.catatan?`<div style="font-size:10.5px;color:#6B7280;">${escapeHtml(it.catatan)}</div>`:''}</td>
           <td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${fmtMoney(it.nominal)}</td>
         </tr>`).join('')}
     </table>
@@ -9949,7 +10107,7 @@ function renderMonthlyReport(){
   const defaultYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 
   document.getElementById('header-actions').innerHTML = `
-    <button class="btn btn-ghost" id="btn-export-report-excel">📊 Export Excel</button>
+    <button class="btn btn-ghost hide-mobile" id="btn-export-report-excel">📊 Export Excel</button>
     <button class="btn btn-primary" id="btn-export-report-pdf">📄 Export PDF</button>
   `;
 
@@ -10414,6 +10572,57 @@ function renderNotifPermissionStatus(){
   }
 }
 
+// v3.102.0 -- Riwayat Notifikasi Terkirim. File notif-state.json ditulis
+// GitHub Actions (telegram-notify.mjs) di FOLDER YANG SAMA dengan file data
+// utama (lihat telegram-notify.yml: NOTIF_STATE_PATH = dirname(data)/
+// notif-state.json) -- jadi path-nya diturunkan dari ghConfig.path, BUKAN
+// path terpisah yang perlu diatur manual. Ini murni BACA (read-only) --
+// browser tidak pernah menulis file ini, cuma Action yang berhak.
+function notifStateApiUrl(){
+  if(!isGhConnected()) return null;
+  const dataPath = String(ghConfig.path).replace(/^\/+/, '');
+  const dir = dataPath.includes('/') ? dataPath.slice(0, dataPath.lastIndexOf('/')) : '';
+  const notifPath = dir ? `${dir}/notif-state.json` : 'notif-state.json';
+  return `${ghConfig.workerUrl.replace(/\/$/,'')}/repos/${ghConfig.owner}/${ghConfig.repo}/contents/${notifPath}`;
+}
+async function renderNotifHistory(){
+  const wrap = document.getElementById('notif-history-wrap');
+  if(!wrap) return;
+  if(!isGhConnected()){
+    wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);margin:0;">Sinkronisasi Cloud (GitHub) belum terhubung -- riwayat notifikasi Telegram cuma bisa dilihat kalau sudah terhubung (dibaca dari file yang sama yang ditulis GitHub Actions).</p>`;
+    return;
+  }
+  wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);margin:0;">Memuat riwayat...</p>`;
+  try{
+    const url = notifStateApiUrl();
+    const res = await fetch(`${url}?ref=${encodeURIComponent(ghConfig.branch)}&_=${Date.now()}`, { headers: ghHeaders(), cache:'no-store' });
+    if(res.status === 404){
+      wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);margin:0;">Belum ada riwayat -- workflow Telegram belum pernah jalan, atau belum pernah ada notifikasi yang terkirim.</p>`;
+      return;
+    }
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    const parsed = JSON.parse(b64DecodeUtf8(data.content));
+    const history = Array.isArray(parsed.history) ? parsed.history : [];
+    if(history.length===0){
+      wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);margin:0;">Belum ada notifikasi yang pernah terkirim.</p>`;
+      return;
+    }
+    wrap.innerHTML = history.slice(0,20).map(h=>`
+      <div style="border-bottom:1px solid var(--line);padding:8px 0;font-size:12px;">
+        <div style="display:flex;justify-content:space-between;color:var(--muted);margin-bottom:4px;">
+          <span>${new Date(h.waktu).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})}</span>
+          <span>${h.penerimaSukses||0} terkirim${h.penerimaGagal?', '+h.penerimaGagal+' gagal':''}</span>
+        </div>
+        <div>${(h.items||[]).map(it=>`<span class="badge ${it.level==='danger'?'danger':'warn'}" style="margin:2px 4px 2px 0;">${escapeHtml(it.judul)}</span>`).join('')}</div>
+      </div>
+    `).join('') + (history.length>20 ? `<p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;">+ ${history.length-20} riwayat lebih lama (tersimpan sampai 100 terakhir)</p>` : '');
+  }catch(e){
+    console.error('Gagal memuat riwayat notifikasi:', e);
+    wrap.innerHTML = `<p style="font-size:12px;color:var(--red);margin:0;">Gagal memuat riwayat: ${escapeHtml(e.message)}</p>`;
+  }
+}
+
 // Dipanggil saat app dibuka (lihat inisialisasi di bawah) -- HANYA
 // menampilkan notifikasi utk alert yang BELUM PERNAH dinotifikasi
 // sebelumnya (dilacak via NOTIF_PUSHED_KEY), supaya tidak berulang-ulang
@@ -10558,6 +10767,33 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.103.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Perbaikan celah PIN: panel "🔔 Notifikasi" (izin notifikasi browser) ternyata belum dikunci PIN Insight seperti panel lain -- sekarang konsisten, semua urusan notifikasi butuh PIN yang sama.',
+      'Fitur baru: Langganan Notifikasi per Sopir (Data Sopir, dalam area yang sudah dikunci PIN). Tiap sopir bisa diatur cuma dapat kategori tertentu (Dokumen/Servis/E-Toll/BBM/Booking) -- telegram-notify.mjs direstruktur total supaya pesan yang dikirim beda-beda sesuai langganan tiap sopir (sebelumnya semua dapat pesan sama). Sudah diverifikasi lewat simulasi 4 skenario berbeda.',
+      'Laporan Bulanan: tombol "Export Excel" disembunyikan khusus di layar HP (tetap ada di desktop) -- sebelumnya berdesakan dengan "Export PDF" di topbar yang sempit, teksnya sampai melipat 2 baris.',
+      'Fitur baru: Tanda Terima Perjalanan otomatis terkirim ke Telegram sopir begitu trip ditandai "selesai" (kalau sopirnya sudah terdaftar Chat ID) -- versi teks terformat (bukan gambar, karena render gambar terlalu berat utk GitHub Actions), bisa telat sampai ~1 jam mengikuti jadwal cron. Sudah diverifikasi hasilnya cocok persis dengan resi asli di aplikasi.',
+    ]
+  },
+  {
+    v: '3.102.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Fitur baru: Jam Sunyi (Pengaturan → Ambang Batas Notifikasi). Kalau diaktifkan, notifikasi Telegram level "Perlu Diperhatikan" ditunda ke pengecekan berikutnya selama masih dalam rentang jam yang diatur -- level "Mendesak" TETAP terkirim kapan pun. Sudah diverifikasi lewat simulasi (termasuk rentang yang melewati tengah malam, mis. 22:00–06:00).',
+      'Fitur baru: Riwayat Notifikasi Terkirim (panel yang sama). Menampilkan histori 100 pengiriman Telegram terakhir (kapan, apa saja, berapa penerima sukses/gagal) -- dibaca langsung dari file yang ditulis GitHub Actions, tidak perlu menu baru terpisah.',
+      'Fitur baru: Reminder Booking H-1 -- sehari sebelum jadwal Booking Mobil yang masih aktif, muncul notifikasi pengingat "Booking besok" (di lonceng app maupun Telegram) supaya tidak ada yang lupa jadwal.',
+      'telegram-notify.mjs & .yml diperbarui menyeru mengikuti semua perubahan di atas -- struktur notif-state.json berubah (sekarang menyimpan riwayat, bukan cuma penanda anti-spam) tapi tetap kompatibel membaca file lama dari sebelum update ini.',
+    ]
+  },
+  {
+    v: '3.101.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Perbaikan: fitur sub-kategori "Jenis BBM" (Pertalite/Pertamax/custom, wajib diisi kalau kategori "Isi BBM") sempat hilang -- ternyata file yang diunggah bercabang dari versi sebelum fitur itu dibuat. Sudah dipasang ulang lengkap (dropdown, validasi wajib, daftar custom otomatis diingat, tampil di Tanda Terima Perjalanan) tanpa menyentuh perubahan tampilan tombol Salin Gambar/Bagikan/Batal yang sudah Anda buat sendiri di v3.99.1–3.100.1.',
+    ]
+  },
   {
     v: '3.100.1',
     date: '26 Jul 2026',

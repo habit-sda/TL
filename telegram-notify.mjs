@@ -99,12 +99,35 @@ state.services = state.services || [];
 state.documents = state.documents || [];
 state.drivers = state.drivers || [];
 state.etollCards = state.etollCards || [];
+state.bookings = state.bookings || []; // v3.102.0 -- Reminder Booking H-1
 
 /* ============================================================================
    ---- BAGIAN PORTING DARI index.html (JANGAN diubah rumusnya sendirian) ----
    ============================================================================ */
 
 function today() { return new Date().toISOString().slice(0, 10); }
+
+// v3.103.0 -- PORTING PERSIS dari index.html: langganan notifikasi PER
+// SOPIR. driver.notifKategori (array key) menentukan kategori apa saja yang
+// dikirim ke Telegram sopir itu -- null/undefined = SEMUA kategori (supaya
+// sopir lama yang sudah terdaftar sebelum fitur ini tidak tiba-tiba
+// berhenti dapat notif apa pun).
+const NOTIF_CATEGORIES = [
+  { key: 'doc', prefix: 'doc-' },
+  { key: 'service', prefix: 'svc-' },
+  { key: 'etoll', prefix: 'etoll-' },
+  { key: 'bbm', prefix: 'bbm-' },
+  { key: 'booking', prefix: 'booking-h1-' },
+];
+function categoryOfAlertId(id) {
+  const found = NOTIF_CATEGORIES.find(c => id.startsWith(c.prefix));
+  return found ? found.key : null;
+}
+function alertsForDriver(allAlerts, driver) {
+  const kategoriDipilih = Array.isArray(driver.notifKategori) ? driver.notifKategori : null;
+  if (!kategoriDipilih) return allAlerts;
+  return allAlerts.filter(a => kategoriDipilih.includes(categoryOfAlertId(a.id)));
+}
 
 // v3.95.0 -- PORTING PERSIS dari getNotifSettings() di index.html. Ambang
 // batas notifikasi sekarang bisa diatur admin lewat menu Pengaturan (dikunci
@@ -130,6 +153,96 @@ function fmtMoney(n) {
 function carLabel(carId) {
   const c = state.cars.find(x => x.id === carId);
   return c ? (c.merk + ' ' + c.modelMobil + ' — ' + c.plat) : '(mobil telah dihapus)';
+}
+function driverLabel(driverId, legacyDriverText) {
+  if (driverId) {
+    const d = state.drivers.find(x => x.id === driverId);
+    if (d) return d.nama;
+    return legacyDriverText || '(sopir telah dihapus)';
+  }
+  return legacyDriverText || '-';
+}
+// ---- PORTING PERSIS dari index.html: kalkulasi Tanda Terima Perjalanan
+// (v3.103.0, khusus utk auto-kirim resi via Telegram -- lihat bagian bawah
+// file). SENGAJA TIDAK ikut porting perhitungan Efisiensi BBM (buildFuelChain,
+// algoritma paling kompleks di aplikasi) -- resi Telegram fokus ke info yang
+// paling dibutuhkan sopir (jarak, durasi, biaya), efisiensi lengkap tetap
+// bisa dilihat di aplikasi. ----
+function getTripDurationMinutes(u) {
+  if (!u.tglKeluar || !u.tglKembali) return null;
+  const start = new Date(u.tglKeluar + 'T' + (u.jamKeluar || '00:00') + ':00');
+  const end = new Date(u.tglKembali + 'T' + (u.jamKembali || '00:00') + ':00');
+  if (isNaN(start) || isNaN(end)) return null;
+  const diffMin = Math.round((end - start) / 60000);
+  return diffMin >= 0 ? diffMin : null;
+}
+function fmtDurationMinutes(mins) {
+  if (mins == null || !isFinite(mins) || mins < 0) return '-';
+  mins = Math.round(mins);
+  const days = Math.floor(mins / 1440);
+  const hours = Math.floor((mins % 1440) / 60);
+  const minutes = mins % 60;
+  const parts = [];
+  if (days > 0) parts.push(days + ' hari');
+  if (hours > 0) parts.push(hours + ' jam');
+  if (minutes > 0 || parts.length === 0) parts.push(minutes + ' menit');
+  return parts.join(' ');
+}
+function usageBiayaOpItems(u) { return Array.isArray(u.biayaOperasional) ? u.biayaOperasional : []; }
+function usageBiayaOpTotal(u) { return usageBiayaOpItems(u).reduce((sum, it) => sum + (Number(it.nominal) || 0), 0); }
+function usageEtollNetTopupTotal(u) {
+  return usageBiayaOpItems(u)
+    .filter(it => it.kategori === 'Isi E-Toll')
+    .reduce((sum, it) => sum + ((Number(it.nominal) || 0) - (Number(it.biayaAdmin) || 0)), 0);
+}
+function usageEtollTimeKey(u) {
+  return (u.tglKembali || u.tglKeluar || '') + (u.jamKembali || u.jamKeluar || '');
+}
+function getBiayaTolTerpakai(u) {
+  if (u.status !== 'selesai' || u.saldoEtoll == null) return null;
+  let saldoAwal = (u.saldoEtollAwal != null) ? Number(u.saldoEtollAwal) : null;
+  if (saldoAwal == null) {
+    if (!u.etollCardId) return null;
+    const timeKeyU = usageEtollTimeKey(u);
+    const kandidat = state.usage
+      .filter(x => x.id !== u.id && x.etollCardId === u.etollCardId && x.status === 'selesai' && x.saldoEtoll != null && usageEtollTimeKey(x) <= timeKeyU)
+      .sort((a, b) => usageEtollTimeKey(b).localeCompare(usageEtollTimeKey(a)));
+    if (kandidat.length === 0) return null;
+    saldoAwal = Number(kandidat[0].saldoEtoll);
+  }
+  const netTopup = usageEtollNetTopupTotal(u);
+  const biayaTol = saldoAwal + netTopup - Number(u.saldoEtoll);
+  return { biayaTol };
+}
+function buildTripReceiptText(u) {
+  const jarak = (u.odoKeluar != null && u.odoKembali != null && u.odoKembali >= u.odoKeluar) ? (u.odoKembali - u.odoKeluar) : null;
+  const biayaTolInfo = getBiayaTolTerpakai(u);
+  const biayaTol = biayaTolInfo ? biayaTolInfo.biayaTol : 0;
+  const biayaOpItems = usageBiayaOpItems(u);
+  const biayaOpTotal = usageBiayaOpTotal(u);
+  const grandTotal = (Number(u.biayaBensin) || 0) + biayaTol + biayaOpTotal;
+
+  const lines = [
+    '🧾 <b>Tanda Terima Perjalanan</b>', '',
+    `<b>Mobil:</b> ${escapeHtmlTg(carLabel(u.carId))}`,
+    `<b>Sopir:</b> ${escapeHtmlTg(driverLabel(u.driverId, u.driver))}`,
+    `<b>Tujuan:</b> ${escapeHtmlTg(u.tujuan || '-')}`,
+    `<b>Berangkat:</b> ${escapeHtmlTg(u.tglKeluar || '-')}${u.jamKeluar ? ', ' + u.jamKeluar : ''}`,
+    `<b>Tiba:</b> ${u.tglKembali ? escapeHtmlTg(u.tglKembali) + (u.jamKembali ? ', ' + u.jamKembali : '') : '-'}`,
+    `<b>Durasi:</b> ${fmtDurationMinutes(getTripDurationMinutes(u))}`, '',
+    `Jarak Tempuh: ${jarak != null ? jarak.toLocaleString('id-ID') + ' KM' : '-'}`,
+  ];
+  if (u.literBensin) lines.push(`BBM Diisi: ${u.literBensin} L`);
+  lines.push(`Biaya BBM: ${fmtMoney(u.biayaBensin || 0)}`);
+  if (biayaTolInfo) lines.push(`Biaya Tol: ${fmtMoney(biayaTol)}`);
+  biayaOpItems.forEach(it => {
+    lines.push(`${escapeHtmlTg(it.kategori)}${it.jenisBbm ? ' · ' + escapeHtmlTg(it.jenisBbm) : ''}: ${fmtMoney(it.nominal)}`);
+  });
+  lines.push('');
+  lines.push(`<b>TOTAL BIAYA: ${fmtMoney(grandTotal)}</b>`);
+  lines.push('');
+  lines.push(`<i>Dikirim otomatis begitu perjalanan ditandai selesai. Detail lengkap (termasuk Efisiensi BBM) ada di aplikasi FleetOps.</i>`);
+  return lines.join('\n');
 }
 
 function convertPercentToBar(percent, maxBar) {
@@ -276,86 +389,207 @@ function computeAlerts() {
     }
   });
 
+  // v3.102.0 -- PORTING PERSIS dari index.html: Reminder Booking H-1.
+  const besok = new Date(); besok.setDate(besok.getDate() + 1);
+  const besokStr = `${besok.getFullYear()}-${String(besok.getMonth() + 1).padStart(2, '0')}-${String(besok.getDate()).padStart(2, '0')}`;
+  (state.bookings || []).forEach(b => {
+    if (b.status !== 'dipesan' || b.tglMulai !== besokStr) return;
+    alerts.push({ id: 'booking-h1-' + b.id, ic: '📅', level: 'warn', judul: 'Booking besok', keterangan: `${carLabel(b.carId)} — ${b.tujuan || '(tanpa tujuan)'}${b.jamMulai ? ' · ' + b.jamMulai : ''}` });
+  });
+
   alerts.sort((a, b) => (a.level === 'danger' ? 0 : 1) - (b.level === 'danger' ? 0 : 1));
   return alerts;
 }
 
 /* ============================================================================
-   ---- Anti-spam berbasis notif-state.json ----
-   Prinsip: sekali sebuah id alert dinotifkan pada level tertentu, TIDAK
-   dikirim ulang tiap jam selama levelnya belum NAIK (warn -> danger) atau
-   belum pernah selesai lalu muncul lagi (id hilang dari notif-state.json,
-   lalu muncul lagi -> dianggap baru).
+   ---- Jam Sunyi (v3.102.0) ----
+   Kalau diaktifkan (state.notifSettings.quietHoursEnabled): notifikasi level
+   "warn" (biasa) DITUNDA ke pengecekan berikutnya selama masih dalam rentang
+   jam sunyi -- notifikasi level "danger" (mendesak) TETAP terkirim kapan pun,
+   tidak pernah ditunda, karena sifatnya darurat.
    ============================================================================ */
-const alerts = computeAlerts();
-
-let prevState = {};
-if (existsSync(STATE_PATH)) {
-  try { prevState = JSON.parse(readFileSync(STATE_PATH, 'utf8')); } catch (e) { prevState = {}; }
+function isWithinQuietHours(ns) {
+  if (!ns.quietHoursEnabled) return false;
+  const jakartaHM = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta', hour12: false, hour: '2-digit', minute: '2-digit' });
+  const [nowH, nowM] = jakartaHM.split(':').map(Number);
+  const nowMin = nowH * 60 + nowM;
+  const [startH, startM] = (ns.quietHoursStart || '22:00').split(':').map(Number);
+  const [endH, endM] = (ns.quietHoursEnd || '06:00').split(':').map(Number);
+  const startMin = startH * 60 + startM;
+  const endMin = endH * 60 + endM;
+  // Rentang yang melewati tengah malam (mis. 22:00 -> 06:00) butuh logika OR,
+  // bukan AND, karena "malam" itu dua sisi kalender yang beda.
+  if (startMin === endMin) return false; // rentang kosong (start=end) -> anggap tidak aktif
+  if (startMin < endMin) return nowMin >= startMin && nowMin < endMin;
+  return nowMin >= startMin || nowMin < endMin;
 }
 
+/* ============================================================================
+   ---- Anti-spam & Riwayat berbasis notif-state.json ----
+   Prinsip anti-spam: sekali sebuah id alert dinotifkan pada level tertentu,
+   TIDAK dikirim ulang tiap jam selama levelnya belum NAIK (warn -> danger)
+   atau belum pernah selesai lalu muncul lagi.
+   v3.102.0 -- struktur file BERUBAH dari flat {id: level} jadi
+   {dedup: {id: level}, history: [...]} -- dedup tetap fungsi yang sama,
+   history baru: log ringkas tiap kali BENAR-BENAR ada yang terkirim (dibaca
+   index.html untuk halaman "Riwayat Notifikasi"). File lama (flat, dari
+   sebelum v3.102.0) tetap kebaca aman sebagai {dedup: <isi lama>, history: []}.
+   ============================================================================ */
+const alerts = computeAlerts();
+const ns = getNotifSettings();
+
+let prevStateRaw = {};
+if (existsSync(STATE_PATH)) {
+  try { prevStateRaw = JSON.parse(readFileSync(STATE_PATH, 'utf8')); } catch (e) { prevStateRaw = {}; }
+}
+// Deteksi format lama (flat -- tidak ada key "dedup"/"history" sama sekali,
+// tapi ada isi lain) vs format baru.
+const isOldFlatFormat = prevStateRaw && typeof prevStateRaw === 'object' && !('dedup' in prevStateRaw) && !('history' in prevStateRaw);
+const prevDedup = isOldFlatFormat ? prevStateRaw : (prevStateRaw.dedup || {});
+const prevHistory = Array.isArray(prevStateRaw.history) ? prevStateRaw.history : [];
+// v3.103.0 -- "newReceiptsSent" SENGAJA "let" (bukan "const") dan diisi
+// SEBELUM persistState() didefinisikan -- supaya fungsi persistState() di
+// bawah (dipanggil dari BANYAK titik keluar berbeda di alur alert) SELALU
+// menulis nilai receiptsSent yang TERBARU, apa pun jalur keluarnya. Kalau
+// ini ditulis terpisah/belakangan, berisiko baris kode yang lebih dulu
+// selesai malah MENIMPA hasil kirim resi yang baru saja disimpan.
+let newReceiptsSent = Array.isArray(prevStateRaw.receiptsSent) ? prevStateRaw.receiptsSent : [];
+
 const LEVEL_RANK = { warn: 1, danger: 2 };
-const toSend = alerts.filter(a => {
-  const prevLevel = prevState[a.id];
+const toSendCandidates = alerts.filter(a => {
+  const prevLevel = prevDedup[a.id];
   if (!prevLevel) return true; // masalah baru (atau baru muncul lagi setelah sempat selesai)
   return LEVEL_RANK[a.level] > LEVEL_RANK[prevLevel]; // dikirim lagi cuma kalau levelnya naik
 });
 
-const newState = {};
-alerts.forEach(a => { newState[a.id] = a.level; });
+const inQuietHours = isWithinQuietHours(ns);
+const suppressedByQuietHours = inQuietHours ? toSendCandidates.filter(a => a.level !== 'danger') : [];
+const suppressedIds = new Set(suppressedByQuietHours.map(a => a.id));
+const toSend = toSendCandidates.filter(a => !suppressedIds.has(a.id));
 
-const stateDir = dirname(STATE_PATH);
-if (stateDir && !existsSync(stateDir)) mkdirSync(stateDir, { recursive: true });
-writeFileSync(STATE_PATH, JSON.stringify(newState, null, 2) + '\n');
+if (suppressedByQuietHours.length > 0) {
+  console.log(`🌙 Jam sunyi aktif (${ns.quietHoursStart}–${ns.quietHoursEnd} WIB) -- ${suppressedByQuietHours.length} notifikasi level "warn" ditunda ke pengecekan berikutnya (bukan hilang).`);
+}
+
+// dedup BARU: alert yang DISUPRES jam sunyi SENGAJA TIDAK diperbarui levelnya
+// (biarkan tetap seperti dedup LAMA, atau kosong kalau memang belum pernah
+// ada) -- supaya begitu jam sunyi berakhir, alert itu masih dianggap "baru"
+// dan BENAR terkirim, bukan malah dianggap "sudah" cuma karena levelnya
+// sempat tercatat padahal belum benar-benar terkirim.
+const newDedup = {};
+alerts.forEach(a => {
+  if (suppressedIds.has(a.id)) {
+    if (prevDedup[a.id]) newDedup[a.id] = prevDedup[a.id];
+    return;
+  }
+  newDedup[a.id] = a.level;
+});
+
+function persistState(historyEntry) {
+  const newHistory = historyEntry ? [historyEntry, ...prevHistory].slice(0, 100) : prevHistory; // cap 100 entri terakhir
+  const stateDir = dirname(STATE_PATH);
+  if (stateDir && !existsSync(stateDir)) mkdirSync(stateDir, { recursive: true });
+  writeFileSync(STATE_PATH, JSON.stringify({ dedup: newDedup, history: newHistory, receiptsSent: newReceiptsSent }, null, 2) + '\n');
+}
+
+/* ============================================================================
+   ---- Auto-kirim Tanda Terima Perjalanan (v3.103.0) ----
+   Dijalankan SEBELUM alur alert manapun sempat process.exit(), supaya TIDAK
+   PERNAH terlewat cuma karena kebetulan tidak ada alert baru saat itu.
+   Trip yang sudah "selesai", sopirnya punya Telegram Chat ID, dan BELUM
+   pernah dikirimi resi (dicek lewat newReceiptsSent) -- dikirimi 1 pesan
+   teks terformat langsung ke sopir itu SAJA (bukan siaran ke semua).
+   CATATAN JUJUR: karena script ini jalan per-jam (cron), resi ini BISA
+   telat sampai ~1 jam setelah trip ditandai selesai -- bukan instan.
+   ============================================================================ */
+const receiptsSentSet = new Set(newReceiptsSent);
+const tripsNeedingReceipt = state.usage.filter(u =>
+  u.status === 'selesai' && !receiptsSentSet.has(u.id) &&
+  (() => { const d = state.drivers.find(x => x.id === u.driverId); return d && (d.telegramChatId || '').toString().trim(); })()
+);
+if (tripsNeedingReceipt.length > 0) {
+  console.log(`🧾 ${tripsNeedingReceipt.length} resi perjalanan baru untuk dikirim...`);
+  for (const u of tripsNeedingReceipt) {
+    const driver = state.drivers.find(x => x.id === u.driverId);
+    const chatId = (driver.telegramChatId || '').toString().trim();
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: buildTripReceiptText(u), parse_mode: 'HTML' })
+      });
+      const resBody = await res.json().catch(() => ({}));
+      if (!res.ok || !resBody.ok) {
+        console.error(`❌ Gagal kirim resi trip ${u.id} ke ${driver.nama} (${chatId}):`, JSON.stringify(resBody));
+        continue; // JANGAN masuk newReceiptsSent kalau gagal -- coba lagi jam berikutnya
+      }
+      newReceiptsSent = [...newReceiptsSent, u.id].slice(-500); // cap 500 id terakhir, cukup besar utk riwayat trip yg wajar
+      console.log(`✅ Resi trip ${u.id} terkirim ke ${driver.nama}.`);
+    } catch (e) {
+      console.error(`❌ Gagal kirim resi trip ${u.id} ke ${driver.nama} (${chatId}):`, e.message);
+    }
+  }
+}
 
 if (toSend.length === 0) {
-  console.log(`✅ Tidak ada notifikasi baru untuk dikirim (${alerts.length} masalah aktif, semua sudah pernah dinotifkan pada level yang sama).`);
+  persistState(null); // tetap simpan dedup terbaru (termasuk yg levelnya turun/hilang), cuma tidak ada histori baru
+  console.log(`✅ Tidak ada notifikasi baru untuk dikirim (${alerts.length} masalah aktif, semua sudah pernah dinotifkan pada level yang sama${suppressedByQuietHours.length > 0 ? ', sisanya ditunda jam sunyi' : ''}).`);
   process.exit(0);
 }
 
 // ---- Kumpulkan penerima: semua sopir yang "Telegram Chat ID"-nya diisi di
 // menu Data Sopir + (opsional) 1 admin lewat Secret TELEGRAM_CHAT_ID ----
-const recipients = new Map(); // chatId -> label (buat log, bukan dikirim ke pesan)
-if (ADMIN_CHAT_ID) recipients.set(ADMIN_CHAT_ID, 'Admin (Secret)');
+const recipients = new Map(); // chatId -> { label, driver } -- driver null utk Admin (Secret), dapat SEMUA kategori tanpa filter
+if (ADMIN_CHAT_ID) recipients.set(ADMIN_CHAT_ID, { label: 'Admin (Secret)', driver: null });
 state.drivers.forEach(d => {
   const cid = (d.telegramChatId || '').toString().trim();
-  if (cid) recipients.set(cid, d.nama || 'Sopir');
+  if (cid) recipients.set(cid, { label: d.nama || 'Sopir', driver: d });
 });
 
 if (recipients.size === 0) {
+  persistState(null); // dedup tetap disimpan walau tidak ada penerima -- supaya tidak menumpuk jadi kiriman besar sekaligus begitu ada sopir baru daftar nanti
   console.log(`⚠️  Ada ${toSend.length} notifikasi baru, tapi belum ada satu pun sopir yang mengisi "Telegram Chat ID" di menu Data Sopir (dan TELEGRAM_CHAT_ID Secret juga kosong). Tidak ada yang dikirim.`);
   process.exit(0);
 }
 
 /* ============================================================================
-   ---- Susun & kirim pesan Telegram ----
+   ---- Susun & kirim pesan Telegram (PER PENERIMA -- v3.103.0) ----
+   Isi pesan bisa BEDA-BEDA tiap penerima sekarang, tergantung kategori yang
+   dia langgan (lihat alertsForDriver di atas) -- makanya pesan disusun DI
+   DALAM loop kirim, bukan 1x di luar seperti sebelumnya.
    ============================================================================ */
 function escapeHtmlTg(s) {
   return String(s == null ? '' : s).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
 }
-
-const danger = toSend.filter(a => a.level === 'danger');
-const warn = toSend.filter(a => a.level === 'warn');
-
-const lines = ['🚨 <b>FleetOps — Perlu Perhatian</b>', ''];
-function addGroup(list, heading) {
-  if (list.length === 0) return;
-  lines.push(heading);
-  list.forEach(a => {
-    lines.push(`${a.ic} <b>${escapeHtmlTg(a.judul)}</b>`);
-    lines.push(`   ${escapeHtmlTg(a.keterangan)}`);
-  });
-  lines.push('');
+function buildAlertMessageText(items) {
+  const danger = items.filter(a => a.level === 'danger');
+  const warn = items.filter(a => a.level === 'warn');
+  const lines = ['🚨 <b>FleetOps — Perlu Perhatian</b>', ''];
+  function addGroup(list, heading) {
+    if (list.length === 0) return;
+    lines.push(heading);
+    list.forEach(a => {
+      lines.push(`${a.ic} <b>${escapeHtmlTg(a.judul)}</b>`);
+      lines.push(`   ${escapeHtmlTg(a.keterangan)}`);
+    });
+    lines.push('');
+  }
+  addGroup(danger, '🔴 <b>Mendesak</b>');
+  addGroup(warn, '🟡 <b>Perlu Diperhatikan</b>');
+  lines.push(`<i>Dikirim otomatis ${new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' })} WIB</i>`);
+  return lines.join('\n').trim();
 }
-addGroup(danger, '🔴 <b>Mendesak</b>');
-addGroup(warn, '🟡 <b>Perlu Diperhatikan</b>');
-lines.push(`<i>Dikirim otomatis ${new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' })} WIB</i>`);
-
-const text = lines.join('\n').trim();
 
 let sukses = 0;
 let gagal = 0;
-for (const [chatId, label] of recipients) {
+let dilewati = 0; // penerima yang TIDAK dikirimi karena tidak ada 1 pun alert yang cocok kategori langganannya
+for (const [chatId, { label, driver }] of recipients) {
+  const alertsForThis = driver ? alertsForDriver(toSend, driver) : toSend;
+  if (alertsForThis.length === 0) {
+    dilewati++;
+    continue; // tidak ada yang relevan buat langganan kategori penerima ini -- tidak usah kirim pesan kosong
+  }
+  const text = buildAlertMessageText(alertsForThis);
   try {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
@@ -377,6 +611,18 @@ for (const [chatId, label] of recipients) {
   }
 }
 
-console.log(`✅ Terkirim ke ${sukses}/${recipients.size} penerima (${toSend.length} notifikasi baru dari total ${alerts.length} masalah aktif).`);
+console.log(`✅ Terkirim ke ${sukses}/${recipients.size} penerima (${toSend.length} notifikasi baru dari total ${alerts.length} masalah aktif)${dilewati>0 ? `, ${dilewati} dilewati (tidak ada yang cocok kategori langganannya)` : ''}.`);
+
+// v3.102.0 -- Riwayat Notifikasi: catat ringkas apa yang BENAR-BENAR terkirim
+// kali ini (dibaca index.html untuk halaman "Riwayat Notifikasi"). Cuma isi
+// judul+level (bukan keterangan lengkap) supaya file tidak membengkak --
+// detail lengkapnya tetap bisa dilihat via alert yang sama di lonceng app.
+persistState({
+  waktu: Date.now(),
+  items: toSend.map(a => ({ judul: a.judul, level: a.level })),
+  penerimaSukses: sukses,
+  penerimaGagal: gagal,
+});
+
 if (sukses === 0) process.exit(1); // semua penerima gagal -> tandai job Actions ini gagal, biar kelihatan di tab Actions
 
