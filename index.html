@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.106.0">
+<meta name="app-version" content="3.106.2">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1193,7 +1193,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.106.0';
+const APP_VERSION = '3.106.2';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2235,7 +2235,20 @@ let tombstones = loadTombstones();
 // mengingat petugas terakhir yang aktif. Ini permintaan eksplisit: siapa
 // pun yang buka aplikasi ini harus mulai dari identitas netral (Admin 1),
 // baru pilih sendiri kalau memang bukan Admin 1.
+// v3.106.2 -- PERBAIKAN BUG: pilihan "Petugas" (siapa yang sedang
+// mengoperasikan aplikasi -- BEDA dari Sopir/driver trip) sebelumnya CUMA
+// disimpan ke localStorage ('fleetops_current_admin') tapi TIDAK PERNAH
+// dibaca ulang saat aplikasi dibuka lagi -- currentAdmin selalu diam-diam
+// balik ke 'Admin 1' tiap kali aplikasi di-refresh/dibuka ulang, kecuali
+// staf memilih ulang namanya sendiri secara manual tiap sesi. Akibatnya
+// banyak trip tercatat "Petugas: Admin 1" padahal yang sungguh menginput
+// adalah staf lain -- sopirnya sendiri sudah benar (field terpisah), yang
+// salah cuma atribusi PETUGAS-nya. Sekarang pilihan terakhir diingat betul.
 let currentAdmin = (state.admins.includes('Admin 1') ? 'Admin 1' : state.admins[0]);
+try{
+  const savedAdmin = localStorage.getItem('fleetops_current_admin');
+  if(savedAdmin && state.admins.includes(savedAdmin)) currentAdmin = savedAdmin;
+}catch(e){}
 let currentRoute = 'dashboard';
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -3125,25 +3138,15 @@ function renderHapusData(){
 // CUMA 1 gerbang PIN polos -- tidak ada judul panel, tidak ada struktur
 // apa pun yang bocor. Baru setelah PIN benar, SELURUH isi halaman muncul
 // sekaligus (tidak ada lagi kunci per-panel terpisah di dalamnya).
+// v3.106.0 -- KOREKSI: sebelumnya sempat SALAH mengunci SELURUH halaman di
+// balik 1 gerbang PIN, termasuk panel yang dari awal memang TIDAK butuh PIN
+// (Backup & Pulihkan Data, Toleransi Gap Odometer, Nama Petugas/Admin) --
+// itu keliru, cakupannya kebablasan. Yang benar: cuma panel yang DARI DULU
+// memang butuh PIN (Notifikasi & Ambang Batas Notifikasi) yang dikunci --
+// dan "dikunci" di sini artinya HILANG TOTAL dari halaman (bukan cuma
+// dikasih tombol "Buka PIN" di tempatnya) sampai PIN dibuka lewat titik "·"
+// kecil di footer. Panel lain tetap tampil bebas seperti biasa, tanpa PIN.
 function renderSettings(){
-  if(!insightUnlocked){
-    document.getElementById('header-actions').innerHTML = '';
-    document.getElementById('content').innerHTML = `
-      <div class="panel">
-        <div class="panel-body" style="text-align:center;padding:52px 20px;">
-          <div style="font-size:34px;margin-bottom:10px;">🔒</div>
-          <div style="font-weight:800;font-size:15px;margin-bottom:6px;">Pengaturan Terkunci</div>
-          <p style="color:var(--muted);font-size:13px;max-width:340px;margin:0 auto 20px;line-height:1.6;">
-            Seluruh isi halaman ini (Backup &amp; Pulihkan Data, Notifikasi, Ambang Batas, Toleransi Gap, Nama Petugas) butuh PIN yang sama dengan Insight untuk dilihat maupun diubah.
-          </p>
-          <button class="btn btn-primary" id="btn-unlock-settings-page">🔒 Buka dengan PIN</button>
-        </div>
-      </div>
-    `;
-    document.getElementById('btn-unlock-settings-page').onclick = openInsightPinModal;
-    return;
-  }
-
   document.getElementById('header-actions').innerHTML =
     `<button class="btn btn-primary" id="btn-add-admin">+ Tambah Petugas</button>${exportBtnHtml('btn-export-admin')}`;
   document.getElementById('btn-add-admin').onclick = () => openAdminModal();
@@ -3185,6 +3188,7 @@ function renderSettings(){
         </div>
       </div>
     </div>
+    ${insightUnlocked ? `
     <div class="panel">
       <div class="panel-head"><h2>🔔 Notifikasi</h2></div>
       <div class="panel-body">
@@ -3274,6 +3278,7 @@ function renderSettings(){
         </div>
       </div>
     </div>
+    ` : ''}
     <div class="panel">
       <div class="panel-head"><h2>Toleransi Gap Odometer Tak Tercatat</h2></div>
       <div class="panel-body">
@@ -3307,41 +3312,40 @@ function renderSettings(){
     this.value = ''; // reset supaya bisa pilih file yang sama lagi kalau perlu
   });
   attachIntegerOnlyInput('in-toleransi-gap');
-  renderNotifPermissionStatus();
-  ['in-notif-doc-days','in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min'].forEach(id=>{
-    const el = document.getElementById(id);
-    if(el) attachIntegerOnlyInput(id);
-  });
-  const saveBtn = document.getElementById('btn-save-notif-settings');
-  saveBtn.onclick = () => {
-    const docDays = Number(document.getElementById('in-notif-doc-days').value || 0);
-    const svcPct = Number(document.getElementById('in-notif-service-pct').value || 0);
-    const bbmMin = Number(document.getElementById('in-notif-bbm-min').value || 0);
-    const etollMin = Number(document.getElementById('in-notif-etoll-min').value || 0);
-    const quietHoursEnabled = document.getElementById('in-notif-quiethours').checked;
-    const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
-    const quietHoursEnd = document.getElementById('in-notif-quiet-end').value || NOTIF_SETTINGS_DEFAULT.quietHoursEnd;
-    const checkIntervalMinutes = Number(document.getElementById('in-notif-check-interval').value) || NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes;
-    state.notifSettings = {
-      docExpiryDays: docDays>=0 ? docDays : NOTIF_SETTINGS_DEFAULT.docExpiryDays,
-      serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
-      bbmMinDefault: bbmMin>=0 ? bbmMin : NOTIF_SETTINGS_DEFAULT.bbmMinDefault,
-      etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
-      quietHoursEnabled, quietHoursStart, quietHoursEnd,
-      checkIntervalMinutes: [5,10,15,30,60].includes(checkIntervalMinutes) ? checkIntervalMinutes : NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes,
+  if(insightUnlocked){
+    renderNotifPermissionStatus();
+    ['in-notif-doc-days','in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min'].forEach(id=>{
+      attachIntegerOnlyInput(id);
+    });
+    document.getElementById('btn-save-notif-settings').onclick = () => {
+      const docDays = Number(document.getElementById('in-notif-doc-days').value || 0);
+      const svcPct = Number(document.getElementById('in-notif-service-pct').value || 0);
+      const bbmMin = Number(document.getElementById('in-notif-bbm-min').value || 0);
+      const etollMin = Number(document.getElementById('in-notif-etoll-min').value || 0);
+      const quietHoursEnabled = document.getElementById('in-notif-quiethours').checked;
+      const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
+      const quietHoursEnd = document.getElementById('in-notif-quiet-end').value || NOTIF_SETTINGS_DEFAULT.quietHoursEnd;
+      const checkIntervalMinutes = Number(document.getElementById('in-notif-check-interval').value) || NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes;
+      state.notifSettings = {
+        docExpiryDays: docDays>=0 ? docDays : NOTIF_SETTINGS_DEFAULT.docExpiryDays,
+        serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
+        bbmMinDefault: bbmMin>=0 ? bbmMin : NOTIF_SETTINGS_DEFAULT.bbmMinDefault,
+        etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
+        quietHoursEnabled, quietHoursStart, quietHoursEnd,
+        checkIntervalMinutes: [5,10,15,30,60].includes(checkIntervalMinutes) ? checkIntervalMinutes : NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes,
+      };
+      saveData();
+      showToast('Ambang batas notifikasi disimpan.');
+      renderNotifBell();
     };
-    saveData();
-    showToast('Ambang batas notifikasi disimpan.');
-    renderNotifBell();
-  };
-  const quietToggle = document.getElementById('in-notif-quiethours');
-  quietToggle.addEventListener('change', function(){
-    const timesWrap = document.getElementById('notif-quiethours-times');
-    if(timesWrap) timesWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
-  });
-  document.getElementById('btn-goto-drivers-telegram').onclick = () => navigate('drivers');
-  document.getElementById('btn-refresh-notif-history').onclick = renderNotifHistory;
-  renderNotifHistory();
+    document.getElementById('in-notif-quiethours').addEventListener('change', function(){
+      const timesWrap = document.getElementById('notif-quiethours-times');
+      if(timesWrap) timesWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
+    });
+    document.getElementById('btn-goto-drivers-telegram').onclick = () => navigate('drivers');
+    document.getElementById('btn-refresh-notif-history').onclick = renderNotifHistory;
+    renderNotifHistory();
+  }
   document.getElementById('btn-save-toleransi-gap').onclick = () => {
     const val = Number(document.getElementById('in-toleransi-gap').value || 0);
     state.toleransiGapKm = val >= 0 ? val : 0;
@@ -10874,6 +10878,20 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.106.2',
+    date: '26 Jul 2026',
+    notes: [
+      'Perbaikan bug: pilihan "Petugas" (siapa yang sedang mengoperasikan aplikasi -- beda dari Sopir/driver trip) sebelumnya cuma disimpan, tapi tidak pernah dibaca ulang saat aplikasi dibuka lagi -- diam-diam selalu balik ke "Admin 1" tiap sesi baru, kecuali dipilih ulang manual. Akibatnya banyak catatan trip tercatat "Petugas: Admin 1" walau yang sungguh menginput staf lain (Sopirnya sendiri sudah benar, cuma atribusi Petugas yang salah). Sekarang pilihan terakhir benar-benar diingat lintas sesi.',
+    ]
+  },
+  {
+    v: '3.106.1',
+    date: '26 Jul 2026',
+    notes: [
+      'Koreksi dari versi sebelumnya: cakupan kunci PIN halaman Pengaturan sempat kebablasan sampai mengunci panel yang DARI AWAL tidak butuh PIN (Backup & Pulihkan Data, Toleransi Gap Odometer, Nama Petugas/Admin) -- sekarang dibalikkan, panel-panel itu tampil bebas seperti semula, tanpa PIN. Yang tetap dikunci PIN (dan sekarang benar-benar HILANG dari halaman, bukan cuma dikasih tombol "Buka PIN" di tempatnya) cuma panel Notifikasi & Ambang Batas Notifikasi -- sesuai cakupan aslinya.',
+    ]
+  },
   {
     v: '3.106.0',
     date: '26 Jul 2026',
