@@ -1193,7 +1193,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.106.2';
+const APP_VERSION = '3.107.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2649,6 +2649,30 @@ const BIAYA_OP_CATEGORIES = ['Isi BBM','Isi E-Toll','Makan','Parkir','Tol Tunai'
 const JENIS_BBM_DEFAULT = ['Pertalite','Pertamax'];
 function usageBiayaOpItems(u){ return Array.isArray(u.biayaOperasional) ? u.biayaOperasional : []; }
 function usageBiayaOpTotal(u){ return usageBiayaOpItems(u).reduce((sum,it)=> sum + (Number(it.nominal)||0), 0); }
+
+// Biaya Pribadi -- pengeluaran PRIBADI sopir selama perjalanan (bukan uang
+// perusahaan), mis. beli bensin pakai uang sendiri, jajan, dll. SENGAJA
+// disimpan di field terpisah (u.biayaPribadi, bukan u.biayaOperasional)
+// supaya otomatis TIDAK IKUT ke Laporan Bulanan/Grand Total mana pun --
+// computeMonthlyReport() & seluruh agregat lain di app ini cuma membaca
+// u.biayaOperasional, jadi field ini aman terisolasi tanpa perlu exclude
+// manual di banyak tempat (satu-satunya risiko: kalau nanti field baru ini
+// TIDAK SENGAJA ikut disatukan ke biayaOperasional oleh perubahan lain --
+// jangan digabung).
+const BIAYA_PRIBADI_CATEGORIES = ['Isi BBM Pribadi','Lainnya'];
+function usagePribadiItems(u){ return Array.isArray(u.biayaPribadi) ? u.biayaPribadi : []; }
+function usagePribadiTotal(u){ return usagePribadiItems(u).reduce((sum,it)=> sum + (Number(it.nominal)||0), 0); }
+// Total liter BBM yang dibeli PRIBADI (di luar catatan resmi Isi BBM) untuk
+// 1 perjalanan -- cuma dipakai untuk cross-check/insight informasi di modal
+// Biaya Pribadi (lihat openBiayaPribadiModal), TIDAK ikut disuntikkan ke
+// formula perhitungan efisiensi/jarak resmi (u.literBensin) di mana pun --
+// supaya angka BBM resmi tetap murni cuma dari yang tercatat di Biaya
+// Operasional, sesuai kesepakatan (liter pribadi = cuma untuk validasi).
+function usagePribadiLiterBbm(u){
+  return usagePribadiItems(u)
+    .filter(it => it.kategori==='Isi BBM Pribadi')
+    .reduce((sum,it)=> sum + (Number(it.literBbm)||0), 0);
+}
 // Total Biaya E-Toll (Rp E-Toll, gross yang dibayar -- BUKAN nilai bersih
 // setelah biaya admin) khusus untuk 1 perjalanan, diambil dari item Biaya
 // Operasional berkategori "Isi E-Toll". Dipakai untuk tampilkan rincian
@@ -4130,6 +4154,7 @@ function openTripActionMenu(usageId, anchorEl){
     <div class="trip-action-item" data-act="cancel" style="color:var(--muted);border-bottom:1px solid var(--line);">✕ Batal</div>
     <div class="trip-action-item" data-act="edit">✏️ Edit</div>
     <div class="trip-action-item" data-act="biayaop">🧾 Biaya Operasional</div>
+    <div class="trip-action-item" data-act="biayapribadi">👤 Biaya Pribadi</div>
     <div class="trip-action-item" data-act="return">✅ Tiba</div>
     <div class="trip-action-item" data-act="copykode" data-copy-code="${escapeHtml(u.kode||'')}">📋 Salin Kode Perjalanan</div>
   `;
@@ -4152,6 +4177,7 @@ function openTripActionMenu(usageId, anchorEl){
       document.getElementById('trip-bubble-panel').style.display = 'none';
       if(act==='edit') openUsageModal(u.id);
       else if(act==='biayaop') openBiayaOperasionalModal(u.id);
+      else if(act==='biayapribadi') openBiayaPribadiModal(u.id);
       else if(act==='return') markReturned(u.id);
       else if(act==='delete') deleteUsage(u.id);
     });
@@ -4212,6 +4238,7 @@ function openListActionMenu(usageId, anchorEl){
   const items = [
     {act:'edit', label:'✏️ Edit'},
     ...(isOperasional ? [{act:'biayaop', label:'🧾 Biaya Operasional'}] : []),
+    {act:'biayapribadi', label:'👤 Biaya Pribadi'},
     {act:'return', label: u.status==='digunakan' ? '✅ Tiba' : '✏️ Edit Data Tiba'},
     {act:'copykode', label:'📋 Salin Kode Perjalanan', copyCode: u.kode||''},
   ];
@@ -4234,6 +4261,7 @@ function openListActionMenu(usageId, anchorEl){
       menu.remove();
       if(act==='edit') openUsageModal(u.id);
       else if(act==='biayaop') openBiayaOperasionalModal(u.id);
+      else if(act==='biayapribadi') openBiayaPribadiModal(u.id);
       else if(act==='share') shareUsageReport(u.id);
       else if(act==='copyimg') copyUsageReportToClipboard(u.id);
       else if(act==='return') markReturned(u.id);
@@ -5920,6 +5948,7 @@ function renderUsage(){
     const literTerpakaiVal = carForRow ? estimateLiterUsed(u, carForRow) : null;
     const literTerpakaiLabel = literTerpakaiVal!=null ? literTerpakaiVal.toFixed(1)+' L' : '-';
     const biayaOpTotal = usageBiayaOpTotal(u);
+    const pribadiTotal = usagePribadiTotal(u);
     const etollBiayaTotal = usageEtollBiayaTotal(u);
     const isOperasional = u.jenisPenggunaan !== 'pribadi';
     const durationLabel = fmtDuration(u) + durasiAnomaliBadgeHtml(u);
@@ -5928,9 +5957,10 @@ function renderUsage(){
         ? `<button class="btn btn-ghost btn-sm" data-edit="${u.id}">✏️ Edit</button>`
         : `<button class="btn btn-ghost btn-sm" data-edit-choice="${u.id}">✏️ Edit ▾</button>`}
       ${isOperasional ? `<button class="btn btn-ghost btn-sm" data-biayaop="${u.id}">🧾 Biaya Operasional</button>` : ''}
+      <button class="btn btn-ghost btn-sm" data-biayapribadi="${u.id}">👤 Biaya Pribadi</button>
       ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Tiba</button>` : ''}
     `;
-    return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, biayaTolInfo, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, etollBiayaTotal, isOperasional, durationLabel, actionButtonsHtml };
+    return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, biayaTolInfo, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, pribadiTotal, etollBiayaTotal, isOperasional, durationLabel, actionButtonsHtml };
   }
 
   function renderListView(items){
@@ -5969,6 +5999,7 @@ function renderUsage(){
             (r.etoll!==null && !isNaN(r.etoll)) ? { label:'Saldo E-Toll', val: `<b>${fmtMoney(r.etoll)}</b>` } : null,
             r.biayaTolInfo ? { label:'🛣️ Tol Terpakai', val: `<b>${fmtMoney(r.biayaTolInfo.biayaTol)}</b> ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn" title="Saldo E-Toll Saat Berangkat trip ini tidak diisi -- sistem otomatis pakai Saldo E-Toll Saat Tiba dari trip sebelumnya (kartu yang sama) sebagai gantinya.">Estimasi</span>' : '<span class="badge ok" title="Dihitung dari Saldo E-Toll Saat Berangkat yang diisi langsung di trip ini.">Akurat</span>'}` } : null,
             (r.biayaOpTotal>0) ? { label:'Biaya Operasional', val: `<b>${fmtMoney(r.biayaOpTotal)}</b>${r.etollBiayaTotal>0?` (🛣️ E-Toll: ${fmtMoney(r.etollBiayaTotal)})`:''}` } : null,
+            (r.pribadiTotal>0) ? { label:'👤 Biaya Pribadi', val: `<b>${fmtMoney(r.pribadiTotal)}</b> <span style="font-size:11px;color:var(--muted);">(di luar laporan)</span>${usagePribadiLiterBbm(u)>0?` · ⛽ +${usagePribadiLiterBbm(u).toLocaleString('id-ID')} L`:''}` } : null,
           ].filter(Boolean);
 
           return `
@@ -6021,6 +6052,7 @@ function renderUsage(){
                 <div><span class="k">Pengisian BBM</span> <span class="v">${r.bbmLabel}</span></div>
                 <div><span class="k">Estimasi Konsumsi BBM</span> <span class="v">${r.literTerpakaiLabel}</span></div>
                 <div><span class="k">Biaya Operasional</span> <span class="v">${r.biayaOpTotal>0?fmtMoney(r.biayaOpTotal):'-'}${r.etollBiayaTotal>0?` <span style="font-size:11px;color:var(--muted);">(🛣️ E-Toll: ${fmtMoney(r.etollBiayaTotal)})</span>`:''}</span></div>
+                <div><span class="k">👤 Biaya Pribadi</span> <span class="v">${r.pribadiTotal>0?fmtMoney(r.pribadiTotal)+' <span style="font-size:11px;color:var(--muted);">(di luar laporan)</span>':'-'}</span></div>
                 <div><span class="k">BBM Awal</span> <span class="v">${r.bensinKeluarBadge}</span></div>
                 <div><span class="k">BBM Akhir</span> <span class="v">${r.bensinKembaliBadge}</span></div>
                 <div><span class="k">Kartu E-Toll</span> <span class="v">${r.linkedCard?escapeHtml(r.linkedCard.nomorKartu):'-'}</span></div>
@@ -6069,6 +6101,7 @@ function renderUsage(){
     wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openUsageModal(b.dataset.edit));
     wrap.querySelectorAll('[data-edit-choice]').forEach(b=> b.onclick = (e)=>{ e.stopPropagation(); openEditChoiceMenu(b.dataset.editChoice, b); });
     wrap.querySelectorAll('[data-biayaop]').forEach(b=> b.onclick = ()=> openBiayaOperasionalModal(b.dataset.biayaop));
+    wrap.querySelectorAll('[data-biayapribadi]').forEach(b=> b.onclick = ()=> openBiayaPribadiModal(b.dataset.biayapribadi));
     wrap.querySelectorAll('[data-return]').forEach(b=> b.onclick = ()=> markReturned(b.dataset.return));
     wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteUsage(b.dataset.del));
   }
@@ -6275,6 +6308,7 @@ function renderUsage(){
         <div><span class="k">Pengisian BBM</span> <span class="v">${r.bbmLabel}</span></div>
         <div><span class="k">Estimasi Konsumsi BBM</span> <span class="v">${r.literTerpakaiLabel}</span></div>
         <div><span class="k">Biaya Operasional</span> <span class="v">${r.biayaOpTotal>0?fmtMoney(r.biayaOpTotal):'-'}${r.etollBiayaTotal>0?` <span style="font-size:11px;color:var(--muted);">(🛣️ E-Toll: ${fmtMoney(r.etollBiayaTotal)})</span>`:''}</span></div>
+        <div><span class="k">👤 Biaya Pribadi</span> <span class="v">${r.pribadiTotal>0?fmtMoney(r.pribadiTotal)+' <span style="font-size:11px;color:var(--muted);">(di luar laporan)</span>':'-'}</span></div>
         <div><span class="k">BBM Awal</span> <span class="v">${r.bensinKeluarBadge}</span></div>
         <div><span class="k">BBM Akhir</span> <span class="v">${r.bensinKembaliBadge}</span></div>
         <div><span class="k">Kartu E-Toll</span> <span class="v">${r.linkedCard?escapeHtml(r.linkedCard.nomorKartu):'-'}</span></div>
@@ -6397,6 +6431,7 @@ function renderUsage(){
     document.querySelectorAll('.trip-detail-body [data-edit]').forEach(b=> b.onclick = ()=> openUsageModal(b.dataset.edit));
     document.querySelectorAll('.trip-detail-body [data-edit-choice]').forEach(b=> b.onclick = (e)=>{ e.stopPropagation(); openEditChoiceMenu(b.dataset.editChoice, b); });
     document.querySelectorAll('.trip-detail-body [data-biayaop]').forEach(b=> b.onclick = ()=> openBiayaOperasionalModal(b.dataset.biayaop));
+    document.querySelectorAll('.trip-detail-body [data-biayapribadi]').forEach(b=> b.onclick = ()=> openBiayaPribadiModal(b.dataset.biayapribadi));
     document.querySelectorAll('.trip-detail-body [data-return]').forEach(b=> b.onclick = ()=> markReturned(b.dataset.return));
     document.querySelectorAll('.trip-detail-body [data-trip-receipt]').forEach(b=> b.onclick = ()=> openTripReceiptModal(b.dataset.tripReceipt));
     const editCarBtn = document.querySelector('[data-edit-car]');
@@ -6974,6 +7009,174 @@ function openBiayaOperasionalModal(usageId){
   if(btnShareBiayaOp) btnShareBiayaOp.addEventListener('click', ()=> shareUsageReport(u.id));
 }
 function isBiayaOpCategory(v){ return BIAYA_OP_CATEGORIES.includes(v); }
+function isBiayaPribadiCategory(v){ return BIAYA_PRIBADI_CATEGORIES.includes(v); }
+
+// Modal "Biaya Pribadi" -- sengaja dibuat TERPISAH dari Biaya Operasional
+// (bukan cuma nambah kategori baru di situ), supaya secara struktural TIDAK
+// MUNGKIN ikut kehitung di Laporan Bulanan/Grand Total mana pun -- tersimpan
+// di u.biayaPribadi, field yang computeMonthlyReport() dkk memang tidak
+// pernah baca. Data tetap tersimpan & ikut sinkron (bisa dilihat lagi
+// kapan saja), cuma dikecualikan dari laporan keuangan armada.
+function openBiayaPribadiModal(usageId){
+  const u = state.usage.find(x=>x.id===usageId);
+  if(!u) return;
+
+  let formItems = usagePribadiItems(u).length > 0
+    ? usagePribadiItems(u).map(it=>({ id: it.id||uid(), kategori: it.kategori, kategoriCustom: isBiayaPribadiCategory(it.kategori)?'':it.kategori, nominal: it.nominal, literBbm: it.literBbm||'', catatan: it.catatan||'' }))
+    : [{ id: uid(), kategori:'', kategoriCustom:'', nominal:'', literBbm:'', catatan:'' }];
+  formItems = formItems.map(it=>{
+    if(it.kategori && !BIAYA_PRIBADI_CATEGORIES.includes(it.kategori)){
+      return { ...it, kategoriCustom: it.kategori, kategori: '__lainnya__' };
+    }
+    return it;
+  });
+
+  const literResmi = Number(u.literBensin)||0;
+
+  const body = `
+    <p style="font-size:12.5px;color:var(--muted);margin-top:0;">
+      ${escapeHtml(carLabel(u.carId))} — ${escapeHtml(u.tujuan||'')}
+    </p>
+    <p style="font-size:11.5px;color:var(--muted);margin-top:-8px;margin-bottom:14px;">
+      👤 Ini catatan PRIBADI sopir (uang sendiri, bukan uang perusahaan) -- tetap tersimpan & bisa dilihat lagi kapan saja, tapi <b>TIDAK ikut dihitung</b> di Laporan Bulanan/Grand Total armada.
+    </p>
+    <div id="pribadi-items-wrap"></div>
+    <button type="button" class="btn btn-ghost btn-sm" id="btn-add-pribadi-item" style="margin-bottom:10px;">+ Tambah Item</button>
+    <div class="field" style="margin-top:4px;padding-top:10px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;">
+      <label style="margin:0;">Total (pribadi, di luar laporan)</label>
+      <div id="pribadi-total" style="font-weight:700;font-size:16px;font-family:'JetBrains Mono',monospace;">Rp 0</div>
+    </div>
+    <div id="pribadi-liter-insight" style="margin-top:10px;"></div>
+  `;
+
+  const customPribadiCategoriesUsed = Array.from(new Set(
+    state.usage.flatMap(x => usagePribadiItems(x).map(it => it.kategori))
+      .filter(k => k && !BIAYA_PRIBADI_CATEGORIES.includes(k))
+  )).sort((a,b)=> a.localeCompare(b));
+
+  function syncFromDom(){
+    formItems.forEach(it=>{
+      const katEl = document.getElementById('pb-kat-'+it.id);
+      const katCustomEl = document.getElementById('pb-katcustom-'+it.id);
+      const literEl = document.getElementById('pb-liter-'+it.id);
+      const catatanEl = document.getElementById('pb-catatan-'+it.id);
+      if(katEl) it.kategori = katEl.value;
+      if(katCustomEl) it.kategoriCustom = katCustomEl.value;
+      it.nominal = getRibuanValue('pb-nominal-'+it.id);
+      if(literEl) it.literBbm = literEl.value;
+      if(catatanEl) it.catatan = catatanEl.value;
+    });
+  }
+  function updateTotal(){
+    const total = formItems.reduce((sum,it)=> sum + (Number(getRibuanValue('pb-nominal-'+it.id))||0), 0);
+    const el = document.getElementById('pribadi-total');
+    if(el) el.textContent = fmtMoney(total);
+    updateLiterInsight();
+  }
+  // Info SAJA, murni cross-check/validasi -- lihat catatan di
+  // usagePribadiLiterBbm(). TIDAK mengubah u.literBensin atau formula
+  // efisiensi/kalibrasi BBM resmi mana pun.
+  function updateLiterInsight(){
+    const el = document.getElementById('pribadi-liter-insight');
+    if(!el) return;
+    const literPribadi = formItems
+      .filter(it=> it.kategori==='Isi BBM Pribadi')
+      .reduce((sum,it)=> sum + (Number(document.getElementById('pb-liter-'+it.id)?.value)||0), 0);
+    if(literPribadi<=0){ el.innerHTML=''; return; }
+    const totalRiil = literResmi + literPribadi;
+    el.innerHTML = `<div class="hint" style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:8px 10px;">⛽ <b>Cross-check liter BBM (info saja):</b> resmi ${literResmi.toLocaleString('id-ID')} L + pribadi ${literPribadi.toLocaleString('id-ID')} L = <b>${totalRiil.toLocaleString('id-ID')} L</b> riil masuk tangki. Angka efisiensi/KM-L resmi tetap dihitung dari yang resmi saja.</div>`;
+  }
+  function renderItems(){
+    const wrap = document.getElementById('pribadi-items-wrap');
+    if(!wrap) return;
+    wrap.innerHTML = formItems.map(it=>`
+      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:#FAFBFC;">
+        <div class="grid-2">
+          <div class="field" style="margin-bottom:8px;">
+            <label>Kategori</label>
+            <select id="pb-kat-${it.id}">
+              <option value="">— pilih —</option>
+              ${BIAYA_PRIBADI_CATEGORIES.map(c=>`<option value="${c}" ${it.kategori===c?'selected':''}>${c}</option>`).join('')}
+              ${customPribadiCategoriesUsed.length ? `<optgroup label="Kategori custom (pernah dipakai)">
+                ${customPribadiCategoriesUsed.map(c=>`<option value="${escapeHtml(c)}" ${it.kategori===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}
+              </optgroup>` : ''}
+              <option value="__lainnya__" ${it.kategori==='__lainnya__'?'selected':''}>+ Kategori lain (baru)...</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:8px;">
+            <label>Nominal (Rp)</label>
+            <input type="text" inputmode="numeric" id="pb-nominal-${it.id}" placeholder="Contoh: 50.000" value="${fmtRibuanInitial(it.nominal)}">
+          </div>
+        </div>
+        ${it.kategori==='__lainnya__' ? `
+        <div class="field" style="margin-bottom:8px;">
+          <label>Nama Kategori Lain</label>
+          <input type="text" id="pb-katcustom-${it.id}" placeholder="Contoh: Parkir pribadi" value="${escapeHtml(it.kategoriCustom||'')}" autocomplete="off">
+        </div>` : ''}
+        ${it.kategori==='Isi BBM Pribadi' ? `
+        <div class="field" style="margin-bottom:8px;">
+          <label>Liter (opsional, buat cross-check)</label>
+          <input type="text" inputmode="decimal" id="pb-liter-${it.id}" placeholder="Contoh: 5" value="${escapeHtml(String(it.literBbm||''))}">
+          <div class="hint">Cuma buat validasi total liter riil masuk tangki -- tidak dihitung ke efisiensi/KM-L resmi.</div>
+        </div>` : ''}
+        <div class="field" style="margin-bottom:${formItems.length>1?'8px':'0'};">
+          <label>Catatan (opsional)</label>
+          <input type="text" id="pb-catatan-${it.id}" value="${escapeHtml(it.catatan||'')}" placeholder="Detail tambahan">
+        </div>
+        ${formItems.length>1 ? `<button type="button" class="btn btn-danger btn-sm" data-remove-pbitem="${it.id}">Hapus Item Ini</button>` : ''}
+      </div>
+    `).join('');
+    enhanceAllSelects(wrap);
+
+    formItems.forEach(it=>{
+      const katEl = document.getElementById('pb-kat-'+it.id);
+      if(katEl) katEl.addEventListener('change', ()=>{ syncFromDom(); renderItems(); });
+      attachRibuanInput('pb-nominal-'+it.id);
+      const nomEl = document.getElementById('pb-nominal-'+it.id);
+      if(nomEl) nomEl.addEventListener('input', updateTotal);
+      const literEl = document.getElementById('pb-liter-'+it.id);
+      if(literEl) literEl.addEventListener('input', updateLiterInsight);
+    });
+    wrap.querySelectorAll('[data-remove-pbitem]').forEach(b=> b.onclick = ()=>{
+      syncFromDom();
+      formItems = formItems.filter(it=> it.id !== b.dataset.removePbitem);
+      renderItems(); updateTotal();
+    });
+    updateTotal();
+  }
+
+  openModal({
+    title: '👤 Biaya Pribadi',
+    body,
+    onSave: () => {
+      syncFromDom();
+      const validItems = formItems
+        .map(it => ({
+          id: it.id,
+          kategori: (it.kategori === '__lainnya__' ? it.kategoriCustom.trim() : it.kategori),
+          nominal: Number(it.nominal)||0,
+          literBbm: it.kategori==='Isi BBM Pribadi' ? (Number(it.literBbm)||0) : undefined,
+          catatan: (it.catatan||'').trim()
+        }))
+        .filter(it => it.kategori && (it.nominal > 0 || (it.literBbm||0) > 0));
+
+      u.biayaPribadi = validItems; // TIDAK menyentuh u.biayaOperasional/u.biayaBensin sama sekali
+      touch(u);
+      saveData();
+      logActivity('penggunaan', 'Catat biaya pribadi', `${carLabel(u.carId)} — ${fmtMoney(usagePribadiTotal(u))} (di luar laporan)`);
+      showToast('Biaya pribadi disimpan (tidak masuk Laporan Bulanan).');
+      renderUsage();
+      return true;
+    }
+  });
+
+  renderItems();
+  document.getElementById('btn-add-pribadi-item').addEventListener('click', ()=>{
+    syncFromDom();
+    formItems.push({ id: uid(), kategori:'', kategoriCustom:'', nominal:'', literBbm:'', catatan:'' });
+    renderItems();
+  });
+}
 
 /* ---------------- Laporan gambar (siap-share ke WhatsApp) ----------------
    Dibuat pakai html2canvas (dimuat sekali saat dibutuhkan, bukan di awal —
@@ -10878,6 +11081,15 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.107.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Fitur baru: "👤 Biaya Pribadi" di Catat Perjalanan -- catatan pengeluaran pribadi sopir (uang sendiri, bukan uang perusahaan, mis. isi BBM pribadi/jajan) selama perjalanan. Diakses lewat menu Aksi (bubble & dropdown List) atau tombol baris, sama seperti Biaya Operasional.',
+      'Data ini tetap TERSIMPAN & ikut sinkron (bisa dilihat lagi kapan saja lewat tombol yang sama), TAPI sengaja disimpan di field terpisah supaya otomatis TIDAK ikut dihitung di Laporan Bulanan/Grand Total armada mana pun.',
+      'Kategori "Isi BBM Pribadi" punya field Liter opsional -- murni buat cross-check/validasi ("resmi X L + pribadi Y L = Z L riil masuk tangki"), ditampilkan sebagai info di modal & badge baris. Tidak mengubah rumus efisiensi/KM-L resmi yang tetap murni dari Biaya Operasional.',
+    ]
+  },
   {
     v: '3.106.2',
     date: '26 Jul 2026',
