@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.103.0">
+<meta name="app-version" content="3.104.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1193,7 +1193,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.103.0';
+const APP_VERSION = '3.104.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -5105,6 +5105,7 @@ function openDriverModal(editId){
               ${c.label}
             </label>`;
           }).join('')}
+          <div id="notifkat-preview" style="margin-top:8px;padding:8px 10px;background:#EAF0FF;border-radius:6px;font-size:12px;color:var(--blue-dark);"></div>
           <div class="hint" style="margin-top:4px;">Cuma berlaku untuk pengiriman Telegram -- lonceng 🔔 di aplikasi tetap tampilkan semua ke siapa pun yang buka.</div>
         </div>
       ` : `
@@ -5164,6 +5165,26 @@ function openDriverModal(editId){
     // benar, tinggal klik "Edit" lagi di baris sopirnya -- 1 langkah ekstra
     // tapi jauh lebih aman & sederhana daripada memaksa alur bertumpuk.
     if(unlockBtn) unlockBtn.onclick = openInsightPinModal;
+  }
+  if(insightUnlocked){
+    // v3.104.0 -- preview singkat "sopir ini akan menerima kategori apa
+    // saja" -- update LANGSUNG tiap centang diubah, supaya admin yakin
+    // pengaturannya benar tanpa perlu tunggu notifikasi sungguhan datang.
+    function updateNotifKatPreview(){
+      const previewEl = document.getElementById('notifkat-preview');
+      if(!previewEl) return;
+      const dipilih = Array.from(document.querySelectorAll('.in-notifkat')).filter(el=>el.checked).map(el=>el.value);
+      if(dipilih.length===0){
+        previewEl.innerHTML = `⚠️ <b>Tidak ada kategori dicentang</b> -- sopir ini TIDAK akan menerima notifikasi apa pun via Telegram (walau Chat ID sudah diisi).`;
+        previewEl.style.background = '#FEF2F2'; previewEl.style.color = 'var(--red)';
+        return;
+      }
+      const labelDipilih = NOTIF_CATEGORIES.filter(c=>dipilih.includes(c.key)).map(c=>c.label);
+      previewEl.innerHTML = `📨 Sopir ini akan menerima: <b>${escapeHtml(labelDipilih.join(', '))}</b>`;
+      previewEl.style.background = '#EAF0FF'; previewEl.style.color = 'var(--blue-dark)';
+    }
+    document.querySelectorAll('.in-notifkat').forEach(el=> el.addEventListener('change', updateNotifKatPreview));
+    updateNotifKatPreview();
   }
 }
 
@@ -10767,6 +10788,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.104.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Form Data Sopir: preview langsung "Sopir ini akan menerima: [daftar kategori]" muncul & ter-update seketika tiap centang kategori notifikasi diubah -- termasuk peringatan merah kalau tidak ada satu pun kategori dicentang (berarti tidak akan dapat notifikasi Telegram sama sekali walau Chat ID sudah diisi).',
+    ]
+  },
   {
     v: '3.103.0',
     date: '26 Jul 2026',
