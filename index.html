@@ -1193,7 +1193,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.104.0';
+const APP_VERSION = '3.105.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1544,7 +1544,7 @@ function loadData(){
 }
 function defaultData(){
   return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
-    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00' } };
+    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60 } };
 }
 // v3.95.0 -- Pengaturan Notifikasi (nilai ambang batas dipakai computeAlerts()
 // & telegram-notify.mjs). PENTING: dibaca lewat fungsi ini SAJA (bukan baca
@@ -1552,7 +1552,16 @@ function defaultData(){
 // ada, belum punya field notifSettings sama sekali) tetap otomatis dapat
 // nilai default yang SAMA PERSIS dengan perilaku sebelumnya -- tidak perlu
 // migrasi data terpisah, dan tidak mungkin error kalau field-nya belum ada.
-const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00' };
+// v3.104.0 -- "checkIntervalMinutes" (5/10/15/30/60) MENENTUKAN seberapa
+// sering GitHub Actions BENAR-BENAR memeriksa & mengirim notifikasi
+// BERKALA (dokumen/servis/BBM/E-Toll/booking). Cron di telegram-notify.yml
+// sendiri tetap "tick" tiap 5 menit (fixed, tidak bisa diubah dari sini --
+// itu batas GitHub) -- angka ini cuma menyuruh script SKIP kalau belum
+// waktunya, jadi bebas diatur admin tanpa perlu edit file YAML.
+// PENTING: Resi Perjalanan (🧾, dikirim begitu status diubah "Selesai")
+// SENGAJA TIDAK ikut diatur angka ini -- itu tetap dicek tiap tick (maks.
+// 5 menit) supaya sopir selalu cepat dapat resinya, apa pun pengaturan ini.
+const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60 };
 // v3.103.0 -- Langganan notifikasi PER SOPIR: tiap sopir bisa diatur cuma
 // dapat kategori tertentu (mis. Budi cuma dapat Dokumen+Servis, Siti cuma
 // BBM+E-Toll) lewat driver.notifKategori (array key di bawah). PENTING:
@@ -1574,10 +1583,22 @@ function categoryOfAlertId(id){
 // Dipakai KHUSUS filter alert utk 1 sopir tertentu (bukan utk lonceng app,
 // yang tetap tampilkan SEMUA ke siapa pun yang buka app-nya) -- ini murni
 // menentukan APA YANG DIKIRIM ke Telegram sopir itu.
+// v3.104.0 -- 2 mekanisme independen:
+// 1) kategori (driver.notifKategori, diatur di Data Sopir, dikunci PIN) --
+//    HANYA berlaku utk doc/service/etoll/bbm. Kategori 'booking' SENGAJA
+//    DIKECUALIKAN dari pengecekan ini -- tidak lagi diatur lewat Data Sopir
+//    sama sekali, supaya penerimanya bisa fleksibel beda-beda tiap booking.
+// 2) targetDriverIds (alert.targetDriverIds, diisi dari checklist "Kirim
+//    Reminder Telegram Ke" di form Booking, TANPA PIN) -- HANYA berlaku
+//    utk alert booking-h1. null/undefined = semua sopir dgn Chat ID.
 function alertsForDriver(allAlerts, driver){
   const kategoriDipilih = Array.isArray(driver.notifKategori) ? driver.notifKategori : null;
-  if(!kategoriDipilih) return allAlerts; // belum diatur -> semua (lihat catatan di atas)
-  return allAlerts.filter(a=> kategoriDipilih.includes(categoryOfAlertId(a.id)));
+  return allAlerts.filter(a=>{
+    const kategori = categoryOfAlertId(a.id);
+    if(kategori!=='booking' && kategoriDipilih && !kategoriDipilih.includes(kategori)) return false;
+    if(Array.isArray(a.targetDriverIds) && !a.targetDriverIds.includes(driver.id)) return false;
+    return true;
+  });
 }
 function getNotifSettings(){
   return { ...NOTIF_SETTINGS_DEFAULT, ...(state.notifSettings||{}) };
@@ -3197,6 +3218,19 @@ function renderSettings(){
           </div>
           <div class="hint" style="margin:-4px 0 12px;">Nilai "default" di sini cuma dipakai untuk mobil/kartu yang BELUM diisi batasnya sendiri-sendiri (di Data Mobil / Kartu E-Toll) -- mengisi batas di situ tetap didahulukan.</div>
           <div style="border-top:1px solid var(--line);margin-top:4px;padding-top:14px;">
+            <div class="field" style="max-width:280px;">
+              <label>⏱️ Cek notifikasi berkala setiap</label>
+              <select id="in-notif-check-interval">
+                <option value="5" ${getNotifSettings().checkIntervalMinutes===5?'selected':''}>5 menit</option>
+                <option value="10" ${getNotifSettings().checkIntervalMinutes===10?'selected':''}>10 menit</option>
+                <option value="15" ${getNotifSettings().checkIntervalMinutes===15?'selected':''}>15 menit</option>
+                <option value="30" ${getNotifSettings().checkIntervalMinutes===30?'selected':''}>30 menit</option>
+                <option value="60" ${getNotifSettings().checkIntervalMinutes===60?'selected':''}>60 menit (1 jam)</option>
+              </select>
+              <div class="hint">Berlaku untuk notifikasi Dokumen/Servis/BBM/E-Toll/Booking. Makin kecil = makin cepat, tapi makin sering GitHub Actions jalan. <b>Tidak berlaku</b> untuk 🧾 Resi Perjalanan -- itu selalu dicek maksimal tiap 5 menit, berapa pun angka ini.</div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
             <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
               <input type="checkbox" id="in-notif-quiethours" ${getNotifSettings().quietHoursEnabled?'checked':''} style="width:16px;height:16px;">
               🌙 Jam Sunyi (tunda notifikasi Telegram level "Perlu Diperhatikan")
@@ -3283,12 +3317,14 @@ function renderSettings(){
       const quietHoursEnabled = document.getElementById('in-notif-quiethours').checked;
       const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
       const quietHoursEnd = document.getElementById('in-notif-quiet-end').value || NOTIF_SETTINGS_DEFAULT.quietHoursEnd;
+      const checkIntervalMinutes = Number(document.getElementById('in-notif-check-interval').value) || NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes;
       state.notifSettings = {
         docExpiryDays: docDays>=0 ? docDays : NOTIF_SETTINGS_DEFAULT.docExpiryDays,
         serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
         bbmMinDefault: bbmMin>=0 ? bbmMin : NOTIF_SETTINGS_DEFAULT.bbmMinDefault,
         etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
         quietHoursEnabled, quietHoursStart, quietHoursEnd,
+        checkIntervalMinutes: [5,10,15,30,60].includes(checkIntervalMinutes) ? checkIntervalMinutes : NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes,
       };
       saveData();
       showToast('Ambang batas notifikasi disimpan.');
@@ -3588,7 +3624,7 @@ function computeAlerts(){
   const besokStr = `${besok.getFullYear()}-${String(besok.getMonth()+1).padStart(2,'0')}-${String(besok.getDate()).padStart(2,'0')}`;
   state.bookings.forEach(b=>{
     if(b.status!=='dipesan' || b.tglMulai!==besokStr) return;
-    alerts.push({ id:'booking-h1-'+b.id, route:'bookings', ic:'📅', level:'warn', judul:'Booking besok', keterangan: `${carLabel(b.carId)} — ${b.tujuan||'(tanpa tujuan)'}${b.jamMulai?' · '+b.jamMulai:''}` });
+    alerts.push({ id:'booking-h1-'+b.id, route:'bookings', ic:'📅', level:'warn', judul:'Booking besok', keterangan: `${carLabel(b.carId)} — ${b.tujuan||'(tanpa tujuan)'}${b.jamMulai?' · '+b.jamMulai:''}`, targetDriverIds: Array.isArray(b.notifDriverIds) ? b.notifDriverIds : null });
   });
   alerts.sort((a,b)=> (a.level==='danger'?0:1) - (b.level==='danger'?0:1));
   return alerts;
@@ -5097,7 +5133,7 @@ function openDriverModal(editId){
         <div class="hint">Cara dapatnya: sopir chat dulu ke bot Telegram FleetOps, lalu buka <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> dan cari angka <code>"chat":{"id": ...}</code>. Kosongkan kalau sopir ini tidak perlu dapat notifikasi.</div>
         <div style="margin-top:10px;padding:10px;background:#F9FAFB;border-radius:7px;">
           <div style="font-size:12px;font-weight:700;margin-bottom:8px;">Kategori notifikasi yang diterima sopir ini:</div>
-          ${NOTIF_CATEGORIES.map(c=>{
+          ${NOTIF_CATEGORIES.filter(c=>c.key!=='booking').map(c=>{
             const kategoriTersimpan = Array.isArray(editing?.notifKategori) ? editing.notifKategori : null;
             const checked = kategoriTersimpan===null ? true : kategoriTersimpan.includes(c.key); // belum diatur = semua tercentang
             return `<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 0;cursor:pointer;">
@@ -5106,7 +5142,7 @@ function openDriverModal(editId){
             </label>`;
           }).join('')}
           <div id="notifkat-preview" style="margin-top:8px;padding:8px 10px;background:#EAF0FF;border-radius:6px;font-size:12px;color:var(--blue-dark);"></div>
-          <div class="hint" style="margin-top:4px;">Cuma berlaku untuk pengiriman Telegram -- lonceng 🔔 di aplikasi tetap tampilkan semua ke siapa pun yang buka.</div>
+          <div class="hint" style="margin-top:4px;">Cuma berlaku untuk pengiriman Telegram -- lonceng 🔔 di aplikasi tetap tampilkan semua ke siapa pun yang buka. Khusus <b>Reminder Booking</b>: tidak diatur di sini lagi -- pilih penerimanya langsung di form Booking (fleksibel per-booking, tanpa PIN).</div>
         </div>
       ` : `
         <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:7px;padding:9px 10px;background:#F5F6F8;">
@@ -5175,7 +5211,7 @@ function openDriverModal(editId){
       if(!previewEl) return;
       const dipilih = Array.from(document.querySelectorAll('.in-notifkat')).filter(el=>el.checked).map(el=>el.value);
       if(dipilih.length===0){
-        previewEl.innerHTML = `⚠️ <b>Tidak ada kategori dicentang</b> -- sopir ini TIDAK akan menerima notifikasi apa pun via Telegram (walau Chat ID sudah diisi).`;
+        previewEl.innerHTML = `⚠️ <b>Tidak ada kategori dicentang</b> -- sopir ini TIDAK akan menerima notifikasi armada via Telegram (walau Chat ID sudah diisi). Reminder Booking tetap bisa masuk kalau dipilih langsung di form Booking.`;
         previewEl.style.background = '#FEF2F2'; previewEl.style.color = 'var(--red)';
         return;
       }
@@ -7929,6 +7965,24 @@ function openBookingModal(editId){
       <label>Catatan (opsional)</label>
       <textarea id="in-catatan" rows="2">${editing?escapeHtml(editing.catatan||''):''}</textarea>
     </div>
+    ${state.drivers.some(d=>d.telegramChatId) ? `
+    <div class="field">
+      <label>📨 Kirim Reminder Telegram (H-1) Ke</label>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:8px;">
+        <input type="checkbox" id="in-notif-pilih-semua" style="width:16px;height:16px;">
+        Pilih Semua Sopir
+      </label>
+      <div id="notif-driver-checklist" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:8px 10px;">
+        ${state.drivers.filter(d=>d.telegramChatId).map(d=>`
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" class="in-notif-driver-cb" value="${d.id}" style="width:15px;height:15px;">
+            ${escapeHtml(d.nama)}
+          </label>
+        `).join('')}
+      </div>
+      <div class="hint">Sopir yang TIDAK dicentang tidak akan dapat reminder Telegram H-1 untuk booking ini (kategori notifikasi lain tetap normal). Cuma menampilkan sopir yang sudah punya Telegram Chat ID.</div>
+    </div>
+    ` : ''}
     <div id="booking-conflict-warning"></div>
   `;
 
@@ -7964,8 +8018,21 @@ function openBookingModal(editId){
         if(!lanjut) return false;
       }
 
+      // v3.104.0 -- notifDriverIds: null = kirim ke SEMUA sopir yg langganan
+      // kategori "booking" (perilaku lama/default, termasuk sopir yg
+      // daftar Telegram-nya BELAKANGAN) -- array = cuma sopir yg dicentang
+      // SAAT booking ini dibuat/diedit. Field checklist cuma muncul kalau
+      // ada minimal 1 sopir dgn Telegram Chat ID; kalau tidak ada sama
+      // sekali, checkbox-nya tidak dirender -> otomatis null (semua).
+      const notifCheckboxes = Array.from(document.querySelectorAll('.in-notif-driver-cb'));
+      let notifDriverIds = null;
+      if(notifCheckboxes.length > 0){
+        const allChecked = notifCheckboxes.every(cb=>cb.checked);
+        notifDriverIds = allChecked ? null : notifCheckboxes.filter(cb=>cb.checked).map(cb=>cb.value);
+      }
+
       if(editing){
-        Object.assign(editing, {carId, driverId, jenisPenggunaan, tujuan, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai, catatan: document.getElementById('in-catatan').value.trim()});
+        Object.assign(editing, {carId, driverId, jenisPenggunaan, tujuan, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai, catatan: document.getElementById('in-catatan').value.trim(), notifDriverIds});
         touch(editing);
         if(jenisPenggunaan !== 'pribadi'){
           ensureDestinationFromTujuan(tujuan, mapsLink);
@@ -7975,7 +8042,7 @@ function openBookingModal(editId){
       } else {
         state.bookings.push(touch({
           id: uid(), kode: nextBookingCode(), carId, driverId, jenisPenggunaan, tujuan, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai,
-          status:'dipesan', catatan: document.getElementById('in-catatan').value.trim(),
+          status:'dipesan', catatan: document.getElementById('in-catatan').value.trim(), notifDriverIds,
           petugas: currentAdmin
         }));
         if(jenisPenggunaan !== 'pribadi'){
@@ -7993,6 +8060,24 @@ function openBookingModal(editId){
   attachAutocomplete('in-tujuan', () => state.destinations.map(d=>d.nama));
   wireMapsAutofill('in-tujuan', 'in-maps-link', editing ? editing.id : null, 'maps-link-preview');
   wireDestinationRefHint('in-tujuan', 'tujuan-ref-hint');
+
+  // Wiring checklist "Kirim Reminder Telegram Ke" -- Pilih Semua <-> individual.
+  const pilihSemuaCb = document.getElementById('in-notif-pilih-semua');
+  if(pilihSemuaCb){
+    const individualCbs = Array.from(document.querySelectorAll('.in-notif-driver-cb'));
+    // Inisialisasi centang: booking baru ATAU editing.notifDriverIds===null/undefined -> semua tercentang.
+    // editing.notifDriverIds berupa array -> cuma yg id-nya ada di array itu yg tercentang.
+    const savedIds = editing ? editing.notifDriverIds : null;
+    individualCbs.forEach(cb=>{
+      cb.checked = Array.isArray(savedIds) ? savedIds.includes(cb.value) : true;
+    });
+    const syncPilihSemua = () => { pilihSemuaCb.checked = individualCbs.length>0 && individualCbs.every(cb=>cb.checked); };
+    syncPilihSemua();
+    pilihSemuaCb.addEventListener('change', function(){
+      individualCbs.forEach(cb=> cb.checked = this.checked);
+    });
+    individualCbs.forEach(cb=> cb.addEventListener('change', syncPilihSemua));
+  }
 
   // Wiring quick-add sopir baru, sama seperti di form Catat Perjalanan.
   document.getElementById('in-driver').addEventListener('change', function(){
@@ -10788,6 +10873,16 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.105.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Notifikasi Telegram jadi jauh lebih cepat: cron GitHub Actions dipercepat dari tiap 1 jam jadi tiap 5 menit -- 🧾 Resi Perjalanan sekarang maksimal telat 5 menit (sebelumnya bisa sampai 1 jam), langsung diproses tiap kali script jalan tanpa terpengaruh pengaturan apa pun.',
+      'Pengaturan baru (Pengaturan -> Ambang Batas Notifikasi, dikunci PIN): "⏱️ Cek notifikasi berkala setiap" (5/10/15/30/60 menit) -- mengatur seberapa sering notifikasi Dokumen/Servis/BBM/E-Toll/Booking diproses & dikirim, tanpa perlu edit file YAML di GitHub lagi.',
+      'Form Booking: field baru "📨 Kirim Reminder Telegram (H-1) Ke" -- pilih "Semua Sopir" atau centang sopir tertentu saja per-booking (TANPA PIN, siapa pun yang buat booking bisa atur). Cuma muncul kalau ada sopir dengan Telegram Chat ID terdaftar.',
+      'Data Sopir: toggle kategori "Reminder Booking" DIHAPUS dari checklist (yang dikunci PIN) -- penerima reminder booking sekarang SEPENUHNYA diatur per-booking di form Booking, bukan lagi langganan tetap per-sopir. Lebih fleksibel karena bisa beda-beda tiap booking.',
+    ]
+  },
   {
     v: '3.104.0',
     date: '26 Jul 2026',
