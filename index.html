@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.109.0">
+<meta name="app-version" content="3.111.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1236,7 +1236,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.109.0';
+const APP_VERSION = '3.111.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -10303,6 +10303,22 @@ function computeMonthlyReport(yearMonth){
   return { yearMonth, totalJarak, totalLiterBeli, totalBiayaBbm, totalBiayaTol, totalBiayaServis, totalBiayaOperasional, grandTotal, perMobil };
 }
 
+// v3.110.0 -- Perbandingan multi-bulan: ambil ringkasan N bulan terakhir
+// (default 6), berakhir di yearMonth yang sedang dipilih -- supaya bisa
+// lihat tren tanpa gonta-ganti dropdown 1-per-1. Menumpang computeMonthlyReport()
+// yang sudah ada (bukan hitung ulang dari nol), jadi angkanya PASTI konsisten
+// dengan ringkasan bulan tunggal di atasnya.
+function computeMultiMonthTrend(yearMonth, count){
+  count = count || 6;
+  const [y, m] = yearMonth.split('-').map(Number);
+  const bulanList = [];
+  for(let i=count-1; i>=0; i--){
+    const d = new Date(y, m-1-i, 1);
+    bulanList.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+  return bulanList.map(ym => ({ yearMonth: ym, ...computeMonthlyReport(ym) }));
+}
+
 function fmtYearMonthLabel(yearMonth){
   const [y,m] = yearMonth.split('-').map(Number);
   const d = new Date(y, m-1, 1);
@@ -10402,6 +10418,40 @@ function renderMonthlyReport(){
           </div>
         </div>
       </div>
+      ${(() => {
+        const tren = computeMultiMonthTrend(yearMonth, 6).filter(x=> x.perMobil.length>0);
+        if(tren.length<2) return ''; // butuh minimal 2 bulan berisi data biar tren-nya berarti
+        const maxGrand = Math.max(...tren.map(x=>x.grandTotal), 1); // hindari bagi 0
+        return `
+        <div class="panel">
+          <div class="panel-head"><h2>📈 Tren 6 Bulan Terakhir</h2></div>
+          <div class="panel-body">
+            <div class="table-scroll desktop-data-table"><table>
+              <thead><tr><th>Bulan</th><th>Jarak</th><th>Biaya BBM</th><th>Grand Total</th><th style="width:35%;"></th></tr></thead>
+              <tbody>
+                ${tren.map(x=>`
+                  <tr ${x.yearMonth===yearMonth?'style="background:var(--blue-bg,#EAF0FF);"':''}>
+                    <td>${escapeHtml(fmtYearMonthLabel(x.yearMonth))}${x.yearMonth===yearMonth?' <span class="badge neutral">dipilih</span>':''}</td>
+                    <td>${x.totalJarak.toLocaleString('id-ID')} KM</td>
+                    <td>${fmtMoney(x.totalBiayaBbm)}</td>
+                    <td><b>${fmtMoney(x.grandTotal)}</b></td>
+                    <td><div style="background:var(--blue,#2F6FED);height:8px;border-radius:4px;width:${Math.max(4,(x.grandTotal/maxGrand)*100)}%;"></div></td>
+                  </tr>`).join('')}
+              </tbody>
+            </table></div>
+            <div class="data-card-list">
+              ${tren.map(x=>`
+                <div class="data-card" ${x.yearMonth===yearMonth?'style="border-color:var(--blue,#2F6FED);"':''}>
+                  <div class="data-card-title"><span>${escapeHtml(fmtYearMonthLabel(x.yearMonth))}</span><span class="v" style="font-weight:800;">${fmtMoney(x.grandTotal)}</span></div>
+                  <div class="data-card-row"><span class="k">Jarak</span><span class="v">${x.totalJarak.toLocaleString('id-ID')} KM</span></div>
+                  <div class="data-card-row"><span class="k">Biaya BBM</span><span class="v">${fmtMoney(x.totalBiayaBbm)}</span></div>
+                  <div style="background:var(--line);height:8px;border-radius:4px;margin-top:8px;overflow:hidden;"><div style="background:var(--blue,#2F6FED);height:100%;width:${Math.max(4,(x.grandTotal/maxGrand)*100)}%;"></div></div>
+                </div>`).join('')}
+            </div>
+            <p style="font-size:11px;color:var(--muted);margin:10px 0 0;">Bulan tanpa aktivitas sama sekali tidak ditampilkan.</p>
+          </div>
+        </div>`;
+      })()}
       ${(() => {
         if(!insightUnlocked) return '';
         const literValidasi = computeLiterValidasi(yearMonth);
@@ -11199,6 +11249,23 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.111.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Fitur "Balas Chat Sopir" dikembangkan jadi TANYA-JAWAB TERPANDU (bukan cuma laporan sepihak lagi) -- sopir balas "tiba", bot tanya Odometer (tervalidasi harus ≥ odometer berangkat), lalu tanya Level BBM (Bar/% sesuai tipe mobil, tervalidasi rentangnya) -- begitu keduanya valid, trip BENAR-BENAR ditutup dengan data lengkap, sopir bisa selesai kerja tanpa buka aplikasi sama sekali. Balas "batal" kapan saja untuk membatalkan; percakapan yang ditinggal >1 jam otomatis kadaluarsa.',
+      'PENTING (arsitektur): fitur di atas membuat GitHub Action sekarang bisa menulis LANGSUNG ke file data utama (bukan cuma file notifikasi terpisah seperti sebelumnya) -- pakai GitHub Contents API dengan perlindungan SHA-conditional PERSIS SAMA dengan yang dipakai browser saat sinkron, supaya TIDAK PERNAH menimpa perubahan dari HP lain yang kebetulan sinkron di waktu berdekatan (sudah diverifikasi lewat simulasi: trip yang sudah ditutup/dihapus lewat aplikasi TIDAK akan ditimpa). Butuh GITHUB_TOKEN di telegram-notify.yml -- Secret BAWAAN GitHub, otomatis tersedia, TIDAK PERLU dibuat manual.',
+      'Perbaikan bug: input Odometer via chat sempat menolak format umum Indonesia dengan titik ribuan (mis. "45.230") -- sudah diperbaiki, sekarang diterima dengan maupun tanpa titik.',
+    ]
+  },
+  {
+    v: '3.110.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Fitur baru: sopir bisa balas chat "tiba" ke bot Telegram untuk melaporkan trip aktifnya -- laporan diteruskan ke admin (bukan otomatis menutup trip, karena Odometer Tiba & BBM Akhir tetap wajib diisi manual demi akurasi). Pakai polling (bukan webhook real-time, arsitektur ini tidak punya server permanen) -- bisa telat beberapa menit mengikuti jadwal cron, sudah diverifikasi lewat simulasi.',
+      'Fitur baru: panel "📈 Tren 6 Bulan Terakhir" di Laporan Bulanan -- tabel/grafik batang sederhana membandingkan Jarak, Biaya BBM, dan Grand Total 6 bulan sekaligus, tanpa perlu ganti-ganti dropdown satu-satu. Sudah diverifikasi termasuk kasus lintas tahun.',
+    ]
+  },
   {
     v: '3.109.0',
     date: '26 Jul 2026',
