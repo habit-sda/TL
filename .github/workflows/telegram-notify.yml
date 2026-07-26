@@ -19,6 +19,14 @@ name: FleetOps - Notifikasi Telegram Otomatis
 # sendiri kalau belum waktunya, TANPA perlu edit file ini lagi.
 # 🧾 Resi Perjalanan (begitu status diubah "Selesai") TIDAK ikut aturan
 # interval itu -- selalu dicek tiap tick di sini (maks. 5 menit).
+# 💬 v3.111.0 -- Balas Chat Sopir sekarang bisa MENYELESAIKAN trip PENUH
+# (bukan cuma laporan sepihak ke admin) lewat tanya-jawab terpandu (Odometer
+# + BBM). Ini artinya script BISA MENULIS LANGSUNG ke file data utama
+# (FLEETOPS_DATA_PATH) -- makanya butuh GITHUB_TOKEN (Secret otomatis dari
+# GitHub, TIDAK PERLU dibuat manual) supaya bisa menulis dengan AMAN lewat
+# GitHub Contents API (pola SHA-conditional PERSIS SAMA dengan yang dipakai
+# browser saat sinkron) -- BUKAN lewat git commit biasa di file lokal, yang
+# rawan bentrok kalau ada device lain sinkron di waktu yang berdekatan.
 on:
   schedule:
     - cron: '*/5 * * * *'
@@ -67,6 +75,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TEST_CHAT_ID: ${{ github.event.inputs.test_chat_id }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/telegram-notify.mjs
 
       - name: Commit balik notif-state.json (kalau ada perubahan)
