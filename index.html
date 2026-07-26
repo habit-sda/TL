@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.100.0">
+<meta name="app-version" content="3.100.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1188,7 +1188,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.100.0';
+const APP_VERSION = '3.100.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -6593,8 +6593,8 @@ function openBiayaOperasionalModal(usageId){
     </div>
     ${usageBiayaOpTotal(u)>0 ? `
     <div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);">
-      <button type="button" class="btn btn-ghost" id="btn-copy-biayaop-report" style="flex:1;font-weight:700;border-width:1.5px;">📋 Salin Gambar</button>
-      <button type="button" class="btn btn-primary" id="btn-share-biayaop-report" style="flex:1;font-weight:700;">📤 Bagikan</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-biayaop-report" style="flex:1;">📋 Salin Gambar</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-share-biayaop-report" style="flex:1;color:var(--blue);border-color:var(--blue);">📤 Bagikan</button>
     </div>
     <div style="font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.4;">Membagikan laporan yang TERSIMPAN saat ini — kalau baru saja mengubah item di atas, simpan dulu supaya laporannya ikut ter-update.</div>
     ` : ''}
@@ -10558,6 +10558,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.100.1',
+    date: '26 Jul 2026',
+    notes: [
+      'Tombol Salin Gambar/Bagikan (modal Biaya Operasional) dikecilkan lagi & "Bagikan" diganti dari biru solid jadi outline biru -- versi biru penuh sebelumnya dirasa terlalu besar & berat secara visual.',
+    ]
+  },
   {
     v: '3.100.0',
     date: '26 Jul 2026',
