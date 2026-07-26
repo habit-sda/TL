@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.98.0">
+<meta name="app-version" content="3.99.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1188,7 +1188,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.98.0';
+const APP_VERSION = '3.99.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3944,6 +3944,48 @@ document.getElementById('insight-pin-trigger').addEventListener('click', ()=>{
   }
 });
 
+// Merger "✏️ Edit" + "✏️ Edit Data Tiba" (KHUSUS trip yang sudah selesai --
+// keduanya sama-sama aksi EDIT, jadi wajar digabung) jadi 1 tombol ringkas
+// yang membuka menu pilihan kecil, memakai pola .trip-action-menu yang SAMA
+// dgn openTripActionMenu/openListActionMenu supaya konsisten. Trip yang
+// MASIH JALAN (status 'digunakan') SENGAJA TIDAK digabung -- tombol kedua di
+// situ adalah "✅ Tiba" (aksi UBAH STATUS, beda jenis dari "Edit"), gabung
+// keduanya jadi 1 tombol akan membingungkan (edit vs aksi utama tertukar).
+function openEditChoiceMenu(usageId, anchorEl){
+  document.querySelectorAll('.trip-action-menu').forEach(m=>m.remove());
+  const u = state.usage.find(x=>x.id===usageId);
+  if(!u) return;
+
+  const menu = document.createElement('div');
+  menu.className = 'trip-action-menu';
+  menu.innerHTML = `
+    <div class="trip-action-item" data-act="edit-berangkat">✏️ Edit Data Berangkat</div>
+    <div class="trip-action-item" data-act="edit-tiba">✏️ Edit Data Tiba</div>
+  `;
+  document.body.appendChild(menu);
+
+  const rect = anchorEl.getBoundingClientRect();
+  const menuWidth = Math.min(230, window.innerWidth - 16);
+  let top = Math.min(rect.bottom + 4, window.innerHeight - 150);
+  let left = Math.min(rect.left, window.innerWidth - menuWidth - 8);
+  menu.style.top = Math.max(8, top) + 'px';
+  menu.style.left = Math.max(8, left) + 'px';
+
+  menu.querySelectorAll('[data-act]').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      const act = item.dataset.act;
+      menu.remove();
+      if(act==='edit-berangkat') openUsageModal(u.id);
+      else if(act==='edit-tiba') markReturned(u.id); // status sudah 'selesai' -> fungsi ini otomatis buka mode "Edit Data Tiba" (lihat title di dalamnya)
+    });
+  });
+  setTimeout(()=>{
+    document.addEventListener('click', function closeMenu(e){
+      if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('click', closeMenu); }
+    });
+  }, 0);
+}
+
 function openTripActionMenu(usageId, anchorEl){
   document.querySelectorAll('.trip-action-menu').forEach(m=>m.remove());
   const u = state.usage.find(x=>x.id===usageId);
@@ -4033,12 +4075,10 @@ function openListActionMenu(usageId, anchorEl){
   const u = state.usage.find(x=>x.id===usageId);
   if(!u) return;
   const isOperasional = u.jenisPenggunaan !== 'pribadi';
-  const biayaOpTotal = usageBiayaOpTotal(u);
 
   const items = [
     {act:'edit', label:'✏️ Edit'},
     ...(isOperasional ? [{act:'biayaop', label:'🧾 Biaya Operasional'}] : []),
-    ...(biayaOpTotal>0 ? [{act:'share', label:'📤 Bagikan'}, {act:'copyimg', label:'📋 Salin Gambar'}] : []),
     {act:'return', label: u.status==='digunakan' ? '✅ Tiba' : '✏️ Edit Data Tiba'},
     {act:'copykode', label:'📋 Salin Kode Perjalanan', copyCode: u.kode||''},
   ];
@@ -5712,10 +5752,11 @@ function renderUsage(){
     const isOperasional = u.jenisPenggunaan !== 'pribadi';
     const durationLabel = fmtDuration(u) + durasiAnomaliBadgeHtml(u);
     const actionButtonsHtml = `
-      <button class="btn btn-ghost btn-sm" data-edit="${u.id}">✏️ Edit</button>
+      ${u.status==='digunakan'
+        ? `<button class="btn btn-ghost btn-sm" data-edit="${u.id}">✏️ Edit</button>`
+        : `<button class="btn btn-ghost btn-sm" data-edit-choice="${u.id}">✏️ Edit ▾</button>`}
       ${isOperasional ? `<button class="btn btn-ghost btn-sm" data-biayaop="${u.id}">🧾 Biaya Operasional</button>` : ''}
-      ${biayaOpTotal>0 ? `<button class="btn btn-ghost btn-sm" data-share="${u.id}">📤 Bagikan</button><button class="btn btn-ghost btn-sm" data-copy-img="${u.id}">📋 Salin Gambar</button>` : ''}
-      ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Tiba</button>` : `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✏️ Edit Data Tiba</button>`}
+      ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Tiba</button>` : ''}
     `;
     return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, biayaTolInfo, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, etollBiayaTotal, isOperasional, durationLabel, actionButtonsHtml };
   }
@@ -5854,9 +5895,8 @@ function renderUsage(){
       b.addEventListener('click', (e)=>{ e.stopPropagation(); openListActionMenu(b.dataset.listAction, b); });
     });
     wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openUsageModal(b.dataset.edit));
+    wrap.querySelectorAll('[data-edit-choice]').forEach(b=> b.onclick = (e)=>{ e.stopPropagation(); openEditChoiceMenu(b.dataset.editChoice, b); });
     wrap.querySelectorAll('[data-biayaop]').forEach(b=> b.onclick = ()=> openBiayaOperasionalModal(b.dataset.biayaop));
-    wrap.querySelectorAll('[data-share]').forEach(b=> b.onclick = ()=> shareUsageReport(b.dataset.share));
-    wrap.querySelectorAll('[data-copy-img]').forEach(b=> b.onclick = ()=> copyUsageReportToClipboard(b.dataset.copyImg));
     wrap.querySelectorAll('[data-return]').forEach(b=> b.onclick = ()=> markReturned(b.dataset.return));
     wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteUsage(b.dataset.del));
   }
@@ -6183,9 +6223,8 @@ function renderUsage(){
     // Operasional, Bagikan, Salin Gambar, Tandai Kembali/Edit Data Kembali)
     // -- pakai handler yang SAMA PERSIS dengan tampilan List.
     document.querySelectorAll('.trip-detail-body [data-edit]').forEach(b=> b.onclick = ()=> openUsageModal(b.dataset.edit));
+    document.querySelectorAll('.trip-detail-body [data-edit-choice]').forEach(b=> b.onclick = (e)=>{ e.stopPropagation(); openEditChoiceMenu(b.dataset.editChoice, b); });
     document.querySelectorAll('.trip-detail-body [data-biayaop]').forEach(b=> b.onclick = ()=> openBiayaOperasionalModal(b.dataset.biayaop));
-    document.querySelectorAll('.trip-detail-body [data-share]').forEach(b=> b.onclick = ()=> shareUsageReport(b.dataset.share));
-    document.querySelectorAll('.trip-detail-body [data-copy-img]').forEach(b=> b.onclick = ()=> copyUsageReportToClipboard(b.dataset.copyImg));
     document.querySelectorAll('.trip-detail-body [data-return]').forEach(b=> b.onclick = ()=> markReturned(b.dataset.return));
     document.querySelectorAll('.trip-detail-body [data-trip-receipt]').forEach(b=> b.onclick = ()=> openTripReceiptModal(b.dataset.tripReceipt));
     const editCarBtn = document.querySelector('[data-edit-car]');
@@ -6552,6 +6591,13 @@ function openBiayaOperasionalModal(usageId){
       <label style="margin:0;">Total</label>
       <div id="biayaop-total" style="font-weight:700;font-size:16px;font-family:'JetBrains Mono',monospace;">Rp 0</div>
     </div>
+    ${usageBiayaOpTotal(u)>0 ? `
+    <div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);">
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-biayaop-report" style="flex:1;">📋 Salin Gambar</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-share-biayaop-report" style="flex:1;">📤 Bagikan</button>
+    </div>
+    <div class="hint" style="margin-top:6px;">Membagikan laporan yang TERSIMPAN saat ini -- kalau baru saja mengubah item di atas, simpan dulu supaya laporannya ikut ter-update.</div>
+    ` : ''}
   `;
 
   // Kategori custom yang PERNAH dipakai (diketik lewat "+ Kategori lain...")
@@ -6702,6 +6748,10 @@ function openBiayaOperasionalModal(usageId){
     formItems.push({ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'' });
     renderItems();
   });
+  const btnCopyBiayaOp = document.getElementById('btn-copy-biayaop-report');
+  if(btnCopyBiayaOp) btnCopyBiayaOp.addEventListener('click', ()=> copyUsageReportToClipboard(u.id));
+  const btnShareBiayaOp = document.getElementById('btn-share-biayaop-report');
+  if(btnShareBiayaOp) btnShareBiayaOp.addEventListener('click', ()=> shareUsageReport(u.id));
 }
 function isBiayaOpCategory(v){ return BIAYA_OP_CATEGORIES.includes(v); }
 
@@ -10508,6 +10558,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.99.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Tombol "📤 Bagikan" & "📋 Salin Gambar" di baris aksi perjalanan (List Catat Perjalanan) dipindah ke DALAM modal "🧾 Biaya Operasional" -- sama seperti pola Tanda Terima, supaya baris aksi luar tidak berantakan. Cuma muncul di dalam modal kalau memang sudah ada biaya operasional tersimpan.',
+      'Tombol "✏️ Edit" & "✏️ Edit Data Tiba" (khusus perjalanan yang SUDAH SELESAI) digabung jadi 1 tombol ringkas "✏️ Edit ▾" yang membuka menu pilihan kecil (Edit Data Berangkat / Edit Data Tiba) -- fungsinya tetap sama persis seperti sebelumnya, cuma lebih ringkas. Perjalanan yang MASIH JALAN tetap punya tombol "✏️ Edit" & "✅ Tiba" terpisah seperti biasa (beda jenis aksi, sengaja tidak digabung).',
+    ]
+  },
   {
     v: '3.98.0',
     date: '26 Jul 2026',
