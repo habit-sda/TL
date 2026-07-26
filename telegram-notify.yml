@@ -44,6 +44,10 @@ jobs:
           node-version: '20'
 
       - name: Cek alert & kirim notifikasi Telegram (kalau ada yang baru)
+        # TELEGRAM_CHAT_ID di sini OPSIONAL -- penerima utama sekarang diambil
+        # dari field "Telegram Chat ID" tiap sopir di menu Data Sopir
+        # (index.html), otomatis ikut tersinkron lewat data.json. Secret ini
+        # cuma perlu diisi kalau mau ada 1 penerima admin tambahan.
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

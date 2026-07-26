@@ -1163,7 +1163,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.92.1';
+const APP_VERSION = '3.93.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -4731,7 +4731,7 @@ function renderDrivers(){
     }
     wrap.innerHTML = `
       <div class="table-scroll desktop-data-table"><table>
-        <thead><tr><th>Kode</th><th>Nama</th><th>No. SIM</th><th>No. HP</th><th>Alamat</th><th>Total KM</th><th>Total Jam Jalan</th><th></th></tr></thead>
+        <thead><tr><th>Kode</th><th>Nama</th><th>No. SIM</th><th>No. HP</th><th>Alamat</th><th>Telegram</th><th>Total KM</th><th>Total Jam Jalan</th><th></th></tr></thead>
         <tbody>
           ${items.map(d=>{
             const t = computeTotalKmJamForDriver(d.id);
@@ -4742,6 +4742,7 @@ function renderDrivers(){
               <td>${escapeHtml(d.noSim||'-')}</td>
               <td>${escapeHtml(d.noHp||'-')}</td>
               <td>${escapeHtml(d.alamat||'-')}</td>
+              <td>${d.telegramChatId ? '<span class="badge ok">🔔 Aktif</span>' : '<span class="badge neutral">-</span>'}</td>
               <td>${t.totalKm>0?t.totalKm.toLocaleString('id-ID')+' KM':'-'}</td>
               <td>${t.totalMenit>0?fmtDurationMinutes(t.totalMenit):'-'}</td>
               <td style="text-align:right;white-space:nowrap;">
@@ -4761,6 +4762,7 @@ function renderDrivers(){
             <div class="data-card-row"><span class="k">No. SIM</span><span class="v">${escapeHtml(d.noSim||'-')}</span></div>
             <div class="data-card-row"><span class="k">No. HP</span><span class="v">${escapeHtml(d.noHp||'-')}</span></div>
             <div class="data-card-row"><span class="k">Alamat</span><span class="v">${escapeHtml(d.alamat||'-')}</span></div>
+            <div class="data-card-row"><span class="k">Notifikasi Telegram</span><span class="v">${d.telegramChatId ? '<span class="badge ok">🔔 Aktif</span>' : '<span class="badge neutral">-</span>'}</span></div>
             <div class="data-card-row"><span class="k">Total KM</span><span class="v">${t.totalKm>0?t.totalKm.toLocaleString('id-ID')+' KM':'-'}</span></div>
             <div class="data-card-row"><span class="k">Total Jam Jalan</span><span class="v">${t.totalMenit>0?fmtDurationMinutes(t.totalMenit):'-'}</span></div>
             <div class="data-card-actions">
@@ -4822,6 +4824,11 @@ function openDriverModal(editId){
       <label>Alamat</label>
       <textarea id="in-alamat" rows="2" placeholder="Opsional">${editing?escapeHtml(editing.alamat||''):''}</textarea>
     </div>
+    <div class="field">
+      <label>Telegram Chat ID</label>
+      <input type="text" id="in-telegramchatid" data-no-uppercase="1" placeholder="Opsional — supaya sopir ini dapat notifikasi armada" value="${editing?escapeHtml(editing.telegramChatId||''):''}">
+      <div class="hint">Cara dapatnya: sopir chat dulu ke bot Telegram FleetOps, lalu buka <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> dan cari angka <code>"chat":{"id": ...}</code>. Kosongkan kalau sopir ini tidak perlu dapat notifikasi.</div>
+    </div>
   `;
   openModal({
     title: editing ? 'Edit Data Sopir' : 'Tambah Sopir Baru',
@@ -4831,18 +4838,19 @@ function openDriverModal(editId){
       const noSim = document.getElementById('in-nosim').value.trim();
       const noHp = document.getElementById('in-nohp').value.trim();
       const alamat = document.getElementById('in-alamat').value.trim();
+      const telegramChatId = document.getElementById('in-telegramchatid').value.trim();
 
       let valid = true;
       toggleFieldError('f-nama', !nama); if(!nama) valid=false;
       if(!valid) return false;
 
       if(editing){
-        Object.assign(editing, {nama, noSim, noHp, alamat});
+        Object.assign(editing, {nama, noSim, noHp, alamat, telegramChatId});
         touch(editing);
         logActivity('sopir', 'Edit data sopir', nama);
         showToast('Data sopir diperbarui.');
       } else {
-        state.drivers.push(touch({id: uid(), kode: nextDriverCode(), nama, noSim, noHp, alamat, createdAt: today(), petugas: currentAdmin}));
+        state.drivers.push(touch({id: uid(), kode: nextDriverCode(), nama, noSim, noHp, alamat, telegramChatId, createdAt: today(), petugas: currentAdmin}));
         logActivity('sopir', 'Tambah sopir baru', nama);
         showToast('Sopir baru ditambahkan.');
       }
@@ -10181,6 +10189,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.93.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Menu Data Sopir: field baru "Telegram Chat ID" (opsional) di form Tambah/Edit Sopir -- badge "🔔 Aktif" tampil di tabel/kartu kalau sudah diisi. Dipakai oleh sistem Notifikasi Telegram Otomatis (GitHub Actions) supaya tiap sopir bisa didaftarkan langsung dari sini, tanpa admin perlu edit GitHub Secrets tiap ada sopir baru.',
+    ]
+  },
   {
     v: '3.92.1',
     date: '25 Jul 2026',

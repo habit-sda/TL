@@ -28,10 +28,15 @@ import { dirname, join } from 'node:path';
 const DATA_PATH = process.env.FLEETOPS_DATA_PATH || 'data/fleetops-data.json';
 const STATE_PATH = process.env.FLEETOPS_NOTIF_STATE_PATH || join(dirname(DATA_PATH), 'notif-state.json');
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+// TELEGRAM_CHAT_ID Secret sekarang OPSIONAL -- penerima utama diambil dari
+// field "Telegram Chat ID" di menu Data Sopir (index.html), supaya admin
+// tidak perlu bolak-balik ke GitHub Secrets tiap ada sopir baru yang mau
+// didaftarkan. Secret ini, kalau tetap diisi, jadi penerima TAMBAHAN (mis.
+// buat admin/pengelola yang bukan sopir).
+const ADMIN_CHAT_ID = (process.env.TELEGRAM_CHAT_ID || '').trim();
 
-if (!BOT_TOKEN || !CHAT_ID) {
-  console.error('❌ TELEGRAM_BOT_TOKEN dan/atau TELEGRAM_CHAT_ID belum diisi di GitHub Secrets (Settings → Secrets and variables → Actions). Berhenti.');
+if (!BOT_TOKEN) {
+  console.error('❌ TELEGRAM_BOT_TOKEN belum diisi di GitHub Secrets (Settings → Secrets and variables → Actions). Berhenti.');
   process.exit(1);
 }
 
@@ -53,6 +58,7 @@ state.cars = state.cars || [];
 state.usage = state.usage || [];
 state.services = state.services || [];
 state.documents = state.documents || [];
+state.drivers = state.drivers || [];
 state.etollCards = state.etollCards || [];
 
 /* ============================================================================
@@ -257,6 +263,20 @@ if (toSend.length === 0) {
   process.exit(0);
 }
 
+// ---- Kumpulkan penerima: semua sopir yang "Telegram Chat ID"-nya diisi di
+// menu Data Sopir + (opsional) 1 admin lewat Secret TELEGRAM_CHAT_ID ----
+const recipients = new Map(); // chatId -> label (buat log, bukan dikirim ke pesan)
+if (ADMIN_CHAT_ID) recipients.set(ADMIN_CHAT_ID, 'Admin (Secret)');
+state.drivers.forEach(d => {
+  const cid = (d.telegramChatId || '').toString().trim();
+  if (cid) recipients.set(cid, d.nama || 'Sopir');
+});
+
+if (recipients.size === 0) {
+  console.log(`⚠️  Ada ${toSend.length} notifikasi baru, tapi belum ada satu pun sopir yang mengisi "Telegram Chat ID" di menu Data Sopir (dan TELEGRAM_CHAT_ID Secret juga kosong). Tidak ada yang dikirim.`);
+  process.exit(0);
+}
+
 /* ============================================================================
    ---- Susun & kirim pesan Telegram ----
    ============================================================================ */
@@ -283,16 +303,30 @@ lines.push(`<i>Dikirim otomatis ${new Date().toLocaleString('id-ID', { dateStyle
 
 const text = lines.join('\n').trim();
 
-const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ chat_id: CHAT_ID, text, parse_mode: 'HTML', disable_web_page_preview: true })
-});
-const resBody = await res.json().catch(() => ({}));
-
-if (!res.ok || !resBody.ok) {
-  console.error('❌ Gagal kirim ke Telegram:', JSON.stringify(resBody));
-  process.exit(1);
+let sukses = 0;
+let gagal = 0;
+for (const [chatId, label] of recipients) {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true })
+    });
+    const resBody = await res.json().catch(() => ({}));
+    if (!res.ok || !resBody.ok) {
+      // Jangan hentikan penerima lain cuma karena 1 gagal (mis. sopir belum
+      // pernah chat ke bot, atau blokir bot) -- log saja & lanjut.
+      console.error(`❌ Gagal kirim ke ${label} (${chatId}):`, JSON.stringify(resBody));
+      gagal++;
+      continue;
+    }
+    sukses++;
+  } catch (e) {
+    console.error(`❌ Gagal kirim ke ${label} (${chatId}):`, e.message);
+    gagal++;
+  }
 }
 
-console.log(`✅ Terkirim ke Telegram: ${toSend.length} notifikasi baru (dari total ${alerts.length} masalah aktif).`);
+console.log(`✅ Terkirim ke ${sukses}/${recipients.size} penerima (${toSend.length} notifikasi baru dari total ${alerts.length} masalah aktif).`);
+if (sukses === 0) process.exit(1); // semua penerima gagal -> tandai job Actions ini gagal, biar kelihatan di tab Actions
+
