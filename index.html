@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="FleetOps">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.99.0">
+<meta name="app-version" content="3.100.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1141,7 +1141,7 @@
       <div id="gh-modal-status" class="hint"></div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-ghost" id="gh-modal-cancel">Batal</button>
+      <button class="btn btn-danger" id="gh-modal-cancel">Batal</button>
       <button class="btn btn-primary" id="gh-modal-connect-btn">Hubungkan</button>
     </div>
   </div>
@@ -1188,7 +1188,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.99.0';
+const APP_VERSION = '3.100.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -6593,10 +6593,10 @@ function openBiayaOperasionalModal(usageId){
     </div>
     ${usageBiayaOpTotal(u)>0 ? `
     <div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);">
-      <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-biayaop-report" style="flex:1;">📋 Salin Gambar</button>
-      <button type="button" class="btn btn-ghost btn-sm" id="btn-share-biayaop-report" style="flex:1;">📤 Bagikan</button>
+      <button type="button" class="btn btn-ghost" id="btn-copy-biayaop-report" style="flex:1;font-weight:700;border-width:1.5px;">📋 Salin Gambar</button>
+      <button type="button" class="btn btn-primary" id="btn-share-biayaop-report" style="flex:1;font-weight:700;">📤 Bagikan</button>
     </div>
-    <div class="hint" style="margin-top:6px;">Membagikan laporan yang TERSIMPAN saat ini -- kalau baru saja mengubah item di atas, simpan dulu supaya laporannya ikut ter-update.</div>
+    <div style="font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.4;">Membagikan laporan yang TERSIMPAN saat ini — kalau baru saja mengubah item di atas, simpan dulu supaya laporannya ikut ter-update.</div>
     ` : ''}
   `;
 
@@ -10535,7 +10535,7 @@ function openModal({title, body, onSave}){
         </div>
         <div class="modal-body">${body}</div>
         <div class="modal-foot">
-          <button class="btn btn-ghost" id="modal-cancel">Batal</button>
+          <button class="btn btn-danger" id="modal-cancel">Batal</button>
           <button class="btn btn-primary" id="modal-save">Simpan</button>
         </div>
       </div>
@@ -10558,6 +10558,20 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.100.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Semua tombol "Batal" di seluruh aplikasi (di setiap form/modal, cuma ada 2 titik kode karena 1 sistem modal dipakai bersama) diubah dari abu-abu netral jadi merah lembut -- pakai ulang gaya yang sama dengan tombol "Hapus Item Ini" yang sudah ada, supaya konsisten dengan bahasa desain aplikasi.',
+    ]
+  },
+  {
+    v: '3.99.1',
+    date: '26 Jul 2026',
+    notes: [
+      'Perbaikan bug: keterangan di bawah tombol Salin Gambar/Bagikan (modal Biaya Operasional) tampil besar (bukan kecil seperti keterangan lain) -- ternyata class .hint butuh pembungkus .field supaya ukurannya mengecil, sedangkan punya ini tidak dibungkus begitu. Sekarang sudah kecil & pudar seperti seharusnya. Sekalian tombol "📤 Bagikan" dipertegas jadi tombol utama (biru penuh) dan "📋 Salin Gambar" dipertebal, supaya lebih terlihat sebagai aksi penting.',
+    ]
+  },
   {
     v: '3.99.0',
     date: '26 Jul 2026',
