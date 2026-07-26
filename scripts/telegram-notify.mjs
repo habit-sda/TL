@@ -17,9 +17,17 @@
    index.html) di path FLEETOPS_DATA_PATH, berbentuk:
      { "data": { cars:[], usage:[], services:[], documents:[], etollCards:[], ... },
        "tombstones": {...} }
-   Karena script ini jalan di GitHub Actions PADA REPO YANG SAMA (lewat
-   actions/checkout), file ini dibaca langsung dari disk — TIDAK lewat
-   Cloudflare Worker/GitHub API, dan TIDAK butuh token GitHub sama sekali.
+   Untuk MEMBACA data (hitung alert dll), file ini dibaca LANGSUNG dari disk
+   (lewat actions/checkout) -- cepat, tidak butuh API call.
+   v3.111.0 -- TAPI untuk MENULIS balik (khusus fitur "selesaikan trip lewat
+   chat Telegram" di bawah), script ini SEKARANG memanggil GitHub Contents
+   API LANGSUNG (bukan git commit biasa) -- supaya dapat perlindungan
+   SHA-conditional PERSIS SAMA seperti pushToGithub() di index.html (kalau
+   ada device lain yang sinkron duluan di detik yang sama, tulisan di sini
+   otomatis di-tolak & dicoba ulang dari data TERBARU, bukan menimpa buta).
+   Butuh GITHUB_TOKEN (Secret BAWAAN GitHub, otomatis tersedia tiap run --
+   TIDAK PERLU dibuat manual) dengan permission "contents: write" (sudah
+   diatur di telegram-notify.yml).
    ============================================================================ */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -28,6 +36,9 @@ import { dirname, join } from 'node:path';
 const DATA_PATH = process.env.FLEETOPS_DATA_PATH || 'data/fleetops-data.json';
 const STATE_PATH = process.env.FLEETOPS_NOTIF_STATE_PATH || join(dirname(DATA_PATH), 'notif-state.json');
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Secret bawaan GitHub Actions, otomatis tersedia
+const [GH_OWNER, GH_REPO] = (process.env.GITHUB_REPOSITORY || '').split('/'); // "owner/repo" -- otomatis dari GitHub Actions
+const GH_BRANCH = process.env.GITHUB_REF_NAME || 'main'; // otomatis dari GitHub Actions
 // TELEGRAM_CHAT_ID Secret sekarang OPSIONAL -- penerima utama diambil dari
 // field "Telegram Chat ID" di menu Data Sopir (index.html), supaya admin
 // tidak perlu bolak-balik ke GitHub Secrets tiap ada sopir baru yang mau
@@ -107,6 +118,62 @@ state.bookings = state.bookings || []; // v3.102.0 -- Reminder Booking H-1
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
+/* ============================================================================
+   ---- Tulis AMAN ke file data utama via GitHub Contents API (v3.111.0) ----
+   Pola SAMA PERSIS dengan pushToGithub() di index.html: GET dulu (ambil sha
+   TERBARU), terapkan perubahan spesifik lewat mutatorFn, PUT balik dengan
+   sha itu. Kalau GitHub menolak (409/422 -- artinya ada perubahan lain yang
+   masuk duluan, mis. HP lain baru saja sinkron), ambil sha TERBARU lagi &
+   coba SEKALI LAGI dari data yang benar-benar terbaru -- supaya perubahan
+   dari chat TIDAK PERNAH menimpa buta perubahan dari device lain.
+   mutatorFn(freshRawData) HARUS mengubah freshRawData.data secara LANGSUNG
+   (mutasi in-place) dan return true kalau berhasil menemukan & mengubah
+   yang dicari, false kalau tidak ketemu (mis. trip sudah keburu dihapus).
+   ============================================================================ */
+async function pushMainDataUpdate(mutatorFn){
+  if(!GITHUB_TOKEN || !GH_OWNER || !GH_REPO){
+    console.error('❌ GITHUB_TOKEN/GITHUB_REPOSITORY tidak tersedia -- tidak bisa menulis ke file data utama.');
+    return { ok:false, reason:'no-token' };
+  }
+  const apiUrl = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${DATA_PATH}`;
+  const headers = {
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'Authorization': `Bearer ${GITHUB_TOKEN}`,
+  };
+
+  async function attemptOnce(){
+    const getRes = await fetch(`${apiUrl}?ref=${encodeURIComponent(GH_BRANCH)}`, { headers });
+    if(!getRes.ok) return { ok:false, reason:'get-failed', status:getRes.status };
+    const getData = await getRes.json();
+    const freshRaw = JSON.parse(Buffer.from(getData.content, 'base64').toString('utf8'));
+    freshRaw.data = freshRaw.data || {};
+    const found = mutatorFn(freshRaw);
+    if(!found) return { ok:false, reason:'not-found' };
+
+    const putRes = await fetch(apiUrl, {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: `chore: update via chat Telegram — ${new Date().toISOString()}`,
+        content: Buffer.from(JSON.stringify(freshRaw, null, 2), 'utf8').toString('base64'),
+        branch: GH_BRANCH,
+        sha: getData.sha,
+      }),
+    });
+    if(putRes.ok) return { ok:true };
+    return { ok:false, reason:'put-failed', status:putRes.status };
+  }
+
+  let result = await attemptOnce();
+  if(!result.ok && (result.status === 409 || result.status === 422)){
+    console.log('⚠️  Data utama berubah di tempat lain saat bersamaan -- mengambil versi terbaru & mencoba lagi sekali...');
+    result = await attemptOnce(); // retry SEKALI, pakai sha yg baru diambil ulang di dalam attemptOnce()
+  }
+  return result;
+}
+
+
 // v3.103.0 -- PORTING PERSIS dari index.html: langganan notifikasi PER
 // SOPIR. driver.notifKategori (array key) menentukan kategori apa saja yang
 // dikirim ke Telegram sopir itu -- null/undefined = SEMUA kategori (supaya
@@ -185,6 +252,10 @@ function getTripDurationMinutes(u) {
   if (isNaN(start) || isNaN(end)) return null;
   const diffMin = Math.round((end - start) / 60000);
   return diffMin >= 0 ? diffMin : null;
+}
+function convertBarToPercent(barCount, maxBar) {
+  if (barCount == null || barCount === '' || !maxBar) return null;
+  return (Number(barCount) / Number(maxBar)) * 100;
 }
 function fmtDurationMinutes(mins) {
   if (mins == null || !isFinite(mins) || mins < 0) return '-';
@@ -464,6 +535,24 @@ const prevHistory = Array.isArray(prevStateRaw.history) ? prevStateRaw.history :
 // ini ditulis terpisah/belakangan, berisiko baris kode yang lebih dulu
 // selesai malah MENIMPA hasil kirim resi yang baru saja disimpan.
 let newReceiptsSent = Array.isArray(prevStateRaw.receiptsSent) ? prevStateRaw.receiptsSent : [];
+// v3.110.0 -- offset utk Telegram getUpdates() (lihat checkIncomingReplies
+// di bawah) -- pola "let" yg SAMA dgn newReceiptsSent di atas, alasan sama:
+// persistState() (dipanggil dari banyak titik keluar) harus SELALU nulis
+// nilai TERBARU, apa pun jalur keluarnya.
+let newLastUpdateId = Number(prevStateRaw.lastUpdateId) || 0;
+// v3.111.0 -- status percakapan tanya-jawab yang SEDANG BERLANGSUNG (per
+// chatId) -- persisten lintas-run (script ini stateless, tiap run cuma
+// hidup beberapa detik), makanya HARUS disimpan di file, bukan variabel
+// biasa. Kadaluarsa otomatis (lihat CONVO_EXPIRY_MS) supaya percakapan yang
+// ditinggal sopir begitu saja tidak nyangkut selamanya.
+const CONVO_EXPIRY_MS = 60 * 60 * 1000; // 1 jam
+let newPendingConversations = { ...(prevStateRaw.pendingConversations || {}) };
+// Buang percakapan yang sudah kadaluarsa SEBELUM diproses lebih lanjut.
+Object.keys(newPendingConversations).forEach(chatId => {
+  if(Date.now() - (newPendingConversations[chatId].startedAt||0) > CONVO_EXPIRY_MS){
+    delete newPendingConversations[chatId];
+  }
+});
 
 // v3.104.0 -- Throttle notifikasi BERKALA (dokumen/servis/BBM/E-Toll/booking)
 // sesuai state.notifSettings.checkIntervalMinutes yang diatur admin lewat
@@ -513,8 +602,171 @@ function persistState(historyEntry) {
   writeFileSync(STATE_PATH, JSON.stringify({
     dedup: newDedup, history: newHistory, receiptsSent: newReceiptsSent,
     lastAlertCheckAt: dueForAlertCheck ? Date.now() : lastAlertCheckAt,
+    lastUpdateId: newLastUpdateId,
+    pendingConversations: newPendingConversations,
   }, null, 2) + '\n');
 }
+
+/* ============================================================================
+   ---- Balas Chat Sopir (v3.111.0) ----
+   Polling getUpdates() tiap kali script jalan (~tiap 5 menit sesuai cron) --
+   BUKAN webhook real-time (arsitektur statis ini tidak punya server yang
+   bisa menerima POST dari Telegram kapan saja), jadi balasan sopir bisa
+   telat beberapa menit, sama seperti notifikasi keluar.
+
+   Sopir yang membalas "tiba" -- KALAU Chat ID-nya cocok salah satu sopir
+   terdaftar & punya trip AKTIF -- masuk ke TANYA-JAWAB TERPANDU:
+   1. Bot tanya Odometer sekarang -> divalidasi (angka valid, >= odometer
+      berangkat).
+   2. Bot tanya Level BBM sekarang (sesuai tipe indikator mobil: Bar atau %)
+      -> divalidasi (dalam rentang wajar).
+   3. Kalau KEDUANYA valid -> trip BENAR-BENAR ditutup dengan data
+      tervalidasi (lewat pushMainDataUpdate(), SHA-conditional, aman dari
+      bentrok sinkron device lain) -- BUKAN cuma laporan sepihak lagi.
+   Balasan "batal" di tengah percakapan membatalkannya. Percakapan yang
+   ditinggal >1 jam otomatis kadaluarsa (lihat CONVO_EXPIRY_MS di atas).
+   ============================================================================ */
+async function sendTg(chatId, text){
+  try{
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' })
+    });
+  }catch(e){ console.error(`❌ Gagal kirim pesan ke ${chatId}:`, e.message); }
+}
+function pertanyaanBbm(car){
+  if(car.tipeIndikatorBbm === 'bar'){
+    const maxBar = car.maxBarBbm || 8;
+    return `⛽ Level BBM sekarang (0-${maxBar} Bar)? Contoh: 5`;
+  }
+  return `⛽ Level BBM sekarang (0-100%)? Contoh: 65`;
+}
+async function checkIncomingReplies(){
+  try{
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${newLastUpdateId + 1}&timeout=0`);
+    const body = await res.json().catch(() => ({}));
+    if(!body.ok || !Array.isArray(body.result) || body.result.length === 0) return;
+
+    for(const update of body.result){
+      if(update.update_id > newLastUpdateId) newLastUpdateId = update.update_id;
+      const msg = update.message;
+      if(!msg || !msg.text) continue;
+      const textRaw = msg.text.trim();
+      const text = textRaw.toLowerCase();
+      const chatId = String(msg.chat.id);
+      const convo = newPendingConversations[chatId];
+
+      // "batal" berlaku kapan pun ada percakapan sedang berlangsung.
+      if(convo && text === 'batal'){
+        delete newPendingConversations[chatId];
+        await sendTg(chatId, '❌ Dibatalkan. Ketik "tiba" lagi kapan pun kalau mau lapor ulang.');
+        continue;
+      }
+
+      // ---- BELUM ada percakapan berlangsung -> cuma "tiba" yang memulai ----
+      if(!convo){
+        if(text !== 'tiba') continue; // bukan perintah yang dikenali & tidak lagi di tengah percakapan -- diamkan
+        const driver = state.drivers.find(d => (d.telegramChatId || '').toString().trim() === chatId);
+        if(!driver) continue; // Chat ID tak dikenal sbg sopir manapun -- diamkan, jangan balas orang asing
+
+        const tripAktif = state.usage.find(u => u.driverId === driver.id && u.status === 'digunakan');
+        if(!tripAktif){
+          await sendTg(chatId, '⚠️ Tidak ditemukan trip yang sedang berjalan atas nama Anda -- kalau ini keliru, cek langsung di aplikasi.');
+          continue;
+        }
+        const car = state.cars.find(c => c.id === tripAktif.carId);
+        newPendingConversations[chatId] = {
+          tripId: tripAktif.id, carId: tripAktif.carId, odoKeluar: tripAktif.odoKeluar,
+          driverNama: driver.nama, tujuan: tripAktif.tujuan || '-',
+          step: 'odometer', startedAt: Date.now(),
+        };
+        await sendTg(chatId, `📍 Oke, ${escapeHtmlTg(driver.nama)}! Trip ${escapeHtmlTg(carLabel(tripAktif.carId))} (${escapeHtmlTg(tripAktif.tujuan||'-')}) akan ditutup.\n\n🔢 Odometer sekarang (KM)? Contoh: 45230\n\n<i>Ketik "batal" kapan saja untuk membatalkan.</i>`);
+        console.log(`💬 ${driver.nama} mulai percakapan tutup trip (${tripAktif.id}).`);
+        continue;
+      }
+
+      // ---- SEDANG di tengah percakapan ----
+      const car = state.cars.find(c => c.id === convo.carId);
+      if(!car){
+        delete newPendingConversations[chatId];
+        await sendTg(chatId, '⚠️ Data mobil untuk trip ini sudah tidak ditemukan -- percakapan dibatalkan otomatis. Cek langsung di aplikasi.');
+        continue;
+      }
+
+      if(convo.step === 'odometer'){
+        // v3.111.0 -- terima format Indonesia dgn titik ribuan (mis. "45.230")
+        // -- buang SEMUA yang bukan digit dulu, baru divalidasi hasilnya
+        // (bukan validasi teks mentahnya, supaya "45.230" tidak salah
+        // ditolak cuma karena ada titik).
+        const digitSaja = textRaw.replace(/[^\d]/g, '');
+        const angka = Number(digitSaja);
+        if(digitSaja === '' || !isFinite(angka)){
+          await sendTg(chatId, '⚠️ Belum berupa angka yang valid. Coba ketik ulang, contoh: 45230 (boleh pakai titik: 45.230)');
+          continue;
+        }
+        if(convo.odoKeluar != null && angka < convo.odoKeluar){
+          await sendTg(chatId, `⚠️ Odometer (${angka.toLocaleString('id-ID')} KM) tidak boleh lebih kecil dari odometer saat berangkat (${Number(convo.odoKeluar).toLocaleString('id-ID')} KM). Coba cek lagi &amp; ketik ulang.`);
+          continue;
+        }
+        convo.odometerValue = angka;
+        convo.step = 'bbm';
+        await sendTg(chatId, pertanyaanBbm(car));
+        continue;
+      }
+
+      if(convo.step === 'bbm'){
+        const angka = Number(textRaw.replace(',', '.'));
+        if(!isFinite(angka) || textRaw.trim()===''){
+          await sendTg(chatId, '⚠️ Belum berupa angka yang valid. ' + pertanyaanBbm(car));
+          continue;
+        }
+        const maxBar = car.maxBarBbm || 8;
+        const batasAtas = car.tipeIndikatorBbm === 'bar' ? maxBar : 100;
+        if(angka < 0 || angka > batasAtas){
+          await sendTg(chatId, `⚠️ Harus di antara 0-${batasAtas}. ` + pertanyaanBbm(car));
+          continue;
+        }
+        const bensinKembaliPercent = car.tipeIndikatorBbm === 'bar' ? convertBarToPercent(angka, maxBar) : angka;
+
+        // ---- FINALISASI: tutup trip beneran, lewat penulisan AMAN ke data utama ----
+        const jamSekarang = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta', hour12:false, hour:'2-digit', minute:'2-digit' });
+        const tanggalSekarang = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' }); // format YYYY-MM-DD
+        const hasil = await pushMainDataUpdate((freshRaw) => {
+          const usageArr = freshRaw.data.usage || [];
+          const trip = usageArr.find(u => u.id === convo.tripId);
+          if(!trip || trip.status !== 'digunakan') return false; // sudah ditutup/dihapus duluan (mis. lewat aplikasi) -- jangan timpa
+          trip.odoKembali = convo.odometerValue;
+          trip.bensinKembali = bensinKembaliPercent;
+          trip.status = 'selesai';
+          trip.tglKembali = tanggalSekarang;
+          trip.jamKembali = jamSekarang;
+          trip.updatedAt = Date.now();
+          trip.petugas = trip.petugas || `${convo.driverNama} (via Telegram)`;
+          return true;
+        });
+
+        if(hasil.ok){
+          const jarak = convo.odoKeluar!=null ? (convo.odometerValue - convo.odoKeluar) : null;
+          await sendTg(chatId, `✅ <b>Trip ditutup!</b>\n\n${escapeHtmlTg(carLabel(convo.carId))} — ${escapeHtmlTg(convo.tujuan)}\n${jarak!=null ? 'Jarak: '+jarak.toLocaleString('id-ID')+' KM\n' : ''}Odometer Tiba: ${convo.odometerValue.toLocaleString('id-ID')} KM\n\nTerima kasih! 🙏`);
+          if(ADMIN_CHAT_ID){
+            await sendTg(ADMIN_CHAT_ID, `✅ <b>${escapeHtmlTg(convo.driverNama)}</b> menutup trip lewat Telegram -- ${escapeHtmlTg(carLabel(convo.carId))} (${escapeHtmlTg(convo.tujuan)}), Odometer ${convo.odometerValue.toLocaleString('id-ID')} KM.`);
+          }
+          console.log(`✅ Trip ${convo.tripId} ditutup lewat chat oleh ${convo.driverNama}.`);
+        } else if(hasil.reason === 'not-found'){
+          await sendTg(chatId, '⚠️ Trip ini sepertinya sudah ditutup/diubah lewat aplikasi duluan -- tidak jadi diproses dari sini, supaya data tidak bentrok. Cek aplikasi untuk pastikan datanya sudah benar.');
+        } else {
+          await sendTg(chatId, '❌ Gagal menyimpan ke server -- coba lagi beberapa saat lagi, atau lengkapi manual lewat aplikasi.');
+          console.error('❌ pushMainDataUpdate gagal:', JSON.stringify(hasil));
+        }
+        delete newPendingConversations[chatId];
+        continue;
+      }
+    }
+  }catch(e){
+    console.error('❌ Gagal cek balasan chat (getUpdates):', e.message);
+  }
+}
+await checkIncomingReplies();
 
 /* ============================================================================
    ---- Auto-kirim Tanda Terima Perjalanan (v3.103.0) ----
