@@ -10,9 +10,22 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="FleetOps">
+<script>
+  // v3.108.0 -- SENGAJA ditaruh paling awal di <head> (sebelum <style> pun
+  // dibaca browser) supaya Mode Gelap langsung aktif SEJAK detik pertama
+  // halaman dibuka -- kalau logika ini ditaruh di script utama di bawah
+  // (yang baru jalan setelah HTML+CSS selesai di-parse), akan ada jeda
+  // singkat "kilatan" tema terang dulu baru berubah gelap, yang terasa
+  // mengganggu di mata.
+  try{
+    if(localStorage.getItem('fleetops_theme')==='dark'){
+      document.documentElement.setAttribute('data-theme','dark');
+    }
+  }catch(e){}
+</script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.107.0">
+<meta name="app-version" content="3.108.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -36,8 +49,38 @@
     --red-bg:#FCE8E7;
     --green:#1F8A5A;
     --green-bg:#E4F6EC;
+    --neutral-bg:#EEF0F3;
     --radius:10px;
   }
+  /* v3.108.0 -- Mode Gelap. CAKUPAN JUJUR: variabel inti (latar, kartu,
+     teks, badge status) sudah konsisten dipakai di SELURUH aplikasi lewat
+     var(--...) di atas, jadi otomatis ikut gelap dgn benar. TAPI beberapa
+     komponen KHUSUS (mis. bubble "Mobil Jalan" bertema charcoal/tembaga,
+     beberapa ikon aksen warna-warni) memang sengaja pakai warna TETAP
+     (bukan variabel) supaya identitas visualnya konsisten -- itu TIDAK
+     ikut berubah di Mode Gelap, kemungkinan masih terlihat "terang" di
+     tengah tema gelap. Bukan bug, tapi keterbatasan cakupan yang jujur
+     perlu diketahui.
+  */
+  [data-theme="dark"]{
+    --navy:#0B0F17;
+    --navy-2:#111827;
+    --bg:#12151C;
+    --card:#1B1F29;
+    --line:#2C313D;
+    --text:#E7E9EE;
+    --muted:#9199A8;
+    --blue:#5B8DF6;
+    --blue-dark:#8FB2FA;
+    --amber:#F0B94D;
+    --amber-bg:#3A2E14;
+    --red:#F0716C;
+    --red-bg:#3A1B1A;
+    --green:#4FCE8F;
+    --green-bg:#123626;
+    --neutral-bg:#262B36;
+  }
+  [data-theme="dark"] .badge.neutral{background:var(--neutral-bg);color:var(--muted);}
   *{box-sizing:border-box;}
   body{margin:0;padding:0;}
   html,body{height:100%;}
@@ -1193,7 +1236,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.107.0';
+const APP_VERSION = '3.108.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3169,6 +3212,19 @@ function renderSettings(){
 
   const html = `
     <div class="panel">
+      <div class="panel-head"><h2>🎨 Tampilan</h2></div>
+      <div class="panel-body">
+        <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;">
+          <span>
+            <span style="font-weight:700;font-size:13px;">🌙 Mode Gelap</span>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">Cocok dipakai malam hari/kondisi minim cahaya. Tersimpan per-perangkat (tidak ikut sinkron ke HP lain).</div>
+          </span>
+          <input type="checkbox" id="in-dark-mode" ${localStorage.getItem('fleetops_theme')==='dark'?'checked':''} style="width:20px;height:20px;flex-shrink:0;">
+        </label>
+        <div class="hint" style="margin-top:10px;">⚠️ Cakupan jujur: sebagian besar tampilan (latar, kartu, teks, badge status) sudah otomatis ikut gelap. Beberapa elemen dengan warna khusus (mis. bubble "Mobil Jalan") sengaja TIDAK ikut berubah, supaya identitas visualnya tetap konsisten.</div>
+      </div>
+    </div>
+    <div class="panel">
       <div class="panel-head"><h2>💾 Backup &amp; Pulihkan Data</h2></div>
       <div class="panel-body">
         <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
@@ -3308,6 +3364,17 @@ function renderSettings(){
     </div>
   `;
   document.getElementById('content').innerHTML = html;
+  document.getElementById('in-dark-mode').addEventListener('change', function(){
+    try{
+      if(this.checked){
+        document.documentElement.setAttribute('data-theme','dark');
+        localStorage.setItem('fleetops_theme','dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.removeItem('fleetops_theme');
+      }
+    }catch(e){ console.error('Gagal menyimpan preferensi tema:', e); }
+  });
   document.getElementById('btn-download-backup').onclick = () => exportFullBackup(false);
   document.getElementById('in-restore-file').addEventListener('change', function(){
     const file = this.files && this.files[0];
@@ -3851,6 +3918,7 @@ function refreshInsightPanels(){
   if(currentRoute==='dashboard') renderDashboard(); // v3.89.0 -- panel gabungan "Insight Terbaru"
   if(currentRoute==='settings') renderSettings(); // v3.95.0 -- panel Ambang Batas Notifikasi
   if(currentRoute==='drivers') renderDrivers(); // v3.96.0 -- status Telegram Chat ID dikunci PIN
+  if(currentRoute==='monthlyreport') renderMonthlyReport(); // v3.108.0 -- panel Validasi Silang Liter BBM
 }
 // Modal konfirmasi custom (Iya/Tidak) -- dipakai khusus untuk aksi hapus
 // yang butuh penekanan ekstra (mis. Hapus Data), menggantikan window.confirm
@@ -10267,6 +10335,31 @@ function fmtYearMonthLabel(yearMonth){
   return d.toLocaleDateString('id-ID', {month:'long', year:'numeric'});
 }
 
+// v3.108.0 -- Analisis Liter Validasi Silang. Membandingkan, PER MOBIL:
+// - "Liter Resmi" = total literBensin yang tercatat lewat jalur RESMI
+//   (Catat Perjalanan biasa MAUPUN "Beli BBM Luar Trip" -- keduanya sama2
+//   tercatat lewat field u.literBensin, cuma beda konteks trip/bukan trip).
+// - "Liter Riil (+Pribadi)" = Liter Resmi DITAMBAH literValidasi dari item
+//   "Isi BBM" di Biaya Pribadi (isi bensin informal saat keperluan pribadi,
+//   yang TIDAK masuk field literBensin resmi -- lihat openBiayaOperasionalModal).
+// Selisih besar -> ada BBM yang riil masuk tangki tapi tidak lewat jalur
+// pencatatan resmi -- bukan otomatis berarti masalah, tapi layak dicek.
+function computeLiterValidasi(yearMonth){
+  const usageBulanIni = state.usage.filter(u=> (u.tglKeluar||'').startsWith(yearMonth));
+  return state.cars.map(car=>{
+    const trips = usageBulanIni.filter(u=> u.carId===car.id);
+    const literResmi = trips.reduce((sum,u)=> sum + (Number(u.literBensin)||0), 0);
+    const literPribadi = trips
+      .filter(u=> u.jenisPenggunaan==='pribadi')
+      .reduce((sum,u)=> sum + usageBiayaOpItems(u)
+        .filter(it=> it.kategori==='Isi BBM' && it.literValidasi!=null)
+        .reduce((s,it)=> s+(Number(it.literValidasi)||0), 0), 0);
+    const literRiil = literResmi + literPribadi;
+    const selisihPct = literResmi>0 ? (literPribadi/literResmi)*100 : (literPribadi>0 ? 100 : 0);
+    return { car, literResmi, literPribadi, literRiil, selisihPct };
+  }).filter(r=> r.literResmi>0 || r.literPribadi>0); // sembunyikan mobil tanpa data BBM sama sekali bulan itu
+}
+
 function renderMonthlyReport(){
   const now = new Date();
   const defaultYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -10335,6 +10428,46 @@ function renderMonthlyReport(){
           </div>
         </div>
       </div>
+      ${(() => {
+        if(!insightUnlocked) return '';
+        const literValidasi = computeLiterValidasi(yearMonth);
+        const adaSelisih = literValidasi.some(x=> x.literPribadi>0);
+        return `
+        <div class="panel">
+          <div class="panel-head">
+            <h2>⛽ Validasi Silang Liter BBM</h2>
+            ${adaSelisih ? '<span class="badge warn">Ada selisih</span>' : ''}
+          </div>
+          <div class="panel-body">
+            <p style="font-size:11.5px;color:var(--muted);margin:0 0 12px;line-height:1.6;">
+              Membandingkan Liter BBM yang tercatat lewat jalur resmi (Catat Perjalanan / Beli BBM Luar Trip) dengan yang RIIL masuk tangki (termasuk isi BBM informal lewat "Biaya Pribadi"). Selisih besar bukan otomatis berarti masalah, tapi layak dicek.
+            </p>
+            ${literValidasi.length===0 ? emptyState('✅','Tidak ada data BBM bulan ini untuk divalidasi.') : `
+            <div class="table-scroll desktop-data-table"><table>
+              <thead><tr><th>Mobil</th><th>Liter Resmi</th><th>+ Liter Pribadi (informal)</th><th>Liter Riil</th><th>Selisih</th></tr></thead>
+              <tbody>
+                ${literValidasi.map(x=>`
+                  <tr>
+                    <td>${escapeHtml(carLabel(x.car.id))}</td>
+                    <td>${x.literResmi.toLocaleString('id-ID')} L</td>
+                    <td>${x.literPribadi>0 ? x.literPribadi.toLocaleString('id-ID')+' L' : '-'}</td>
+                    <td><b>${x.literRiil.toLocaleString('id-ID')} L</b></td>
+                    <td>${x.literPribadi>0 ? `<span class="badge warn">+${x.selisihPct.toFixed(0)}%</span>` : '<span class="badge ok">Cocok</span>'}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table></div>
+            <div class="data-card-list">
+              ${literValidasi.map(x=>`
+                <div class="data-card">
+                  <div class="data-card-title"><span>${escapeHtml(carLabel(x.car.id))}</span>${x.literPribadi>0 ? `<span class="badge warn">+${x.selisihPct.toFixed(0)}%</span>` : '<span class="badge ok">Cocok</span>'}</div>
+                  <div class="data-card-row"><span class="k">Liter Resmi</span><span class="v">${x.literResmi.toLocaleString('id-ID')} L</span></div>
+                  <div class="data-card-row"><span class="k">+ Liter Pribadi</span><span class="v">${x.literPribadi>0 ? x.literPribadi.toLocaleString('id-ID')+' L' : '-'}</span></div>
+                  <div class="data-card-row"><span class="k">Liter Riil</span><span class="v"><b>${x.literRiil.toLocaleString('id-ID')} L</b></span></div>
+                </div>`).join('')}
+            </div>`}
+          </div>
+        </div>`;
+      })()}
       <div class="panel">
         <div class="panel-head"><h2>Rincian per Mobil</h2></div>
         <div class="panel-body">
@@ -11092,6 +11225,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.108.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Fitur baru: Mode Gelap (Pengaturan → 🎨 Tampilan). Tersimpan per-perangkat (tidak ikut sinkron). Cakupan jujur: variabel warna inti (latar, kartu, teks, badge status) sudah otomatis ikut gelap, tapi beberapa elemen dengan warna khusus (mis. bubble "Mobil Jalan") sengaja tidak ikut berubah supaya identitas visualnya tetap konsisten.',
+      'Fitur baru: panel "⛽ Validasi Silang Liter BBM" di Laporan Bulanan (dikunci PIN Insight) -- membandingkan Liter BBM resmi (Catat Perjalanan + Beli BBM Luar Trip) dengan Liter Riil (termasuk isi BBM informal lewat Biaya Pribadi), per mobil. Data yang sebelumnya cuma tersimpan tanpa pernah dianalisis sekarang benar-benar terpakai. Sudah diverifikasi lewat simulasi skenario campuran.',
+    ]
+  },
   {
     v: '3.107.0',
     date: '26 Jul 2026',
