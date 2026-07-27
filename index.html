@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.124.0">
+<meta name="app-version" content="3.125.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -112,6 +112,7 @@
     top:0;
     height:100vh;
     border-right:1px solid var(--line);
+    overflow-y:auto;overflow-x:hidden; /* v3.125.0 -- SEBELUMNYA tidak bisa digeser sama sekali -- kalau total isi (menu + Petugas Aktif + indikator Storage) lebih tinggi dari layar (umum di HP dgn banyak menu), bagian bawah jadi TIDAK TERJANGKAU tanpa cara scroll ke sana */
   }
   .brand{
     padding:18px 20px 18px 20px;
@@ -188,6 +189,11 @@
     font-size:12.5px;
     font-family:inherit;
   }
+  /* v3.125.0 -- Petugas Aktif ada di PALING BAWAH sidebar (yg sekarang bisa
+     digeser/scroll) -- daftar pilihannya SENGAJA dibuka ke ATAS (bukan
+     bawah spt dropdown lain), supaya tidak pernah kehabisan ruang/kepotong
+     batas scroll sidebar, karena selalu ada banyak ruang di menu atasnya. */
+  #petugas-box .cdd-panel{top:auto;bottom:calc(100% + 5px);}
 
   /* ---------- Main ---------- */
   #main{flex:1;display:flex;flex-direction:column;min-width:0;}
@@ -1261,7 +1267,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.124.0';
+const APP_VERSION = '3.125.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -11618,6 +11624,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.125.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Perbaikan bug: sidebar (menu kiri) ternyata TIDAK BISA DIGESER/scroll sama sekali -- kalau total isinya (daftar menu + Petugas Aktif + indikator Storage yang baru ditambahkan) lebih tinggi dari layar (umum terjadi di HP), bagian bawah jadi tidak terjangkau sama sekali. Sekarang sidebar bisa digeser.',
+      'Sekaligus, dropdown "Petugas Aktif" (yang ada di paling bawah sidebar) diatur khusus supaya daftar pilihannya terbuka ke ATAS -- bukan ke bawah seperti dropdown lain -- supaya tidak pernah kehabisan ruang/kepotong batas scroll sidebar yang baru diaktifkan itu.',
+    ]
+  },
   {
     v: '3.124.0',
     date: '27 Jul 2026',
