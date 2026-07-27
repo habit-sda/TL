@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.111.0">
+<meta name="app-version" content="3.116.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -43,6 +43,7 @@
     --muted:#6B7280;
     --blue:#2F6FED;
     --blue-dark:#1E4FBB;
+    --blue-bg:#EAF0FF;
     --amber:#B7791F;
     --amber-bg:#FEF3DC;
     --red:#C4302B;
@@ -50,6 +51,7 @@
     --green:#1F8A5A;
     --green-bg:#E4F6EC;
     --neutral-bg:#EEF0F3;
+    --hover-bg:#F5F7FA;
     --radius:10px;
   }
   /* v3.108.0 -- Mode Gelap. CAKUPAN JUJUR: variabel inti (latar, kartu,
@@ -72,6 +74,7 @@
     --muted:#9199A8;
     --blue:#5B8DF6;
     --blue-dark:#8FB2FA;
+    --blue-bg:#1D2A44;
     --amber:#F0B94D;
     --amber-bg:#3A2E14;
     --red:#F0716C;
@@ -79,6 +82,7 @@
     --green:#4FCE8F;
     --green-bg:#123626;
     --neutral-bg:#262B36;
+    --hover-bg:#242A36;
   }
   [data-theme="dark"] .badge.neutral{background:var(--neutral-bg);color:var(--muted);}
   *{box-sizing:border-box;}
@@ -100,7 +104,7 @@
   #sidebar{
     width:230px;
     flex-shrink:0;
-    background:#fff;
+    background:var(--card);
     color:var(--text);
     display:flex;
     flex-direction:column;
@@ -152,8 +156,8 @@
   }
   .menu-item .ic{font-size:15px;width:22px;text-align:center;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
   .menu-item .ic svg{width:15px;height:15px;}
-  .menu-item:hover{background:#F4F6F9;color:var(--text);}
-  .menu-item.active{background:#EEF3FF;color:var(--blue);font-weight:700;}
+  .menu-item:hover{background:var(--hover-bg);color:var(--text);}
+  .menu-item.active{background:var(--blue-bg);color:var(--blue);font-weight:700;}
   .menu-section-label{
     font-size:10.5px;
     text-transform:uppercase;
@@ -176,7 +180,7 @@
   }
   #petugas-select{
     width:100%;
-    background:#F7F8FA;
+    background:var(--bg);
     color:var(--text);
     border:1px solid var(--line);
     border-radius:7px;
@@ -228,7 +232,7 @@
   .btn-primary{background:var(--blue);color:#fff;}
   .btn-primary:hover{filter:brightness(1.08);}
   .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--line);}
-  .btn-ghost:hover{background:#F0F1F3;}
+  .btn-ghost:hover{background:var(--neutral-bg);}
   .btn-danger{background:var(--red-bg);color:var(--red);}
   .btn-danger:hover{filter:brightness(0.96);}
   .btn-sm{padding:6px 10px;font-size:12px;}
@@ -258,7 +262,7 @@
   .panel-head{
     padding:14px 18px;
     border-bottom:1px solid var(--line);
-    background:#FAFBFC;
+    background:var(--hover-bg);
     display:flex;
     align-items:center;
     justify-content:space-between;
@@ -279,19 +283,19 @@
   }
   td{padding:10px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
   tr:last-child td{border-bottom:none;}
-  tr:hover td{background:#FAFBFC;}
+  tr:hover td{background:var(--hover-bg);}
 
   .car-thumb{
     width:44px;height:44px;border-radius:8px;object-fit:cover;
-    border:1px solid var(--line);background:#F4F5F7;flex-shrink:0;display:block;
+    border:1px solid var(--line);background:var(--neutral-bg);flex-shrink:0;display:block;
   }
   .car-thumb-sm{
     width:30px;height:30px;border-radius:6px;object-fit:cover;
-    border:1px solid var(--line);background:#F4F5F7;flex-shrink:0;display:block;
+    border:1px solid var(--line);background:var(--neutral-bg);flex-shrink:0;display:block;
   }
   .car-thumb-lg{
     width:64px;height:64px;border-radius:10px;object-fit:cover;
-    border:1px solid var(--line);background:#F4F5F7;flex-shrink:0;display:block;
+    border:1px solid var(--line);background:var(--neutral-bg);flex-shrink:0;display:block;
   }
   .car-with-thumb{display:flex;align-items:center;gap:10px;}
   .car-with-thumb-sm{display:flex;align-items:center;gap:8px;}
@@ -304,21 +308,21 @@
      tidak pernah terpotong sisi kiri-kanannya, apa pun rasio asli fotonya. */
   .etoll-thumb{
     width:52px;height:34px;border-radius:6px;object-fit:contain;
-    border:1px solid var(--line);background:#F4F5F7;flex-shrink:0;display:block;
+    border:1px solid var(--line);background:var(--neutral-bg);flex-shrink:0;display:block;
   }
   .etoll-thumb-sm{
     width:38px;height:25px;border-radius:5px;object-fit:contain;
-    border:1px solid var(--line);background:#F4F5F7;flex-shrink:0;display:block;
+    border:1px solid var(--line);background:var(--neutral-bg);flex-shrink:0;display:block;
   }
   .etoll-thumb-lg{
     width:76px;height:50px;border-radius:8px;object-fit:contain;
-    border:1px solid var(--line);background:#F4F5F7;flex-shrink:0;display:block;
+    border:1px solid var(--line);background:var(--neutral-bg);flex-shrink:0;display:block;
   }
 
   .hapus-kode-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 16px;margin-bottom:14px;}
   .hapus-kode-grid > div{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;padding:7px 0;border-bottom:1px dashed var(--line);}
   .hapus-kode-grid .k{color:var(--muted);}
-  .hapus-kode-grid code{font-size:11px;background:#F4F5F7;padding:2px 6px;border-radius:5px;color:var(--text);white-space:nowrap;}
+  .hapus-kode-grid code{font-size:11px;background:var(--neutral-bg);padding:2px 6px;border-radius:5px;color:var(--text);white-space:nowrap;}
   .hapus-kode-notes{margin:0 0 16px 0;padding-left:18px;font-size:12px;color:var(--muted);line-height:1.8;}
 
   .etoll-card-preview{
@@ -336,10 +340,10 @@
      gap di antaranya seperti sebelumnya). Divider cuma render kalau ada
      preview kartu terisi (etollCardPreviewHtml mengembalikan '' kalau
      belum ada kartu dipilih, jadi otomatis tidak ada garis menggantung). */
-  .etoll-merged-wrap{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#FAFBFC;}
+  .etoll-merged-wrap{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--hover-bg);}
   .etoll-merged-divider{border-top:1px dashed var(--line);margin:11px 0;}
   .etoll-saldo-label-row{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
-  .etoll-saldo-label-row .tag{font-size:9.5px;font-weight:700;color:var(--blue);background:#EAF1FE;padding:1px 6px;border-radius:10px;text-transform:none;letter-spacing:0;}
+  .etoll-saldo-label-row .tag{font-size:9.5px;font-weight:700;color:var(--blue);background:var(--blue-bg);padding:1px 6px;border-radius:10px;text-transform:none;letter-spacing:0;}
   .etoll-input-row{display:flex;align-items:center;background:#fff;border:1.5px solid var(--blue);border-radius:8px;padding:0 12px;}
   .etoll-input-row .prefix{font-size:16px;font-weight:700;color:var(--muted);margin-right:2px;}
   .etoll-input-row input{border:none;outline:none;flex:1;font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace;padding:9px 0;color:var(--text);background:transparent;width:100%;min-width:0;}
@@ -349,13 +353,13 @@
   .trip-search-row{display:flex;gap:10px;margin-bottom:16px;align-items:stretch;}
   .trip-search-row .search-row{margin-bottom:0;position:relative;}
   .trip-search-row .search-row input{
-    padding:10px 12px 10px 34px;border-radius:9px;background:#fff;
+    padding:10px 12px 10px 34px;border-radius:9px;background:var(--card);
     background-image:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
     background-repeat:no-repeat;background-position:11px center;
   }
-  .trip-view-toggle{display:flex;background:#EEF0F3;border-radius:9px;padding:3px;gap:2px;flex-shrink:0;}
+  .trip-view-toggle{display:flex;background:var(--neutral-bg);border-radius:9px;padding:3px;gap:2px;flex-shrink:0;}
   .trip-view-toggle button{padding:0 16px;height:34px;font-size:12.5px;font-weight:700;background:transparent;border:none;border-radius:7px;cursor:pointer;color:var(--muted);white-space:nowrap;}
-  .trip-view-toggle button.active{background:#fff;color:var(--text);box-shadow:0 1px 3px rgba(16,24,40,.12);}
+  .trip-view-toggle button.active{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(16,24,40,.12);}
   .trip-layout{display:flex;gap:16px;align-items:flex-start;}
   .trip-page-left{flex:1 1 60%;min-width:0;}
   .trip-page-right{flex:1 1 38%;min-width:300px;max-width:400px;position:sticky;top:12px;}
@@ -387,7 +391,7 @@
   .vehicle-card-chevron{color:var(--muted);font-size:18px;flex-shrink:0;}
 
   .fuel-bar-strip{display:flex;gap:3px;}
-  .fuel-bar-seg{flex:1;height:7px;border-radius:4px;background:#EBEDF0;}
+  .fuel-bar-seg{flex:1;height:7px;border-radius:4px;background:var(--neutral-bg);}
   .fuel-bar-meta{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:6px;font-weight:600;}
   .fuel-bar-empty{font-size:11px;color:var(--muted);}
 
@@ -402,7 +406,7 @@
   .trip-detail-tabs button{background:none;border:none;font-size:12px;font-weight:700;color:var(--muted);padding:0 0 12px 0;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;}
   .trip-detail-tabs button.active{color:var(--blue);border-bottom-color:var(--blue);}
   .trip-detail-body{padding:6px 16px 8px 16px;max-height:520px;overflow-y:auto;overflow-x:hidden;}
-  .trip-detail-back{font-size:12.5px;font-weight:700;color:var(--blue-dark);cursor:pointer;margin-bottom:14px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:7px;background:#EAF0FF;}
+  .trip-detail-back{font-size:12.5px;font-weight:700;color:var(--blue-dark);cursor:pointer;margin-bottom:14px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:7px;background:var(--blue-bg);}
   .trip-detail-back:hover{background:#DCE7FF;}
   .trip-detail-view-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
 
@@ -412,7 +416,7 @@
   .trip-timeline-date{width:44px;flex-shrink:0;text-align:center;position:relative;}
   .trip-timeline-date::after{
     content:'';position:absolute;left:50%;top:26px;bottom:-14px;width:1px;
-    background:#EDEEF1;transform:translateX(-50%);
+    background:var(--neutral-bg);transform:translateX(-50%);
   }
   .trip-timeline-item:last-child .trip-timeline-date::after{display:none;}
   .trip-timeline-date .day{font-size:15px;font-weight:800;}
@@ -458,7 +462,7 @@
     display:inline-flex;align-items:center;gap:4px;
     font-family:'JetBrains Mono',monospace;
     font-weight:700;font-size:11.5px;
-    background:#EEF3FF;color:var(--blue-dark);
+    background:var(--blue-bg);color:var(--blue-dark);
     border:1px dashed var(--blue);border-radius:6px;
     padding:3px 8px;cursor:pointer;
   }
@@ -477,7 +481,7 @@
   .badge.ok{background:var(--green-bg);color:var(--green);}
   .badge.warn{background:var(--amber-bg);color:var(--amber);}
   .badge.danger{background:var(--red-bg);color:var(--red);}
-  .badge.neutral{background:#EEF0F3;color:var(--muted);}
+  .badge.neutral{background:var(--neutral-bg);color:var(--muted);}
 
   /* Tombol Navigasi Maps -- Opsi 2 (Outline Tegas), dipilih supaya lebih
      terlihat dibanding badge kecil sebelumnya, tanpa terlalu "ramai" kalau
@@ -520,7 +524,7 @@
     z-index:100;padding:20px;
   }
   .modal{
-    background:#fff;border-radius:12px;max-width:480px;width:100%;
+    background:var(--card);border-radius:12px;max-width:480px;width:100%;
     max-height:88vh;overflow-y:auto;overflow-x:hidden;
     box-shadow:0 20px 60px rgba(0,0,0,0.25);
   }
@@ -551,7 +555,7 @@
   .notif-dropdown-head{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px;}
   .notif-item{padding:11px 16px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:10px;align-items:flex-start;}
   .notif-item:last-child{border-bottom:none;}
-  .notif-item:hover{background:#FAFBFC;}
+  .notif-item:hover{background:var(--hover-bg);}
   .notif-item .ic{font-size:16px;flex-shrink:0;margin-top:1px;}
   .notif-item .txt{font-size:12.5px;line-height:1.5;}
   .notif-item .txt b{display:block;font-size:12.5px;margin-bottom:1px;}
@@ -560,12 +564,12 @@
     background:none;border:none;color:var(--muted);cursor:pointer;
     font-size:13px;padding:2px 4px;flex-shrink:0;border-radius:5px;line-height:1;
   }
-  .notif-dismiss-btn:hover{background:#EEF0F3;color:var(--text);}
+  .notif-dismiss-btn:hover{background:var(--neutral-bg);color:var(--text);}
 
   /* ---------------- Widget pemilih level BBM (Bar) ---------------- */
   .bar-picker-widget{
     border:1px solid var(--line);
-    background:#FAFBFC;
+    background:var(--hover-bg);
     border-radius:14px;
     padding:16px;
   }
@@ -594,7 +598,7 @@
   .bar-picker-summary{text-align:center;margin-bottom:6px;}
   .bar-picker-label{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13.5px;color:var(--muted);margin-bottom:10px;}
   .bar-picker-strip{display:flex;gap:4px;margin-bottom:14px;}
-  .bar-picker-seg{flex:1;height:9px;border-radius:5px;background:#EEF0F3;transition:background .15s ease;}
+  .bar-picker-seg{flex:1;height:9px;border-radius:5px;background:var(--neutral-bg);transition:background .15s ease;}
   .bar-picker-percent{font-size:26px;font-weight:800;font-family:'JetBrains Mono',monospace;}
   .bar-picker-percent-label{font-size:11px;color:var(--muted);margin-top:2px;margin-bottom:2px;}
 
@@ -738,18 +742,18 @@
   .trip-card b{display:block;font-size:15px;}
   .trip-card .desc{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5;}
   .trip-action-menu{
-    position:fixed;background:#fff;border:1.5px solid #D8DCE3;border-radius:12px;
+    position:fixed;background:var(--card);border:1.5px solid var(--line);border-radius:12px;
     box-shadow:0 20px 44px rgba(0,0,0,0.32);width:230px;z-index:250;overflow:hidden;
   }
   .trip-action-item{padding:14px 16px;font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:10px;cursor:pointer;}
-  .trip-action-item:hover{background:#F5F7FA;}
+  .trip-action-item:hover{background:var(--bg);}
   .trip-action-item.danger{color:var(--red);}
   /* v3.90.0 -- baris "✕ Batal" dikasih latar abu-abu muda supaya jadi
      "header" yang jelas beda dari isi menu di bawahnya, sekaligus
      menegaskan batas atas popup ini terhadap latar halaman yang putih
      juga -- sebelumnya popup ini nyaris tak terlihat batasnya. */
-  .trip-action-item[data-act="cancel"]{background:#F5F6F8;}
-  .trip-action-item[data-act="cancel"]:hover{background:#EAECEF;}
+  .trip-action-item[data-act="cancel"]{background:var(--bg);}
+  .trip-action-item[data-act="cancel"]:hover{background:var(--neutral-bg);}
   @media(max-width:768px){
     #trip-bubble{bottom:16px;right:16px;}
     .trip-action-menu{width:88vw;max-width:280px;}
@@ -794,6 +798,10 @@
   .icon-badge.amber{background:#FEF3DC;}
   .icon-badge.red{background:#FCE8E7;}
   .icon-badge.purple{background:#F1EBFC;}
+  /* v3.113.0 -- Mode Gelap: daripada redefinisi 5 warna pastel di atas
+     satu-per-satu, cukup diredupkan otomatis (tetap kelihatan warnanya,
+     cuma tidak menyilaukan di tengah latar gelap). */
+  [data-theme="dark"] .icon-badge{filter:brightness(0.4) saturate(1.3);}
   .kpi-v2{display:flex;align-items:center;gap:13px;}
   .kpi-v2 .txt .label{font-size:11.5px;color:var(--muted);font-weight:600;}
   .kpi-v2 .txt .value{font-size:22px;font-weight:800;margin-top:2px;font-family:'JetBrains Mono',monospace;}
@@ -803,7 +811,7 @@
 
   .activity-item{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--line);}
   .activity-item:last-child{border-bottom:none;}
-  .activity-item .ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;background:#F1F3F6;}
+  .activity-item .ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;background:var(--neutral-bg);}
   .activity-item .body{flex:1;min-width:0;}
   .activity-item .body b{display:block;font-size:12.5px;}
   .activity-item .body .desc{font-size:11.5px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -853,7 +861,7 @@
   .cdd-control{
     display:flex;align-items:center;justify-content:space-between;gap:8px;
     border:1px solid var(--line);border-radius:7px;padding:9px 10px;
-    background:#fff;cursor:pointer;font-size:13px;font-family:inherit;
+    background:var(--card);color:var(--text);cursor:pointer;font-size:13px;font-family:inherit;
     transition:border-color .15s, box-shadow .15s;
     min-width:0; /* v3.69.0 -- WAJIB di dalam .grid-2/flex sempit, kalau
       tidak flex item ini menolak menyusut & malah teksnya melipat jadi
@@ -864,7 +872,7 @@
   .cdd.open .cdd-control, .cdd-control:focus{
     border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,111,237,0.12);
   }
-  .cdd.disabled .cdd-control{background:#F5F6F8;color:var(--muted);cursor:not-allowed;}
+  .cdd.disabled .cdd-control{background:var(--bg);color:var(--muted);cursor:not-allowed;}
   .cdd-control-label{
     display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
     overflow:hidden;text-overflow:ellipsis;min-width:0;line-height:1.35;
@@ -883,7 +891,7 @@
        panjang cukup dibiarkan turun ke baris baru DI DALAM panelnya sendiri
        (lihat .cdd-option di bawah) -- baris jadi lebih tinggi, bukan lebih
        lebar dari layar. */
-    background:#fff;border:1px solid var(--line);border-radius:10px;
+    background:var(--card);border:1px solid var(--line);border-radius:10px;
     box-shadow:0 14px 34px rgba(16,24,40,0.16);
     padding:5px;max-height:260px;overflow-y:auto;overflow-x:hidden;
     display:none;
@@ -894,9 +902,9 @@
     padding:9px 10px;border-radius:7px;cursor:pointer;font-size:13px;
   }
   .cdd-option span:first-child{white-space:normal;word-break:break-word;flex:1;min-width:0;}
-  .cdd-option:hover, .cdd-option.active{background:#F5F7FA;}
-  .cdd-option.selected{background:var(--blue-bg,#EAF0FF);color:var(--blue-dark);font-weight:700;}
-  .cdd-option.selected.active{background:#DCE7FF;}
+  .cdd-option:hover, .cdd-option.active{background:var(--hover-bg);}
+  .cdd-option.selected{background:var(--blue-bg);color:var(--blue-dark);font-weight:700;}
+  .cdd-option.selected.active{background:var(--blue-bg);filter:brightness(0.95);}
   .cdd-option .check{color:var(--blue);font-weight:900;opacity:0;flex-shrink:0;}
   .cdd-option.selected .check{opacity:1;}
   .cdd-option.disabled{color:#B7BDC7;cursor:not-allowed;}
@@ -909,7 +917,8 @@
     padding:9px 10px;
     font-size:13px;
     font-family:inherit;
-    background:#fff;
+    background:var(--card);
+    color:var(--text);
   }
   .field input:focus, .field select:focus, .field textarea:focus{
     outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,111,237,0.12);
@@ -970,7 +979,7 @@
     box-shadow:0 8px 20px rgba(0,0,0,0.12);z-index:50;max-height:180px;overflow-y:auto;overflow-x:hidden;
   }
   .ac-item{padding:8px 12px;font-size:13px;cursor:pointer;}
-  .ac-item:hover, .ac-item.active{background:#EEF3FF;color:var(--blue);}
+  .ac-item:hover, .ac-item.active{background:var(--blue-bg);color:var(--blue);}
   .search-row input{flex:1;border:1px solid var(--line);border-radius:7px;padding:8px 10px;font-family:inherit;font-size:13px;}
 
   @media(max-width:900px){
@@ -1236,7 +1245,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.111.0';
+const APP_VERSION = '3.116.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2295,7 +2304,19 @@ try{
 let currentRoute = 'dashboard';
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-function today(){ return new Date().toISOString().slice(0,10); }
+// v3.114.0 -- PERBAIKAN BUG PENTING: SEBELUMNYA pakai toISOString() yang
+// menghitung tanggal berdasar UTC, BUKAN waktu lokal -- untuk WIB (UTC+7),
+// jam 00:00-06:59 dini hari masih dihitung "kemarin" oleh UTC, jadi
+// tanggal yang tersimpan MUNDUR 1 HARI dari kenyataan (mis. berangkat jam
+// 03:00 WIB tanggal 27, malah tersimpan tanggal 26). Sekarang pakai
+// komponen tanggal LOKAL (getFullYear/getMonth/getDate), bukan UTC --
+// berlaku otomatis ke SEMUA 29 tempat yang memanggil today() di aplikasi
+// ini (Catat Perjalanan, Dokumen, Servis, Backup, dll), karena diperbaiki
+// di 1 titik sumbernya, bukan ditambal satu-satu.
+function today(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function daysBetween(dateStr){
   const d = new Date(dateStr + 'T00:00:00');
   const t = new Date(today() + 'T00:00:00');
@@ -3159,7 +3180,7 @@ function renderHapusData(){
       etollcard: () => { const c=matched.data; return { text:`✅ Kartu E-Toll ditemukan: <b>${escapeHtml(c.nomorKartu)}</b>${c.mobilId?' — '+escapeHtml(carLabel(c.mobilId)):''}`, label:'Hapus Kartu Ini' }; },
     };
     const p = previews[matched.type]();
-    preview.innerHTML = `<div class="hint" style="background:#EEF3FF;color:var(--blue-dark);padding:8px 10px;border-radius:6px;">${p.text}</div>`;
+    preview.innerHTML = `<div class="hint" style="background:var(--blue-bg);color:var(--blue-dark);padding:8px 10px;border-radius:6px;">${p.text}</div>`;
     btn.textContent = '🗑️ ' + p.label;
     btn.disabled = false;
   });
@@ -3696,11 +3717,21 @@ function computeAlerts(){
   // v3.102.0 -- Reminder Booking H-1: booking yang MASIH aktif ("dipesan",
   // belum dimulai/dibatalkan) dengan tanggal mulai BESOK -- SENGAJA pesan
   // pengingat (bukan masalah/anomali) supaya tidak ada yang lupa jadwal.
+  // v3.116.0 -- TAMBAHAN "Booking Hari Ini" (H-0): sebelumnya booking yang
+  // dibuat & dijadwalkan di HARI YANG SAMA (mis. dibuat pagi, jadwal sore
+  // ini juga) TIDAK PERNAH dapat reminder sama sekali -- H-1 cuma mengecek
+  // "besok", jadi kasus "kurang dari 1 hari" ini kelewat. Sekarang dicek
+  // KEDUANYA: besok (H-1) DAN hari ini (H-0, label beda "Booking hari ini").
+  const hariIniStr = today();
   const besok = new Date(); besok.setDate(besok.getDate()+1);
   const besokStr = `${besok.getFullYear()}-${String(besok.getMonth()+1).padStart(2,'0')}-${String(besok.getDate()).padStart(2,'0')}`;
   state.bookings.forEach(b=>{
-    if(b.status!=='dipesan' || b.tglMulai!==besokStr) return;
-    alerts.push({ id:'booking-h1-'+b.id, route:'bookings', ic:'📅', level:'warn', judul:'Booking besok', keterangan: `${carLabel(b.carId)} — ${b.tujuan||'(tanpa tujuan)'}${b.jamMulai?' · '+b.jamMulai:''}`, targetDriverIds: Array.isArray(b.notifDriverIds) ? b.notifDriverIds : null });
+    if(b.status!=='dipesan') return;
+    if(b.tglMulai===besokStr){
+      alerts.push({ id:'booking-h1-'+b.id, route:'bookings', ic:'📅', level:'warn', judul:'Booking besok', keterangan: `${carLabel(b.carId)} — ${b.tujuan||'(tanpa tujuan)'}${b.jamMulai?' · '+b.jamMulai:''}`, targetDriverIds: Array.isArray(b.notifDriverIds) ? b.notifDriverIds : null });
+    } else if(b.tglMulai===hariIniStr){
+      alerts.push({ id:'booking-h0-'+b.id, route:'bookings', ic:'📅', level:'danger', judul:'Booking hari ini', keterangan: `${carLabel(b.carId)} — ${b.tujuan||'(tanpa tujuan)'}${b.jamMulai?' · '+b.jamMulai:''}`, targetDriverIds: Array.isArray(b.notifDriverIds) ? b.notifDriverIds : null });
+    }
   });
   alerts.sort((a,b)=> (a.level==='danger'?0:1) - (b.level==='danger'?0:1));
   return alerts;
@@ -4852,7 +4883,7 @@ function openCarModal(editId){
       <input type="text" inputmode="numeric" id="in-kapasitas-tangki" placeholder="Contoh: 30" value="${editing&&editing.kapasitasTangkiLiter!=null?editing.kapasitasTangkiLiter:''}">
       <div class="hint">Dipakai untuk menghitung perkiraan liter BBM yang terpakai per perjalanan (dari selisih % bensin keluar-kembali), di menu BBM. Kalau tidak tahu liternya persis, pakai kalkulator bantu di bawah.</div>
     </div>
-    <div style="border:1px solid var(--line);border-radius:8px;padding:12px;background:#FAFBFC;">
+    <div style="border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--hover-bg);">
       <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--muted);">Kalkulator bantu: tidak tahu liternya, tapi tahu nilai Rupiah-nya?</div>
       <div class="grid-2">
         <div class="field" style="margin-bottom:8px;">
@@ -5190,7 +5221,7 @@ function openDriverModal(editId){
       ${insightUnlocked ? `
         <input type="text" id="in-telegramchatid" data-no-uppercase="1" placeholder="Opsional — supaya sopir ini dapat notifikasi armada" value="${editing?escapeHtml(editing.telegramChatId||''):''}">
         <div class="hint">Cara dapatnya: sopir chat dulu ke bot Telegram FleetOps, lalu buka <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> dan cari angka <code>"chat":{"id": ...}</code>. Kosongkan kalau sopir ini tidak perlu dapat notifikasi.</div>
-        <div style="margin-top:10px;padding:10px;background:#F9FAFB;border-radius:7px;">
+        <div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:7px;">
           <div style="font-size:12px;font-weight:700;margin-bottom:8px;">Kategori notifikasi yang diterima sopir ini:</div>
           ${NOTIF_CATEGORIES.filter(c=>c.key!=='booking').map(c=>{
             const kategoriTersimpan = Array.isArray(editing?.notifKategori) ? editing.notifKategori : null;
@@ -5204,7 +5235,7 @@ function openDriverModal(editId){
           <div class="hint" style="margin-top:4px;">Cuma berlaku untuk pengiriman Telegram -- lonceng 🔔 di aplikasi tetap tampilkan semua ke siapa pun yang buka. Khusus <b>Reminder Booking</b>: tidak diatur di sini lagi -- pilih penerimanya langsung di form Booking (fleksibel per-booking, tanpa PIN).</div>
         </div>
       ` : `
-        <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:7px;padding:9px 10px;background:#F5F6F8;">
+        <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:7px;padding:9px 10px;background:var(--bg);">
           <span style="font-size:12.5px;color:var(--muted);flex:1;">Data kontak notifikasi disembunyikan -- perlu PIN Insight untuk lihat/ubah.</span>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-unlock-telegram-field">🔒 Buka PIN</button>
         </div>
@@ -6607,16 +6638,6 @@ function markReturned(id){
         <div class="hint">${linkedCard ? `Terhubung ke kartu ${escapeHtml(linkedCard.nomorKartu)} — saldo di sini akan otomatis memperbarui saldo kartu tersebut.` : 'Perjalanan ini tidak terhubung ke kartu E-Toll manapun.'}</div>
       </div>
     </div>
-    <div class="panel-head" style="padding:0;border:none;margin:14px 0 8px 0;">
-      <h2 style="font-size:13px;">Pembelian BBM perjalanan ini (opsional)</h2>
-    </div>
-    ${carForFuel && carForFuel.tipeIndikatorBbm==='bar' ? `
-    <div class="field" id="box-bensin-sebelum-isi" style="margin-bottom:12px;">
-      ${renderFuelFieldHTML('in-bensin-sebelum-isi', 'Level BBM Sebelum Diisi', u.bensinSebelumIsi, carForFuel)}
-      <div class="hint">Opsional — isi kalau BBM diisi saat ini. Dipakai untuk membandingkan Prediksi Liter vs Liter Aktual, dan otomatis mengoreksi tabel Liter-per-Bar mobil ini ke depannya (lihat menu BBM → Kalibrasi Liter per Bar).</div>
-    </div>
-    <div id="kalibrasi-insight"></div>
-    ` : ''}
     <div class="grid-2">
       <div class="field">
         <label>Jumlah BBM (Liter)</label>
@@ -6661,8 +6682,10 @@ function markReturned(id){
       u.tglKembali = today();
       u.jamKembali = jamKembali || null;
       u.bensinKembali = bensin === '' ? (u.bensinKembali ?? null) : Number(bensin);
-      const bensinSebelumIsiRaw = getPercentValue('in-bensin-sebelum-isi');
-      u.bensinSebelumIsi = bensinSebelumIsiRaw === '' ? (u.bensinSebelumIsi ?? null) : Number(bensinSebelumIsiRaw);
+      // v3.115.0 -- u.bensinSebelumIsi TIDAK LAGI diisi di sini (field-nya sudah
+      // dihapus dari form ini) -- sekarang diisi lewat item "Isi BBM" di Biaya
+      // Operasional/Pribadi (lihat openBiayaOperasionalModal), jadi nilai yang
+      // sudah tersimpan di sana TIDAK disentuh dari sini sama sekali.
       u.saldoEtoll = etoll === '' ? u.saldoEtoll ?? null : Number(etoll);
       u.odoKembali = odoKembali === null ? (u.odoKembali ?? null) : odoKembali;
       u.literBensin = literBensinVal === '' ? (u.literBensin ?? null) : Number(literBensinVal);
@@ -6720,72 +6743,12 @@ function markReturned(id){
   attachRibuanInput('in-biaya-bensin');
   attachIntegerOnlyInput('in-liter-bensin');
 
-  // ---------------- Kalibrasi Liter per Bar: Prediksi Liter & Bandingkan ----------------
-  // Live-update tiap kali salah satu dari 3 input ini berubah: Level BBM
-  // Sebelum Diisi (Bar Saat Ini), Sisa Bensin/Level BBM Sesudah Diisi (target),
-  // dan Jumlah BBM aktual -- alur: Bar Saat Ini -> Prediksi Liter -> Bandingkan
-  // vs aktual -> (otomatis) Koreksi tabel kalibrasi -> Prediksi Baru di isi berikutnya.
-  function updateKalibrasiInsight(){
-    const box = document.getElementById('kalibrasi-insight');
-    if(!box || !carForFuel) return;
-    const maxBar = carForFuel.maxBarBbm || 8;
-    const sebelumPct = getPercentValue('in-bensin-sebelum-isi');
-    const sesudahPct = getPercentValue('in-bensin-kembali');
-    const literAktualRaw = document.getElementById('in-liter-bensin').value;
-
-    if(sebelumPct===''){ box.innerHTML = ''; return; }
-    const barDari = convertPercentToBar(Number(sebelumPct), maxBar);
-    const barKe = sesudahPct==='' ? null : convertPercentToBar(Number(sesudahPct), maxBar);
-
-    if(barKe==null){
-      box.innerHTML = `<div class="hint" style="margin:-4px 0 12px 0;">Isi juga "Sisa Bensin" di atas (level BBM sesudah diisi) untuk melihat Prediksi Liter.</div>`;
-      return;
-    }
-    if(barKe<=barDari){
-      box.innerHTML = `<div class="hint" style="margin:-4px 0 12px 0;">Level sesudah diisi harus lebih tinggi dari sebelum diisi.</div>`;
-      return;
-    }
-
-    const pred = predictLiterForBarFill(carForFuel.id, barDari, barKe);
-    if(!pred){ box.innerHTML = ''; return; }
-
-    const confLabel = { asumsi:'Asumsi rata (belum ada data kalibrasi)', sedang:'Belum stabil, masih menyesuaikan', tinggi:'Sudah stabil (kalibrasi otomatis aktif)' }[pred.confidence];
-    const confBadge = { asumsi:'warn', sedang:'warn', tinggi:'ok' }[pred.confidence];
-
-    const literAktual = literAktualRaw==='' ? null : Number(literAktualRaw);
-    let bandingkanHtml = '';
-    if(literAktual!=null && literAktual>0){
-      const selisih = literAktual - pred.totalLiter;
-      const selisihPct = pred.totalLiter>0 ? (selisih/pred.totalLiter*100) : 0;
-      bandingkanHtml = `
-        <div class="data-card-row"><span class="k">Liter Aktual</span><span class="v">${literAktual.toLocaleString('id-ID')} L</span></div>
-        <div class="data-card-row"><span class="k">Selisih</span><span class="v">${selisih>=0?'+':''}${selisih.toFixed(1)} L (${selisihPct>=0?'+':''}${selisihPct.toFixed(0)}%)</span></div>
-        <div class="hint" style="margin-top:6px;">Selisih ini otomatis dipakai mengoreksi tabel Liter-per-Bar mobil ini begitu data disimpan — tidak perlu tindakan tambahan.</div>
-      `;
-    }
-
-    box.innerHTML = `
-      <div class="data-card" style="margin-bottom:12px;">
-        <div class="data-card-title"><span>Kalibrasi Liter per Bar — ${barDari}→${barKe} Bar</span><span class="badge ${confBadge}">${confLabel}</span></div>
-        <div class="data-card-row"><span class="k">Prediksi Liter</span><span class="v">${pred.totalLiter.toFixed(1)} L</span></div>
-        ${bandingkanHtml}
-      </div>
-    `;
-  }
-
   const barWidgetKembali = document.querySelector('#box-bensin-kembali .bar-picker-widget');
   if(barWidgetKembali){
-    wireBarPickerWidget('#box-bensin-kembali .bar-picker-widget', 'in-bensin-kembali', updateKalibrasiInsight);
+    wireBarPickerWidget('#box-bensin-kembali .bar-picker-widget', 'in-bensin-kembali');
   } else if(document.getElementById('in-bensin-kembali').type !== 'hidden'){
     attachPercentInput('in-bensin-kembali');
   }
-  const barWidgetSebelumIsi = document.querySelector('#box-bensin-sebelum-isi .bar-picker-widget');
-  if(barWidgetSebelumIsi){
-    wireBarPickerWidget('#box-bensin-sebelum-isi .bar-picker-widget', 'in-bensin-sebelum-isi', updateKalibrasiInsight);
-  }
-  const literBensinEl = document.getElementById('in-liter-bensin');
-  if(literBensinEl) literBensinEl.addEventListener('input', updateKalibrasiInsight);
-  updateKalibrasiInsight();
 }
 
 /* ---------------- Biaya Operasional per Perjalanan (multi-item, mirip Servis) ---------------- */
@@ -6799,10 +6762,16 @@ function openBiayaOperasionalModal(usageId){
   // kode/field baru. Data tetap tersimpan & ikut sinkron seperti biasa,
   // cuma tidak ikut dihitung sbg biaya operasional perusahaan.
   const isPribadi = u.jenisPenggunaan === 'pribadi';
+  const car = state.cars.find(c=>c.id===u.carId);
+  // v3.115.0 -- batas atas utk field "Level BBM Sebelum Diisi" -- sesuai
+  // tipe indikator mobil (Bar/persen), supaya tidak bisa diisi angka lebih
+  // besar dari yang wajar utk mobil itu (mis. mobil 8 Bar diisi "9").
+  const levelSebelumMax = (car && car.tipeIndikatorBbm==='bar') ? (car.maxBarBbm||8) : 100;
+  const levelSebelumSatuan = (car && car.tipeIndikatorBbm==='bar') ? 'Bar' : '%';
 
   let formItems = usageBiayaOpItems(u).length > 0
-    ? usageBiayaOpItems(u).map(it=>({ id: it.id||uid(), kategori: it.kategori, kategoriCustom: isBiayaOpCategory(it.kategori)?'':it.kategori, nominal: it.nominal, biayaAdmin: it.biayaAdmin||'', catatan: it.catatan||'', jenisBbm: it.jenisBbm||'', jenisBbmCustom: '', literValidasi: it.literValidasi||'' }))
-    : [{ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'', jenisBbm:'', jenisBbmCustom:'', literValidasi:'' }];
+    ? usageBiayaOpItems(u).map(it=>({ id: it.id||uid(), kategori: it.kategori, kategoriCustom: isBiayaOpCategory(it.kategori)?'':it.kategori, nominal: it.nominal, biayaAdmin: it.biayaAdmin||'', catatan: it.catatan||'', jenisBbm: it.jenisBbm||'', jenisBbmCustom: '', literValidasi: it.literValidasi||'', literIsi: it.literIsi||'', bensinSebelumIsi: it.bensinSebelumIsi??'' }))
+    : [{ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'', jenisBbm:'', jenisBbmCustom:'', literValidasi:'', literIsi:'', bensinSebelumIsi:'' }];
   // Normalisasi: kalau kategori tersimpan bukan salah satu dari daftar baku, anggap "Lainnya" + custom.
   formItems = formItems.map(it=>{
     if(it.kategori && !BIAYA_OP_CATEGORIES.includes(it.kategori)){
@@ -6863,6 +6832,8 @@ function openBiayaOperasionalModal(usageId){
       const jenisBbmEl = document.getElementById('bo-jenisbbm-'+it.id);
       const jenisBbmCustomEl = document.getElementById('bo-jenisbbmcustom-'+it.id);
       const literValidasiEl = document.getElementById('bo-litervalidasi-'+it.id);
+      const literIsiEl = document.getElementById('bo-literisi-'+it.id);
+      const levelSebelumEl = document.getElementById('bo-levelsebelum-'+it.id);
       if(katEl) it.kategori = katEl.value;
       if(katCustomEl) it.kategoriCustom = katCustomEl.value;
       it.nominal = getRibuanValue('bo-nominal-'+it.id);
@@ -6871,6 +6842,8 @@ function openBiayaOperasionalModal(usageId){
       if(jenisBbmEl) it.jenisBbm = jenisBbmEl.value;
       if(jenisBbmCustomEl) it.jenisBbmCustom = jenisBbmCustomEl.value;
       if(literValidasiEl) it.literValidasi = literValidasiEl.value;
+      if(literIsiEl) it.literIsi = literIsiEl.value;
+      if(levelSebelumEl) it.bensinSebelumIsi = levelSebelumEl.value;
     });
   }
   function updateTotal(){
@@ -6896,7 +6869,7 @@ function openBiayaOperasionalModal(usageId){
     const wrap = document.getElementById('biayaop-items-wrap');
     if(!wrap) return;
     wrap.innerHTML = formItems.map(it=>`
-      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:#FAFBFC;">
+      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--hover-bg);">
         <div class="grid-2">
           <div class="field" style="margin-bottom:8px;">
             <label>Kategori</label>
@@ -6940,7 +6913,19 @@ function openBiayaOperasionalModal(usageId){
             <input type="text" inputmode="decimal" id="bo-litervalidasi-${it.id}" placeholder="Contoh: 5" value="${escapeHtml(it.literValidasi||'')}">
             <div class="hint">Cuma dicatat sbg pembanding -- BUKAN dipakai hitung jarak/odometer (trip Pribadi tidak perlu odometer terpisah). Berguna buat cek: apa total liter yang RIIL masuk tangki (termasuk isi BBM pribadi begini) cocok dengan Liter BBM resmi yang tercatat di trip.</div>
           </div>
-          ` : ''}
+          ` : `
+          <div style="margin-top:8px;">
+            <label style="font-size:12px;">Liter <span style="color:var(--muted);font-weight:400;">(opsional)</span></label>
+            <input type="text" inputmode="decimal" id="bo-literisi-${it.id}" placeholder="Contoh: 15" value="${escapeHtml(it.literIsi||'')}">
+            <div class="hint">Kalau diisi, otomatis ikut terjumlah ke field "Liter BBM" trip ini (bersama isi BBM lain kalau ada lebih dari 1x) -- supaya Efisiensi BBM tetap akurat walau isi BBM berkali-kali dalam 1 trip.</div>
+          </div>
+          `}
+          <div style="margin-top:8px;">
+            <label style="font-size:12px;">Level BBM Sebelum Diisi <span style="color:var(--muted);font-weight:400;">(opsional${car?', maks '+levelSebelumMax+' '+levelSebelumSatuan:''})</span></label>
+            <input type="text" inputmode="decimal" id="bo-levelsebelum-${it.id}" placeholder="Angka manual, mis. ${car&&car.tipeIndikatorBbm==='bar'?'2':'25'}" value="${escapeHtml(it.bensinSebelumIsi===''?'':String(it.bensinSebelumIsi))}">
+            <div class="err-msg" id="bo-levelsebelum-err-${it.id}" style="display:none;color:var(--red);font-size:11.5px;margin-top:4px;">Tidak boleh lebih dari ${levelSebelumMax} ${levelSebelumSatuan} (batas mobil ini).</div>
+            <div class="hint">${isPribadi ? 'Pencatatan tambahan opsional -- TIDAK ikut memengaruhi kalibrasi mobil (trip Pribadi di luar rantai perhitungan Efisiensi resmi).' : 'Opsional -- angka manual (bukan Bar/gauge), dipakai buat kalibrasi konversi Bar↔Liter mobil ini jangka panjang. Boleh dilewati.'}</div>
+          </div>
         </div>` : ''}
         ${it.kategori==='Isi E-Toll' ? `
         <div class="field" style="margin-bottom:8px;">
@@ -6962,6 +6947,14 @@ function openBiayaOperasionalModal(usageId){
       if(katEl) katEl.addEventListener('change', ()=>{ syncFromDom(); renderItems(); });
       const jenisBbmEl = document.getElementById('bo-jenisbbm-'+it.id);
       if(jenisBbmEl) jenisBbmEl.addEventListener('change', ()=>{ syncFromDom(); renderItems(); });
+      const levelSebelumEl = document.getElementById('bo-levelsebelum-'+it.id);
+      if(levelSebelumEl) levelSebelumEl.addEventListener('input', function(){
+        const errEl = document.getElementById('bo-levelsebelum-err-'+it.id);
+        const angka = Number(this.value);
+        const overMax = this.value!=='' && isFinite(angka) && angka>levelSebelumMax;
+        if(errEl) errEl.style.display = overMax ? 'block' : 'none';
+        this.style.borderColor = overMax ? 'var(--red)' : '';
+      });
       attachRibuanInput('bo-nominal-'+it.id);
       const nomEl = document.getElementById('bo-nominal-'+it.id);
       if(nomEl) nomEl.addEventListener('input', ()=>{ updateTotal(); updateEtollNetInfo(it.id); });
@@ -6995,8 +6988,15 @@ function openBiayaOperasionalModal(usageId){
         const jenisBbmFinal = it.jenisBbm==='__lainnya__' ? (it.jenisBbmCustom||'').trim() : (it.jenisBbm||'');
         toggleFieldError('f-bo-jenisbbm-'+it.id, !jenisBbmFinal);
         if(!jenisBbmFinal) valid = false;
+        // v3.115.0 -- validasi Level BBM Sebelum Diisi TIDAK BOLEH lewat batas
+        // mobil (mis. mobil 8 Bar diisi "9") -- cegah salah input dari sumbernya.
+        const levelErrEl = document.getElementById('bo-levelsebelum-err-'+it.id);
+        const levelAngka = Number(it.bensinSebelumIsi);
+        const levelOverMax = it.bensinSebelumIsi!=='' && isFinite(levelAngka) && levelAngka>levelSebelumMax;
+        if(levelErrEl) levelErrEl.style.display = levelOverMax ? 'block' : 'none';
+        if(levelOverMax) valid = false;
       });
-      if(!valid){ showToast('Jenis BBM wajib dipilih untuk baris berkategori "Isi BBM".', true); return false; }
+      if(!valid){ showToast('Ada isian yang belum valid -- cek baris "Isi BBM" (Jenis BBM wajib diisi, Level BBM Sebelum tidak boleh lewat batas mobil).', true); return false; }
 
       const validItems = formItems
         .map(it => ({
@@ -7006,27 +7006,69 @@ function openBiayaOperasionalModal(usageId){
           biayaAdmin: it.kategori==='Isi E-Toll' ? (Number(it.biayaAdmin)||0) : undefined,
           jenisBbm: it.kategori==='Isi BBM' ? (it.jenisBbm==='__lainnya__' ? it.jenisBbmCustom.trim() : it.jenisBbm) : undefined,
           literValidasi: (isPribadi && it.kategori==='Isi BBM' && it.literValidasi!=='') ? Number(it.literValidasi) : undefined,
+          literIsi: (!isPribadi && it.kategori==='Isi BBM' && it.literIsi!=='') ? Number(it.literIsi) : undefined,
+          bensinSebelumIsi: (it.kategori==='Isi BBM' && it.bensinSebelumIsi!=='') ? Number(it.bensinSebelumIsi) : undefined,
           catatan: (it.catatan||'').trim()
         }))
         .filter(it => it.kategori && it.nominal > 0);
 
       u.biayaOperasional = validItems;
 
-      // Auto-akumulasi: kalau ada item berkategori "Isi BBM" (bisa lebih dari
-      // 1 baris), jumlahkan semua dan isi otomatis ke field "Biaya BBM" di
-      // perjalanan ini -- supaya tidak perlu dicatat dua kali secara manual.
-      const totalBbmDariOperasional = validItems
-        .filter(it => it.kategori === 'Isi BBM')
-        .reduce((sum, it) => sum + it.nominal, 0);
+      // Auto-akumulasi Biaya: kalau ada item berkategori "Isi BBM" (bisa lebih
+      // dari 1 baris), jumlahkan semua dan isi otomatis ke field "Biaya BBM"
+      // di perjalanan ini -- supaya tidak perlu dicatat dua kali secara manual.
+      const itemsIsiBbm = validItems.filter(it => it.kategori === 'Isi BBM');
+      const totalBbmDariOperasional = itemsIsiBbm.reduce((sum, it) => sum + it.nominal, 0);
       if(totalBbmDariOperasional > 0){
         u.biayaBensin = totalBbmDariOperasional;
+      }
+      // v3.115.0 -- Auto-akumulasi Liter (BARU): sama seperti Biaya di atas,
+      // tapi utk Liter -- supaya Efisiensi BBM tetap akurat walau isi BBM
+      // berkali-kali dalam 1 trip (sebelumnya field Liter di form utama harus
+      // dijumlahkan manual sendiri kalau isi BBM lewat Biaya Operasional).
+      const totalLiterDariOperasional = itemsIsiBbm.reduce((sum, it) => sum + (it.literIsi||0), 0);
+      if(totalLiterDariOperasional > 0){
+        u.literBensin = totalLiterDariOperasional;
+      }
+      // v3.115.0 -- u.bensinSebelumIsi (field lama, dipakai getBarCalibrationSamples
+      // utk kalibrasi Bar↔Liter) diisi dari item Isi BBM TERAKHIR (paling akhir
+      // ditambahkan) yang punya nilai -- mendekati kondisi ASLI field lama
+      // (1 nilai per trip, mewakili pengisian yang paling dekat ke waktu tiba).
+      // Trip Pribadi SENGAJA tidak ikut isi field ini -- di luar rantai
+      // kalibrasi Efisiensi resmi.
+      if(!isPribadi){
+        const itemUntukKalibrasi = [...itemsIsiBbm].reverse().find(it => it.bensinSebelumIsi!=null);
+        if(itemUntukKalibrasi) u.bensinSebelumIsi = itemUntukKalibrasi.bensinSebelumIsi;
+      }
+
+      // v3.115.0 -- Update SALDO KARTU E-TOLL LANGSUNG saat item "Isi E-Toll"
+      // disimpan di sini -- TIDAK perlu menunggu isi "Saldo E-Toll" di Tandai
+      // Tiba lagi. Dibuat AMAN dari hitung-ganda kalau modal ini dibuka &
+      // disimpan berkali-kali (edit ulang) -- pola "lepas kontribusi LAMA,
+      // pasang kontribusi BARU" (bukan sekadar "+="), supaya idempotent.
+      const linkedCardForTopup = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
+      if(linkedCardForTopup){
+        const netTopupBaru = validItems
+          .filter(it=>it.kategori==='Isi E-Toll')
+          .reduce((sum,it)=> sum + (it.nominal - (it.biayaAdmin||0)), 0);
+        const kontribusiLama = Number(u.etollTopupAppliedToCard)||0;
+        if(netTopupBaru !== kontribusiLama){
+          const saldoSebelum = Number(linkedCardForTopup.saldo)||0;
+          const saldoSesudah = saldoSebelum - kontribusiLama + netTopupBaru;
+          linkedCardForTopup.saldo = saldoSesudah;
+          touch(linkedCardForTopup);
+          if(netTopupBaru>0 || kontribusiLama>0){
+            logEtollTransaction(linkedCardForTopup.id, 'topup', netTopupBaru-kontribusiLama, saldoSebelum, saldoSesudah, `Isi E-Toll via Biaya Operasional — ${carLabel(u.carId)}`);
+          }
+          u.etollTopupAppliedToCard = netTopupBaru;
+        }
       }
 
       touch(u);
       saveData();
       logActivity('penggunaan', 'Catat biaya operasional', `${carLabel(u.carId)} — ${fmtMoney(usageBiayaOpTotal(u))}`);
       showToast(totalBbmDariOperasional>0
-        ? `Biaya operasional disimpan. Biaya BBM otomatis terisi ${fmtMoney(totalBbmDariOperasional)}.`
+        ? `Biaya operasional disimpan. Biaya BBM otomatis terisi ${fmtMoney(totalBbmDariOperasional)}${totalLiterDariOperasional>0 ? ` (${totalLiterDariOperasional} L)` : ''}.`
         : 'Biaya operasional disimpan.');
       renderUsage();
       return true;
@@ -7036,7 +7078,7 @@ function openBiayaOperasionalModal(usageId){
   renderItems();
   document.getElementById('btn-add-biayaop-item').addEventListener('click', ()=>{
     syncFromDom();
-    formItems.push({ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'', jenisBbm:'', jenisBbmCustom:'' });
+    formItems.push({ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'', jenisBbm:'', jenisBbmCustom:'', literValidasi:'', literIsi:'', bensinSebelumIsi:'' });
     renderItems();
   });
   const btnCopyBiayaOp = document.getElementById('btn-copy-biayaop-report');
@@ -7188,7 +7230,7 @@ function buildTripReceiptElement(u){
     <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px;">
       <tr><td style="padding:4px 0;">Jarak Tempuh</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${jarak!=null?jarak.toLocaleString('id-ID')+' KM':'-'}</td></tr>
       <tr><td style="padding:4px 0;">Efisiensi BBM</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${ratio!=null?ratio.toFixed(1)+' KM/L':'-'}</td></tr>
-      ${u.literBensin ? `<tr><td style="padding:4px 0;">BBM Diisi</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${u.literBensin} L</td></tr>` : ''}
+      ${u.literBensin ? `<tr><td style="padding:4px 0;">Total BBM Diisi</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${u.literBensin} L</td></tr>` : ''}
       <tr><td style="padding:4px 0;">Biaya BBM</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${fmtMoney(u.biayaBensin||0)}</td></tr>
       ${biayaTolInfo ? `<tr><td style="padding:4px 0;">Biaya Tol</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${fmtMoney(biayaTol)}</td></tr>` : ''}
       ${biayaOpItems.map(it=>`
@@ -7567,7 +7609,7 @@ function renderFuelRangeInsight(carId, bensinPercent){
     return;
   }
   box.innerHTML = `
-    <div class="hint" style="margin-top:8px;background:#EEF3FF;color:var(--blue-dark);padding:8px 10px;border-radius:6px;">
+    <div class="hint" style="margin-top:8px;background:var(--blue-bg);color:var(--blue-dark);padding:8px 10px;border-radius:6px;">
       🛣️ Estimasi jarak tempuh dengan sisa bensin saat ini: <b>±${Math.round(r.estimatedKm).toLocaleString('id-ID')} KM</b>
       <span style="display:block;font-size:10.5px;color:var(--muted);margin-top:2px;">Dihitung dari efisiensi rata-rata riwayat mobil ini (${r.avgRatio.toFixed(1)} KM/L) — bukan angka pasti, cuma perkiraan.</span>
     </div>`;
@@ -8048,7 +8090,7 @@ function openBookingModal(editId){
         <input type="checkbox" id="in-notif-pilih-semua" style="width:16px;height:16px;">
         Pilih Semua Sopir
       </label>
-      <div id="notif-driver-checklist" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:8px 10px;">
+      <div id="notif-driver-checklist" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;overflow-x:hidden;border:1px solid var(--line);border-radius:8px;padding:8px 10px;">
         ${state.drivers.filter(d=>d.telegramChatId).map(d=>`
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
             <input type="checkbox" class="in-notif-driver-cb" value="${d.id}" style="width:15px;height:15px;">
@@ -8649,7 +8691,7 @@ function openServiceModal(editId){
     const wrap = document.getElementById('service-items-wrap');
     if(!wrap) return;
     wrap.innerHTML = formItems.map(it=>`
-      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:#FAFBFC;">
+      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--hover-bg);">
         <div class="grid-2">
           <div class="field" style="margin-bottom:8px;">
             <label>Kategori *</label>
@@ -11249,6 +11291,45 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.116.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Perbaikan bug: booking yang dibuat & dijadwalkan di HARI YANG SAMA (kurang dari 1 hari sebelumnya, mis. dibuat pagi untuk sore ini) sebelumnya tidak pernah dapat reminder sama sekali -- Reminder Booking cuma mengecek "besok" (H-1). Sekarang ditambah "Booking Hari Ini" (H-0, level Mendesak) untuk menutup celah itu. Berlaku di lonceng app maupun Telegram. Sudah diverifikasi lewat simulasi 4 skenario.',
+    ]
+  },
+  {
+    v: '3.115.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Konsolidasi field "Isi BBM": widget terpisah "Level BBM Sebelum Diisi" di form Tandai Tiba dihapus -- digantikan field baru di tiap kartu "Isi BBM" (Biaya Operasional/Pribadi): "Liter" (Biaya Operasional -- otomatis terjumlah ke Liter BBM utama trip, jadi Efisiensi tetap akurat walau isi BBM berkali-kali) dan "Level BBM Sebelum Diisi" (angka manual, tervalidasi tidak boleh lewat batas mobil, dipakai kalibrasi Bar↔Liter). Sudah diverifikasi lewat simulasi termasuk kasus validasi batas.',
+      'Fitur baru: Saldo Kartu E-Toll sekarang otomatis ter-update SAAT ITU JUGA begitu item "Isi E-Toll" disimpan di Biaya Operasional -- tidak perlu menunggu isi "Saldo E-Toll" di Tandai Tiba lagi. Aman dari hitung-ganda kalau disimpan berkali-kali (edit ulang) -- sudah diverifikasi lewat simulasi 4 skenario (simpan pertama, simpan ulang tanpa ubah, edit nominal, hapus item).',
+      'Label "BBM Diisi" di Tanda Terima Perjalanan (app & Telegram) diganti jadi "Total BBM Diisi" -- lebih jelas kalau angkanya hasil penjumlahan.',
+      'Node.js runtime di GitHub Actions dinaikkan dari versi 20 (sudah deprecated) ke 22, menghilangkan peringatan di tab Actions.',
+    ]
+  },
+  {
+    v: '3.114.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Perbaikan bug PENTING: tanggal "hari ini" (today()) sebelumnya dihitung berdasar UTC, bukan waktu lokal WIB -- akibatnya kalau dipakai jam 00:00-06:59 dini hari WIB, tanggal yang tersimpan MUNDUR 1 HARI dari kenyataan (mis. berangkat jam 03:00 WIB tanggal 27, malah tersimpan tanggal 26 -- ini yang bikin durasi trip di Tanda Terima terlihat "1 hari" lebih lama dari semestinya). Dipakai di 29 tempat berbeda di aplikasi (Catat Perjalanan, Dokumen, Servis, Backup, dll) -- diperbaiki di 1 titik sumbernya, otomatis benar di semuanya. telegram-notify.mjs juga diperbaiki dengan cara yang sesuai (GitHub Actions jalan di UTC, jadi dihitung eksplisit dalam zona WIB). Sudah diverifikasi lewat simulasi persis skenario yang dilaporkan.',
+    ]
+  },
+  {
+    v: '3.113.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Perbaikan bug: dropdown "Petugas Aktif" di sidebar (dan +30 elemen lain -- header panel, menu sidebar hover/aktif, tabel, tombol, tag, kotak info) masih pakai warna latar terang TETAP sementara tulisannya sudah ikut tema -- di Mode Gelap ini bikin teks nyaris tak terbaca (terkesan "tidak bisa dipilih" padahal sebenarnya bisa diklik, cuma tak terlihat). Audit v3.112.0 kemarin ternyata belum menyeluruh -- kali ini disisir pakai analisis kecerahan warna otomatis, bukan cuma tebak-tebak nama warna.',
+    ]
+  },
+  {
+    v: '3.112.0',
+    date: '26 Jul 2026',
+    notes: [
+      'Perbaikan bug PENTING di Mode Gelap (baru dirilis v3.108.0): ternyata sidebar, SEMUA kotak input/dropdown form, modal, popup menu, kotak pencarian, dan toggle Card/List masih pakai warna putih TETAP (bukan variabel tema) -- artinya elemen paling sering dipakai di seluruh aplikasi tetap putih terang di tengah Mode Gelap. Sekarang semuanya sudah pakai variabel tema yang benar. Ditemukan lewat audit menyeluruh, bukan laporan pengguna.',
+      'Perbaikan kecil: 1 elemen (checklist sopir di pengaturan notifikasi) sempat kelewat pengaman anti-geser horizontal (overflow-x) yang sudah jadi standar di aplikasi ini -- sudah ditambahkan.',
+    ]
+  },
   {
     v: '3.111.0',
     date: '26 Jul 2026',
