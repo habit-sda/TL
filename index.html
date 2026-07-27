@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.125.0">
+<meta name="app-version" content="3.129.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -602,6 +602,16 @@
   }
   .bar-picker-btn:hover{border-color:var(--blue);}
   .bar-picker-btn.selected{color:#fff;box-shadow:0 0 0 3px rgba(30,79,187,0.18);transform:scale(1.06);}
+  /* v3.126.0 -- PERBAIKAN BUG: aturan di atas cuma set warna TEKS jadi
+     putih, mengandalkan latar belakang BIRU yang biasanya diberikan lewat
+     JS (fuelGaugeSegColor) khusus widget gauge BBM utama (.bar-picker-widget).
+     Grid SEDERHANA baru (.bar-picker-grid, dipakai "Level BBM Sebelum
+     Diisi" di kartu Isi BBM) TIDAK punya JS pewarna itu -- akibatnya teks
+     putih tampil di atas latar PUTIH juga (dari var(--card)) begitu
+     terpilih, alias teksnya seperti "hilang". Di-scope KHUSUS ke
+     .bar-picker-grid supaya tidak mengganggu widget gauge utama yang
+     memang sengaja beda warna per-posisi. */
+  .bar-picker-grid .bar-picker-btn.selected{background:var(--blue);}
   .bar-picker-summary{text-align:center;margin-bottom:6px;}
   .bar-picker-label{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13.5px;color:var(--muted);margin-bottom:10px;}
   .bar-picker-strip{display:flex;gap:4px;margin-bottom:14px;}
@@ -1267,7 +1277,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.125.0';
+const APP_VERSION = '3.129.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -4407,6 +4417,23 @@ function openEditChoiceMenu(usageId, anchorEl){
 // cuma tooltip title="" yang tidak bisa dibaca sama sekali di HP). SENGAJA
 // dijaga pendek (2-3 kalimat) & 1 topik per modal -- bukan tumpukan
 // penjelasan anomali panjang yang bikin pusing dibaca.
+// v3.126.0 -- Helper UMUM utk modal penjelasan badge singkat & tappable
+// (dipakai Gap KM, Efisiensi, dll) -- 1 fungsi, dipanggil dari mana pun,
+// supaya gaya/perilakunya selalu konsisten di seluruh aplikasi.
+function openBadgeExplainModal(ikon, judul, isi, catatan){
+  openModal({
+    title: `${ikon} ${judul}`,
+    body: `
+      <p style="font-size:13.5px;line-height:1.6;margin:0 0 12px;">${isi}</p>
+      <div class="hint" style="font-size:12px;line-height:1.6;">${catatan}</div>
+    `,
+    onSave: () => true
+  });
+  const saveBtn = document.getElementById('modal-save');
+  if(saveBtn) saveBtn.textContent = 'Mengerti';
+  const cancelBtn = document.getElementById('modal-cancel');
+  if(cancelBtn) cancelBtn.style.display = 'none';
+}
 function openGapInfoModal(gapKm, isOverlap, isTolerated){
   const gapAbs = Math.abs(gapKm).toLocaleString('id-ID');
   let judul, ikon, isi, catatan;
@@ -4423,18 +4450,37 @@ function openGapInfoModal(gapKm, isOverlap, isTolerated){
     isi = `Ada selisih <b>${gapAbs} KM</b> antara Odometer Tiba trip sebelumnya dan Odometer Berangkat trip ini (mobil yang sama), melebihi batas toleransi.`;
     catatan = 'Kemungkinan ada perjalanan yang belum tercatat. Perlu dicek manual -- data lain tidak berubah otomatis. Batas toleransi ini bisa diubah di menu Pengaturan.';
   }
-  openModal({
-    title: `${ikon} ${judul}`,
-    body: `
-      <p style="font-size:13.5px;line-height:1.6;margin:0 0 12px;">${isi}</p>
-      <div class="hint" style="font-size:12px;line-height:1.6;">${catatan}</div>
-    `,
-    onSave: () => true
-  });
-  const saveBtn = document.getElementById('modal-save');
-  if(saveBtn) saveBtn.textContent = 'Mengerti';
-  const cancelBtn = document.getElementById('modal-cancel');
-  if(cancelBtn) cancelBtn.style.display = 'none';
+  openBadgeExplainModal(ikon, judul, isi, catatan);
+}
+// v3.126.0 -- Penjelasan tappable utk SEMUA badge status Efisiensi BBM
+// (5 varian) -- sebelumnya cuma tooltip title="" yang tidak bisa dibaca di
+// HP, sama seperti masalah badge Gap yang sudah diperbaiki lebih dulu.
+function openEfisiensiInfoModal(tipe, extra, maxParam){
+  let judul, ikon, isi, catatan;
+  if(tipe==='full'){
+    judul = 'Full-to-Full'; ikon = '✅';
+    isi = 'Trip ini dicatat dari tangki PENUH saat berangkat sampai PENUH lagi saat tiba (isi ulang sampai penuh).';
+    catatan = 'Ini cara paling akurat mengukur Efisiensi BBM -- tidak ada tebakan sama sekali, murni selisih liter yang benar-benar terpakai.';
+  } else if(tipe==='estimasi'){
+    judul = 'Estimasi'; ikon = '📊';
+    isi = `Efisiensi dihitung dari selisih level BBM (bukan dari tangki penuh ke penuh)${extra>0?`, termasuk <b>${extra.toLocaleString('id-ID')} KM</b> dari trip sebelumnya yang digabung`:''}.`;
+    catatan = 'Tetap dihitung dari data nyata (bukan asumsi kasar), cuma sedikit kurang presisi dibanding "Full-to-Full" karena titik awal/akhirnya bukan tangki penuh.';
+  } else if(tipe==='pending'){
+    judul = 'Menunggu Akumulasi'; ikon = '⏳';
+    isi = `Pergeseran indikator BBM trip ini (jarak ${extra?extra.toLocaleString('id-ID')+' KM':'-'}) masih terlalu tipis untuk dipercaya sendirian.`;
+    catatan = 'BUKAN berarti tidak ada data -- jarak & liternya otomatis digabung ke trip berikutnya (mobil yang sama) begitu indikator bergerak cukup besar untuk dihitung dengan andal. Ini mencegah angka Efisiensi yang keliatan "terlalu irit" cuma karena pergeseran indikator yang belum jelas.';
+  } else if(tipe==='bawah'){
+    const rentang = `${extra!=null?extra:''}${extra!=null&&maxParam!=null?'–':''}${maxParam!=null?maxParam:''} KM/L`;
+    judul = 'Di Bawah Rentang Wajar'; ikon = '⚠️';
+    isi = `Efisiensi trip ini lebih rendah dari rentang wajar yang diatur untuk mobil ini (${rentang}).`;
+    catatan = 'Cek lagi data BBM Awal/Akhir & Liter BBM perjalanan ini -- kemungkinan ada yang salah input. Rentang wajar ini bisa diubah di menu Data Mobil.';
+  } else {
+    const rentang = `${extra!=null?extra:''}${extra!=null&&maxParam!=null?'–':''}${maxParam!=null?maxParam:''} KM/L`;
+    judul = 'Di Atas Rentang Wajar'; ikon = '⚠️';
+    isi = `Efisiensi trip ini lebih tinggi dari rentang wajar yang diatur untuk mobil ini (${rentang}).`;
+    catatan = 'Cek lagi data BBM Awal/Akhir & Liter BBM perjalanan ini -- kemungkinan salah input, atau efek toleransi indikator Bar (kurang presisi di beberapa titik). Rentang wajar ini bisa diubah di menu Data Mobil.';
+  }
+  openBadgeExplainModal(ikon, judul, isi, catatan);
 }
 function openTripActionMenu(usageId, anchorEl){
   document.querySelectorAll('.trip-action-menu').forEach(m=>m.remove());
@@ -5587,10 +5633,10 @@ function durasiAnomaliBadgeHtml(u){
   const rata2Label = fmtDurationMinutes(Math.round(rata2));
   const menitLabel = fmtDurationMinutes(menit);
   if(rasio >= 1.7){
-    return ` <span class="badge warn" title="Durasi trip ini (${menitLabel}) jauh lebih lama dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${sampelLain.length} perjalanan lain) -- kemungkinan macet, ada singgah dulu, atau lupa langsung Tandai Tiba.">⏱️ Lebih Lama dari Biasanya</span>`;
+    return ` <span class="badge warn" style="cursor:pointer;" onclick="openDurasiAnomaliInfoModal(${menit}, ${rata2}, ${sampelLain.length}, true)">⏱️ Lebih Lama dari Biasanya</span>`;
   }
   if(rasio <= 0.5){
-    return ` <span class="badge neutral" title="Durasi trip ini (${menitLabel}) jauh lebih cepat dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${sampelLain.length} perjalanan lain) -- cek lagi jam berangkat/tiba yang diisi, kemungkinan salah ketik.">⏱️ Lebih Cepat dari Biasanya</span>`;
+    return ` <span class="badge neutral" style="cursor:pointer;" onclick="openDurasiAnomaliInfoModal(${menit}, ${rata2}, ${sampelLain.length}, false)">⏱️ Lebih Cepat dari Biasanya</span>`;
   }
   return '';
 }
@@ -5622,13 +5668,56 @@ function jarakAnomaliBadgeHtml(u, compact){
   // lega, jadi tetap boleh teks penuh di sana.
   if(rasio >= 1.7){
     const teks = compact ? '📏' : '📏 Jarak Tidak Wajar';
-    return ` <span class="badge warn" title="Jarak trip ini (${jarakLabel}) jauh lebih besar dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${sampelLain.length} perjalanan lain) -- kemungkinan salah catat odometer, atau memang ambil rute memutar.">${teks}</span>`;
+    return ` <span class="badge warn" style="cursor:pointer;" onclick="openJarakAnomaliInfoModal(${jarak}, ${rata2}, ${sampelLain.length}, true)">${teks}</span>`;
   }
   if(rasio <= 0.5){
     const teks = compact ? '📏' : '📏 Jarak Tidak Wajar';
-    return ` <span class="badge neutral" title="Jarak trip ini (${jarakLabel}) jauh lebih kecil dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${sampelLain.length} perjalanan lain) -- cek lagi Odometer Berangkat/Tiba yang diisi, kemungkinan salah ketik.">${teks}</span>`;
+    return ` <span class="badge neutral" style="cursor:pointer;" onclick="openJarakAnomaliInfoModal(${jarak}, ${rata2}, ${sampelLain.length}, false)">${teks}</span>`;
   }
   return '';
+}
+
+// v3.126.0 -- Sama seperti Gap/Efisiensi: badge anomali Durasi & Jarak
+// (dibanding rata-rata ke tujuan yang sama) diganti dari tooltip title=""
+// jadi modal tappable. Parameter SENGAJA angka mentah (bukan label teks
+// sudah-jadi) supaya aman disisipkan ke onclick="" tanpa risiko tanda
+// kutip yang rusak -- label diformat ulang di dalam modal ini sendiri.
+function openDurasiAnomaliInfoModal(menit, rata2, jumlahSampel, lebihLama){
+  const menitLabel = fmtDurationMinutes(menit);
+  const rata2Label = fmtDurationMinutes(Math.round(rata2));
+  let judul, ikon, isi, catatan;
+  if(lebihLama){
+    judul = 'Lebih Lama dari Biasanya'; ikon = '⏱️';
+    isi = `Durasi trip ini (<b>${menitLabel}</b>) jauh lebih lama dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${jumlahSampel} perjalanan lain).`;
+    catatan = 'Kemungkinan macet, ada singgah dulu, atau lupa langsung Tandai Tiba. Bukan otomatis salah -- cuma penanda untuk dicek kalau perlu.';
+  } else {
+    judul = 'Lebih Cepat dari Biasanya'; ikon = '⏱️';
+    isi = `Durasi trip ini (<b>${menitLabel}</b>) jauh lebih cepat dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${jumlahSampel} perjalanan lain).`;
+    catatan = 'Cek lagi jam berangkat/tiba yang diisi -- kemungkinan salah ketik.';
+  }
+  openBadgeExplainModal(ikon, judul, isi, catatan);
+}
+function openJarakAnomaliInfoModal(jarak, rata2, jumlahSampel, lebihBesar){
+  const jarakLabel = jarak.toLocaleString('id-ID')+' KM';
+  const rata2Label = Math.round(rata2).toLocaleString('id-ID')+' KM';
+  let judul, ikon, isi, catatan;
+  if(lebihBesar){
+    judul = 'Jarak Tidak Wajar'; ikon = '📏';
+    isi = `Jarak trip ini (<b>${jarakLabel}</b>) jauh lebih besar dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${jumlahSampel} perjalanan lain).`;
+    catatan = 'Kemungkinan salah catat odometer, atau memang ambil rute memutar. Bukan otomatis salah -- cuma penanda untuk dicek kalau perlu.';
+  } else {
+    judul = 'Jarak Tidak Wajar'; ikon = '📏';
+    isi = `Jarak trip ini (<b>${jarakLabel}</b>) jauh lebih kecil dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${jumlahSampel} perjalanan lain).`;
+    catatan = 'Cek lagi Odometer Berangkat/Tiba yang diisi -- kemungkinan salah ketik.';
+  }
+  openBadgeExplainModal(ikon, judul, isi, catatan);
+}
+function openEtollAkurasiInfoModal(isEstimasi){
+  if(isEstimasi){
+    openBadgeExplainModal('📊', 'Estimasi', 'Saldo E-Toll Saat Berangkat trip ini tidak diisi -- sistem otomatis memakai Saldo E-Toll Saat Tiba dari trip sebelumnya (kartu yang sama) sebagai gantinya.', 'Tetap dari data nyata (bukan tebakan kasar), cuma titik awalnya "dipinjam" dari trip lain, bukan langsung diisi di trip ini.');
+  } else {
+    openBadgeExplainModal('✅', 'Akurat', 'Dihitung langsung dari Saldo E-Toll Saat Berangkat yang diisi di trip ini sendiri.', 'Tidak ada data "pinjaman" dari trip lain -- ini perhitungan paling akurat.');
+  }
 }
 
 function renderDestinations(){
@@ -6165,10 +6254,9 @@ function renderUsage(){
       const isFullToFull = getBensinKeluar(u)===100 && getBensinKembali(u)===100;
       const badgeCls = isFullToFull ? 'ok' : 'warn';
       const badgeText = isFullToFull ? 'Full-to-Full' : 'Estimasi';
-      const titleAttr = entry.carriedInKm>0
-        ? ` title="Termasuk ${entry.carriedInKm.toLocaleString('id-ID')} KM dari trip sebelumnya yang belum sempat terdeteksi indikator"`
-        : '';
-      return `<span${titleAttr}>${entry.ratio.toFixed(1)} KM/L</span> <span class="badge ${badgeCls}">${badgeText}</span>${efisiensiWajarBadgeHtml(entry.ratio, car)}`;
+      const badgeTipe = isFullToFull ? 'full' : 'estimasi';
+      const carriedInKm = entry.carriedInKm>0 ? entry.carriedInKm : 0;
+      return `${entry.ratio.toFixed(1)} KM/L <span class="badge ${badgeCls}" style="cursor:pointer;" onclick="openEfisiensiInfoModal('${badgeTipe}', ${carriedInKm})">${badgeText}</span>${efisiensiWajarBadgeHtml(entry.ratio, car)}`;
     }
     if(entry && entry.method==='pending'){
       // Jujur ke petugas: BUKAN "tidak ada data", tapi "belum cukup untuk
@@ -6177,7 +6265,9 @@ function renderUsage(){
       // resolusi alat ukur) untuk dipercaya jadi 1 angka rasio -- akan
       // otomatis digabung ke perjalanan berikutnya (mobil yang sama) begitu
       // pergeserannya cukup besar untuk diandalkan.
-      return `<span class="badge neutral" title="Jarak ${entry.ownKm.toLocaleString('id-ID')} KM ditunda, akan otomatis digabung ke perjalanan berikutnya (mobil yang sama) begitu indikator bensin bergerak cukup besar untuk dipercaya (menghindari efisiensi yang keliatan terlalu irit dari pergeseran indikator yang masih tipis)">Menunggu Akumulasi</span>`;
+      // v3.126.0 -- diganti dari tooltip title="" (tidak bisa dibaca di HP)
+      // jadi badge tappable, sama seperti perbaikan badge Gap sebelumnya.
+      return `<span class="badge neutral" style="cursor:pointer;" onclick="openEfisiensiInfoModal('pending', ${entry.ownKm})">Menunggu Akumulasi</span>`;
     }
     // Fallback: data indikator/kapasitas tangki tidak lengkap -> rumus lama.
     const jarak = u.odoKembali - u.odoKeluar;
@@ -6275,7 +6365,7 @@ function renderUsage(){
             { label:'Bensin', val: `${r.bensinKeluarBadge} → ${r.bensinKembaliBadge}` },
             r.linkedCard ? { label:'Kartu E-Toll', val: `<b>${escapeHtml(r.linkedCard.nomorKartu)}</b>` } : null,
             (r.etoll!==null && !isNaN(r.etoll)) ? { label:'Saldo E-Toll', val: `<b>${fmtMoney(r.etoll)}</b>` } : null,
-            r.biayaTolInfo ? { label:'🛣️ Tol Terpakai', val: `<b>${fmtMoney(r.biayaTolInfo.biayaTol)}</b> ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn" title="Saldo E-Toll Saat Berangkat trip ini tidak diisi -- sistem otomatis pakai Saldo E-Toll Saat Tiba dari trip sebelumnya (kartu yang sama) sebagai gantinya.">Estimasi</span>' : '<span class="badge ok" title="Dihitung dari Saldo E-Toll Saat Berangkat yang diisi langsung di trip ini.">Akurat</span>'}` } : null,
+            r.biayaTolInfo ? { label:'🛣️ Tol Terpakai', val: `<b>${fmtMoney(r.biayaTolInfo.biayaTol)}</b> ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn" style="cursor:pointer;" onclick="openEtollAkurasiInfoModal(true)">Estimasi</span>' : '<span class="badge ok" style="cursor:pointer;" onclick="openEtollAkurasiInfoModal(false)">Akurat</span>'}` } : null,
             (r.biayaOpTotal>0) ? { label:'Biaya Operasional', val: `<b>${fmtMoney(r.biayaOpTotal)}</b>${r.etollBiayaTotal>0?` (🛣️ E-Toll: ${fmtMoney(r.etollBiayaTotal)})`:''}` } : null,
           ].filter(Boolean);
 
@@ -6333,7 +6423,7 @@ function renderUsage(){
                 <div><span class="k">BBM Akhir</span> <span class="v">${r.bensinKembaliBadge}</span></div>
                 <div><span class="k">Kartu E-Toll</span> <span class="v">${r.linkedCard?escapeHtml(r.linkedCard.nomorKartu):'-'}</span></div>
                 <div><span class="k">Saldo E-Toll</span> <span class="v">${r.etoll!==null&&!isNaN(r.etoll)?fmtMoney(r.etoll):'-'}</span></div>
-                ${r.biayaTolInfo ? `<div><span class="k">🛣️ Tol Terpakai</span> <span class="v">${fmtMoney(r.biayaTolInfo.biayaTol)} ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn" title="Saldo E-Toll Saat Berangkat trip ini tidak diisi -- dipakai Saldo E-Toll Saat Tiba dari trip sebelumnya (kartu sama) sebagai gantinya.">Estimasi</span>' : '<span class="badge ok">Akurat</span>'}</span></div>` : ''}
+                ${r.biayaTolInfo ? `<div><span class="k">🛣️ Tol Terpakai</span> <span class="v">${fmtMoney(r.biayaTolInfo.biayaTol)} ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn" style="cursor:pointer;" onclick="openEtollAkurasiInfoModal(true)">Estimasi</span>' : '<span class="badge ok" style="cursor:pointer;" onclick="openEtollAkurasiInfoModal(false)">Akurat</span>'}</span></div>` : ''}
               </div>
             </div>
             <div class="usage-card-actions">${r.actionButtonsHtml}</div>
@@ -6587,7 +6677,7 @@ function renderUsage(){
         <div><span class="k">BBM Akhir</span> <span class="v">${r.bensinKembaliBadge}</span></div>
         <div><span class="k">Kartu E-Toll</span> <span class="v">${r.linkedCard?escapeHtml(r.linkedCard.nomorKartu):'-'}</span></div>
         <div><span class="k">Saldo E-Toll</span> <span class="v">${r.etoll!==null&&!isNaN(r.etoll)?fmtMoney(r.etoll):'-'}</span></div>
-        ${r.biayaTolInfo ? `<div><span class="k">🛣️ Tol Terpakai</span> <span class="v">${fmtMoney(r.biayaTolInfo.biayaTol)} ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn" title="Saldo E-Toll Saat Berangkat trip ini tidak diisi -- dipakai Saldo E-Toll Saat Tiba dari trip sebelumnya (kartu sama) sebagai gantinya.">Estimasi</span>' : '<span class="badge ok">Akurat</span>'}</span></div>` : ''}
+        ${r.biayaTolInfo ? `<div><span class="k">🛣️ Tol Terpakai</span> <span class="v">${fmtMoney(r.biayaTolInfo.biayaTol)} ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn" style="cursor:pointer;" onclick="openEtollAkurasiInfoModal(true)">Estimasi</span>' : '<span class="badge ok" style="cursor:pointer;" onclick="openEtollAkurasiInfoModal(false)">Akurat</span>'}</span></div>` : ''}
       </div>
       <div class="usage-card-actions" style="margin-top:16px;">${r.actionButtonsHtml}${u.status==='selesai' ? `<button class="btn btn-ghost btn-sm" data-trip-receipt="${u.id}">🧾 Tanda Terima</button>` : ''}</div>
     `;
@@ -7093,7 +7183,7 @@ function openBiayaOperasionalModal(usageId){
     if(!wrap) return;
     wrap.innerHTML = formItems.map(it=>`
       <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--hover-bg);">
-        <div class="grid-2">
+        <div class="${it.kategori==='Isi BBM' ? '' : 'grid-2'}">
           <div class="field" style="margin-bottom:8px;">
             <label>Kategori</label>
             <select id="bo-kat-${it.id}">
@@ -7105,10 +7195,11 @@ function openBiayaOperasionalModal(usageId){
               <option value="__lainnya__" ${it.kategori==='__lainnya__'?'selected':''}>+ Kategori lain (baru)...</option>
             </select>
           </div>
+          ${it.kategori!=='Isi BBM' ? `
           <div class="field" style="margin-bottom:8px;">
             <label>Nominal (Rp)</label>
             <input type="text" inputmode="numeric" id="bo-nominal-${it.id}" placeholder="Contoh: 50.000" value="${fmtRibuanInitial(it.nominal)}">
-          </div>
+          </div>` : ''}
         </div>
         ${it.kategori==='__lainnya__' ? `
         <div class="field" style="margin-bottom:8px;">
@@ -7116,44 +7207,45 @@ function openBiayaOperasionalModal(usageId){
           <input type="text" id="bo-katcustom-${it.id}" placeholder="Contoh: Tiket tol darurat" value="${escapeHtml(it.kategoriCustom||'')}" autocomplete="off">
         </div>` : ''}
         ${it.kategori==='Isi BBM' ? `
-        <div class="field" id="f-bo-jenisbbm-${it.id}" style="margin-bottom:8px;">
-          <label>Jenis BBM *</label>
-          <select id="bo-jenisbbm-${it.id}">
-            <option value="">— pilih —</option>
-            ${JENIS_BBM_DEFAULT.map(j=>`<option value="${j}" ${it.jenisBbm===j?'selected':''}>${j}</option>`).join('')}
-            ${customFuelTypesUsed.length ? `<optgroup label="Jenis lain (pernah dipakai)">
-              ${customFuelTypesUsed.map(j=>`<option value="${escapeHtml(j)}" ${it.jenisBbm===j?'selected':''}>${escapeHtml(j)}</option>`).join('')}
-            </optgroup>` : ''}
-            <option value="__lainnya__" ${it.jenisBbm==='__lainnya__'?'selected':''}>+ Jenis lain (baru)...</option>
-          </select>
-          <div class="err-msg">Jenis BBM wajib dipilih kalau kategorinya "Isi BBM".</div>
-          ${it.jenisBbm==='__lainnya__' ? `
-          <input type="text" id="bo-jenisbbmcustom-${it.id}" placeholder="Contoh: Dexlite" value="${escapeHtml(it.jenisBbmCustom||'')}" autocomplete="off" style="margin-top:8px;">
-          ` : ''}
-          ${isPribadi ? `
-          <div style="margin-top:8px;">
-            <label style="font-size:12px;">Liter yang Diisi/Dibeli Saat Ini <span style="color:var(--muted);font-weight:400;">(opsional, buat validasi silang)</span></label>
-            <input type="text" inputmode="decimal" id="bo-litervalidasi-${it.id}" placeholder="Contoh: 5" value="${escapeHtml(it.literValidasi||'')}">
-            <div class="hint">Liter yang MASUK ke tangki lewat pengisian BBM pribadi ini (bukan liter sebelum diisi) -- cuma dicatat sbg pembanding, BUKAN dipakai hitung jarak/odometer (trip Pribadi tidak perlu odometer terpisah). Berguna buat cek: apa total liter yang RIIL masuk tangki (termasuk isi BBM pribadi begini) cocok dengan Liter BBM resmi yang tercatat di trip.</div>
+        <div class="grid-2">
+          <div class="field" id="f-bo-jenisbbm-${it.id}" style="margin-bottom:8px;">
+            <label>Jenis BBM *</label>
+            <select id="bo-jenisbbm-${it.id}">
+              <option value="">— pilih —</option>
+              ${JENIS_BBM_DEFAULT.map(j=>`<option value="${j}" ${it.jenisBbm===j?'selected':''}>${j}</option>`).join('')}
+              ${customFuelTypesUsed.length ? `<optgroup label="Jenis lain (pernah dipakai)">
+                ${customFuelTypesUsed.map(j=>`<option value="${escapeHtml(j)}" ${it.jenisBbm===j?'selected':''}>${escapeHtml(j)}</option>`).join('')}
+              </optgroup>` : ''}
+              <option value="__lainnya__" ${it.jenisBbm==='__lainnya__'?'selected':''}>+ Jenis lain (baru)...</option>
+            </select>
+            <div class="err-msg">Jenis BBM wajib dipilih kalau kategorinya "Isi BBM".</div>
           </div>
-          ` : `
-          <div style="margin-top:8px;">
-            <label style="font-size:12px;">Liter yang Diisi/Dibeli <span style="color:var(--muted);font-weight:400;">(opsional)</span></label>
-            <input type="text" inputmode="decimal" id="bo-literisi-${it.id}" placeholder="Contoh: 15" value="${escapeHtml(it.literIsi||'')}">
-            <div class="hint">Liter yang MASUK ke tangki lewat pengisian BBM ini (bukan liter sebelum diisi). Kalau diisi, otomatis ikut terjumlah ke field "Liter BBM" trip ini (bersama isi BBM lain kalau ada lebih dari 1x) -- supaya Efisiensi BBM tetap akurat walau isi BBM berkali-kali dalam 1 trip.</div>
+          <div class="field" style="margin-bottom:8px;">
+            <label>Nominal (Rp)</label>
+            <input type="text" inputmode="numeric" id="bo-nominal-${it.id}" placeholder="Contoh: 50.000" value="${fmtRibuanInitial(it.nominal)}">
           </div>
-          `}
-          <div style="margin-top:8px;">
-            <label style="font-size:12px;">Level BBM Sebelum Diisi <span style="color:var(--muted);font-weight:400;">(opsional)</span></label>
-            <input type="hidden" id="bo-levelsebelum-${it.id}" value="${escapeHtml(it.bensinSebelumIsi===''?'':String(it.bensinSebelumIsi))}">
-            <div class="bar-picker-grid" id="bo-levelsebelum-grid-${it.id}" data-maxlevel="${levelSebelumMax}" style="margin-bottom:8px;">
-              ${Array.from({length: levelSebelumMax+1}, (_, v) => v).map(v=>`
-                <button type="button" class="bar-picker-btn${String(it.bensinSebelumIsi)===String(v)?' selected':''}" data-level="${v}">${v}</button>
-              `).join('')}
-            </div>
-            <div class="hint" style="margin-top:0;">Satuan: ${levelSebelumSatuan}. Tap sekali lagi tombol yang sama untuk mengosongkan pilihan. ${isPribadi ? 'Pencatatan tambahan opsional -- TIDAK ikut memengaruhi kalibrasi mobil (trip Pribadi di luar rantai perhitungan Efisiensi resmi).' : 'Opsional -- dipakai buat kalibrasi konversi Bar↔Liter mobil ini jangka panjang. Boleh dilewati.'}</div>
-          </div>
+        </div>
+        ${it.jenisBbm==='__lainnya__' ? `
+        <div class="field" style="margin-bottom:8px;">
+          <input type="text" id="bo-jenisbbmcustom-${it.id}" placeholder="Contoh: Dexlite" value="${escapeHtml(it.jenisBbmCustom||'')}" autocomplete="off">
         </div>` : ''}
+        <div class="grid-2">
+          <div class="field" style="margin-bottom:8px;">
+            <label style="font-size:12px;">Liter <span style="color:var(--muted);font-weight:400;">(opsional)</span></label>
+            ${isPribadi
+              ? `<input type="text" inputmode="decimal" id="bo-litervalidasi-${it.id}" placeholder="Contoh: 5" value="${escapeHtml(it.literValidasi||'')}">`
+              : `<input type="text" inputmode="decimal" id="bo-literisi-${it.id}" placeholder="Contoh: 15" value="${escapeHtml(it.literIsi||'')}">`}
+          </div>
+          <div class="field" style="margin-bottom:8px;">
+            <label style="font-size:12px;">Level Sebelum <span style="color:var(--muted);font-weight:400;">(opsional)</span></label>
+            <select id="bo-levelsebelum-${it.id}">
+              <option value="">— pilih —</option>
+              ${Array.from({length: levelSebelumMax+1}, (_, v) => v).map(v=>`<option value="${v}" ${String(it.bensinSebelumIsi)===String(v)?'selected':''}>${v} ${levelSebelumSatuan}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="hint" style="margin-top:-4px;margin-bottom:8px;">Liter: berguna buat validasi silang &amp; (kalau bukan trip Pribadi) otomatis terjumlah ke Liter BBM trip ini. Level Sebelum: dipakai kalibrasi Bar↔Liter mobil jangka panjang${isPribadi ? ' -- trip Pribadi TIDAK ikut kalibrasi resmi' : ''}. Keduanya boleh dilewati.</div>
+        ` : ''}
         ${it.kategori==='Isi E-Toll' ? `
         <div class="field" style="margin-bottom:8px;">
           <label>Biaya Admin (opsional)</label>
@@ -7174,23 +7266,6 @@ function openBiayaOperasionalModal(usageId){
       if(katEl) katEl.addEventListener('change', ()=>{ syncFromDom(); renderItems(); });
       const jenisBbmEl = document.getElementById('bo-jenisbbm-'+it.id);
       if(jenisBbmEl) jenisBbmEl.addEventListener('change', ()=>{ syncFromDom(); renderItems(); });
-      const levelSebelumGrid = document.getElementById('bo-levelsebelum-grid-'+it.id);
-      if(levelSebelumGrid) levelSebelumGrid.querySelectorAll('.bar-picker-btn').forEach(btn=>{
-        btn.addEventListener('click', function(){
-          const hiddenInput = document.getElementById('bo-levelsebelum-'+it.id);
-          if(!hiddenInput) return;
-          const levelDiklik = this.dataset.level;
-          const sudahTerpilih = this.classList.contains('selected');
-          levelSebelumGrid.querySelectorAll('.bar-picker-btn').forEach(b=> b.classList.remove('selected'));
-          if(sudahTerpilih){
-            hiddenInput.value = ''; // tap tombol yg sama lagi -> kosongkan pilihan
-          } else {
-            this.classList.add('selected');
-            hiddenInput.value = levelDiklik;
-          }
-          syncFromDom();
-        });
-      });
       attachRibuanInput('bo-nominal-'+it.id);
       const nomEl = document.getElementById('bo-nominal-'+it.id);
       if(nomEl) nomEl.addEventListener('input', ()=>{ updateTotal(); updateEtollNetInfo(it.id); });
@@ -9530,10 +9605,10 @@ function efisiensiWajarBadgeHtml(ratio, car){
   const min = car.efisiensiMinKmL, max = car.efisiensiMaxKmL;
   if(min==null && max==null) return '';
   if(min!=null && ratio < min){
-    return ` <span class="badge danger" title="Di bawah rentang wajar mobil ini (${min}${max!=null?'–'+max:''} KM/L, diatur di Data Mobil). Cek lagi data BBM Awal/Akhir &amp; Liter BBM perjalanan ini -- kemungkinan salah input.">⚠️ Di Bawah Wajar</span>`;
+    return ` <span class="badge danger" style="cursor:pointer;" onclick="openEfisiensiInfoModal('bawah', ${min}, ${max!=null?max:'null'})">⚠️ Di Bawah Wajar</span>`;
   }
   if(max!=null && ratio > max){
-    return ` <span class="badge danger" title="Di atas rentang wajar mobil ini (${min!=null?min+'–':''}${max} KM/L, diatur di Data Mobil). Cek lagi data BBM Awal/Akhir &amp; Liter BBM perjalanan ini -- kemungkinan salah input atau efek toleransi indikator Bar.">⚠️ Di Atas Wajar</span>`;
+    return ` <span class="badge danger" style="cursor:pointer;" onclick="openEfisiensiInfoModal('atas', ${min!=null?min:'null'}, ${max})">⚠️ Di Atas Wajar</span>`;
   }
   return '';
 }
@@ -10073,9 +10148,9 @@ function renderBBM(){
                 <td>${r.literTerpakai.toFixed(1)} L</td>
                 <td>${
                   r.status==='pending'
-                    ? `<span class="badge neutral" title="Pergeseran indikator BBM trip ini masih terlalu tipis untuk dipercaya sendirian -- jarak &amp; liternya otomatis digabung ke trip berikutnya (mobil sama) begitu indikatornya bergerak cukup besar.">Menunggu Akumulasi</span>`
+                    ? `<span class="badge neutral" style="cursor:pointer;" onclick="openEfisiensiInfoModal('pending', ${r.jarak||0})">Menunggu Akumulasi</span>`
                     : r.rasio!=null
-                      ? `${r.rasio.toFixed(1)} KM/L <span class="badge ${r.status==='full'?'ok':'warn'}">${r.status==='full'?'Full-to-Full':'Estimasi'}</span>${efisiensiWajarBadgeHtml(r.rasio, state.cars.find(c=>c.id===r.u.carId))}`
+                      ? `${r.rasio.toFixed(1)} KM/L <span class="badge ${r.status==='full'?'ok':'warn'}" style="cursor:pointer;" onclick="openEfisiensiInfoModal('${r.status==='full'?'full':'estimasi'}', 0)">${r.status==='full'?'Full-to-Full':'Estimasi'}</span>${efisiensiWajarBadgeHtml(r.rasio, state.cars.find(c=>c.id===r.u.carId))}`
                       : '-'
                 }</td>
               </tr>`).join('')}
@@ -10094,9 +10169,9 @@ function renderBBM(){
               <div class="data-card-row"><span class="k">Estimasi Liter Terpakai</span><span class="v">${r.literTerpakai.toFixed(1)} L</span></div>
               <div class="data-card-row"><span class="k">Efisiensi BBM (KM/L)</span><span class="v">${
                 r.status==='pending'
-                  ? `<span class="badge neutral">Menunggu Akumulasi</span>`
+                  ? `<span class="badge neutral" style="cursor:pointer;" onclick="openEfisiensiInfoModal('pending', ${r.jarak||0})">Menunggu Akumulasi</span>`
                   : r.rasio!=null
-                    ? `${r.rasio.toFixed(1)} KM/L <span class="badge ${r.status==='full'?'ok':'warn'}">${r.status==='full'?'Full-to-Full':'Estimasi'}</span>${efisiensiWajarBadgeHtml(r.rasio, carForRow)}`
+                    ? `${r.rasio.toFixed(1)} KM/L <span class="badge ${r.status==='full'?'ok':'warn'}" style="cursor:pointer;" onclick="openEfisiensiInfoModal('${r.status==='full'?'full':'estimasi'}', 0)">${r.status==='full'?'Full-to-Full':'Estimasi'}</span>${efisiensiWajarBadgeHtml(r.rasio, carForRow)}`
                     : '-'
               }</span></div>
             </div>`;
@@ -11624,6 +11699,35 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.129.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Dikembalikan: panel "🕐 Pemeriksaan Tanggal (Bug Zona Waktu)" dikunci PIN lagi seperti semula (v3.128.0 sempat membukanya tanpa PIN).',
+    ]
+  },
+  {
+    v: '3.128.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Panel "🕐 Pemeriksaan Tanggal (Bug Zona Waktu)" di Pengaturan sekarang TIDAK dikunci PIN lagi -- bisa diakses siapa pun tanpa perlu buka PIN Insight dulu.',
+    ]
+  },
+  {
+    v: '3.127.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Kartu "Isi BBM" (Biaya Operasional/Pribadi) dirapikan -- disusun 2-kolom (Jenis BBM + Nominal, lalu Liter + Level Sebelum) supaya tidak terlalu panjang ke bawah. "Level BBM Sebelum Diisi" yang tadinya tombol grid besar sekarang jadi dropdown kecil 1 baris. Kategori lain (Parkir, Makan, dll) tidak berubah tampilannya.',
+    ]
+  },
+  {
+    v: '3.126.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Perbaikan bug: tombol angka di "Level BBM Sebelum Diisi" (kartu Isi BBM) sempat jadi tidak kelihatan saat dipilih -- teksnya berubah putih tapi latarnya tetap putih juga (putih di atas putih). Sudah diperbaiki, tidak mengganggu widget gauge BBM utama yang memang beda logika warnanya.',
+      'SEMUA badge status/anomali di Riwayat Perjalanan (Gap KM, Efisiensi: Full-to-Full/Estimasi/Menunggu Akumulasi/Di Bawah-Atas Wajar, Durasi & Jarak Tidak Wajar, Akurasi Biaya Tol) sekarang bisa DITAP, membuka modal penjelasan singkat & jelas. Sebelumnya semua ini cuma tooltip title="" yang SAMA SEKALI tidak bisa dibaca di HP (tidak ada hover di layar sentuh) -- celah yang sama ditemukan & ditutup sekaligus di seluruh aplikasi, bukan cuma 1 badge.',
+    ]
+  },
   {
     v: '3.125.0',
     date: '27 Jul 2026',
