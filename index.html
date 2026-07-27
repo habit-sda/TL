@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.122.1">
+<meta name="app-version" content="3.123.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1260,7 +1260,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.122.1';
+const APP_VERSION = '3.123.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -10118,6 +10118,12 @@ function renderBBM(){
     </div></div>
   `;
   document.getElementById('content').innerHTML = html;
+  // v3.123.0 -- PERBAIKAN BUG: select "Mobil" di panel Kalibrasi Liter per
+  // Bar (dan select lain yg mungkin ada di halaman ini) TIDAK PERNAH
+  // diproses enhanceAllSelects() -- beda dari SEMUA dropdown lain di
+  // aplikasi ini, jadi tampilan/perilakunya tidak konsisten (terlihat
+  // "rusak" dibanding dropdown kustom lainnya).
+  enhanceAllSelects(document.getElementById('content'));
 
   const btnFixCorrupted = document.getElementById('btn-fix-corrupted-bensin');
   if(btnFixCorrupted){
@@ -11611,6 +11617,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.123.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Perbaikan bug: dropdown "Mobil" di panel Kalibrasi Liter per Bar (menu BBM) ternyata TIDAK PERNAH diproses sistem dropdown kustom aplikasi -- beda dari semua dropdown lain, jadi tampilan & perilakunya tidak konsisten/terlihat rusak. Sudah diperbaiki, sekarang konsisten dengan dropdown lain di seluruh aplikasi.',
+    ]
+  },
   {
     v: '3.122.1',
     date: '27 Jul 2026',
