@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.123.0">
+<meta name="app-version" content="3.124.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -266,6 +266,7 @@
     display:flex;
     align-items:center;
     justify-content:space-between;
+    border-radius:10px 10px 0 0; /* v3.124.0 -- SEBELUMNYA mengandalkan overflow:hidden induk (.panel) utk potong sudut atas -- sekarang eksplisit sendiri, supaya panel yg PERLU overflow:visible (spt Kalibrasi Liter per Bar, biar dropdown-nya tidak kepotong) tetap rapi sudutnya */
   }
   .panel-head h2{font-size:15px;margin:0;font-weight:700;}
   .panel-body{padding:16px 18px;}
@@ -1260,7 +1261,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.123.0';
+const APP_VERSION = '3.124.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -10098,7 +10099,7 @@ function renderBBM(){
       </div>
     </div>
 
-    <div class="panel" id="panel-kalibrasi-bar">
+    <div class="panel" id="panel-kalibrasi-bar" style="overflow:visible;">
       <div class="panel-head"><h2>Kalibrasi Liter per Bar (Otomatis)</h2></div>
       <div class="panel-body">
         <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
@@ -11617,6 +11618,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.124.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Perbaikan bug SEBENARNYA dari dropdown "Mobil" di panel Kalibrasi Liter per Bar yang masih terlihat rusak setelah v3.123.0: bukan soal enhance-nya (itu sudah benar), tapi panel pembungkusnya (`.panel`) punya `overflow:hidden` yang memotong daftar pilihan dropdown begitu coba melebar ke bawah -- biasanya tidak masalah karena panel lain punya cukup ruang di bawahnya, tapi panel Kalibrasi ini sangat pendek (dropdown-nya nyaris di paling bawah). Diperbaiki secara AMAN: cuma panel ini yang diubah jadi overflow:visible (bukan aturan global), dengan panel-head diberi border-radius sendiri supaya sudutnya tetap rapi tanpa mengandalkan potongan dari induknya.',
+    ]
+  },
   {
     v: '3.123.0',
     date: '27 Jul 2026',
