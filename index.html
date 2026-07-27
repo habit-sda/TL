@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.116.0">
+<meta name="app-version" content="3.122.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -589,7 +589,7 @@
   }
   .bar-picker-btn{
     width:100%;height:34px;
-    border:1.5px solid var(--line);border-radius:8px;background:#fff;
+    border:1.5px solid var(--line);border-radius:8px;background:var(--card);
     font-size:13px;font-weight:800;color:var(--text);cursor:pointer;font-family:'JetBrains Mono',monospace;
     display:flex;align-items:center;justify-content:center;transition:all .12s ease;
   }
@@ -722,6 +722,16 @@
     background:#231F1C;color:#fff;border:none;border-radius:26px;
     padding:11px 16px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px;
     box-shadow:0 10px 24px rgba(0,0,0,0.22);cursor:grab;font-family:inherit;touch-action:none;user-select:none;
+    transition:background-color .3s ease;
+  }
+  /* v3.122.0 -- state "overdue": ada trip yg sudah >=3x24 jam belum ditandai
+     Tiba. SENGAJA warna merah gelap yg profesional (bukan merah menyala
+     norak), animasi cuma denyut halus di bayangannya saja (bukan blink
+     kedap-kedip yg mengganggu) -- tetap jelas terlihat beda tanpa berlebihan. */
+  .trip-bubble-btn.overdue{background:#7A2320;animation:tripBubblePulse 2.4s ease-in-out infinite;}
+  @keyframes tripBubblePulse{
+    0%,100%{box-shadow:0 10px 24px rgba(0,0,0,0.22);}
+    50%{box-shadow:0 10px 24px rgba(0,0,0,0.22), 0 0 0 6px rgba(122,35,32,0.18);}
   }
   .trip-bubble-btn:active{cursor:grabbing;}
   #trip-bubble.dragging .trip-bubble-btn{cursor:grabbing;}
@@ -1104,6 +1114,11 @@
   <div id="petugas-box">
     <label for="petugas-select">Petugas aktif</label>
     <select id="petugas-select"></select>
+    <div id="storage-dot-row" style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:10px;color:var(--muted);margin-top:10px;user-select:none;" title="Klik untuk lihat pemakaian storage (perlu PIN)">
+      <span id="storage-dot" style="width:6px;height:6px;border-radius:50%;background:#C7CCD4;flex-shrink:0;"></span>
+      <span>Storage</span>
+    </div>
+    <div id="storage-detail" style="display:none;font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5;"></div>
   </div>
 </aside>
 
@@ -1245,7 +1260,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.116.0';
+const APP_VERSION = '3.122.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1596,7 +1611,7 @@ function loadData(){
 }
 function defaultData(){
   return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
-    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60 } };
+    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 } };
 }
 // v3.95.0 -- Pengaturan Notifikasi (nilai ambang batas dipakai computeAlerts()
 // & telegram-notify.mjs). PENTING: dibaca lewat fungsi ini SAJA (bukan baca
@@ -1613,7 +1628,7 @@ function defaultData(){
 // PENTING: Resi Perjalanan (🧾, dikirim begitu status diubah "Selesai")
 // SENGAJA TIDAK ikut diatur angka ini -- itu tetap dicek tiap tick (maks.
 // 5 menit) supaya sopir selalu cepat dapat resinya, apa pun pengaturan ini.
-const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60 };
+const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 };
 // v3.103.0 -- Langganan notifikasi PER SOPIR: tiap sopir bisa diatur cuma
 // dapat kategori tertentu (mis. Budi cuma dapat Dokumen+Servis, Siti cuma
 // BBM+E-Toll) lewat driver.notifKategori (array key di bawah). PENTING:
@@ -1626,7 +1641,8 @@ const NOTIF_CATEGORIES = [
   { key:'service', label:'Servis/Ganti Oli', prefix:'svc-' },
   { key:'etoll', label:'Saldo E-Toll Rendah', prefix:'etoll-' },
   { key:'bbm', label:'BBM Menipis', prefix:'bbm-' },
-  { key:'booking', label:'Reminder Booking', prefix:'booking-h1-' },
+  { key:'booking', label:'Reminder Booking', prefix:'booking-h' }, // v3.121.0 -- diperbaiki dari 'booking-h1-' -- SEBELUMNYA "Booking hari ini" (booking-h0-, ditambah v3.116.0) tidak pernah cocok kategori manapun, jadi tersaring/tidak terkirim ke sopir dgn langganan kategori spesifik
+  { key:'tripLama', label:'Trip Kelamaan Belum Tiba', prefix:'trip-lama-' },
 ];
 function categoryOfAlertId(id){
   const found = NOTIF_CATEGORIES.find(c=> id.startsWith(c.prefix));
@@ -3077,6 +3093,61 @@ function renderPetugasSelect(){
   refreshSelectDropdown(sel);
 }
 
+// v3.121.0 -- Indikator kecil (titik) pemakaian storage, dikunci PIN
+// Insight. Sengaja TITIK NETRAL (abu-abu) selalu sebelum PIN dibuka --
+// warna & angka detail baru muncul SETELAH PIN benar, supaya benar-benar
+// "dilindungi", bukan cuma detailnya yang disembunyikan tapi warnanya
+// tetap membocorkan info.
+async function computeStorageUsage(){
+  try{
+    if(navigator.storage && navigator.storage.estimate){
+      const {usage, quota} = await navigator.storage.estimate();
+      if(usage!=null && quota) return { usageBytes: usage, quotaBytes: quota, sumber:'browser' };
+    }
+  }catch(e){ /* API tidak didukung -- lanjut ke fallback di bawah */ }
+  // Fallback: hitung manual localStorage + asumsi kuota konservatif umum (5 MB)
+  let totalChar = 0;
+  try{
+    for(const key in localStorage){
+      if(Object.prototype.hasOwnProperty.call(localStorage, key)){
+        totalChar += (localStorage[key]||'').length + key.length;
+      }
+    }
+  }catch(e){}
+  return { usageBytes: totalChar*2, quotaBytes: 5*1024*1024, sumber:'perkiraan' }; // *2 krn UTF-16
+}
+function fmtBytes(b){
+  if(b < 1024) return b+' B';
+  if(b < 1024*1024) return (b/1024).toFixed(1)+' KB';
+  return (b/(1024*1024)).toFixed(1)+' MB';
+}
+async function renderStorageDetail(){
+  const detailEl = document.getElementById('storage-detail');
+  const dotEl = document.getElementById('storage-dot');
+  if(!detailEl || !dotEl) return;
+  detailEl.style.display = 'block';
+  detailEl.textContent = 'Menghitung...';
+  const { usageBytes, quotaBytes, sumber } = await computeStorageUsage();
+  const pct = quotaBytes>0 ? (usageBytes/quotaBytes*100) : 0;
+  const warna = pct>85 ? 'var(--red)' : pct>60 ? 'var(--amber)' : 'var(--green)';
+  dotEl.style.background = warna;
+  detailEl.innerHTML = `${fmtBytes(usageBytes)} / ${fmtBytes(quotaBytes)} (${pct.toFixed(1)}%)${sumber==='perkiraan'?'<br><span style="font-size:9.5px;">*perkiraan, browser ini tidak mendukung pengukuran presisi</span>':''}`;
+}
+function wireStorageIndicator(){
+  const row = document.getElementById('storage-dot-row');
+  if(!row) return;
+  row.addEventListener('click', () => {
+    if(!insightUnlocked){
+      openInsightPinModal();
+      return;
+    }
+    const detailEl = document.getElementById('storage-detail');
+    const showing = detailEl.style.display === 'block';
+    if(showing){ detailEl.style.display = 'none'; return; }
+    renderStorageDetail();
+  });
+}
+
 /* ========================================================================
    MODUL PENGATURAN (kelola nama petugas/admin)
    ------------------------------------------------------------------------
@@ -3311,6 +3382,11 @@ function renderSettings(){
             <label>E-Toll: batas minimum saldo default (Rp) jika kartu belum diatur sendiri</label>
             <input type="text" inputmode="numeric" id="in-notif-etoll-min" value="${getNotifSettings().etollMinDefault}">
           </div>
+          <div class="field">
+            <label>⏳ Trip dianggap "kelamaan" belum Tiba setelah (jam)</label>
+            <input type="text" inputmode="numeric" id="in-notif-trip-lama" value="${getNotifSettings().tripDurationWarnHours}">
+            <div class="hint">Pengingat "abaikan kalau memang masih di jalan" -- cuma dikirim lewat Telegram jam 06:00-06:59 WIB (1x sehari), bel di aplikasi tetap tampil kapan saja.</div>
+          </div>
         </div>
         <div class="hint" style="margin:-4px 0 12px;">Nilai "default" di sini cuma dipakai untuk mobil/kartu yang BELUM diisi batasnya sendiri-sendiri (di Data Mobil / Kartu E-Toll) -- mengisi batas di situ tetap didahulukan.</div>
         <div style="border-top:1px solid var(--line);margin-top:4px;padding-top:14px;">
@@ -3360,6 +3436,42 @@ function renderSettings(){
       </div>
     </div>
     ` : ''}
+    ${(() => {
+      if(!insightUnlocked) return '';
+      const suspek = computeSuspiciousDateTrips();
+      return `
+    <div class="panel">
+      <div class="panel-head">
+        <h2>🕐 Pemeriksaan Tanggal (Bug Zona Waktu)</h2>
+        ${suspek.length>0 ? `<span class="badge warn">${suspek.length} perlu dicek</span>` : ''}
+      </div>
+      <div class="panel-body">
+        <p style="font-size:11.5px;color:var(--muted);margin:0 0 12px;line-height:1.6;">
+          Bug tanggal (v3.114.0, sudah diperbaiki) sempat bikin tanggal MUNDUR 1 hari kalau dicatat jam 00:00-06:59 WIB dini hari. Tidak bisa diperbaiki otomatis membabi buta (tidak ada cara pasti tahu mana yang benar-benar kena) -- daftar di bawah cuma MENANDAI trip yang perlu dicek manual, keputusan tetap di tangan Anda.
+        </p>
+        ${suspek.length===0 ? emptyState('✅','Tidak ada trip dengan jam berangkat/tiba di rentang rawan (00:00-06:59 WIB).') : `
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${suspek.slice(0,30).map(s=>`
+            <div style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;">
+              <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;">
+                <div>
+                  <b style="font-size:12.5px;">${escapeHtml(carLabel(s.u.carId))}</b>
+                  <div style="font-size:11.5px;color:var(--muted);">${escapeHtml(s.u.tujuan||'-')} · ${escapeHtml(s.u.kode||'')}</div>
+                </div>
+                <span class="badge ${s.keyakinan==='tinggi'?'danger':'warn'}">${s.keyakinan==='tinggi'?'Keyakinan tinggi':'Perlu dicek'}</span>
+              </div>
+              <div style="font-size:11.5px;margin-top:6px;line-height:1.6;">
+                ${s.fieldRawan.includes('tglKeluar') ? `<div>🚗 Berangkat: <b>${escapeHtml(s.u.tglKeluar||'-')}, ${escapeHtml(s.u.jamKeluar||'-')}</b> <span style="color:var(--muted);">← jam rawan</span></div>` : `<div style="color:var(--muted);">🚗 Berangkat: ${escapeHtml(s.u.tglKeluar||'-')}, ${escapeHtml(s.u.jamKeluar||'-')}</div>`}
+                ${s.fieldRawan.includes('tglKembali') ? `<div>🏁 Tiba: <b>${escapeHtml(s.u.tglKembali||'-')}, ${escapeHtml(s.u.jamKembali||'-')}</b> <span style="color:var(--muted);">← jam rawan</span></div>` : (s.u.tglKembali ? `<div style="color:var(--muted);">🏁 Tiba: ${escapeHtml(s.u.tglKembali)}, ${escapeHtml(s.u.jamKembali||'-')}</div>` : '')}
+              </div>
+              <button class="btn btn-ghost btn-sm" style="margin-top:8px;" data-cek-tanggal="${s.u.id}">✏️ Buka & Cek Tanggal</button>
+            </div>
+          `).join('')}
+          ${suspek.length>30 ? `<p style="font-size:11px;color:var(--muted);text-align:center;">+ ${suspek.length-30} lainnya (ditampilkan 30 teratas dulu, prioritas keyakinan tinggi &amp; terbaru).</p>` : ''}
+        </div>`}
+      </div>
+    </div>`;
+    })()}
     <div class="panel">
       <div class="panel-head"><h2>Toleransi Gap Odometer Tak Tercatat</h2></div>
       <div class="panel-body">
@@ -3414,6 +3526,7 @@ function renderSettings(){
       const svcPct = Number(document.getElementById('in-notif-service-pct').value || 0);
       const bbmMin = Number(document.getElementById('in-notif-bbm-min').value || 0);
       const etollMin = Number(document.getElementById('in-notif-etoll-min').value || 0);
+      const tripLamaJam = Number(document.getElementById('in-notif-trip-lama').value || 0);
       const quietHoursEnabled = document.getElementById('in-notif-quiethours').checked;
       const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
       const quietHoursEnd = document.getElementById('in-notif-quiet-end').value || NOTIF_SETTINGS_DEFAULT.quietHoursEnd;
@@ -3423,6 +3536,7 @@ function renderSettings(){
         serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
         bbmMinDefault: bbmMin>=0 ? bbmMin : NOTIF_SETTINGS_DEFAULT.bbmMinDefault,
         etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
+        tripDurationWarnHours: tripLamaJam>0 ? tripLamaJam : NOTIF_SETTINGS_DEFAULT.tripDurationWarnHours,
         quietHoursEnabled, quietHoursStart, quietHoursEnd,
         checkIntervalMinutes: [5,10,15,30,60].includes(checkIntervalMinutes) ? checkIntervalMinutes : NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes,
       };
@@ -3438,6 +3552,13 @@ function renderSettings(){
     document.getElementById('btn-refresh-notif-history').onclick = renderNotifHistory;
     renderNotifHistory();
   }
+  document.querySelectorAll('[data-cek-tanggal]').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      const usageId = this.dataset.cekTanggal;
+      navigate('usage');
+      setTimeout(()=> openUsageModal(usageId), 200); // ditunda dikit -- biar halaman Catat Perjalanan selesai render dulu (pola sama dgn handleQrQuickstart)
+    });
+  });
   document.getElementById('btn-save-toleransi-gap').onclick = () => {
     const val = Number(document.getElementById('in-toleransi-gap').value || 0);
     state.toleransiGapKm = val >= 0 ? val : 0;
@@ -3714,6 +3835,37 @@ function computeAlerts(){
       }
     }
   });
+  const hariIniStr = today();
+  // v3.121.0 -- Pengingat "Trip Kelamaan Belum Tiba": kalau sebuah trip
+  // masih berstatus "digunakan" (belum ditandai Tiba) sudah lebih lama dari
+  // ambang batas (default 24 jam, bisa diubah di Ambang Batas Notifikasi),
+  // kemungkinan sopir LUPA menekan tombol Tiba -- SENGAJA pesannya bilang
+  // "abaikan kalau memang masih di jalan", karena bisa saja memang trip
+  // jarak jauh yang wajar makan waktu lama (jujur, bukan asumsi salah).
+  // ID SENGAJA disisipi tanggal hari ini (bukan cuma id trip) -- supaya
+  // alert ini "dianggap baru" tiap hari & terkirim ULANG tiap hari selama
+  // trip itu belum juga ditandai Tiba, bukan cuma sekali lalu diam
+  // selamanya (beda dari alert lain yang memang cuma sekali sampai
+  // levelnya naik).
+  const jamBatasTripLama = getNotifSettings().tripDurationWarnHours || 24;
+  state.usage.forEach(u=>{
+    if(u.status!=='digunakan' || !u.tglKeluar) return;
+    // v3.121.0 -- SENGAJA pakai "+07:00" eksplisit (WIB), BUKAN cuma
+    // "YYYY-MM-DDTHH:MM:00" polos -- kalau tanpa offset, JS menafsirkan
+    // sesuai zona waktu RUNTIME (beda-beda: browser Indonesia biasanya WIB,
+    // TAPI GitHub Actions selalu UTC) -- bisa membuat hitungan "jam
+    // berlalu" meleset sampai 7 jam kalau berjalan di server.
+    const berangkat = new Date(u.tglKeluar+'T'+(u.jamKeluar||'00:00')+':00+07:00');
+    if(isNaN(berangkat)) return;
+    const jamBerlalu = (Date.now()-berangkat.getTime())/3600000;
+    if(jamBerlalu < jamBatasTripLama) return;
+    alerts.push({
+      id: `trip-lama-${u.id}-${hariIniStr}`, route:'usage', ic:'⏳', level:'warn',
+      judul:'Trip belum ditandai Tiba', keterangan: `${carLabel(u.carId)} — ${u.tujuan||'(tanpa tujuan)'}, sudah ${Math.floor(jamBerlalu)} jam sejak berangkat. Abaikan kalau memang masih dalam perjalanan.`,
+      targetDriverIds: u.driverId ? [u.driverId] : null,
+    });
+  });
+
   // v3.102.0 -- Reminder Booking H-1: booking yang MASIH aktif ("dipesan",
   // belum dimulai/dibatalkan) dengan tanggal mulai BESOK -- SENGAJA pesan
   // pengingat (bukan masalah/anomali) supaya tidak ada yang lupa jadwal.
@@ -3722,7 +3874,6 @@ function computeAlerts(){
   // ini juga) TIDAK PERNAH dapat reminder sama sekali -- H-1 cuma mengecek
   // "besok", jadi kasus "kurang dari 1 hari" ini kelewat. Sekarang dicek
   // KEDUANYA: besok (H-1) DAN hari ini (H-0, label beda "Booking hari ini").
-  const hariIniStr = today();
   const besok = new Date(); besok.setDate(besok.getDate()+1);
   const besokStr = `${besok.getFullYear()}-${String(besok.getMonth()+1).padStart(2,'0')}-${String(besok.getDate()).padStart(2,'0')}`;
   state.bookings.forEach(b=>{
@@ -3845,6 +3996,20 @@ function renderActiveTripBubble(){
   }
   bubble.style.display = 'block';
   countEl.textContent = active.length;
+  // v3.122.0 -- Tombol berubah MERAH (denyut halus) kalau ADA trip aktif
+  // yang sudah 3x24 jam (72 jam) belum ditandai Tiba -- eskalasi visual
+  // dari pengingat Telegram "Trip Kelamaan" (ambang default 24 jam) yang
+  // sudah ada duluan, supaya langsung kelihatan dari LUAR tanpa perlu buka
+  // panelnya dulu. Pakai offset "+07:00" eksplisit (WIB), pola sama dgn
+  // computeAlerts(), supaya konsisten di perangkat apa pun.
+  const adaYangSangatTerlambat = active.some(u=>{
+    if(!u.tglKeluar) return false;
+    const berangkat = new Date(u.tglKeluar+'T'+(u.jamKeluar||'00:00')+':00+07:00');
+    if(isNaN(berangkat)) return false;
+    return (Date.now()-berangkat.getTime())/3600000 >= 72;
+  });
+  const btnEl = document.getElementById('trip-bubble-btn');
+  if(btnEl) btnEl.classList.toggle('overdue', adaYangSangatTerlambat);
 }
 function toggleTripBubblePanel(){
   const panel = document.getElementById('trip-bubble-panel');
@@ -3950,6 +4115,15 @@ function refreshInsightPanels(){
   if(currentRoute==='settings') renderSettings(); // v3.95.0 -- panel Ambang Batas Notifikasi
   if(currentRoute==='drivers') renderDrivers(); // v3.96.0 -- status Telegram Chat ID dikunci PIN
   if(currentRoute==='monthlyreport') renderMonthlyReport(); // v3.108.0 -- panel Validasi Silang Liter BBM
+  // v3.121.0 -- indikator Storage tinggal di SIDEBAR (bukan halaman/route
+  // tertentu, selalu ada di semua halaman) -- kalau PIN baru dibuka lewat
+  // klik titik ini, langsung tampilkan detailnya; kalau baru dikunci lagi,
+  // sembunyikan detailnya balik ke titik netral.
+  const storageDetailEl = document.getElementById('storage-detail');
+  if(storageDetailEl){
+    if(insightUnlocked) renderStorageDetail();
+    else { storageDetailEl.style.display='none'; const dot=document.getElementById('storage-dot'); if(dot) dot.style.background='#C7CCD4'; }
+  }
 }
 // Modal konfirmasi custom (Iya/Tidak) -- dipakai khusus untuk aksi hapus
 // yang butuh penekanan ekstra (mis. Hapus Data), menggantikan window.confirm
@@ -4222,17 +4396,56 @@ function openEditChoiceMenu(usageId, anchorEl){
   }, 0);
 }
 
+// v3.122.0 -- Penjelasan singkat & tappable utk badge Gap Odometer (dulu
+// cuma tooltip title="" yang tidak bisa dibaca sama sekali di HP). SENGAJA
+// dijaga pendek (2-3 kalimat) & 1 topik per modal -- bukan tumpukan
+// penjelasan anomali panjang yang bikin pusing dibaca.
+function openGapInfoModal(gapKm, isOverlap, isTolerated){
+  const gapAbs = Math.abs(gapKm).toLocaleString('id-ID');
+  let judul, ikon, isi, catatan;
+  if(isTolerated){
+    judul = 'Gap Jarak Wajar'; ikon = '↔️';
+    isi = `Selisih <b>${gapAbs} KM</b> dari trip sebelumnya (mobil yang sama) dianggap perjalanan singkat harian yang memang tidak dicatat terpisah (misal: ke masjid, beli makan dekat).`;
+    catatan = 'Jarak & estimasi BBM-nya SUDAH otomatis ikut dihitung ke Efisiensi trip ini -- tidak perlu tindakan apa pun. Batas toleransi ini bisa diubah di menu Pengaturan.';
+  } else if(isOverlap){
+    judul = 'Odometer Tumpang Tindih'; ikon = '⚠️';
+    isi = `Odometer Berangkat trip ini lebih kecil <b>${gapAbs} KM</b> dari Odometer Tiba trip sebelumnya (mobil yang sama).`;
+    catatan = 'Odometer tidak mungkin mundur secara fisik -- kemungkinan ada angka yang salah ketik. Perlu dicek & diperbaiki manual (buka Edit trip ini atau trip sebelumnya). Data lain tidak berubah otomatis.';
+  } else {
+    judul = 'Jarak Belum Teralokasi'; ikon = '⚠️';
+    isi = `Ada selisih <b>${gapAbs} KM</b> antara Odometer Tiba trip sebelumnya dan Odometer Berangkat trip ini (mobil yang sama), melebihi batas toleransi.`;
+    catatan = 'Kemungkinan ada perjalanan yang belum tercatat. Perlu dicek manual -- data lain tidak berubah otomatis. Batas toleransi ini bisa diubah di menu Pengaturan.';
+  }
+  openModal({
+    title: `${ikon} ${judul}`,
+    body: `
+      <p style="font-size:13.5px;line-height:1.6;margin:0 0 12px;">${isi}</p>
+      <div class="hint" style="font-size:12px;line-height:1.6;">${catatan}</div>
+    `,
+    onSave: () => true
+  });
+  const saveBtn = document.getElementById('modal-save');
+  if(saveBtn) saveBtn.textContent = 'Mengerti';
+  const cancelBtn = document.getElementById('modal-cancel');
+  if(cancelBtn) cancelBtn.style.display = 'none';
+}
 function openTripActionMenu(usageId, anchorEl){
   document.querySelectorAll('.trip-action-menu').forEach(m=>m.remove());
   const u = state.usage.find(x=>x.id===usageId);
   if(!u) return;
+  // v3.118.0 -- PERBAIKAN BUG: menu ini (bubble "Mobil Sedang Jalan") ternyata
+  // TITIK KETIGA yang masih hardcode "Biaya Operasional" -- 2 tempat lain
+  // (openListActionMenu utk dropdown di List, buildTripRowData utk tombol di
+  // Card) sudah lebih dulu diperbaiki menyesuaikan jenisPenggunaan, tapi menu
+  // KHUSUS bubble ini kelewat sampai sekarang ketahuan lewat laporan pengguna.
+  const isOperasional = u.jenisPenggunaan !== 'pribadi';
 
   const menu = document.createElement('div');
   menu.className = 'trip-action-menu';
   menu.innerHTML = `
     <div class="trip-action-item" data-act="cancel" style="color:var(--muted);border-bottom:1px solid var(--line);">✕ Batal</div>
     <div class="trip-action-item" data-act="edit">✏️ Edit</div>
-    <div class="trip-action-item" data-act="biayaop">🧾 Biaya Operasional</div>
+    <div class="trip-action-item" data-act="biayaop">${isOperasional ? '🧾 Biaya Operasional' : '🏠 Biaya Pribadi'}</div>
     <div class="trip-action-item" data-act="return">✅ Tiba</div>
     <div class="trip-action-item" data-act="copykode" data-copy-code="${escapeHtml(u.kode||'')}">📋 Salin Kode Perjalanan</div>
   `;
@@ -5924,15 +6137,18 @@ function renderUsage(){
     //    dicatat -- TIDAK digabung otomatis (supaya biaya/e-toll yang
     //    mungkin ikut hilang tidak "tertutupi" diam-diam), tetap ditandai
     //    merah untuk dicek manual. Data historis tetap TIDAK diubah.
+    // v3.122.0 -- SEBELUMNYA penjelasan cuma lewat atribut title="" (tooltip
+    // hover) -- TIDAK BERFUNGSI SAMA SEKALI di HP (tidak ada hover di layar
+    // sentuh), jadi pengguna mobile tidak pernah bisa baca penjelasannya.
+    // Sekarang badge bisa DITAP, membuka modal singkat & jelas (bukan
+    // tooltip panjang bertumpuk).
     if(entry && entry.gapTolerated){
       const gapKmAbs = Math.abs(entry.gapKm).toLocaleString('id-ID');
-      return ` <span class="badge neutral" title="Selisih ${gapKmAbs} KM dari trip sebelumnya (mobil yang sama) dianggap jarak harian wajar yang memang tidak dicatat (mis. ke masjid, beli makan dekat) -- KM & estimasi BBM-nya sudah otomatis disertakan ke perhitungan Efisiensi di trip ini. Ambang toleransi bisa diatur di menu Pengaturan.">↔️ Gap ${gapKmAbs} KM (Disertakan)</span>`;
+      return ` <span class="badge neutral" style="cursor:pointer;" onclick="openGapInfoModal(${entry.gapKm}, false, true)">↔️ Gap ${gapKmAbs} KM (Disertakan)</span>`;
     }
     if(entry && entry.gapFlagged){
       const gapKmAbs = Math.abs(entry.gapKm).toLocaleString('id-ID');
-      const overlapMsg = `Odometer Keluar trip ini LEBIH KECIL dari Odometer Kembali trip sebelumnya (mobil yang sama) -- tumpang tindih ${gapKmAbs} KM. Ini TIDAK MUNGKIN terjadi secara fisik (odometer tidak bisa mundur), jadi pasti ada salah input (mis. Odometer Keluar ke-copy dari catatan yang salah). Perlu dicek & diperbaiki manual -- data historis TIDAK diubah otomatis.`;
-      const missingMsg = `Odometer Keluar trip ini tidak nyambung dengan Odometer Kembali trip sebelumnya (mobil yang sama) -- selisih ${gapKmAbs} KM tidak tercatat di mana pun & melebihi ambang toleransi. Kemungkinan ada perjalanan yang lupa dicatat. Data historis TIDAK diubah, ini cuma penanda untuk dicek ulang.`;
-      return ` <span class="badge danger" title="${entry.gapOverlap ? overlapMsg : missingMsg}">⚠️ ${entry.gapOverlap ? `Tumpang Tindih ${gapKmAbs} KM` : `Gap ${gapKmAbs} KM (Belum Teralokasi)`}</span>`;
+      return ` <span class="badge danger" style="cursor:pointer;" onclick="openGapInfoModal(${entry.gapKm}, ${entry.gapOverlap?'true':'false'}, false)">⚠️ ${entry.gapOverlap ? `Tumpang Tindih ${gapKmAbs} KM` : `Gap ${gapKmAbs} KM (Belum Teralokasi)`}</span>`;
     }
     return '';
   }
@@ -6909,22 +7125,26 @@ function openBiayaOperasionalModal(usageId){
           ` : ''}
           ${isPribadi ? `
           <div style="margin-top:8px;">
-            <label style="font-size:12px;">Liter (opsional, buat validasi silang)</label>
+            <label style="font-size:12px;">Liter yang Diisi/Dibeli Saat Ini <span style="color:var(--muted);font-weight:400;">(opsional, buat validasi silang)</span></label>
             <input type="text" inputmode="decimal" id="bo-litervalidasi-${it.id}" placeholder="Contoh: 5" value="${escapeHtml(it.literValidasi||'')}">
-            <div class="hint">Cuma dicatat sbg pembanding -- BUKAN dipakai hitung jarak/odometer (trip Pribadi tidak perlu odometer terpisah). Berguna buat cek: apa total liter yang RIIL masuk tangki (termasuk isi BBM pribadi begini) cocok dengan Liter BBM resmi yang tercatat di trip.</div>
+            <div class="hint">Liter yang MASUK ke tangki lewat pengisian BBM pribadi ini (bukan liter sebelum diisi) -- cuma dicatat sbg pembanding, BUKAN dipakai hitung jarak/odometer (trip Pribadi tidak perlu odometer terpisah). Berguna buat cek: apa total liter yang RIIL masuk tangki (termasuk isi BBM pribadi begini) cocok dengan Liter BBM resmi yang tercatat di trip.</div>
           </div>
           ` : `
           <div style="margin-top:8px;">
-            <label style="font-size:12px;">Liter <span style="color:var(--muted);font-weight:400;">(opsional)</span></label>
+            <label style="font-size:12px;">Liter yang Diisi/Dibeli <span style="color:var(--muted);font-weight:400;">(opsional)</span></label>
             <input type="text" inputmode="decimal" id="bo-literisi-${it.id}" placeholder="Contoh: 15" value="${escapeHtml(it.literIsi||'')}">
-            <div class="hint">Kalau diisi, otomatis ikut terjumlah ke field "Liter BBM" trip ini (bersama isi BBM lain kalau ada lebih dari 1x) -- supaya Efisiensi BBM tetap akurat walau isi BBM berkali-kali dalam 1 trip.</div>
+            <div class="hint">Liter yang MASUK ke tangki lewat pengisian BBM ini (bukan liter sebelum diisi). Kalau diisi, otomatis ikut terjumlah ke field "Liter BBM" trip ini (bersama isi BBM lain kalau ada lebih dari 1x) -- supaya Efisiensi BBM tetap akurat walau isi BBM berkali-kali dalam 1 trip.</div>
           </div>
           `}
           <div style="margin-top:8px;">
-            <label style="font-size:12px;">Level BBM Sebelum Diisi <span style="color:var(--muted);font-weight:400;">(opsional${car?', maks '+levelSebelumMax+' '+levelSebelumSatuan:''})</span></label>
-            <input type="text" inputmode="decimal" id="bo-levelsebelum-${it.id}" placeholder="Angka manual, mis. ${car&&car.tipeIndikatorBbm==='bar'?'2':'25'}" value="${escapeHtml(it.bensinSebelumIsi===''?'':String(it.bensinSebelumIsi))}">
-            <div class="err-msg" id="bo-levelsebelum-err-${it.id}" style="display:none;color:var(--red);font-size:11.5px;margin-top:4px;">Tidak boleh lebih dari ${levelSebelumMax} ${levelSebelumSatuan} (batas mobil ini).</div>
-            <div class="hint">${isPribadi ? 'Pencatatan tambahan opsional -- TIDAK ikut memengaruhi kalibrasi mobil (trip Pribadi di luar rantai perhitungan Efisiensi resmi).' : 'Opsional -- angka manual (bukan Bar/gauge), dipakai buat kalibrasi konversi Bar↔Liter mobil ini jangka panjang. Boleh dilewati.'}</div>
+            <label style="font-size:12px;">Level BBM Sebelum Diisi <span style="color:var(--muted);font-weight:400;">(opsional)</span></label>
+            <input type="hidden" id="bo-levelsebelum-${it.id}" value="${escapeHtml(it.bensinSebelumIsi===''?'':String(it.bensinSebelumIsi))}">
+            <div class="bar-picker-grid" id="bo-levelsebelum-grid-${it.id}" data-maxlevel="${levelSebelumMax}" style="margin-bottom:8px;">
+              ${Array.from({length: levelSebelumMax+1}, (_, v) => v).map(v=>`
+                <button type="button" class="bar-picker-btn${String(it.bensinSebelumIsi)===String(v)?' selected':''}" data-level="${v}">${v}</button>
+              `).join('')}
+            </div>
+            <div class="hint" style="margin-top:0;">Satuan: ${levelSebelumSatuan}. Tap sekali lagi tombol yang sama untuk mengosongkan pilihan. ${isPribadi ? 'Pencatatan tambahan opsional -- TIDAK ikut memengaruhi kalibrasi mobil (trip Pribadi di luar rantai perhitungan Efisiensi resmi).' : 'Opsional -- dipakai buat kalibrasi konversi Bar↔Liter mobil ini jangka panjang. Boleh dilewati.'}</div>
           </div>
         </div>` : ''}
         ${it.kategori==='Isi E-Toll' ? `
@@ -6947,13 +7167,22 @@ function openBiayaOperasionalModal(usageId){
       if(katEl) katEl.addEventListener('change', ()=>{ syncFromDom(); renderItems(); });
       const jenisBbmEl = document.getElementById('bo-jenisbbm-'+it.id);
       if(jenisBbmEl) jenisBbmEl.addEventListener('change', ()=>{ syncFromDom(); renderItems(); });
-      const levelSebelumEl = document.getElementById('bo-levelsebelum-'+it.id);
-      if(levelSebelumEl) levelSebelumEl.addEventListener('input', function(){
-        const errEl = document.getElementById('bo-levelsebelum-err-'+it.id);
-        const angka = Number(this.value);
-        const overMax = this.value!=='' && isFinite(angka) && angka>levelSebelumMax;
-        if(errEl) errEl.style.display = overMax ? 'block' : 'none';
-        this.style.borderColor = overMax ? 'var(--red)' : '';
+      const levelSebelumGrid = document.getElementById('bo-levelsebelum-grid-'+it.id);
+      if(levelSebelumGrid) levelSebelumGrid.querySelectorAll('.bar-picker-btn').forEach(btn=>{
+        btn.addEventListener('click', function(){
+          const hiddenInput = document.getElementById('bo-levelsebelum-'+it.id);
+          if(!hiddenInput) return;
+          const levelDiklik = this.dataset.level;
+          const sudahTerpilih = this.classList.contains('selected');
+          levelSebelumGrid.querySelectorAll('.bar-picker-btn').forEach(b=> b.classList.remove('selected'));
+          if(sudahTerpilih){
+            hiddenInput.value = ''; // tap tombol yg sama lagi -> kosongkan pilihan
+          } else {
+            this.classList.add('selected');
+            hiddenInput.value = levelDiklik;
+          }
+          syncFromDom();
+        });
       });
       attachRibuanInput('bo-nominal-'+it.id);
       const nomEl = document.getElementById('bo-nominal-'+it.id);
@@ -6989,11 +7218,13 @@ function openBiayaOperasionalModal(usageId){
         toggleFieldError('f-bo-jenisbbm-'+it.id, !jenisBbmFinal);
         if(!jenisBbmFinal) valid = false;
         // v3.115.0 -- validasi Level BBM Sebelum Diisi TIDAK BOLEH lewat batas
-        // mobil (mis. mobil 8 Bar diisi "9") -- cegah salah input dari sumbernya.
-        const levelErrEl = document.getElementById('bo-levelsebelum-err-'+it.id);
+        // mobil -- v3.119.0: sejak field ini jadi tombol grid (bukan kotak
+        // angka manual), pengguna SECARA STRUKTURAL tidak bisa lagi memilih
+        // angka di luar rentang tombol yang tersedia -- validasi ini dijaga
+        // sbg pengaman data saja (mis. kalau ada data lama/impor yang aneh),
+        // bukan lagi utk mengoreksi input pengguna real-time.
         const levelAngka = Number(it.bensinSebelumIsi);
         const levelOverMax = it.bensinSebelumIsi!=='' && isFinite(levelAngka) && levelAngka>levelSebelumMax;
-        if(levelErrEl) levelErrEl.style.display = levelOverMax ? 'block' : 'none';
         if(levelOverMax) valid = false;
       });
       if(!valid){ showToast('Ada isian yang belum valid -- cek baris "Isi BBM" (Jenis BBM wajib diisi, Level BBM Sebelum tidak boleh lewat batas mobil).', true); return false; }
@@ -7158,6 +7389,7 @@ function buildReceiptElement(u){
     <div style="border-top:1.5px dashed #C7CCD4;border-bottom:1.5px dashed #C7CCD4;padding:10px 0;margin-bottom:12px;font-size:12.5px;line-height:1.7;">
       <div><b>Mobil:</b> ${escapeHtml(carLabel(u.carId))}</div>
       <div><b>Sopir:</b> ${escapeHtml(driverLabel(u.driverId, u.driver))}</div>
+      <div><b>Jenis:</b> ${u.jenisPenggunaan==='pribadi' ? '🏠 Pribadi' : '🧾 Operasional'}</div>
       <div><b>Tujuan:</b> ${escapeHtml(u.tujuan||'-')}</div>
       <div><b>Berangkat:</b> ${fmtDate(u.tglKeluar)}${u.jamKeluar ? ', '+u.jamKeluar : ''}</div>
       <div><b>Tiba:</b> ${u.tglKembali ? fmtDate(u.tglKembali)+(u.jamKembali?', '+u.jamKembali:'') : '-'}</div>
@@ -7207,8 +7439,19 @@ function buildTripReceiptElement(u){
   const biayaTolInfo = getBiayaTolTerpakai(u);
   const biayaTol = biayaTolInfo ? biayaTolInfo.biayaTol : 0;
   const biayaOpItems = usageBiayaOpItems(u);
-  const biayaOpTotal = usageBiayaOpTotal(u);
-  const grandTotal = (Number(u.biayaBensin)||0) + biayaTol + biayaOpTotal;
+  // v3.119.0 -- PERBAIKAN BUG HITUNG GANDA (kelas bug yang sama dengan yang
+  // sudah diperbaiki di computeMonthlyReport, v3.107.0 -- ternyata luput di
+  // sini): "Biaya BBM" (u.biayaBensin) SUDAH berisi jumlah semua item "Isi
+  // BBM" (auto-terjumlah saat disimpan), dan "Biaya Tol" (biayaTol di atas)
+  // SUDAH merepresentasikan pemakaian E-Toll lewat neraca saldo -- jadi
+  // KEDUANYA tidak boleh dijumlah LAGI lewat biayaOpTotal yang tidak
+  // difilter, atau uangnya kehitung 2x di TOTAL. Item "Isi BBM"/"Isi E-Toll"
+  // tetap DITAMPILKAN di rincian di bawah (transparansi rincian), cuma
+  // TIDAK ikut dijumlah lagi ke grandTotal.
+  const biayaOpTotalUntukTotal = biayaOpItems
+    .filter(it=> it.kategori!=='Isi BBM' && it.kategori!=='Isi E-Toll')
+    .reduce((sum,it)=> sum+(Number(it.nominal)||0), 0);
+  const grandTotal = (Number(u.biayaBensin)||0) + biayaTol + biayaOpTotalUntukTotal;
 
   const el = document.createElement('div');
   el.style.cssText = 'width:380px;background:#fff;font-family:Inter,sans-serif;color:#1A2130;padding:22px;';
@@ -7228,16 +7471,49 @@ function buildTripReceiptElement(u){
       <div><b>Durasi:</b> ${fmtDuration(u)}</div>
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px;">
-      <tr><td style="padding:4px 0;">Jarak Tempuh</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${jarak!=null?jarak.toLocaleString('id-ID')+' KM':'-'}</td></tr>
-      <tr><td style="padding:4px 0;">Efisiensi BBM</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${ratio!=null?ratio.toFixed(1)+' KM/L':'-'}</td></tr>
-      ${u.literBensin ? `<tr><td style="padding:4px 0;">Total BBM Diisi</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${u.literBensin} L</td></tr>` : ''}
-      <tr><td style="padding:4px 0;">Biaya BBM</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${fmtMoney(u.biayaBensin||0)}</td></tr>
-      ${biayaTolInfo ? `<tr><td style="padding:4px 0;">Biaya Tol</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${fmtMoney(biayaTol)}</td></tr>` : ''}
-      ${biayaOpItems.map(it=>`
+      <tr><td style="padding:4px 0;font-weight:700;">Jarak Tempuh</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;">${jarak!=null?jarak.toLocaleString('id-ID')+' KM':'-'}</td></tr>
+      <tr><td style="padding:4px 0;font-weight:700;">Efisiensi BBM</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;">${ratio!=null?ratio.toFixed(1)+' KM/L':'-'}</td></tr>
+      ${u.literBensin ? `<tr><td style="padding:4px 0;font-weight:700;">Total BBM Diisi</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;">${u.literBensin} L</td></tr>` : ''}
+      <tr><td style="padding:4px 0;font-weight:700;">Biaya BBM <span style="font-weight:400;color:#8993A4;font-size:10.5px;">(total)</span></td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;">${fmtMoney(u.biayaBensin||0)}</td></tr>
+      ${biayaOpItems.filter(it=>it.kategori==='Isi BBM').map(it=>`
         <tr>
-          <td style="padding:4px 0;">${escapeHtml(it.kategori)}${it.jenisBbm?` · <b>${escapeHtml(it.jenisBbm)}</b>`:''}${it.catatan?`<div style="font-size:10.5px;color:#6B7280;">${escapeHtml(it.catatan)}</div>`:''}</td>
-          <td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;">${fmtMoney(it.nominal)}</td>
+          <td style="padding:2px 0 2px 14px;color:#6B7280;font-size:11px;position:relative;">
+            <span style="position:absolute;left:0;color:#C7CCD4;">↳</span>${it.jenisBbm?escapeHtml(it.jenisBbm):'BBM'}${it.catatan?' — '+escapeHtml(it.catatan):''}
+          </td>
+          <td style="padding:2px 0;text-align:right;font-family:'JetBrains Mono',monospace;color:#6B7280;font-size:11px;">${fmtMoney(it.nominal)}</td>
         </tr>`).join('')}
+      ${biayaTolInfo ? `<tr><td style="padding:4px 0;font-weight:700;">Biaya Tol <span style="font-weight:400;color:#8993A4;font-size:10.5px;">(total)</span></td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;">${fmtMoney(biayaTol)}</td></tr>` : ''}
+      ${biayaOpItems.filter(it=>it.kategori==='Isi E-Toll').map(it=>`
+        <tr>
+          <td style="padding:2px 0 2px 14px;color:#6B7280;font-size:11px;position:relative;">
+            <span style="position:absolute;left:0;color:#C7CCD4;">↳</span>${it.catatan?escapeHtml(it.catatan):'Isi E-Toll'}
+          </td>
+          <td style="padding:2px 0;text-align:right;font-family:'JetBrains Mono',monospace;color:#6B7280;font-size:11px;">${fmtMoney(it.nominal)}</td>
+        </tr>`).join('')}
+      ${(() => {
+        // v3.120.0 -- Saldo E-Toll (saldo KARTU saat ini) SEBELUMNYA tidak
+        // pernah ditampilkan di resi sama sekali -- cuma "Biaya Tol" (uang
+        // yang TERPAKAI) yang muncul. Sekarang, kalau trip ini ada isi ulang
+        // E-Toll (top-up) ATAU saldo akhir sempat dicatat, tampilkan saldo
+        // kartu-nya juga -- supaya langsung kelihatan sisa saldo tanpa perlu
+        // buka menu Kartu E-Toll terpisah.
+        const adaIsiEtoll = biayaOpItems.some(it=>it.kategori==='Isi E-Toll');
+        if(!adaIsiEtoll && u.saldoEtoll==null) return '';
+        const linkedCard = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
+        const nomorRingkas = linkedCard ? (linkedCard.nomorKartu.length>4 ? '•••• '+linkedCard.nomorKartu.slice(-4) : linkedCard.nomorKartu) : '';
+        return `<tr><td style="padding:4px 0;font-weight:700;">Saldo E-Toll${nomorRingkas?` <span style="font-weight:400;color:#8993A4;font-size:10.5px;">(${nomorRingkas})</span>`:''}</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;">${u.saldoEtoll!=null?fmtMoney(u.saldoEtoll):'-'}</td></tr>`;
+      })()}
+      ${(() => {
+        const itemLain = biayaOpItems.filter(it=>it.kategori!=='Isi BBM' && it.kategori!=='Isi E-Toll');
+        if(itemLain.length===0) return '';
+        return `
+        <tr><td colspan="2" style="padding-top:10px;padding-bottom:2px;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8993A4;">Biaya Lain-lain</td></tr>
+        ${itemLain.map(it=>`
+        <tr>
+          <td style="padding:4px 0;font-weight:700;">${escapeHtml(it.kategori)}${it.catatan?`<div style="font-size:10.5px;color:#6B7280;font-weight:400;">${escapeHtml(it.catatan)}</div>`:''}</td>
+          <td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;">${fmtMoney(it.nominal)}</td>
+        </tr>`).join('')}`;
+      })()}
     </table>
     <div style="border-top:1.5px solid #1A2130;padding-top:8px;display:flex;justify-content:space-between;font-weight:800;font-size:14px;">
       <span>TOTAL BIAYA</span><span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(grandTotal)}</span>
@@ -7801,6 +8077,17 @@ function openUsageModal(editId, presetCarId){
         logActivity('penggunaan', 'Catat penggunaan mobil', `${carLabel(carId)} — ${tujuan}`);
         showToast('Penggunaan mobil dicatat.');
       }
+      // v3.121.0 -- "Petugas Aktif" otomatis mengikuti SOPIR TERAKHIR yang
+      // dipilih di Catat Perjalanan (permintaan eksplisit, menggantikan
+      // pilih manual tiap kali) -- kalau nama sopir itu belum ada di
+      // daftar Petugas, ditambahkan otomatis (bukan error/ditolak).
+      const driverForPetugas = state.drivers.find(d=>d.id===driverId);
+      if(driverForPetugas && driverForPetugas.nama){
+        if(!state.admins.includes(driverForPetugas.nama)) state.admins.push(driverForPetugas.nama);
+        currentAdmin = driverForPetugas.nama;
+        try{ localStorage.setItem('fleetops_current_admin', currentAdmin); }catch(e){}
+        renderPetugasSelect();
+      }
       renderActiveTripBubble();
       if(currentRoute==='usage') renderUsage();
       return true;
@@ -8237,6 +8524,39 @@ function openBookingModal(editId){
 // logika deteksinya (ambang 1.7x/0.5x, minimal 2 sampel) tetap SAMA
 // PERSIS supaya hasilnya konsisten dengan yang tampil di masing-masing
 // trip.
+// v3.120.0 -- Pemeriksaan Tanggal (bug zona waktu today(), diperbaiki
+// v3.114.0). Tidak bisa "auto-fix" membabi buta -- tidak ada cara pasti
+// tahu tanggal mana yang BENAR-BENAR kena bug vs memang sengaja diisi
+// begitu. Yang bisa dilakukan dgn aman: TANDAI trip yg BERANGKAT/TIBA jam
+// 00:00-06:59 WIB (jam-jam rawan bug ini) utk dicek MANUAL satu-satu --
+// bukan diperbaiki otomatis tanpa sepengetahuan pengguna.
+// Keyakinan beda antara 2 field:
+// - tglKembali: SELALU diisi otomatis today() tanpa opsi user ubah tanggal
+//   terpisah saat Tandai Tiba -- kalau jamKembali 00:00-06:59, KEYAKINAN
+//   TINGGI tanggalnya salah.
+// - tglKeluar: cuma NILAI AWAL (default) di kotak tanggal yang BISA diubah
+//   user sebelum simpan -- kalau jamKeluar 00:00-06:59, KEYAKINAN SEDANG
+//   (mungkin sudah benar kalau user sempat ubah manual).
+function computeSuspiciousDateTrips(){
+  const hasil = [];
+  state.usage.forEach(u=>{
+    const jamKeluarRawan = u.jamKeluar && u.jamKeluar < '07:00';
+    const jamKembaliRawan = u.jamKembali && u.jamKembali < '07:00';
+    if(!jamKeluarRawan && !jamKembaliRawan) return;
+    hasil.push({
+      u,
+      keyakinan: jamKembaliRawan ? 'tinggi' : 'sedang',
+      fieldRawan: [jamKeluarRawan?'tglKeluar':null, jamKembaliRawan?'tglKembali':null].filter(Boolean),
+    });
+  });
+  // Keyakinan tinggi dulu, lalu paling baru (updatedAt) dulu.
+  hasil.sort((a,b)=> {
+    if(a.keyakinan!==b.keyakinan) return a.keyakinan==='tinggi'?-1:1;
+    return (b.u.updatedAt||0)-(a.u.updatedAt||0);
+  });
+  return hasil;
+}
+
 function computeAllInsights(){
   if(!insightUnlocked) return [];
   const hasil = [
@@ -9782,7 +10102,7 @@ function renderBBM(){
       <div class="panel-head"><h2>Kalibrasi Liter per Bar (Otomatis)</h2></div>
       <div class="panel-body">
         <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
-          Khusus mobil bertipe indikator "Bar". Asumsi lama menganggap 1 Bar = Kapasitas Tangki ÷ Jumlah Bar (sama rata semua bar). Tabel di bawah dikoreksi otomatis dari riwayat pengisian NYATA (field "Level BBM Sebelum Diisi" saat Tandai Kembali) — makin banyak data per segmen, makin akurat & makin lepas dari asumsi rata.
+          Khusus mobil bertipe indikator "Bar". Asumsi lama menganggap 1 Bar = Kapasitas Tangki ÷ Jumlah Bar (sama rata semua bar). Tabel di bawah dikoreksi otomatis dari riwayat pengisian NYATA (field "Level BBM Sebelum Diisi" di kartu "Isi BBM" — Biaya Operasional/Biaya Pribadi) — makin banyak data per segmen, makin akurat & makin lepas dari asumsi rata.
         </p>
         <div class="field">
           <label>Mobil</label>
@@ -9912,7 +10232,7 @@ function renderBBM(){
           }).join('')}
         </tbody>
       </table></div>
-      <div class="hint" style="margin-top:8px;">Segmen "Terkalibrasi" sudah punya ${KALIBRASI_PRIOR_WEIGHT}+ sampel nyata dan sudah didominasi data lapangan, bukan asumsi lagi. Isi "Level BBM Sebelum Diisi" tiap kali isi BBM (menu Catat Perjalanan → Tandai Kembali) untuk menambah sampel di segmen yang masih "Asumsi rata"/"Menyesuaikan".</div>
+      <div class="hint" style="margin-top:8px;">Segmen "Terkalibrasi" sudah punya ${KALIBRASI_PRIOR_WEIGHT}+ sampel nyata dan sudah didominasi data lapangan, bukan asumsi lagi. Isi "Level BBM Sebelum Diisi" di kartu "Isi BBM" (Biaya Operasional/Biaya Pribadi) tiap kali isi BBM untuk menambah sampel di segmen yang masih "Asumsi rata"/"Menyesuaikan".</div>
     `;
   }
   const kalibrasiCarEl = document.getElementById('kalibrasi-car');
@@ -11291,6 +11611,65 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.122.1',
+    date: '27 Jul 2026',
+    notes: [
+      'Perbaikan teks: panel "Kalibrasi Liter per Bar" masih menyebut field "Level BBM Sebelum Diisi" ada di "Tandai Kembali" -- padahal field itu sudah dipindah ke kartu "Isi BBM" (Biaya Operasional/Pribadi) sejak v3.115.0. 2 titik teks basi ditemukan & diperbaiki.',
+    ]
+  },
+  {
+    v: '3.122.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Fitur baru: indikator kecil pemakaian Storage (titik netral di sidebar, dikunci PIN Insight) -- klik untuk lihat berapa storage terpakai dari total tersedia.',
+      '"Petugas Aktif" sekarang otomatis mengikuti sopir terakhir yang dipilih di Catat Perjalanan -- tidak perlu pilih manual tiap kali, nama sopir otomatis ditambahkan ke daftar Petugas kalau belum ada.',
+      'Badge "Gap KM" (jarak tidak nyambung antar-trip) sekarang bisa DITAP -- membuka modal penjelasan singkat & jelas. Sebelumnya penjelasannya cuma lewat tooltip title="" yang SAMA SEKALI tidak bisa dibaca di HP (tidak ada hover di layar sentuh).',
+      'Tanda Terima Perjalanan (app & Telegram) sekarang menampilkan "Jenis: 🏠 Pribadi / 🧾 Operasional" -- lebih jelas tanpa perlu menebak dari konteks lain.',
+      'Bubble "Mobil Jalan" berubah merah (dengan denyut halus di bayangan, bukan blink) kalau ada trip yang sudah 3x24 jam belum ditandai Tiba -- eskalasi visual dari pengingat Telegram "Trip Kelamaan" yang sudah ada duluan, langsung kelihatan tanpa perlu buka panel dulu.',
+    ]
+  },
+  {
+    v: '3.121.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Fitur baru: Pengingat "Trip Kelamaan Belum Tiba" -- kalau sebuah trip sudah lebih dari 24 jam (bisa diubah di Ambang Batas Notifikasi) belum ditandai Tiba, muncul pengingat yang JUJUR bilang "abaikan kalau memang masih di jalan" (bukan asumsi salah). Khusus pengiriman Telegram-nya SENGAJA dibatasi cuma jam 06:00-06:59 WIB (1x sehari, sesuai permintaan) -- bel di aplikasi tetap tampil kapan saja. Sudah diverifikasi lewat simulasi, termasuk 1 bug tambahan yang ketahuan SEBELUM dikirim (bukan dari laporan pengguna): perhitungan jam berlalu bisa meleset 7 jam kalau berjalan di server (UTC) tanpa zona waktu eksplisit -- sudah diperbaiki juga.',
+      'Perbaikan bug kecil: kategori notifikasi "Reminder Booking" (utk langganan per-sopir) sebelumnya cuma cocok utk "Booking besok" -- "Booking hari ini" (H-0, ditambah v3.116.0) tidak pernah cocok kategori manapun, jadi tersaring/tidak terkirim ke sopir dengan langganan kategori spesifik. Ketahuan & diperbaiki bersamaan dgn audit fitur ini.',
+    ]
+  },
+  {
+    v: '3.120.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Fitur baru: "🕐 Pemeriksaan Tanggal (Bug Zona Waktu)" di Pengaturan (dikunci PIN) -- menandai trip yang berangkat/tiba jam 00:00-06:59 WIB (rentan kena bug tanggal mundur 1 hari yang sudah diperbaiki di v3.114.0), dengan tingkat keyakinan (tinggi/sedang) tergantung field mana yang rawan. SENGAJA tidak "auto-fix" membabi buta karena tidak ada cara pasti tahu tanggal mana yang benar-benar kena bug -- cukup tandai untuk dicek manual, lengkap tombol langsung ke form Edit trip terkait. Sudah diverifikasi lewat simulasi 3 skenario.',
+      'Fitur baru: "Saldo E-Toll" sekarang muncul di Tanda Terima Perjalanan (app & Telegram) kalau ada isi ulang E-Toll di trip itu, atau saldo akhir sempat dicatat -- sebelumnya cuma "Biaya Tol" (uang terpakai) yang tampil, saldo kartu itu sendiri tidak pernah terlihat di resi.',
+    ]
+  },
+  {
+    v: '3.119.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Perbaikan bug PENTING (ditemukan dari laporan pengguna): Tanda Terima Perjalanan (app & Telegram) sempat menghitung ganda -- "Biaya BBM" (sudah berisi total semua item "Isi BBM") dijumlahkan LAGI bersama item "Isi BBM" itu sendiri di TOTAL BIAYA. Sudah diperbaiki & diverifikasi lewat simulasi pakai angka asli dari laporan (total yang benar Rp 213.000, sebelumnya salah tampil Rp 611.000).',
+      'Tanda Terima Perjalanan dirombak supaya tidak ambigu lagi: "Biaya BBM"/"Biaya Tol" diberi label "(total)" dan ditebalkan, item "Isi BBM"/"Isi E-Toll" ditampilkan MENJOROK (↳) tepat di bawahnya sebagai rincian -- jelas bukan biaya terpisah. Biaya lain (Parkir, Makan, dll) dikelompokkan di bawah judul "Biaya Lain-lain" sendiri.',
+      'Label field "Liter" di kartu Isi BBM diaudit ulang, tidak ada elemen DOM yatim (orphaned reference) yang tersisa dari perubahan sebelumnya -- disisir menyeluruh via audit kode.',
+    ]
+  },
+  {
+    v: '3.118.0',
+    date: '27 Jul 2026',
+    notes: [
+      'Perbaikan bug: menu aksi di bubble "Mobil Sedang Jalan" ternyata TITIK KETIGA yang masih hardcode "🧾 Biaya Operasional" untuk trip Pribadi (2 tempat lain -- dropdown List & tombol Card -- sudah lebih dulu benar). Sekarang konsisten menampilkan "🏠 Biaya Pribadi" di ketiga tempat.',
+      'Label "Liter" di kartu Isi BBM (Biaya Operasional & Pribadi) diperjelas jadi "Liter yang Diisi/Dibeli" -- sebelumnya cuma "Liter" tanpa konteks, ambigu apakah maksudnya liter yang dibeli atau liter sebelum diisi.',
+    ]
+  },
+  {
+    v: '3.117.0',
+    date: '27 Jul 2026',
+    notes: [
+      '"Level BBM Sebelum Diisi" (di kartu Isi BBM, Biaya Operasional/Pribadi) diubah dari kotak angka manual jadi tombol grid yang bisa langsung ditap (1 tap, tanpa buka apa-apa dulu) -- tap tombol yang sama sekali lagi untuk mengosongkan pilihan. Sekaligus menutup celah: field ini sempat merujuk variabel yang belum sempat didefinisikan dari draf sebelumnya (belum sempat terpakai pengguna, ketahuan sebelum dikirim).',
+      'Perbaikan Mode Gelap tambahan: tombol pemilih Bar (dipakai di "Sisa Bensin"/"Bensin Sebelum") sempat lolos dari audit sebelumnya, masih warna putih tetap -- sudah diperbaiki.',
+    ]
+  },
   {
     v: '3.116.0',
     date: '27 Jul 2026',
@@ -12910,6 +13289,7 @@ document.getElementById('btn-changelog').onclick = () => {
 /* ---------------- Init ---------------- */
 document.getElementById('btn-changelog').textContent = 'v' + APP_VERSION + ' · Lihat Changelog';
 renderPetugasSelect();
+wireStorageIndicator();
 // Perbaikan v3.28.0: backfillDestinationEstimates() sudah ada sejak awal
 // fitur Data Tujuan dibuat, tapi TIDAK PERNAH DIPANGGIL di mana pun --
 // akibatnya Jarak (KM)/Perkiraan BBM (L) selalu tampil '-' walau riwayat
