@@ -4715,6 +4715,31 @@ function deleteUsage(id, onDeleted){
     const u = state.usage.find(x=>x.id===id);
     markDeleted('usage', id);
     state.usage = state.usage.filter(x=>x.id!==id);
+    // Odometer mobil & saldo kartu E-Toll disimpan sebagai "nilai terkini"
+    // di data mobil/kartu (bukan dihitung ulang otomatis dari daftar trip),
+    // jadi begitu 1 catatan perjalanan dihapus, keduanya perlu dihitung
+    // ulang manual dari SISA catatan yang masih ada -- supaya tidak
+    // "nyangkut" di angka trip yang sudah dihapus.
+    if(u && u.carId){
+      const car = state.cars.find(c=>c.id===u.carId);
+      if(car){
+        const sisaOdo = state.usage
+          .filter(x=> x.carId===u.carId && x.odoKembali!=null)
+          .map(x=> Number(x.odoKembali)||0);
+        car.odometerSaatIni = sisaOdo.length ? Math.max(...sisaOdo) : null;
+        touch(car);
+      }
+    }
+    if(u && u.etollCardId){
+      const card = state.etollCards.find(c=>c.id===u.etollCardId);
+      if(card){
+        const sisaEtoll = state.usage
+          .filter(x=> x.etollCardId===u.etollCardId && x.saldoEtoll!=null)
+          .sort((a,b)=> usageEtollTimeKey(b).localeCompare(usageEtollTimeKey(a))); // terbaru dulu
+        card.saldo = sisaEtoll.length ? Number(sisaEtoll[0].saldoEtoll) : null;
+        touch(card);
+      }
+    }
     if(u) logActivity('penggunaan', 'Hapus catatan penggunaan', `${carLabel(u.carId)} — ${u.tujuan||''}`);
     saveData();
     showToast('Catatan penggunaan dihapus.');
