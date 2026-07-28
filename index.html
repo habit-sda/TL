@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.131.0">
+<meta name="app-version" content="3.132.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1277,7 +1277,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.131.0';
+const APP_VERSION = '3.132.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3898,8 +3898,14 @@ function computeAlerts(){
   // ini juga) TIDAK PERNAH dapat reminder sama sekali -- H-1 cuma mengecek
   // "besok", jadi kasus "kurang dari 1 hari" ini kelewat. Sekarang dicek
   // KEDUANYA: besok (H-1) DAN hari ini (H-0, label beda "Booking hari ini").
-  const besok = new Date(); besok.setDate(besok.getDate()+1);
-  const besokStr = `${besok.getFullYear()}-${String(besok.getMonth()+1).padStart(2,'0')}-${String(besok.getDate()).padStart(2,'0')}`;
+  // v3.132.0 -- PERBAIKAN BUG: sebelumnya "new Date()" polos -- kalau
+  // device pengguna kebetulan tidak diset WIB (jarang tapi bisa terjadi),
+  // "besok" bisa meleset. Sekarang eksplisit dihitung dari hariIniStr
+  // (WIB, dari today()) + 1 hari, konsisten dengan perbaikan yang sama di
+  // telegram-notify.mjs.
+  const [thnIni, blnIni, tglIni] = hariIniStr.split('-').map(Number);
+  const besokDate = new Date(thnIni, blnIni-1, tglIni+1);
+  const besokStr = `${besokDate.getFullYear()}-${String(besokDate.getMonth()+1).padStart(2,'0')}-${String(besokDate.getDate()).padStart(2,'0')}`;
   state.bookings.forEach(b=>{
     if(b.status!=='dipesan') return;
     if(b.tglMulai===besokStr){
@@ -11834,6 +11840,15 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.132.0',
+    date: '28 Jul 2026',
+    notes: [
+      'Analisis mendalam sistem notifikasi Telegram: Tanda Terima Perjalanan dicek menyeluruh -- BERSIH, tidak ada bug. Reminder Booking ditemukan 1 bug nyata: perhitungan "besok" (utk "Booking besok") sempat pakai zona waktu RUNTIME polos (bisa meleset kalau server/device tidak WIB) -- sama kelasnya dengan bug "berangkat" yang sudah diperbaiki sebelumnya, tapi kelewat di sini. Diperbaiki di app maupun Telegram, sudah diverifikasi lewat simulasi termasuk kasus lintas bulan & tahun.',
+      'Ditambahkan logging diagnostik detail untuk Reminder Booking (di log GitHub Actions) -- menampilkan setiap booking beserta status/tanggalnya dan alasan cocok/tidaknya, supaya masalah booking yang tidak terdeteksi bisa langsung dilacak dari log tanpa tebak-tebakan.',
+      'Jadwal cron GitHub Actions digeser dari kelipatan 5 menit bulat (:00/:05/:10 dst) ke menit ganjil (:02/:07/:12 dst) -- GitHub SENDIRI secara resmi menyebut jadwal terjadwal itu "best effort" tanpa jaminan waktu pasti, dan keterlambatan 5-30 menit itu NORMAL terutama di menit-menit bulat (paling padat, karena SEMUA workflow orang lain di GitHub juga dijadwalkan di situ). Menggeser ke menit ganjil mengurangi rata-rata keterlambatan -- tapi jujur: ini keterbatasan infrastruktur GRATIS GitHub, bukan bug di skrip ini, dan tidak bisa dijamin instan 100%.',
+    ]
+  },
   {
     v: '3.131.0',
     date: '28 Jul 2026',
