@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.133.0">
+<meta name="app-version" content="3.134.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1277,7 +1277,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.133.0';
+const APP_VERSION = '3.134.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2199,11 +2199,23 @@ async function pushToGithub(){
       branch: ghConfig.branch,
     };
     if(ghConfig.sha) body.sha = ghConfig.sha;
+    const bodyStr = JSON.stringify(body);
+
+    // v3.134.0 -- keepalive:true (biar request tetap dicoba selesai walau
+    // tab ditutup/HP dikunci tepat setelahnya) PUNYA BATAS KERAS 64KB per
+    // body dari browser -- kalau dipaksa dengan body lebih besar, fetch-nya
+    // langsung GAGAL TOTAL (bukan diam-diam diabaikan). Data armada yang
+    // sudah cukup besar (banyak riwayat trip) gampang melewati 64KB, jadi
+    // keepalive CUMA dipakai kalau body-nya masih di bawah batas itu --
+    // di atas itu, fallback ke fetch biasa (lebih besar, tapi tetap pasti
+    // jalan selama tab masih terbuka saat request dikirim).
+    const useKeepalive = new Blob([bodyStr]).size < 60000;
 
     let res = await fetch(ghApiUrl(), {
       method: 'PUT',
       headers: { ...ghHeaders(), 'Content-Type':'application/json' },
-      body: JSON.stringify(body),
+      body: bodyStr,
+      ...(useKeepalive ? { keepalive: true } : {}),
     });
 
     if(!res.ok && (res.status === 409 || res.status === 422)){
@@ -2212,10 +2224,13 @@ async function pushToGithub(){
       if(getRes.ok){
         const getData = await getRes.json();
         body.sha = getData.sha;
+        const retryBodyStr = JSON.stringify(body);
+        const useKeepaliveRetry = new Blob([retryBodyStr]).size < 60000;
         res = await fetch(ghApiUrl(), {
           method: 'PUT',
           headers: { ...ghHeaders(), 'Content-Type':'application/json' },
-          body: JSON.stringify(body),
+          body: retryBodyStr,
+          ...(useKeepaliveRetry ? { keepalive: true } : {}),
         });
       }
     }
@@ -2233,13 +2248,30 @@ async function pushToGithub(){
 }
 
 let cloudPushTimer = null;
+// v3.134.0 -- Debounce dipercepat dari 3000ms jadi 600ms. Alasan: kalau HP
+// dikunci/tab ditutup PERSIS dalam window debounce ini, browser di HP
+// MEMBEKUKAN timer JS tab yang di-background -- push jadi TIDAK PERNAH
+// jalan sampai tab dibuka lagi. 3 detik itu jendela risiko yang cukup besar
+// (mis. sopir tandai trip "Selesai" lalu langsung kunci HP). 600ms masih
+// cukup buat menggabung beberapa penyimpanan beruntun (spt ngetik cepat di
+// form), tapi jauh mengurangi peluang "kepotong" itu.
 function scheduleCloudPush(){
   if(!isGhConnected()) return;
   clearTimeout(cloudPushTimer);
-  // Debounce beberapa detik: kalau ada beberapa penyimpanan beruntun, digabung
-  // jadi satu commit saja, bukan spam commit di riwayat GitHub.
-  cloudPushTimer = setTimeout(pushToGithub, 3000);
+  cloudPushTimer = setTimeout(pushToGithub, 600);
 }
+// v3.134.0 -- Jaring pengaman TAMBAHAN: begitu tab/app mulai disembunyikan
+// (dikunci/pindah app lain/ditutup), LANGSUNG flush push yang masih
+// tertunda -- jangan tunggu 600ms itu lagi sama sekali. visibilitychange
+// terpicu SEBELUM tab benar-benar dibekukan, jadi ini kesempatan terakhir
+// yang bisa diandalkan.
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden && cloudPushTimer){
+    clearTimeout(cloudPushTimer);
+    cloudPushTimer = null;
+    pushToGithub();
+  }
+});
 
 /* ---------------- Modal "Hubungkan Sinkronisasi GitHub" ---------------- */
 function openGhModal(){
@@ -11840,6 +11872,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.134.0',
+    date: '28 Jul 2026',
+    notes: [
+      'Perbaikan penting: sinkronisasi ke GitHub sekarang jauh lebih tahan terhadap "HP dikunci/tab ditutup tepat setelah menyimpan". Sebelumnya, push ke GitHub ditunda 3 detik (debounce) -- kalau dalam 3 detik itu tab di-background (mis. sopir tandai trip "Selesai" lalu langsung kunci HP), browser HP membekukan timer JS-nya dan push itu TIDAK PERNAH jalan sampai tab dibuka lagi. Ini akar penyebab notifikasi Telegram (terutama Resi Perjalanan) kadang baru terkirim lama setelahnya -- bukan masalah di jadwal GitHub Actions.',
+      'Perbaikannya 3 lapis: (1) debounce dipercepat dari 3 detik jadi 600ms, (2) begitu tab mulai disembunyikan, push yang masih tertunda langsung di-flush saat itu juga (tidak nunggu 600ms lagi), (3) request push memakai keepalive supaya browser tetap mencoba menyelesaikannya walau tab sudah ditutup -- otomatis dilewati kalau data armadanya sudah terlalu besar (di atas 60KB), karena keepalive punya batas keras dari browser dan fallback ke pengiriman biasa.',
+    ]
+  },
   {
     v: '3.133.0',
     date: '28 Jul 2026',
