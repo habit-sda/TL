@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.136.1">
+<meta name="app-version" content="3.136.2">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1282,7 +1282,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.136.1';
+const APP_VERSION = '3.136.2';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -7765,14 +7765,25 @@ async function sendInstantTripReceipt(u){
       body: bodyStr,
       ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
     });
-    if(!res.ok) return; // diam -- cron GitHub Actions akan tetap coba kirim nanti
+    if(!res.ok){
+      // v3.136.2 -- SEBELUMNYA gagal diam-diam total (cuma console.error,
+      // tidak kelihatan di HP tanpa DevTools). Sekarang tampilkan toast
+      // singkat berisi alasannya, supaya bisa dites/didiagnosis langsung
+      // dari HP tanpa perlu laptop. Resi TETAP aman -- cron GitHub Actions
+      // tetap jadi cadangan seperti biasa, ini cuma soal kelihatan/tidak.
+      const errBody = await res.json().catch(()=>({}));
+      showToast(`Resi instan gagal (HTTP ${res.status}): ${errBody.error || 'tidak diketahui'} -- resi tetap akan terkirim via jadwal biasa.`, true);
+      return;
+    }
     u.telegramResiSent = true;
     touch(u);
     // Tandai juga langsung di localStorage supaya flag ini tidak hilang kalau
     // tab ditutup sebelum saveData() lain sempat jalan -- saveData() penuh
     // (dgn sinkron ke GitHub) tetap dijadwalkan seperti biasa di pemanggil.
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    showToast('🧾 Resi Telegram terkirim instan ke ' + (driver.nama||'sopir') + '.');
   }catch(e){
+    showToast('Resi instan gagal terkirim (' + e.message + ') -- resi tetap akan terkirim via jadwal biasa.', true);
     console.error('Resi instan gagal terkirim (tidak masalah -- cron GitHub Actions tetap jadi cadangan):', e);
   }
 }
@@ -11985,6 +11996,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.136.2',
+    date: '28 Jul 2026',
+    notes: [
+      'Resi Telegram instan sekarang kasih tahu HASILNYA lewat notifikasi kecil (toast) di layar -- berhasil ("🧾 Resi Telegram terkirim instan") maupun gagal (lengkap dgn alasannya, mis. HTTP 403/500). Sebelumnya kalau gagal, cuma tercatat diam-diam di Console browser -- tidak kelihatan sama sekali kalau diakses dari HP tanpa DevTools. Resi TETAP aman walau gagal (jadwal GitHub Actions tetap jadi cadangan) -- ini murni supaya lebih gampang dites/didiagnosis.',
+    ]
+  },
   {
     v: '3.136.1',
     date: '28 Jul 2026',
