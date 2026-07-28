@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.134.0">
+<meta name="app-version" content="3.136.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1227,6 +1227,11 @@
         <label>Nama Repository</label>
         <input type="text" id="gh-modal-repo" data-no-uppercase="1" placeholder="mis. fleetops-data">
       </div>
+      <div class="field">
+        <label>Notify Secret <span style="font-weight:400;color:var(--muted);">(opsional -- utk Resi Telegram instan)</span></label>
+        <input type="text" id="gh-modal-notifysecret" data-no-uppercase="1" placeholder="Samakan dgn Secret NOTIFY_SECRET di dasbor Cloudflare Worker">
+        <div class="hint">Kosongkan kalau belum diatur di Worker -- Resi Perjalanan tetap terkirim seperti biasa lewat jadwal GitHub Actions (cuma tidak instan).</div>
+      </div>
       <div id="gh-modal-status" class="hint"></div>
     </div>
     <div class="modal-foot">
@@ -1277,7 +1282,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.134.0';
+const APP_VERSION = '3.136.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2278,6 +2283,7 @@ function openGhModal(){
   document.getElementById('gh-modal-workerurl').value = (ghConfig && ghConfig.workerUrl) || '';
   document.getElementById('gh-modal-owner').value = (ghConfig && ghConfig.owner) || '';
   document.getElementById('gh-modal-repo').value = (ghConfig && ghConfig.repo) || '';
+  document.getElementById('gh-modal-notifysecret').value = (ghConfig && ghConfig.notifySecret) || '';
   const statusEl = document.getElementById('gh-modal-status');
   statusEl.textContent = '';
   statusEl.className = 'hint';
@@ -2290,6 +2296,7 @@ async function connectGithub(){
   const workerUrl = document.getElementById('gh-modal-workerurl').value.trim().replace(/\/+$/,'');
   const owner = document.getElementById('gh-modal-owner').value.trim();
   const repo = document.getElementById('gh-modal-repo').value.trim();
+  const notifySecret = document.getElementById('gh-modal-notifysecret').value.trim();
   const statusEl = document.getElementById('gh-modal-status');
   const btn = document.getElementById('gh-modal-connect-btn');
 
@@ -2308,7 +2315,7 @@ async function connectGithub(){
   statusEl.style.color = 'var(--muted)';
   statusEl.textContent = 'Menyimpan & memeriksa koneksi...';
 
-  saveGhConfig({ workerUrl, owner, repo, path: 'data/fleetops-data.json', branch: 'main', sha: null });
+  saveGhConfig({ workerUrl, owner, repo, notifySecret, path: 'data/fleetops-data.json', branch: 'main', sha: null });
 
   try{
     const testRes = await fetch(`${ghApiUrl()}?ref=${encodeURIComponent(ghConfig.branch)}`, { headers: ghHeaders() });
@@ -3935,6 +3942,17 @@ function computeAlerts(){
   // "besok" bisa meleset. Sekarang eksplisit dihitung dari hariIniStr
   // (WIB, dari today()) + 1 hari, konsisten dengan perbaikan yang sama di
   // telegram-notify.mjs.
+  // v3.135.0 -- "Booking hari ini" (H-0) diberi flag urgent:true -- dipakai
+  // KHUSUS oleh telegram-notify.mjs supaya alert ini SELALU dicek tiap
+  // ~5 menit, TIDAK ikut nunggu jatah "Cek notifikasi berkala setiap X
+  // menit" (checkIntervalMinutes) yang bisa sampai 60 menit. Booking hari
+  // ini bisa saja cuma "2 menit lagi" -- kalau ikut throttle biasa, notif-nya
+  // gampang telat sampai booking-nya sudah lewat. "Booking besok" (H-1)
+  // SENGAJA TIDAK diberi flag ini -- masih ada 1 hari penuh, jadi aman
+  // ikut throttle biasa. Field ini TIDAK berpengaruh apa pun di sini (lonceng
+  // app memang selalu live, tidak pernah throttle) -- murni buat dibaca
+  // telegram-notify.mjs, tapi tetap ditulis di sini juga supaya computeAlerts()
+  // di kedua file 100% identik strukturnya.
   const [thnIni, blnIni, tglIni] = hariIniStr.split('-').map(Number);
   const besokDate = new Date(thnIni, blnIni-1, tglIni+1);
   const besokStr = `${besokDate.getFullYear()}-${String(besokDate.getMonth()+1).padStart(2,'0')}-${String(besokDate.getDate()).padStart(2,'0')}`;
@@ -3943,7 +3961,7 @@ function computeAlerts(){
     if(b.tglMulai===besokStr){
       alerts.push({ id:'booking-h1-'+b.id, route:'bookings', ic:'📅', level:'warn', judul:'Booking besok', keterangan: `${carLabel(b.carId)} — ${b.tujuan||'(tanpa tujuan)'}${b.jamMulai?' · '+b.jamMulai:''}`, targetDriverIds: Array.isArray(b.notifDriverIds) ? b.notifDriverIds : null });
     } else if(b.tglMulai===hariIniStr){
-      alerts.push({ id:'booking-h0-'+b.id, route:'bookings', ic:'📅', level:'danger', judul:'Booking hari ini', keterangan: `${carLabel(b.carId)} — ${b.tujuan||'(tanpa tujuan)'}${b.jamMulai?' · '+b.jamMulai:''}`, targetDriverIds: Array.isArray(b.notifDriverIds) ? b.notifDriverIds : null });
+      alerts.push({ id:'booking-h0-'+b.id, route:'bookings', ic:'📅', level:'danger', judul:'Booking hari ini', keterangan: `${carLabel(b.carId)} — ${b.tujuan||'(tanpa tujuan)'}${b.jamMulai?' · '+b.jamMulai:''}`, targetDriverIds: Array.isArray(b.notifDriverIds) ? b.notifDriverIds : null, urgent: true });
     }
   });
   alerts.sort((a,b)=> (a.level==='danger'?0:1) - (b.level==='danger'?0:1));
@@ -7190,6 +7208,10 @@ function markReturned(id){
       }
 
       saveData();
+      // v3.136.0 -- kirim Resi Telegram INSTAN (paralel, tidak menunggu sinkron
+      // GitHub) begitu trip ditandai selesai. Diam-diam gagal kalau belum
+      // diatur/offline -- resi tetap terjamin lewat cron GitHub Actions.
+      sendInstantTripReceipt(u);
       logActivity('penggunaan', 'Mobil kembali', `${carLabel(u.carId)} — ${u.tujuan||''}`);
       // Audit trail KHUSUS kalau ini EDIT ULANG data yang sudah pernah
       // selesai sebelumnya (bukan penyelesaian pertama kali) -- itu kasus
@@ -7664,6 +7686,92 @@ function buildReceiptElement(u){
    "Tandai Tiba" berhasil disimpan, (2) tombol di dalam panel DETAIL trip
    (bukan di baris ringkas luar).
    ======================================================================== */
+/* ============================================================================
+   RESI TELEGRAM INSTAN (v3.136.0) -- dikirim LANGSUNG dari browser sopir ke
+   Cloudflare Worker begitu trip ditandai "Selesai", TANPA menunggu sinkron
+   data ke GitHub ataupun jadwal GitHub Actions selesai duluan. Ini jalur
+   PARALEL/TAMBAHAN, bukan pengganti -- kalau gagal (offline, Worker belum
+   diatur, dst.) resi TETAP akan terkirim seperti biasa lewat cron GitHub
+   Actions (telegram-notify.mjs), cuma tidak instan. Supaya tidak terkirim
+   DOBEL, begitu jalur instan ini SUKSES kita tandai u.telegramResiSent=true
+   -- field ini ikut ke-sync ke data.json seperti field lain, dan
+   telegram-notify.mjs sudah diperbarui utk skip trip yang sudah punya flag
+   itu (lihat komentar v3.136.0 di scripts/telegram-notify.mjs).
+   Teks pesan SENGAJA diporting manual supaya isinya sama persis dengan versi
+   server (buildTripReceiptText di telegram-notify.mjs) -- kalau salah satu
+   diubah, ubah juga yang satunya supaya isi Resi tidak beda tergantung jalur
+   mana yang berhasil kirim duluan. */
+function buildTripReceiptTextTg(u){
+  const jarak = (u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) ? (u.odoKembali-u.odoKeluar) : null;
+  const biayaTolInfo = getBiayaTolTerpakai(u);
+  const biayaTol = biayaTolInfo ? biayaTolInfo.biayaTol : 0;
+  const biayaOpItems = usageBiayaOpItems(u);
+  const biayaOpTotalUntukTotal = biayaOpItems
+    .filter(it=> it.kategori!=='Isi BBM' && it.kategori!=='Isi E-Toll')
+    .reduce((sum,it)=> sum+(Number(it.nominal)||0), 0);
+
+  const lines = [
+    '🧾 <b>Tanda Terima Perjalanan</b>', '',
+    `<b>Mobil:</b> ${escapeHtml(carLabel(u.carId))}`,
+    `<b>Sopir:</b> ${escapeHtml(driverLabel(u.driverId, u.driver))}`,
+    `<b>Jenis:</b> ${u.jenisPenggunaan==='pribadi' ? '🏠 Pribadi' : '🧾 Operasional'}`,
+    `<b>Tujuan:</b> ${escapeHtml(u.tujuan||'-')}`,
+    `<b>Berangkat:</b> ${u.tglKeluar ? escapeHtml(fmtDate(u.tglKeluar)) : '-'}${u.jamKeluar ? ', '+u.jamKeluar : ''}`,
+    `<b>Tiba:</b> ${u.tglKembali ? escapeHtml(fmtDate(u.tglKembali))+(u.jamKembali?', '+u.jamKembali:'') : '-'}`,
+    `<b>Durasi:</b> ${fmtDuration(u)}`, '',
+    `Jarak Tempuh: ${jarak!=null ? jarak.toLocaleString('id-ID')+' KM' : '-'}`,
+  ];
+  if(u.literBensin) lines.push(`<b>Total BBM Diisi:</b> ${u.literBensin} L`);
+  lines.push(`<b>Biaya BBM (total):</b> ${fmtMoney(u.biayaBensin||0)}`);
+  biayaOpItems.filter(it=>it.kategori==='Isi BBM').forEach(it=>{
+    lines.push(`   ↳ <i>${escapeHtml(it.jenisBbm||'BBM')}${it.catatan?' — '+escapeHtml(it.catatan):''}: ${fmtMoney(it.nominal)}</i>`);
+  });
+  if(biayaTolInfo) lines.push(`<b>Biaya Tol (total):</b> ${fmtMoney(biayaTol)}`);
+  biayaOpItems.filter(it=>it.kategori==='Isi E-Toll').forEach(it=>{
+    lines.push(`   ↳ <i>${it.catatan?escapeHtml(it.catatan):'Isi E-Toll'}: ${fmtMoney(it.nominal)}</i>`);
+  });
+  const adaIsiEtollTg = biayaOpItems.some(it=>it.kategori==='Isi E-Toll');
+  if(adaIsiEtollTg || u.saldoEtoll!=null){
+    const linkedCardTg = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
+    const nomorRingkasTg = linkedCardTg ? (linkedCardTg.nomorKartu.length>4 ? '•••• '+linkedCardTg.nomorKartu.slice(-4) : linkedCardTg.nomorKartu) : '';
+    lines.push(`<b>Saldo E-Toll${nomorRingkasTg?' ('+nomorRingkasTg+')':''}:</b> ${u.saldoEtoll!=null?fmtMoney(u.saldoEtoll):'-'}`);
+  }
+  const grandTotal = (Number(u.biayaBensin)||0) + biayaTol + biayaOpTotalUntukTotal;
+  lines.push('', `<b>Total:</b> ${fmtMoney(grandTotal)}`);
+  return lines.join('\n');
+}
+
+// Fire-and-forget: kirim resi instan ke Worker. TIDAK PERNAH melempar error
+// ke pemanggil (kegagalan di sini harus diam -- jalur cadangan lewat cron
+// GitHub Actions yang tetap menjamin resi akhirnya terkirim).
+async function sendInstantTripReceipt(u){
+  try{
+    if(!isGhConnected() || !ghConfig.notifySecret) return; // belum diatur -> serahkan ke cron seperti biasa
+    const driver = state.drivers.find(d=>d.id===u.driverId);
+    const chatId = driver && (driver.telegramChatId||'').toString().trim();
+    if(!chatId) return; // sopir ini tidak terdaftar Telegram -- tidak ada yang perlu dikirim instan
+    if(u.telegramResiSent) return; // sudah pernah terkirim (mis. edit ulang data tiba)
+
+    const text = buildTripReceiptTextTg(u);
+    const bodyStr = JSON.stringify({ chatId, text });
+    const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+      body: bodyStr,
+      ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
+    });
+    if(!res.ok) return; // diam -- cron GitHub Actions akan tetap coba kirim nanti
+    u.telegramResiSent = true;
+    touch(u);
+    // Tandai juga langsung di localStorage supaya flag ini tidak hilang kalau
+    // tab ditutup sebelum saveData() lain sempat jalan -- saveData() penuh
+    // (dgn sinkron ke GitHub) tetap dijadwalkan seperti biasa di pemanggil.
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }catch(e){
+    console.error('Resi instan gagal terkirim (tidak masalah -- cron GitHub Actions tetap jadi cadangan):', e);
+  }
+}
+
 function buildTripReceiptElement(u){
   const jarak = (u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) ? (u.odoKembali-u.odoKeluar) : null;
   const car = state.cars.find(c=>c.id===u.carId);
@@ -11872,6 +11980,22 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.136.0',
+    date: '28 Jul 2026',
+    notes: [
+      'Resi Perjalanan sekarang bisa terkirim ke Telegram sopir SAAT ITU JUGA, langsung dari HP saat trip ditandai "Selesai" -- tidak lagi menunggu proses sinkron data ke GitHub atau jadwal GitHub Actions (~5 menit, bisa meleset). Jalur baru ini PARALEL/tambahan -- kalau gagal (offline, dsb.) resi tetap terjamin terkirim seperti biasa lewat cron GitHub Actions, cuma tidak instan.',
+      'Butuh 2 Secret baru di dasbor Cloudflare Worker: TELEGRAM_BOT_TOKEN (token bot yang sama dengan yang dipakai di GitHub Secrets) dan NOTIFY_SECRET (bebas isi apa saja, cuma jadi penjaga pintu supaya endpoint ini tidak bisa dipakai orang lain). Isi juga field baru "Notify Secret" di modal "Hubungkan Sinkronisasi" dengan nilai NOTIFY_SECRET yang sama.',
+      'Upload ulang worker.js terbaru ke Cloudflare Worker -- ada rute baru (/notify-trip-selesai) di file itu yang menangani pengiriman instan ini.',
+    ]
+  },
+  {
+    v: '3.135.0',
+    date: '28 Jul 2026',
+    notes: [
+      'Notifikasi Telegram "Booking hari ini" (H-0) sekarang SELALU dicek tiap ~5 menit -- sebelumnya ikut aturan "Cek notifikasi berkala setiap X menit" (bisa sampai 60 menit) sama seperti dokumen/servis/BBM/E-Toll. Masalahnya, booking hari ini bisa saja cuma "beberapa menit lagi" -- kalau ikut nunggu jatah 1 jam itu, notifnya sering telat sampai jadwal booking-nya sudah lewat. "Booking besok" (H-1) TETAP ikut aturan interval biasa (masih ada 1 hari penuh, tidak mendesak).',
+    ]
+  },
   {
     v: '3.134.0',
     date: '28 Jul 2026',
