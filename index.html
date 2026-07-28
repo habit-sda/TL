@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.136.0">
+<meta name="app-version" content="3.136.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1282,7 +1282,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.136.0';
+const APP_VERSION = '3.136.1';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -2057,7 +2057,12 @@ function renderSyncIndicator(){
     const lastRaw = localStorage.getItem(LAST_SYNC_KEY);
     const lastTs = lastRaw ? parseInt(lastRaw,10) : null;
     const lastText = (lastTs && !isNaN(lastTs)) ? ' · ' + formatRelativeTime(lastTs) : ' · belum pernah sinkron';
-    el.innerHTML = '☁️ Sinkron aktif' + lastText;
+    // v3.136.1 -- badge ini SEBELUMNYA cuma bisa diklik utk buka modal
+    // "Hubungkan Sinkronisasi" kalau BELUM tersambung -- begitu sudah
+    // tersambung, tidak ada cara lain lewat UI utk membukanya lagi (mis.
+    // utk isi field baru "Notify Secret"). Sekarang selalu jadi link,
+    // supaya modal itu bisa dibuka kapan saja.
+    el.innerHTML = '<a href="#" id="openGhModalLink" style="color:inherit;text-decoration:none;">☁️ Sinkron aktif' + lastText + ' · ⚙️</a>';
     el.className = 'badge ok';
   } else {
     el.innerHTML = '📴 Sinkron tidak berjalan — <a href="#" id="openGhModalLink" style="color:inherit;text-decoration:underline;">atur repository</a>';
@@ -11980,6 +11985,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.136.1',
+    date: '28 Jul 2026',
+    notes: [
+      'Perbaikan kecil: badge "☁️ Sinkron aktif" sekarang SELALU bisa diklik untuk membuka lagi modal "Hubungkan Sinkronisasi" (mis. utk isi field "Notify Secret") -- sebelumnya cuma bisa diklik kalau belum tersambung, jadi begitu sudah tersambung, tidak ada cara lain lewat UI untuk membukanya lagi.',
+    ]
+  },
   {
     v: '3.136.0',
     date: '28 Jul 2026',
