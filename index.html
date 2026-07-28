@@ -3964,9 +3964,9 @@ function computeAlerts(){
   state.bookings.forEach(b=>{
     if(b.status!=='dipesan') return;
     if(b.tglMulai===besokStr){
-      alerts.push({ id:'booking-h1-'+b.id, route:'bookings', ic:'📅', level:'warn', judul:'Booking besok', keterangan: `${carLabel(b.carId)} — ${b.tujuan||'(tanpa tujuan)'}${b.jamMulai?' · '+b.jamMulai:''}`, targetDriverIds: Array.isArray(b.notifDriverIds) ? b.notifDriverIds : null });
+      alerts.push({ id:'booking-h1-'+b.id, route:'bookings', ic:'📅', level:'warn', judul:'Booking besok', keterangan: `${carLabel(b.carId)} — ${b.tujuan||'(tanpa tujuan)'}${b.jamMulai?' · '+b.jamMulai:''} · ${b.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman'} · Sopir: ${b.driverId?driverLabel(b.driverId):'(belum dipilih)'}`, targetDriverIds: Array.isArray(b.notifDriverIds) ? b.notifDriverIds : null });
     } else if(b.tglMulai===hariIniStr){
-      alerts.push({ id:'booking-h0-'+b.id, route:'bookings', ic:'📅', level:'danger', judul:'Booking hari ini', keterangan: `${carLabel(b.carId)} — ${b.tujuan||'(tanpa tujuan)'}${b.jamMulai?' · '+b.jamMulai:''}`, targetDriverIds: Array.isArray(b.notifDriverIds) ? b.notifDriverIds : null, urgent: true });
+      alerts.push({ id:'booking-h0-'+b.id, route:'bookings', ic:'📅', level:'danger', judul:'Booking hari ini', keterangan: `${carLabel(b.carId)} — ${b.tujuan||'(tanpa tujuan)'}${b.jamMulai?' · '+b.jamMulai:''} · ${b.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman'} · Sopir: ${b.driverId?driverLabel(b.driverId):'(belum dipilih)'}`, targetDriverIds: Array.isArray(b.notifDriverIds) ? b.notifDriverIds : null, urgent: true });
     }
   });
   alerts.sort((a,b)=> (a.level==='danger'?0:1) - (b.level==='danger'?0:1));
