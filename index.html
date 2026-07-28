@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.132.0">
+<meta name="app-version" content="3.133.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1277,7 +1277,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.132.0';
+const APP_VERSION = '3.133.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -11840,6 +11840,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.133.0',
+    date: '28 Jul 2026',
+    notes: [
+      'Audit menyeluruh SEMUA sistem notifikasi Telegram (fungsi per fungsi, diverifikasi lewat simulasi): ditemukan 1 bug PENTING -- tombol "Run workflow" manual di GitHub Actions ikut kena batas 1 jam pengecekan berkala (checkIntervalMinutes), jadi kalau dipencet kurang dari 1 jam sejak pengecekan terakhir, script DIAM SAJA tanpa benar-benar mengecek ulang -- padahal maksud orang pencet manual justru mau verifikasi SAAT ITU JUGA. Sekarang run manual SELALU dianggap "waktunya cek", tidak lagi ikut throttle. Resi Perjalanan TIDAK terdampak bug ini (memang dari awal tidak ikut throttle).',
+      'Bagian lain yang diperiksa & dikonfirmasi BERSIH: seluruh alur Tanda Terima Perjalanan, deteksi Dokumen/Servis/BBM/E-Toll, filter kategori notifikasi per-sopir, dedup anti-spam, jam sunyi, dan pengiriman ke penerima.',
+    ]
+  },
   {
     v: '3.132.0',
     date: '28 Jul 2026',
