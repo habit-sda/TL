@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.130.0">
+<meta name="app-version" content="3.131.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1277,7 +1277,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.130.0';
+const APP_VERSION = '3.131.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -4199,23 +4199,39 @@ document.getElementById('brand-logo-longpress').addEventListener('contextmenu', 
   const el = document.getElementById('brand-logo-longpress');
   if(!el) return;
   let timer = null;
-  const mulai = () => { timer = setTimeout(()=>{
-    timer = null;
-    if(modeSopirUnlocked){
-      modeSopirUnlocked = false;
-      try{ sessionStorage.removeItem(MODE_SOPIR_SESSION_KEY); }catch(e){}
-      showToast('Kembali ke Mode Sopir.');
-      applyModeSopirVisibility();
-      if(!MODE_SOPIR_ALLOWED_ROUTES.includes(currentRoute)) navigate('dashboard');
-    } else {
-      openModeSopirPinModal();
-    }
-  }, 2000); };
+  let startX = 0, startY = 0;
+  // v3.131.0 -- PERBAIKAN BUG PENTING: sebelumnya timer tekan-lama DIBATALKAN
+  // begitu ada gerakan sentuh SEKECIL APA PUN (touchmove) -- di HP asli, jari
+  // HAMPIR MUSTAHIL diam sempurna 2 detik penuh (selalu ada getaran mikro
+  // alami), jadi timer SELALU batal sebelum sempat selesai & PIN TIDAK
+  // PERNAH muncul. Sekarang cuma batal kalau jari benar-benar BERGESER
+  // (>15px dari titik awal), bukan gerakan mikro yang wajar saat menahan.
+  const AMBANG_GESER = 15;
+  const mulai = (x, y) => {
+    startX = x; startY = y;
+    timer = setTimeout(()=>{
+      timer = null;
+      if(modeSopirUnlocked){
+        modeSopirUnlocked = false;
+        try{ sessionStorage.removeItem(MODE_SOPIR_SESSION_KEY); }catch(e){}
+        showToast('Kembali ke Mode Sopir.');
+        applyModeSopirVisibility();
+        if(!MODE_SOPIR_ALLOWED_ROUTES.includes(currentRoute)) navigate('dashboard');
+      } else {
+        openModeSopirPinModal();
+      }
+    }, 2000);
+  };
+  const cekGeser = (x, y) => {
+    if(!timer) return;
+    const jarak = Math.hypot(x-startX, y-startY);
+    if(jarak > AMBANG_GESER) batal();
+  };
   const batal = () => { if(timer){ clearTimeout(timer); timer = null; } };
-  el.addEventListener('touchstart', mulai, {passive:true});
+  el.addEventListener('touchstart', e=> mulai(e.touches[0].clientX, e.touches[0].clientY), {passive:true});
   el.addEventListener('touchend', batal);
-  el.addEventListener('touchmove', batal);
-  el.addEventListener('mousedown', mulai);
+  el.addEventListener('touchmove', e=> cekGeser(e.touches[0].clientX, e.touches[0].clientY), {passive:true});
+  el.addEventListener('mousedown', e=> mulai(e.clientX, e.clientY));
   el.addEventListener('mouseup', batal);
   el.addEventListener('mouseleave', batal);
 })();
@@ -11818,6 +11834,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.131.0',
+    date: '28 Jul 2026',
+    notes: [
+      'Perbaikan bug PENTING: tekan-lama logo (pemicu PIN Mode Sopir) TIDAK PERNAH berfungsi di HP asli -- sebelumnya timer batal begitu ada gerakan sentuh sekecil apa pun, padahal jari nyaris mustahil diam sempurna 2 detik penuh (selalu ada getaran mikro alami saat menahan). Sekarang cuma batal kalau jari benar-benar bergeser (>15px), bukan gerakan mikro yang wajar.',
+    ]
+  },
   {
     v: '3.130.0',
     date: '27 Jul 2026',
