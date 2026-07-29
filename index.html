@@ -1286,10 +1286,10 @@ const APP_VERSION = '3.136.2';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
-const SYNC_COLLECTIONS = ['cars','drivers','usage','services','documents','etollCards','etollTransactions','activityLog','bookings','destinations'];
+const SYNC_COLLECTIONS = ['cars','drivers','usage','services','documents','etollCards','etollTransactions','activityLog','bookings','destinations','notifAdmins'];
 
 function defaultTombstones(){
-  return { cars:[], drivers:[], usage:[], services:[], documents:[], etollCards:[], etollTransactions:[], activityLog:[], bookings:[], destinations:[] };
+  return { cars:[], drivers:[], usage:[], services:[], documents:[], etollCards:[], etollTransactions:[], activityLog:[], bookings:[], destinations:[], notifAdmins:[] };
 }
 function loadTombstones(){
   try{
@@ -1322,13 +1322,14 @@ function markDeleted(collection, id){
 // Menandai record baru/diedit dengan waktu terbaru, jadi acuan "versi mana yang
 // menang" saat data digabung dari beberapa device.
 function touch(obj){ obj.updatedAt = Date.now(); return obj; }
-// Jaring pengaman terakhir: pastikan state.destinations SELALU berupa array
-// di titik-titik kritis (habis load awal, habis sinkron cloud), supaya kalau
-// suatu saat ada jalur data lain yang lupa menjaga field ini, halaman Data
-// Tujuan tetap bisa dibuka dengan aman (kosong) alih-alih error/nyangkut di
-// tampilan halaman sebelumnya.
+// Jaring pengaman terakhir: pastikan state.destinations & state.notifAdmins
+// SELALU berupa array di titik-titik kritis (habis load awal, habis sinkron
+// cloud), supaya kalau suatu saat ada jalur data lain yang lupa menjaga
+// field ini -- atau data LAMA dari sebelum field notifAdmins ada -- halaman
+// terkait tetap bisa dibuka dengan aman (kosong) alih-alih error/nyangkut.
 function ensureDestinationsArray(){
   if(!Array.isArray(state.destinations)) state.destinations = [];
+  if(!Array.isArray(state.notifAdmins)) state.notifAdmins = [];
 }
 
 // Rata-rata Jarak & BBM dari riwayat Catat Perjalanan untuk 1 nama tujuan
@@ -1485,11 +1486,16 @@ function backfillDestinationEstimates(){
 
 // Mencatat 1 baris riwayat transaksi kartu E-Toll (top up / pemakaian), supaya
 // Modul Kartu E-Toll bisa menampilkan histori lengkap, bukan cuma saldo akhir.
-function logEtollTransaction(cardId, jenis, nominal, saldoSebelum, saldoSesudah, keterangan){
-  state.etollTransactions.push(touch({
-    id: uid(), cardId, jenis, nominal, saldoSebelum, saldoSesudah,
-    tanggal: today(), keterangan: keterangan||'', petugas: currentAdmin
-  }));
+function logEtollTransaction(cardId, jenis, nominal, saldoSebelum, saldoSesudah, keterangan, usageId){
+  const trx = { id: uid(), cardId, jenis, nominal, saldoSebelum, saldoSesudah,
+    tanggal: today(), keterangan: keterangan||'', petugas: currentAdmin };
+  // usageId (opsional): menautkan transaksi ini ke 1 catatan perjalanan
+  // spesifik, supaya kalau perjalanan itu dihapus nanti, transaksi yang
+  // sama juga ikut dibersihkan (lihat deleteUsage) -- mencegah saldo
+  // "salah tampil" karena riwayat transaksi lama dari trip yang sudah
+  // dihapus tetap ikut dihitung.
+  if(usageId) trx.usageId = usageId;
+  state.etollTransactions.push(touch(trx));
 }
 
 const ACTIVITY_LOG_MAX = 200; // batasi jumlah entri supaya data tidak membengkak terus
@@ -1618,6 +1624,7 @@ function loadData(){
       // SUMBER rekomendasi/autocomplete field Tujuan di Catat Perjalanan &
       // Booking Mobil (lihat attachAutocomplete di form masing-masing).
       destinations: Array.isArray(parsed.destinations) ? parsed.destinations : [],
+      notifAdmins: Array.isArray(parsed.notifAdmins) ? parsed.notifAdmins : [],
       admins: Array.isArray(parsed.admins) && parsed.admins.length ? parsed.admins : defaultData().admins,
       // Toleransi jarak "hilang" (gap odometer) antar-trip per HARI yang
       // dianggap wajar/tidak perlu ditandai (mis. bolak-balik ke masjid,
@@ -1632,8 +1639,8 @@ function loadData(){
   }
 }
 function defaultData(){
-  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
-    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 } };
+  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], notifAdmins: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
+    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 } };
 }
 // v3.95.0 -- Pengaturan Notifikasi (nilai ambang batas dipakai computeAlerts()
 // & telegram-notify.mjs). PENTING: dibaca lewat fungsi ini SAJA (bukan baca
@@ -1650,7 +1657,12 @@ function defaultData(){
 // PENTING: Resi Perjalanan (🧾, dikirim begitu status diubah "Selesai")
 // SENGAJA TIDAK ikut diatur angka ini -- itu tetap dicek tiap tick (maks.
 // 5 menit) supaya sopir selalu cepat dapat resinya, apa pun pengaturan ini.
-const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 };
+// v3.137.0 -- "budgetWarnPct" -- ambang batas Budget Bulanan per mobil (lihat
+// computeAlerts(), kategori 'budget-'). Notifikasi kategori ini SENGAJA
+// HANYA terkirim ke Admin (TELEGRAM_CHAT_ID / ADMIN_CHAT_ID) -- lihat
+// targetDriverIds: [] di alert-nya -- BUKAN ke sopir manapun, beda dari
+// kategori lain yang bisa disiarkan ke sopir lewat notifKategori.
+const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 };
 // v3.103.0 -- Langganan notifikasi PER SOPIR: tiap sopir bisa diatur cuma
 // dapat kategori tertentu (mis. Budi cuma dapat Dokumen+Servis, Siti cuma
 // BBM+E-Toll) lewat driver.notifKategori (array key di bawah). PENTING:
@@ -1943,6 +1955,7 @@ function loadDataFromObject(parsed){
     activityLog: Array.isArray(parsed.activityLog) ? parsed.activityLog : [],
     bookings: Array.isArray(parsed.bookings) ? parsed.bookings : [],
     destinations: Array.isArray(parsed.destinations) ? parsed.destinations : [],
+    notifAdmins: Array.isArray(parsed.notifAdmins) ? parsed.notifAdmins : [],
     admins: Array.isArray(parsed.admins) && parsed.admins.length ? parsed.admins : def.admins,
     toleransiGapKm: (typeof parsed.toleransiGapKm === 'number' && parsed.toleransiGapKm >= 0) ? parsed.toleransiGapKm : 15,
     carCodeSeq: Number(parsed.carCodeSeq)||0, usageCodeSeq: Number(parsed.usageCodeSeq)||0,
@@ -2124,6 +2137,56 @@ function mergeAllCollections(remoteState, remoteTombstones){
   return { mergedState, mergedTombstones, remoteNeedsUpdate, localChanged };
 }
 
+// v3.137.0 -- REKONSILIASI OTOMATIS odometer mobil & saldo kartu E-Toll.
+// Latar belakang: kedua nilai ini disimpan sebagai "nilai terkini" di data
+// mobil/kartu (bukan dihitung ulang otomatis dari daftar trip), jadi
+// penghapusan catatan perjalanan SEBELUM v3.137.0 bisa membuatnya
+// "nyangkut" di angka trip yang sudah dihapus (deleteUsage() baru mulai
+// membetulkan ini sejak versi ini). Fungsi ini jalan tiap sinkron cloud
+// supaya data lama yang sudah terlanjur salah ikut kebetulkan otomatis,
+// tanpa perlu dicek satu-satu manual.
+// CATATAN RISIKO (sudah disetujui untuk tetap dijalankan): untuk kartu
+// E-Toll yang datanya lama (dari SEBELUM v3.137.0), transaksi yang tertaut
+// ke trip yang SUDAH TERLANJUR terhapus tidak punya usageId (tautan itu
+// baru mulai dicatat di trip-trip baru) -- kalau transaksi lama semacam
+// itu kebetulan menjadi jejak PALING BARU untuk sebuah kartu, saldo hasil
+// rekonsiliasi ini bisa meleset. Trip yang dihapus MULAI SEKARANG sudah
+// dibersihkan tautannya dengan benar di deleteUsage(), jadi makin lama
+// makin akurat.
+function resyncOdometerDanSaldoEtoll(){
+  let changed = false;
+  (state.cars||[]).forEach(car=>{
+    const sisaOdo = state.usage
+      .filter(x=> x.carId===car.id && x.odoKembali!=null)
+      .map(x=> Number(x.odoKembali)||0);
+    if(sisaOdo.length){
+      const odoBaru = Math.max(...sisaOdo);
+      if((car.odometerSaatIni ?? null) !== odoBaru){ car.odometerSaatIni = odoBaru; touch(car); changed = true; }
+    }
+    // Kalau sisa trip = 0, angka lama dibiarkan (lihat catatan di deleteUsage).
+  });
+  (state.etollCards||[]).forEach(card=>{
+    const jejak = [];
+    state.usage.forEach(x=>{
+      if(x.etollCardId===card.id && x.saldoEtoll!=null) jejak.push({ waktu: x.updatedAt||0, saldo: Number(x.saldoEtoll) });
+    });
+    state.etollTransactions.forEach(t=>{
+      if(t.cardId===card.id) jejak.push({ waktu: t.updatedAt||0, saldo: Number(t.saldoSesudah) });
+    });
+    if(jejak.length){
+      jejak.sort((a,b)=> b.waktu - a.waktu);
+      const saldoBaru = jejak[0].saldo;
+      if((card.saldo ?? null) !== saldoBaru){ card.saldo = saldoBaru; touch(card); changed = true; }
+    }
+    // Kalau tidak ada jejak sama sekali, angka lama dibiarkan juga (bukan
+    // dikosongkan) -- beda dari kasus 1 trip dihapus langsung (deleteUsage),
+    // di sini kita tidak tahu pasti "trip yang baru saja dihapus" mana yang
+    // relevan, jadi lebih aman tidak menyentuh kalau memang tidak ada bukti
+    // pengganti sama sekali.
+  });
+  return changed;
+}
+
 let ghAutoSyncTimer = null;
 const GH_AUTO_SYNC_INTERVAL_MS = 20000; // cek update dari GitHub tiap 20 detik
 
@@ -2157,7 +2220,7 @@ async function fetchFromGithub(){
     const remoteState = parsed.data || {};
     const remoteTombstones = parsed.tombstones || {};
 
-    const { mergedState, mergedTombstones, remoteNeedsUpdate, localChanged } = mergeAllCollections(remoteState, remoteTombstones);
+    let { mergedState, mergedTombstones, remoteNeedsUpdate, localChanged } = mergeAllCollections(remoteState, remoteTombstones);
 
     // PENTING: mergedState cuma berisi koleksi yang ada di SYNC_COLLECTIONS +
     // admins. Field state LAIN yang bukan koleksi (mis. carCodeSeq,
@@ -2179,6 +2242,12 @@ async function fetchFromGithub(){
     // beda -- perbaiki itu sekarang juga (lihat catatan lengkap di
     // ensureUniqueCodes), sebelum hasil gabungan ini disimpan/ditampilkan.
     if(ensureUniqueCodes()) localChanged = true;
+    // Cek ulang & betulkan otomatis odometer mobil & saldo kartu E-Toll yang
+    // mungkin masih "nyangkut" dari penghapusan catatan perjalanan lama
+    // (lihat catatan lengkap di resyncOdometerDanSaldoEtoll). Kalau ada yang
+    // dibetulkan, tandai juga remoteNeedsUpdate supaya hasil koreksinya ikut
+    // di-push balik ke GitHub -- bukan cuma tersimpan lokal di perangkat ini.
+    if(resyncOdometerDanSaldoEtoll()){ localChanged = true; remoteNeedsUpdate = true; }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     saveTombstones();
     if(localChanged){
@@ -3131,6 +3200,78 @@ function showToast(msg, isErr){
 }
 
 /* ---------------- Petugas (admin) selector ---------------- */
+// v3.137.0 -- Baris form Admin Penerima Notifikasi Telegram (menu
+// Pengaturan). Terpisah total dari state.admins (daftar nama utk LOGIN
+// petugas) -- ini murni siapa yang terima notifikasi Telegram, boleh lebih
+// dari 1 nomor, tiap nomor punya label nama sendiri & preferensi sendiri
+// untuk notifikasi trip selesai.
+function renderNotifAdminsRows(){
+  const list = state.notifAdmins||[];
+  if(!list.length) return `<p class="hint" style="margin:0 0 10px;">Belum ada admin yang didaftarkan menerima notifikasi Telegram.</p>`;
+  return list.map(a=>`
+    <div class="grid-2" data-notifadmin-row="${a.id}" style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;">
+      <div class="field">
+        <label>Nama (label, bebas -- biar tahu ini nomor siapa)</label>
+        <input type="text" class="in-na-nama" value="${escapeHtml(a.nama||'')}" placeholder="mis. Pak Anton">
+      </div>
+      <div class="field">
+        <label>Chat ID Telegram</label>
+        <input type="text" inputmode="numeric" class="in-na-chatid" value="${escapeHtml(a.chatId||'')}" placeholder="mis. 123456789">
+      </div>
+      <div class="field" style="grid-column:1/-1;margin-top:-6px;">
+        <label>Saat trip ditandai "Selesai" (Tiba)</label>
+        <select class="in-na-tripnotif">
+          <option value="off" ${a.tripNotif==='off'?'selected':''}>Tidak usah dikirim apa-apa</option>
+          <option value="ringkas" ${(a.tripNotif||'ringkas')==='ringkas'?'selected':''}>Notifikasi ringkas saja</option>
+          <option value="resi" ${a.tripNotif==='resi'?'selected':''}>Kirim resi lengkap juga</option>
+        </select>
+      </div>
+      <div style="grid-column:1/-1;text-align:right;margin-top:6px;">
+        <button class="btn btn-ghost btn-sm" data-del-notifadmin="${a.id}" style="color:var(--red);">🗑️ Hapus</button>
+      </div>
+    </div>
+  `).join('');
+}
+function wireNotifAdminsSection(){
+  document.querySelectorAll('[data-del-notifadmin]').forEach(btn=>{
+    btn.onclick = () => {
+      const id = btn.dataset.delNotifadmin;
+      if(!confirm('Hapus admin ini dari daftar penerima notifikasi?')) return;
+      markDeleted('notifAdmins', id);
+      state.notifAdmins = (state.notifAdmins||[]).filter(a=>a.id!==id);
+      saveData();
+      showToast('Admin dihapus dari daftar notifikasi.');
+      renderSettings();
+    };
+  });
+  const btnAdd = document.getElementById('btn-add-notif-admin');
+  if(btnAdd) btnAdd.onclick = () => {
+    if(!Array.isArray(state.notifAdmins)) state.notifAdmins = [];
+    state.notifAdmins.push({ id: uid(), nama:'', chatId:'', tripNotif:'ringkas' });
+    renderSettings();
+  };
+  const btnSave = document.getElementById('btn-save-notif-admins');
+  if(btnSave) btnSave.onclick = () => {
+    const rows = document.querySelectorAll('[data-notifadmin-row]');
+    let adaChatIdKosong = false;
+    rows.forEach(row=>{
+      const id = row.dataset.notifadminRow;
+      const a = (state.notifAdmins||[]).find(x=>x.id===id);
+      if(!a) return;
+      const nama = row.querySelector('.in-na-nama').value.trim();
+      const chatId = row.querySelector('.in-na-chatid').value.trim();
+      const tripNotif = row.querySelector('.in-na-tripnotif').value;
+      if(!chatId) adaChatIdKosong = true;
+      a.nama = nama;
+      a.chatId = chatId;
+      a.tripNotif = ['off','ringkas','resi'].includes(tripNotif) ? tripNotif : 'ringkas';
+      touch(a);
+    });
+    saveData();
+    showToast(adaChatIdKosong ? 'Disimpan (ada baris tanpa Chat ID -- baris itu tidak akan menerima notifikasi apa pun).' : 'Daftar admin notifikasi disimpan.');
+    renderNotifBell();
+  };
+}
 function renderPetugasSelect(){
   const sel = document.getElementById('petugas-select');
   sel.innerHTML = state.admins.map(a=>`<option value="${escapeHtml(a)}" ${a===currentAdmin?'selected':''}>${escapeHtml(a)}</option>`).join('')
@@ -3444,6 +3585,11 @@ function renderSettings(){
             <input type="text" inputmode="numeric" id="in-notif-etoll-min" value="${getNotifSettings().etollMinDefault}">
           </div>
           <div class="field">
+            <label>💰 Budget Bulanan: mulai peringatan di berapa % dari limit</label>
+            <input type="text" inputmode="numeric" id="in-notif-budget-pct" value="${getNotifSettings().budgetWarnPct}">
+            <div class="hint">Hanya berlaku untuk mobil yang sudah diisi "Budget Bulanan" di Data Mobil. Notifikasi Telegram-nya <b>khusus Admin</b>, tidak dikirim ke sopir.</div>
+          </div>
+          <div class="field">
             <label>⏳ Trip dianggap "kelamaan" belum Tiba setelah (jam)</label>
             <input type="text" inputmode="numeric" id="in-notif-trip-lama" value="${getNotifSettings().tripDurationWarnHours}">
             <div class="hint">Pengingat "abaikan kalau memang masih di jalan" -- cuma dikirim lewat Telegram jam 06:00-06:59 WIB (1x sehari), bel di aplikasi tetap tampil kapan saja.</div>
@@ -3493,6 +3639,19 @@ function renderSettings(){
             <button class="btn btn-ghost btn-sm" id="btn-refresh-notif-history">🔄 Muat Ulang</button>
           </div>
           <div id="notif-history-wrap" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>👤 Admin Penerima Notifikasi Telegram</h2></div>
+      <div class="panel-body">
+        <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
+          Daftar admin di sini menerima notifikasi berkala (dokumen/servis/BBM/E-Toll/booking) yang sama seperti sopir. Untuk trip yang ditandai <b>"Selesai"</b>, tiap admin bisa diatur SENDIRI-SENDIRI: tidak usah dikirim apa-apa, notifikasi ringkas saja, atau ikut dikirimi resi lengkap seperti yang diterima sopir. Kolom "Nama" bebas diisi apa saja -- cuma label supaya Anda tahu Chat ID ini milik siapa, tidak dipakai sistem untuk apa-apa selain ditampilkan di sini.
+        </p>
+        <div id="notif-admins-list">${renderNotifAdminsRows()}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+          <button class="btn btn-ghost btn-sm" id="btn-add-notif-admin">+ Tambah Admin</button>
+          <button class="btn btn-primary btn-sm" id="btn-save-notif-admins">💾 Simpan Admin Notifikasi</button>
         </div>
       </div>
     </div>
@@ -3579,7 +3738,7 @@ function renderSettings(){
   attachIntegerOnlyInput('in-toleransi-gap');
   if(insightUnlocked){
     renderNotifPermissionStatus();
-    ['in-notif-doc-days','in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min'].forEach(id=>{
+    ['in-notif-doc-days','in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min','in-notif-budget-pct'].forEach(id=>{
       attachIntegerOnlyInput(id);
     });
     document.getElementById('btn-save-notif-settings').onclick = () => {
@@ -3587,6 +3746,7 @@ function renderSettings(){
       const svcPct = Number(document.getElementById('in-notif-service-pct').value || 0);
       const bbmMin = Number(document.getElementById('in-notif-bbm-min').value || 0);
       const etollMin = Number(document.getElementById('in-notif-etoll-min').value || 0);
+      const budgetPct = Number(document.getElementById('in-notif-budget-pct').value || 0);
       const tripLamaJam = Number(document.getElementById('in-notif-trip-lama').value || 0);
       const quietHoursEnabled = document.getElementById('in-notif-quiethours').checked;
       const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
@@ -3597,6 +3757,7 @@ function renderSettings(){
         serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
         bbmMinDefault: bbmMin>=0 ? bbmMin : NOTIF_SETTINGS_DEFAULT.bbmMinDefault,
         etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
+        budgetWarnPct: (budgetPct>0 && budgetPct<=100) ? budgetPct : NOTIF_SETTINGS_DEFAULT.budgetWarnPct,
         tripDurationWarnHours: tripLamaJam>0 ? tripLamaJam : NOTIF_SETTINGS_DEFAULT.tripDurationWarnHours,
         quietHoursEnabled, quietHoursStart, quietHoursEnd,
         checkIntervalMinutes: [5,10,15,30,60].includes(checkIntervalMinutes) ? checkIntervalMinutes : NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes,
@@ -3612,6 +3773,7 @@ function renderSettings(){
     document.getElementById('btn-goto-drivers-telegram').onclick = () => navigate('drivers');
     document.getElementById('btn-refresh-notif-history').onclick = renderNotifHistory;
     renderNotifHistory();
+    wireNotifAdminsSection();
   }
   document.querySelectorAll('[data-cek-tanggal]').forEach(btn=>{
     btn.addEventListener('click', function(){
@@ -3903,6 +4065,38 @@ function computeAlerts(){
       }
     }
   });
+  // v3.137.0 -- Budget/Limit Biaya Bulanan per mobil: kalau mobil sudah
+  // diisi "Budget Bulanan" (car.budgetBulanan, di Data Mobil), bandingkan
+  // dengan total biaya bulan berjalan (BBM+Tol+Servis+Operasional lain --
+  // PERSIS rumus grandTotal di computeMonthlyReport(), supaya angkanya
+  // selalu sama dengan yang dilihat di Laporan Bulanan, tidak dihitung
+  // ulang dengan rumus terpisah). Mobil yang budgetBulanan-nya kosong/0
+  // TIDAK dicek sama sekali (anggap "tidak dibatasi").
+  // SENGAJA notifikasi Telegram-nya HANYA ke Admin (targetDriverIds: [] --
+  // array KOSONG, beda dari null yang berarti "semua sopir") -- budget
+  // adalah urusan pengelola, bukan sopir, jadi tidak ikut mekanisme
+  // langganan kategori per sopir (notifKategori) seperti kategori lain.
+  // Bel di aplikasi TETAP menampilkan ke siapa pun yang buka app (computeAlerts()
+  // sendiri tidak membedakan penerima -- pembedaan itu terjadi belakangan
+  // di alertsForDriver()/telegram-notify.mjs, KHUSUS jalur pengiriman Telegram).
+  const bulanIniStr = today().slice(0, 7);
+  const laporanBulanIniUntukBudget = computeMonthlyReport(bulanIniStr);
+  state.cars.forEach(c=>{
+    const budget = Number(c.budgetBulanan) || 0;
+    if(budget <= 0) return;
+    const baris = laporanBulanIniUntukBudget.perMobil.find(r=> r.car.id===c.id);
+    const totalBiaya = baris ? baris.grandTotal : 0;
+    const pct = totalBiaya / budget;
+    if(pct >= (ns.budgetWarnPct/100)){
+      alerts.push({
+        id: 'budget-'+c.id, route:'laporan', ic:'💰', level: pct>=1?'danger':'warn',
+        judul: pct>=1 ? 'Budget bulanan terlampaui' : 'Mendekati budget bulanan',
+        keterangan: `${carLabel(c.id)} — ${fmtMoney(totalBiaya)} dari ${fmtMoney(budget)} (${Math.round(pct*100)}%)`,
+        targetDriverIds: [], // KHUSUS Admin -- lihat catatan di atas
+      });
+    }
+  });
+
   const hariIniStr = today();
   // v3.121.0 -- Pengingat "Trip Kelamaan Belum Tiba": kalau sebuah trip
   // masih berstatus "digunakan" (belum ditandai Tiba) sudah lebih lama dari
@@ -4715,28 +4909,59 @@ function deleteUsage(id, onDeleted){
     const u = state.usage.find(x=>x.id===id);
     markDeleted('usage', id);
     state.usage = state.usage.filter(x=>x.id!==id);
-    // Odometer mobil & saldo kartu E-Toll disimpan sebagai "nilai terkini"
-    // di data mobil/kartu (bukan dihitung ulang otomatis dari daftar trip),
-    // jadi begitu 1 catatan perjalanan dihapus, keduanya perlu dihitung
-    // ulang manual dari SISA catatan yang masih ada -- supaya tidak
-    // "nyangkut" di angka trip yang sudah dihapus.
+    // Bersihkan transaksi E-Toll yang tertaut langsung ke trip yang baru
+    // dihapus ini (pemakaian & isi-via-biaya-operasional) -- supaya tidak
+    // ikut terhitung sebagai "riwayat" saat saldo kartu dihitung ulang di
+    // bawah. Trip LAMA (sebelum perbaikan ini dipasang) tidak
+    // punya tautan usageId, jadi transaksinya tidak ikut terhapus di sini --
+    // itu keterbatasan yang sudah diketahui, bukan bug baru.
+    state.etollTransactions = state.etollTransactions.filter(t=> t.usageId !== id);
+    // Odometer mobil & saldo kartu E-Toll disimpan sebagai "nilai terkini" di
+    // data mobil/kartu (bukan dihitung ulang otomatis dari daftar trip), jadi
+    // begitu 1 catatan perjalanan dihapus, keduanya perlu dihitung ulang dari
+    // SISA data yang masih ada -- supaya tidak "nyangkut" di angka trip yang
+    // sudah dihapus.
     if(u && u.carId){
       const car = state.cars.find(c=>c.id===u.carId);
       if(car){
         const sisaOdo = state.usage
           .filter(x=> x.carId===u.carId && x.odoKembali!=null)
           .map(x=> Number(x.odoKembali)||0);
-        car.odometerSaatIni = sisaOdo.length ? Math.max(...sisaOdo) : null;
-        touch(car);
+        // Kalau masih ada sisa trip, odometer diambil dari yang tertinggi.
+        // Kalau sudah TIDAK ADA sisa trip sama sekali, angka LAMA dibiarkan
+        // (bukan dikosongkan) -- odometer awal mobil bisa saja diisi manual
+        // saat mobil pertama didaftarkan (sebelum ada trip apa pun), dan
+        // sistem tidak menyimpan angka itu terpisah begitu trip pertama
+        // menimpanya -- mengosongkan ke null berisiko menghapus data itu
+        // padahal belum tentu salah.
+        if(sisaOdo.length) { car.odometerSaatIni = Math.max(...sisaOdo); touch(car); }
       }
     }
     if(u && u.etollCardId){
       const card = state.etollCards.find(c=>c.id===u.etollCardId);
       if(card){
-        const sisaEtoll = state.usage
-          .filter(x=> x.etollCardId===u.etollCardId && x.saldoEtoll!=null)
-          .sort((a,b)=> usageEtollTimeKey(b).localeCompare(usageEtollTimeKey(a))); // terbaru dulu
-        card.saldo = sisaEtoll.length ? Number(sisaEtoll[0].saldoEtoll) : null;
+        // Kumpulkan SEMUA jejak yang bisa mempengaruhi saldo kartu ini yang
+        // MASIH ADA setelah trip ini dihapus: (a) sisa trip yang mencatat
+        // saldo E-Toll, dan (b) sisa riwayat transaksi (top up, koreksi
+        // manual, isi via biaya operasional trip lain). Diurutkan pakai
+        // waktu SIMPAN sebenarnya (updatedAt dari touch()), supaya top up/
+        // koreksi manual yang terjadi SESUDAH trip yang dihapus ini tetap
+        // terhitung sebagai yang paling akhir -- tidak ikut hilang.
+        const jejak = [];
+        state.usage.forEach(x=>{
+          if(x.etollCardId===u.etollCardId && x.saldoEtoll!=null){
+            jejak.push({ waktu: x.updatedAt||0, saldo: Number(x.saldoEtoll) });
+          }
+        });
+        state.etollTransactions.forEach(t=>{
+          if(t.cardId===u.etollCardId){
+            jejak.push({ waktu: t.updatedAt||0, saldo: Number(t.saldoSesudah) });
+          }
+        });
+        jejak.sort((a,b)=> b.waktu - a.waktu); // terbaru dulu
+        // Kalau benar-benar tidak ada jejak apa pun tersisa (trip ini
+        // memang satu-satunya riwayat kartu ini), baru dikosongkan.
+        card.saldo = jejak.length ? jejak[0].saldo : null;
         touch(card);
       }
     }
@@ -5414,6 +5639,14 @@ function openCarModal(editId){
     <div class="field" id="box-batas-bensin">
       ${renderBatasBensinFieldHTML(editing&&editing.batasMinimumBensin!=null?editing.batasMinimumBensin:null, editing&&editing.tipeIndikatorBbm==='bar', editing&&editing.maxBarBbm?editing.maxBarBbm:8)}
     </div>
+    <div class="panel-head" style="padding:0;border:none;margin:16px 0 8px 0;">
+      <h2 style="font-size:13px;">💰 Budget Bulanan (opsional)</h2>
+    </div>
+    <div class="field">
+      <label>Limit biaya bulanan (Rp) — BBM + Tol + Servis + Operasional lain</label>
+      <input type="text" inputmode="numeric" id="in-budget-bulanan" placeholder="Contoh: 3.000.000" value="${editing&&editing.budgetBulanan!=null?fmtRibuanInitial(editing.budgetBulanan):''}">
+      <div class="hint">Kalau diisi, mobil ini dipantau tiap bulan berjalan -- begitu total biaya mendekati/melewati angka ini, Admin dapat notifikasi Telegram (ambang batas % diatur di menu ⏰ Ambang Batas Notifikasi). Kosongkan kalau tidak perlu dibatasi.</div>
+    </div>
   `;
   openModal({
     title: editing ? 'Edit Data Mobil' : 'Tambah Mobil Baru',
@@ -5441,6 +5674,7 @@ function openCarModal(editId){
       const efisiensiMinVal = document.getElementById('in-efisiensi-min').value;
       const efisiensiMaxVal = document.getElementById('in-efisiensi-max').value;
       const ccMesinVal = document.getElementById('in-cc-mesin').value;
+      const budgetBulananVal = getRibuanValue('in-budget-bulanan');
 
       let valid = true;
       toggleFieldError('f-merk', !merk); if(!merk) valid=false;
@@ -5477,14 +5711,16 @@ function openCarModal(editId){
       }
       let ccMesin = ccMesinVal === '' ? null : Number(ccMesinVal);
       if(ccMesin!=null && ccMesin<=0) ccMesin = null;
+      let budgetBulanan = budgetBulananVal === '' ? null : Number(budgetBulananVal);
+      if(budgetBulanan!=null && budgetBulanan<=0) budgetBulanan = null;
 
       if(editing){
-        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin});
+        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan});
         touch(editing);
         logActivity('mobil', 'Edit data mobil', `${merk} ${modelMobil} — ${plat}`);
         showToast('Data mobil diperbarui.');
       } else {
-        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, createdAt: today(), petugas: currentAdmin}));
+        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan, createdAt: today(), petugas: currentAdmin}));
         logActivity('mobil', 'Tambah mobil baru', `${merk} ${modelMobil} — ${plat}`);
         showToast('Mobil baru ditambahkan.');
       }
@@ -5505,6 +5741,7 @@ function openCarModal(editId){
   attachIntegerOnlyInput('in-kapasitas-tangki');
   attachRibuanInput('in-calc-nilai-penuh');
   attachRibuanInput('in-calc-harga-liter');
+  attachRibuanInput('in-budget-bulanan');
   function autoHitungKapasitas(){
     const nilaiPenuh = Number(getRibuanValue('in-calc-nilai-penuh'))||0;
     const hargaLiter = Number(getRibuanValue('in-calc-harga-liter'))||0;
@@ -7230,7 +7467,7 @@ function markReturned(id){
           const saldoSebelum = Number(card.saldo)||0;
           const saldoSesudah = u.saldoEtoll;
           if(saldoSesudah !== saldoSebelum){
-            logEtollTransaction(card.id, 'pemakaian', saldoSesudah - saldoSebelum, saldoSebelum, saldoSesudah, `Perjalanan: ${u.tujuan||'-'}`);
+            logEtollTransaction(card.id, 'pemakaian', saldoSesudah - saldoSebelum, saldoSebelum, saldoSesudah, `Perjalanan: ${u.tujuan||'-'}`, u.id);
           }
           card.saldo = saldoSesudah;
           touch(card);
@@ -7242,6 +7479,7 @@ function markReturned(id){
       // GitHub) begitu trip ditandai selesai. Diam-diam gagal kalau belum
       // diatur/offline -- resi tetap terjamin lewat cron GitHub Actions.
       sendInstantTripReceipt(u);
+      sendInstantAdminTripNotif(u);
       logActivity('penggunaan', 'Mobil kembali', `${carLabel(u.carId)} — ${u.tujuan||''}`);
       // Audit trail KHUSUS kalau ini EDIT ULANG data yang sudah pernah
       // selesai sebelumnya (bukan penyelesaian pertama kali) -- itu kasus
@@ -7582,7 +7820,7 @@ function openBiayaOperasionalModal(usageId){
           linkedCardForTopup.saldo = saldoSesudah;
           touch(linkedCardForTopup);
           if(netTopupBaru>0 || kontribusiLama>0){
-            logEtollTransaction(linkedCardForTopup.id, 'topup', netTopupBaru-kontribusiLama, saldoSebelum, saldoSesudah, `Isi E-Toll via Biaya Operasional — ${carLabel(u.carId)}`);
+            logEtollTransaction(linkedCardForTopup.id, 'topup', netTopupBaru-kontribusiLama, saldoSebelum, saldoSesudah, `Isi E-Toll via Biaya Operasional — ${carLabel(u.carId)}`, u.id);
           }
           u.etollTopupAppliedToCard = netTopupBaru;
         }
@@ -7810,6 +8048,45 @@ async function sendInstantTripReceipt(u){
   }catch(e){
     showToast('Resi instan gagal terkirim (' + e.message + ') -- resi tetap akan terkirim via jadwal biasa.', true);
     console.error('Resi instan gagal terkirim (tidak masalah -- cron GitHub Actions tetap jadi cadangan):', e);
+  }
+}
+
+// v3.137.0 -- Notifikasi instan ke ADMIN (state.notifAdmins) saat trip
+// ditandai selesai, paralel dengan resi ke sopir di atas. Tiap admin diberi
+// pesan sesuai PREFERENSI MASING-MASING: 'off' dilewati, 'ringkas' dapat 1
+// baris ringkasan, 'resi' dapat resi lengkap sama seperti sopir. Dicatat di
+// u.telegramAdminNotifSentIds (per-admin, bukan boolean tunggal, karena bisa
+// lebih dari 1 admin) supaya tidak dobel terkirim kalau data disimpan ulang.
+// Diam-diam gagal seperti resi sopir -- cron Worker tetap jadi cadangan.
+async function sendInstantAdminTripNotif(u){
+  try{
+    if(!isGhConnected() || !ghConfig.notifySecret) return;
+    const admins = (state.notifAdmins||[]).filter(a=> a.chatId && a.tripNotif && a.tripNotif!=='off');
+    if(!admins.length) return;
+    if(!Array.isArray(u.telegramAdminNotifSentIds)) u.telegramAdminNotifSentIds = [];
+    let adaPerubahan = false;
+    for(const a of admins){
+      if(u.telegramAdminNotifSentIds.includes(a.id)) continue; // sudah pernah ke admin ini
+      const text = a.tripNotif==='resi'
+        ? buildTripReceiptTextTg(u)
+        : `✅ <b>Trip Selesai</b>\n\n${escapeHtml(carLabel(u.carId))} — ${escapeHtml(u.tujuan||'-')}\nSopir: ${escapeHtml(driverLabel(u.driverId,u.driver))}\nTiba: ${u.tglKembali?escapeHtml(fmtDate(u.tglKembali)):'-'}${u.jamKembali?', '+u.jamKembali:''}`;
+      const bodyStr = JSON.stringify({ chatId: a.chatId, text });
+      try{
+        const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai`, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+          body: bodyStr,
+          ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
+        });
+        if(res.ok){ u.telegramAdminNotifSentIds.push(a.id); adaPerubahan = true; }
+      }catch(e){ /* diam -- cron Worker jadi cadangan */ }
+    }
+    if(adaPerubahan){
+      touch(u);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+  }catch(e){
+    console.error('Notifikasi admin (trip selesai) gagal, cron Worker jadi cadangan:', e);
   }
 }
 
