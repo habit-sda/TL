@@ -11381,19 +11381,45 @@ function renderGpsTracking(){
     wrap.innerHTML = `
       <div class="data-card-list">
         ${list.map(v=>{
-          const plat = v.no_polisi ?? v.plat_nomor ?? v.plate ?? v.vehicle_number ?? v.nopol ?? v.name ?? v.vehicle_name ?? '(tanpa nama)';
-          const lokasi = v.address ?? v.alamat ?? v.location ?? null;
-          const kecepatan = v.speed ?? v.kecepatan ?? null;
-          const waktu = v.gps_date ?? v.last_update ?? v.updated_at ?? v.waktu ?? v.gps_time ?? null;
-          const accRaw = v.acc_status ?? v.acc ?? v.status_mesin ?? null;
-          const accOn = accRaw===1 || accRaw===true || String(accRaw).toUpperCase()==='ON';
+          // Struktur field dikonfirmasi dari respons asli GPS.id (endpoint
+          // Get Vehicle): plate, device_name, acc, door, battery, speed,
+          // mileage, address, longitude/latitude, last_positioning,
+          // last_update. Field lain (imei, owner, gsm_no, dll) tidak
+          // ditampilkan di kartu tapi tetap ada di "data mentah".
+          const plat = v.plate || v.device_name || '(tanpa nama)';
+          const lat = v.latitude!=null ? parseFloat(v.latitude) : null;
+          const lng = v.longitude!=null ? parseFloat(v.longitude) : null;
+          const punyaKoordinat = lat!=null && lng!=null && !isNaN(lat) && !isNaN(lng) && !(lat===0 && lng===0);
+          // GPS.id sering tidak mengisi "address" (null) -- kalau begitu,
+          // tetap tampilkan koordinat sebagai tautan Google Maps supaya
+          // lokasi tetap bisa dilihat/dilacak.
+          const lokasiHtml = v.address
+            ? escapeHtml(String(v.address))
+            : (punyaKoordinat
+                ? `<a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener">${lat.toFixed(5)}, ${lng.toFixed(5)} ↗</a>`
+                : null);
+          const kecepatan = v.speed;
+          const accOn = String(v.acc).toUpperCase() === 'ON';
+          const pintuBuka = String(v.door).toUpperCase() === 'OPEN';
+          const baterai = v.battery!=null && v.battery!=='' ? v.battery : null;
+          // Odometer dari GPS.id dalam meter -> tampilkan dalam km.
+          const odoKm = (typeof v.mileage === 'number') ? (v.mileage/1000) : null;
+          // "Update Terakhir" = terakhir device lapor ke server; bisa beda
+          // dgn "Posisi Terakhir" = terakhir sinyal GPS valid didapat (mis.
+          // mesin OFF lama, device masih lapor tapi posisi tidak berubah).
+          const waktuUpdate = v.last_update || null;
+          const waktuPosisi = v.last_positioning || null;
           return `
           <div class="data-card">
             <div class="data-card-title">${escapeHtml(String(plat))}</div>
-            ${lokasi ? `<div class="data-card-row"><span class="k">Lokasi</span><span class="v">${escapeHtml(String(lokasi))}</span></div>` : ''}
+            ${lokasiHtml ? `<div class="data-card-row"><span class="k">Lokasi</span><span class="v">${lokasiHtml}</span></div>` : ''}
             ${kecepatan!=null ? `<div class="data-card-row"><span class="k">Kecepatan</span><span class="v">${escapeHtml(String(kecepatan))} km/j</span></div>` : ''}
-            ${accRaw!=null ? `<div class="data-card-row"><span class="k">Status Mesin</span><span class="v">${accOn ? '<span class="badge ok">ON</span>' : '<span class="badge neutral">OFF</span>'}</span></div>` : ''}
-            ${waktu ? `<div class="data-card-row"><span class="k">Update Terakhir</span><span class="v">${escapeHtml(String(waktu))}</span></div>` : ''}
+            ${v.acc!=null ? `<div class="data-card-row"><span class="k">Status Mesin</span><span class="v">${accOn ? '<span class="badge ok">ON</span>' : '<span class="badge neutral">OFF</span>'}</span></div>` : ''}
+            ${v.door!=null ? `<div class="data-card-row"><span class="k">Pintu</span><span class="v">${pintuBuka ? '<span class="badge warn">TERBUKA</span>' : '<span class="badge neutral">TERTUTUP</span>'}</span></div>` : ''}
+            ${odoKm!=null ? `<div class="data-card-row"><span class="k">Odometer</span><span class="v">${odoKm.toLocaleString('id-ID',{maximumFractionDigits:1})} km</span></div>` : ''}
+            ${baterai!=null ? `<div class="data-card-row"><span class="k">Baterai GPS</span><span class="v">${escapeHtml(String(baterai))}%</span></div>` : ''}
+            ${waktuPosisi ? `<div class="data-card-row"><span class="k">Posisi Terakhir</span><span class="v">${escapeHtml(String(waktuPosisi))}</span></div>` : ''}
+            ${waktuUpdate ? `<div class="data-card-row"><span class="k">Update Terakhir</span><span class="v">${escapeHtml(String(waktuUpdate))}</span></div>` : ''}
           </div>`;
         }).join('')}
       </div>
