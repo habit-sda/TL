@@ -1640,7 +1640,7 @@ function loadData(){
 }
 function defaultData(){
   return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], notifAdmins: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
-    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 } };
+    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 } };
 }
 // v3.95.0 -- Pengaturan Notifikasi (nilai ambang batas dipakai computeAlerts()
 // & telegram-notify.mjs). PENTING: dibaca lewat fungsi ini SAJA (bukan baca
@@ -1657,12 +1657,7 @@ function defaultData(){
 // PENTING: Resi Perjalanan (🧾, dikirim begitu status diubah "Selesai")
 // SENGAJA TIDAK ikut diatur angka ini -- itu tetap dicek tiap tick (maks.
 // 5 menit) supaya sopir selalu cepat dapat resinya, apa pun pengaturan ini.
-// v3.137.0 -- "budgetWarnPct" -- ambang batas Budget Bulanan per mobil (lihat
-// computeAlerts(), kategori 'budget-'). Notifikasi kategori ini SENGAJA
-// HANYA terkirim ke Admin (TELEGRAM_CHAT_ID / ADMIN_CHAT_ID) -- lihat
-// targetDriverIds: [] di alert-nya -- BUKAN ke sopir manapun, beda dari
-// kategori lain yang bisa disiarkan ke sopir lewat notifKategori.
-const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 };
+const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 };
 // v3.103.0 -- Langganan notifikasi PER SOPIR: tiap sopir bisa diatur cuma
 // dapat kategori tertentu (mis. Budi cuma dapat Dokumen+Servis, Siti cuma
 // BBM+E-Toll) lewat driver.notifKategori (array key di bawah). PENTING:
@@ -3585,11 +3580,6 @@ function renderSettings(){
             <input type="text" inputmode="numeric" id="in-notif-etoll-min" value="${getNotifSettings().etollMinDefault}">
           </div>
           <div class="field">
-            <label>💰 Budget Bulanan: mulai peringatan di berapa % dari limit</label>
-            <input type="text" inputmode="numeric" id="in-notif-budget-pct" value="${getNotifSettings().budgetWarnPct}">
-            <div class="hint">Hanya berlaku untuk mobil yang sudah diisi "Budget Bulanan" di Data Mobil. Notifikasi Telegram-nya <b>khusus Admin</b>, tidak dikirim ke sopir.</div>
-          </div>
-          <div class="field">
             <label>⏳ Trip dianggap "kelamaan" belum Tiba setelah (jam)</label>
             <input type="text" inputmode="numeric" id="in-notif-trip-lama" value="${getNotifSettings().tripDurationWarnHours}">
             <div class="hint">Pengingat "abaikan kalau memang masih di jalan" -- cuma dikirim lewat Telegram jam 06:00-06:59 WIB (1x sehari), bel di aplikasi tetap tampil kapan saja.</div>
@@ -3738,7 +3728,7 @@ function renderSettings(){
   attachIntegerOnlyInput('in-toleransi-gap');
   if(insightUnlocked){
     renderNotifPermissionStatus();
-    ['in-notif-doc-days','in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min','in-notif-budget-pct'].forEach(id=>{
+    ['in-notif-doc-days','in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min'].forEach(id=>{
       attachIntegerOnlyInput(id);
     });
     document.getElementById('btn-save-notif-settings').onclick = () => {
@@ -3746,7 +3736,6 @@ function renderSettings(){
       const svcPct = Number(document.getElementById('in-notif-service-pct').value || 0);
       const bbmMin = Number(document.getElementById('in-notif-bbm-min').value || 0);
       const etollMin = Number(document.getElementById('in-notif-etoll-min').value || 0);
-      const budgetPct = Number(document.getElementById('in-notif-budget-pct').value || 0);
       const tripLamaJam = Number(document.getElementById('in-notif-trip-lama').value || 0);
       const quietHoursEnabled = document.getElementById('in-notif-quiethours').checked;
       const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
@@ -3757,7 +3746,6 @@ function renderSettings(){
         serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
         bbmMinDefault: bbmMin>=0 ? bbmMin : NOTIF_SETTINGS_DEFAULT.bbmMinDefault,
         etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
-        budgetWarnPct: (budgetPct>0 && budgetPct<=100) ? budgetPct : NOTIF_SETTINGS_DEFAULT.budgetWarnPct,
         tripDurationWarnHours: tripLamaJam>0 ? tripLamaJam : NOTIF_SETTINGS_DEFAULT.tripDurationWarnHours,
         quietHoursEnabled, quietHoursStart, quietHoursEnd,
         checkIntervalMinutes: [5,10,15,30,60].includes(checkIntervalMinutes) ? checkIntervalMinutes : NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes,
@@ -4065,38 +4053,6 @@ function computeAlerts(){
       }
     }
   });
-  // v3.137.0 -- Budget/Limit Biaya Bulanan per mobil: kalau mobil sudah
-  // diisi "Budget Bulanan" (car.budgetBulanan, di Data Mobil), bandingkan
-  // dengan total biaya bulan berjalan (BBM+Tol+Servis+Operasional lain --
-  // PERSIS rumus grandTotal di computeMonthlyReport(), supaya angkanya
-  // selalu sama dengan yang dilihat di Laporan Bulanan, tidak dihitung
-  // ulang dengan rumus terpisah). Mobil yang budgetBulanan-nya kosong/0
-  // TIDAK dicek sama sekali (anggap "tidak dibatasi").
-  // SENGAJA notifikasi Telegram-nya HANYA ke Admin (targetDriverIds: [] --
-  // array KOSONG, beda dari null yang berarti "semua sopir") -- budget
-  // adalah urusan pengelola, bukan sopir, jadi tidak ikut mekanisme
-  // langganan kategori per sopir (notifKategori) seperti kategori lain.
-  // Bel di aplikasi TETAP menampilkan ke siapa pun yang buka app (computeAlerts()
-  // sendiri tidak membedakan penerima -- pembedaan itu terjadi belakangan
-  // di alertsForDriver()/telegram-notify.mjs, KHUSUS jalur pengiriman Telegram).
-  const bulanIniStr = today().slice(0, 7);
-  const laporanBulanIniUntukBudget = computeMonthlyReport(bulanIniStr);
-  state.cars.forEach(c=>{
-    const budget = Number(c.budgetBulanan) || 0;
-    if(budget <= 0) return;
-    const baris = laporanBulanIniUntukBudget.perMobil.find(r=> r.car.id===c.id);
-    const totalBiaya = baris ? baris.grandTotal : 0;
-    const pct = totalBiaya / budget;
-    if(pct >= (ns.budgetWarnPct/100)){
-      alerts.push({
-        id: 'budget-'+c.id, route:'laporan', ic:'💰', level: pct>=1?'danger':'warn',
-        judul: pct>=1 ? 'Budget bulanan terlampaui' : 'Mendekati budget bulanan',
-        keterangan: `${carLabel(c.id)} — ${fmtMoney(totalBiaya)} dari ${fmtMoney(budget)} (${Math.round(pct*100)}%)`,
-        targetDriverIds: [], // KHUSUS Admin -- lihat catatan di atas
-      });
-    }
-  });
-
   const hariIniStr = today();
   // v3.121.0 -- Pengingat "Trip Kelamaan Belum Tiba": kalau sebuah trip
   // masih berstatus "digunakan" (belum ditandai Tiba) sudah lebih lama dari
@@ -5639,14 +5595,6 @@ function openCarModal(editId){
     <div class="field" id="box-batas-bensin">
       ${renderBatasBensinFieldHTML(editing&&editing.batasMinimumBensin!=null?editing.batasMinimumBensin:null, editing&&editing.tipeIndikatorBbm==='bar', editing&&editing.maxBarBbm?editing.maxBarBbm:8)}
     </div>
-    <div class="panel-head" style="padding:0;border:none;margin:16px 0 8px 0;">
-      <h2 style="font-size:13px;">💰 Budget Bulanan (opsional)</h2>
-    </div>
-    <div class="field">
-      <label>Limit biaya bulanan (Rp) — BBM + Tol + Servis + Operasional lain</label>
-      <input type="text" inputmode="numeric" id="in-budget-bulanan" placeholder="Contoh: 3.000.000" value="${editing&&editing.budgetBulanan!=null?fmtRibuanInitial(editing.budgetBulanan):''}">
-      <div class="hint">Kalau diisi, mobil ini dipantau tiap bulan berjalan -- begitu total biaya mendekati/melewati angka ini, Admin dapat notifikasi Telegram (ambang batas % diatur di menu ⏰ Ambang Batas Notifikasi). Kosongkan kalau tidak perlu dibatasi.</div>
-    </div>
   `;
   openModal({
     title: editing ? 'Edit Data Mobil' : 'Tambah Mobil Baru',
@@ -5674,7 +5622,6 @@ function openCarModal(editId){
       const efisiensiMinVal = document.getElementById('in-efisiensi-min').value;
       const efisiensiMaxVal = document.getElementById('in-efisiensi-max').value;
       const ccMesinVal = document.getElementById('in-cc-mesin').value;
-      const budgetBulananVal = getRibuanValue('in-budget-bulanan');
 
       let valid = true;
       toggleFieldError('f-merk', !merk); if(!merk) valid=false;
@@ -5711,16 +5658,14 @@ function openCarModal(editId){
       }
       let ccMesin = ccMesinVal === '' ? null : Number(ccMesinVal);
       if(ccMesin!=null && ccMesin<=0) ccMesin = null;
-      let budgetBulanan = budgetBulananVal === '' ? null : Number(budgetBulananVal);
-      if(budgetBulanan!=null && budgetBulanan<=0) budgetBulanan = null;
 
       if(editing){
-        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan});
+        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin});
         touch(editing);
         logActivity('mobil', 'Edit data mobil', `${merk} ${modelMobil} — ${plat}`);
         showToast('Data mobil diperbarui.');
       } else {
-        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan, createdAt: today(), petugas: currentAdmin}));
+        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, createdAt: today(), petugas: currentAdmin}));
         logActivity('mobil', 'Tambah mobil baru', `${merk} ${modelMobil} — ${plat}`);
         showToast('Mobil baru ditambahkan.');
       }
@@ -5741,7 +5686,6 @@ function openCarModal(editId){
   attachIntegerOnlyInput('in-kapasitas-tangki');
   attachRibuanInput('in-calc-nilai-penuh');
   attachRibuanInput('in-calc-harga-liter');
-  attachRibuanInput('in-budget-bulanan');
   function autoHitungKapasitas(){
     const nilaiPenuh = Number(getRibuanValue('in-calc-nilai-penuh'))||0;
     const hargaLiter = Number(getRibuanValue('in-calc-harga-liter'))||0;
