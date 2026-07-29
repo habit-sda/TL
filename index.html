@@ -1282,7 +1282,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.140.0';
+const APP_VERSION = '3.141.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3600,8 +3600,9 @@ function renderSettings(){
       <div class="panel-head"><h2>⏰ Ambang Batas Notifikasi</h2></div>
       <div class="panel-body">
         <p style="color:var(--muted);margin:0 0 14px;line-height:1.6;">
-          Nilai di bawah ini dipakai bersama oleh lonceng notifikasi di aplikasi <b>dan</b> Notifikasi Telegram Otomatis (GitHub Actions) -- ubah di sini, otomatis berlaku ke keduanya begitu tersinkron.
+          Nilai di bawah ini dipakai bersama oleh lonceng notifikasi di aplikasi <b>dan</b> Notifikasi Telegram Otomatis (dijalankan lewat GitHub Actions dan/atau Cloudflare Worker Cron Trigger, tergantung mana yang aktif di akun Anda) -- ubah di sini, otomatis berlaku ke keduanya begitu tersinkron.
         </p>
+        <div id="notif-status-strip" style="margin:0 0 14px;"></div>
         <div class="grid-2">
           <div class="field">
             <label>📄 Dokumen (Mobil &amp; Sopir): jadwal pengingat</label>
@@ -3641,7 +3642,7 @@ function renderSettings(){
               <option value="30" ${getNotifSettings().checkIntervalMinutes===30?'selected':''}>30 menit</option>
               <option value="60" ${getNotifSettings().checkIntervalMinutes===60?'selected':''}>60 menit (1 jam)</option>
             </select>
-            <div class="hint">Berlaku untuk notifikasi Dokumen/Servis/BBM/E-Toll/Booking. Makin kecil = makin cepat, tapi makin sering GitHub Actions jalan. <b>Tidak berlaku</b> untuk 🧾 Resi Perjalanan -- itu selalu dicek maksimal tiap 5 menit, berapa pun angka ini.</div>
+            <div class="hint">Berlaku untuk notifikasi Dokumen/Servis/BBM/E-Toll/Booking. Makin kecil = makin cepat, tapi makin sering job pengecekan berkala jalan (GitHub Actions/Worker Cron). <b>Tidak berlaku</b> untuk 🧾 Resi Perjalanan -- itu selalu dicek maksimal tiap 5 menit, berapa pun angka ini.</div>
           </div>
         </div>
         <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
@@ -12345,24 +12346,69 @@ function notifStateApiUrl(){
   const notifPath = dir ? `${dir}/notif-state.json` : 'notif-state.json';
   return `${ghConfig.workerUrl.replace(/\/$/,'')}/repos/${ghConfig.owner}/${ghConfig.repo}/contents/${notifPath}`;
 }
+// v3.148.0 -- Status strip "Aktif/Terlambat/Belum Pernah Jalan" utk job
+// pengecekan berkala (GitHub Actions ATAU Worker Cron Trigger, mana pun yang
+// benar-benar aktif -- aplikasi TIDAK BISA tahu dari kode mana yang jalan,
+// jadi status ini SENGAJA dihitung dari BUKTI aktual: field lastAlertCheckAt
+// di notif-state.json, yang di-update jalur mana pun yang benar-benar
+// mengecek. Ini kesimpulan otomatis dari data yang sudah ada -- bukan dari
+// nebak konfigurasi. Kalau statusnya merah, artinya: SALAH SATU dari --
+// Cron Trigger Cloudflare belum ditambahkan, atau workflow GitHub Actions
+// sudah berhenti/gagal -- keduanya harus dicek manual di dashboard masing-
+// masing, aplikasi tidak punya akses ke situ.
+function fmtDurasiLalu(ms){
+  const menit = Math.floor(ms/60000);
+  if(menit < 1) return 'baru saja';
+  if(menit < 60) return `${menit} menit lalu`;
+  const jam = Math.floor(menit/60);
+  if(jam < 24) return `${jam} jam ${menit%60} menit lalu`;
+  const hari = Math.floor(jam/24);
+  return `${hari} hari lalu`;
+}
+function renderNotifStatusStrip(parsed){
+  const el = document.getElementById('notif-status-strip');
+  if(!el) return;
+  if(!parsed){
+    el.innerHTML = `<span class="badge danger">🔴 Belum pernah jalan</span> <span style="font-size:11.5px;color:var(--muted);">notif-state.json belum pernah ditulis -- Cron Trigger Cloudflare belum ditambahkan, atau GitHub Actions belum pernah sukses jalan.</span>`;
+    return;
+  }
+  const lastAlertCheckAt = Number(parsed.lastAlertCheckAt) || 0;
+  if(!lastAlertCheckAt){
+    el.innerHTML = `<span class="badge danger">🔴 Belum pernah tercatat mengecek</span> <span style="font-size:11.5px;color:var(--muted);">File status sudah ada tapi belum ada catatan pengecekan berkala.</span>`;
+    return;
+  }
+  const intervalMin = getNotifSettings().checkIntervalMinutes;
+  const ageMs = Date.now() - lastAlertCheckAt;
+  const ageMin = ageMs/60000;
+  let cls, icon, label;
+  if(ageMin <= intervalMin*1.5 + 5){ cls='ok'; icon='🟢'; label='Aktif'; }
+  else if(ageMin <= intervalMin*4 + 30){ cls='warn'; icon='🟡'; label='Terlambat'; }
+  else { cls='danger'; icon='🔴'; label='Berhenti/sangat terlambat'; }
+  el.innerHTML = `<span class="badge ${cls}">${icon} ${label}</span> <span style="font-size:11.5px;color:var(--muted);">terakhir dicek ${fmtDurasiLalu(ageMs)} (target tiap ${intervalMin} menit)${cls!=='ok'?' -- cek Cron Trigger di Cloudflare & status workflow di GitHub Actions':''}</span>`;
+}
 async function renderNotifHistory(){
   const wrap = document.getElementById('notif-history-wrap');
+  const stripEl = document.getElementById('notif-status-strip');
   if(!wrap) return;
   if(!isGhConnected()){
-    wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);margin:0;">Sinkronisasi Cloud (GitHub) belum terhubung -- riwayat notifikasi Telegram cuma bisa dilihat kalau sudah terhubung (dibaca dari file yang sama yang ditulis GitHub Actions).</p>`;
+    wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);margin:0;">Sinkronisasi Cloud (GitHub) belum terhubung -- riwayat notifikasi Telegram cuma bisa dilihat kalau sudah terhubung (dibaca dari file yang sama yang ditulis job pengecekan berkala).</p>`;
+    if(stripEl) stripEl.innerHTML = `<span style="font-size:11.5px;color:var(--muted);">Sinkronisasi Cloud belum terhubung -- status tidak bisa dicek.</span>`;
     return;
   }
   wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);margin:0;">Memuat riwayat...</p>`;
+  if(stripEl) stripEl.innerHTML = `<span style="font-size:11.5px;color:var(--muted);">Memuat status...</span>`;
   try{
     const url = notifStateApiUrl();
     const res = await fetch(`${url}?ref=${encodeURIComponent(ghConfig.branch)}&_=${Date.now()}`, { headers: ghHeaders(), cache:'no-store' });
     if(res.status === 404){
-      wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);margin:0;">Belum ada riwayat -- workflow Telegram belum pernah jalan, atau belum pernah ada notifikasi yang terkirim.</p>`;
+      wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);margin:0;">Belum ada riwayat -- job pengecekan berkala belum pernah jalan, atau belum pernah ada notifikasi yang terkirim.</p>`;
+      renderNotifStatusStrip(null);
       return;
     }
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data = await res.json();
     const parsed = JSON.parse(b64DecodeUtf8(data.content));
+    renderNotifStatusStrip(parsed);
     const history = Array.isArray(parsed.history) ? parsed.history : [];
     if(history.length===0){
       wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);margin:0;">Belum ada notifikasi yang pernah terkirim.</p>`;
@@ -12380,6 +12426,7 @@ async function renderNotifHistory(){
   }catch(e){
     console.error('Gagal memuat riwayat notifikasi:', e);
     wrap.innerHTML = `<p style="font-size:12px;color:var(--red);margin:0;">Gagal memuat riwayat: ${escapeHtml(e.message)}</p>`;
+    if(stripEl) stripEl.innerHTML = `<span style="font-size:11.5px;color:var(--red);">Gagal memuat status: ${escapeHtml(e.message)}</span>`;
   }
 }
 
@@ -12527,6 +12574,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.141.0',
+    date: '29 Jul 2026',
+    notes: [
+      '🟢 BARU: status strip di panel ⏰ Ambang Batas Notifikasi -- sekarang langsung kelihatan Aktif/Terlambat/Belum Pernah Jalan untuk job pengecekan berkala (dihitung otomatis dari lastAlertCheckAt di notif-state.json, tidak perlu lagi menghitung sendiri dari daftar riwayat mentah).',
+      'Teks panel Ambang Batas Notifikasi diperbaiki -- sebelumnya cuma menyebut "GitHub Actions", sekarang netral (GitHub Actions dan/atau Cloudflare Worker Cron Trigger) karena aplikasi tidak bisa memastikan dari kode saja mana yang aktif -- itu tetap harus dicek manual di dashboard masing-masing.',
+    ]
+  },
   {
     v: '3.140.0',
     date: '29 Jul 2026',
