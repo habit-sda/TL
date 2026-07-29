@@ -1333,7 +1333,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.146.0';
+const APP_VERSION = '3.148.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -11798,6 +11798,21 @@ async function openCarTrackingModal(carId){
   const cancelBtn = document.getElementById('modal-cancel');
   if(cancelBtn) cancelBtn.style.display = 'none';
 
+  // v3.148.0 -- tombol "🔄 Muat Ulang" manual di kartu popup ini, pola sama
+  // dgn halaman penuh Lacak Kendaraan (btn-gps-refresh). Sebelumnya popup
+  // ini cuma mengandalkan auto-refresh diam-diam tiap 15 detik tanpa cara
+  // memaksa ambil data terbaru kapan saja.
+  const modalFoot = document.querySelector('#modal-root .modal-foot');
+  let reloadBtn = null;
+  if(modalFoot){
+    reloadBtn = document.createElement('button');
+    reloadBtn.type = 'button';
+    reloadBtn.className = 'btn btn-ghost btn-sm';
+    reloadBtn.id = 'car-tracking-reload-btn';
+    reloadBtn.textContent = '🔄 Muat Ulang';
+    modalFoot.insertBefore(reloadBtn, modalFoot.firstChild);
+  }
+
   const stopPolling = () => { if(carTrackingModalTimer){ clearInterval(carTrackingModalTimer); carTrackingModalTimer=null; } };
   const overlay = document.getElementById('modal-overlay');
   if(overlay) overlay.addEventListener('click', (e)=>{ if(e.target.id==='modal-overlay') stopPolling(); });
@@ -11808,7 +11823,28 @@ async function openCarTrackingModal(carId){
   if(!car.imeiGps){
     const box = document.getElementById('car-tracking-modal-body');
     if(box) box.innerHTML = emptyState('🔌','Mobil ini belum dihubungkan ke GPS.id. Isi field "IMEI GPS.id" di Edit Mobil dulu supaya posisinya bisa dilacak dari sini.');
+    if(reloadBtn) reloadBtn.style.display = 'none';
     return;
+  }
+
+  // v3.148.0 -- simpan HTML kartu terakhir yang BERHASIL dimuat. Kalau
+  // siklus auto-refresh diam-diam (silent) gagal -- misal koneksi sempat
+  // putus sebentar -- kartu lama TETAP ditampilkan apa adanya (tidak
+  // ditimpa pesan error) supaya data yang sudah kelihatan di layar tidak
+  // tiba-tiba hilang. Cukup dikasih catatan kecil kalau sinkron terakhir
+  // gagal & sistem akan otomatis mencoba lagi di siklus berikutnya.
+  let lastGoodCardHtml = null;
+
+  function renderSyncWarnInto(box, msg){
+    let warnEl = document.getElementById('car-tracking-sync-warn');
+    if(!warnEl){
+      warnEl = document.createElement('div');
+      warnEl.id = 'car-tracking-sync-warn';
+      box.appendChild(warnEl);
+    }
+    warnEl.className = 'hint';
+    warnEl.style.cssText = 'color:#B45309;margin-top:8px;';
+    warnEl.textContent = msg ? `⚠️ ${msg} Data di atas mungkin sudah tidak terbaru -- akan dicoba sinkron ulang otomatis, atau tekan "🔄 Muat Ulang".` : '';
   }
 
   async function load(silent){
@@ -11817,20 +11853,27 @@ async function openCarTrackingModal(carId){
 
     if(!isGhConnected()){
       box.innerHTML = emptyState('📴','Sinkronisasi Cloud belum diatur. Proxy GPS.id ikut lewat Worker yang sama -- atur dulu di badge "☁️ Sinkron" di header.');
+      lastGoodCardHtml = null;
       return;
     }
     if(!silent) box.innerHTML = emptyState('🛰️','Memuat posisi kendaraan...');
+    if(reloadBtn) reloadBtn.disabled = true;
 
     let res, data;
     try{
       res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/gpsid/vehicles`, { headers: { 'accept':'application/json' } });
       data = await res.json().catch(()=> null);
     } catch(e){
-      box.innerHTML = emptyState('⚠️', 'Gagal menghubungi Worker: ' + escapeHtml(e.message || String(e)));
+      if(silent && lastGoodCardHtml){ box.innerHTML = lastGoodCardHtml; renderSyncWarnInto(box, 'Gagal menghubungi Worker saat sinkron otomatis.'); }
+      else box.innerHTML = emptyState('⚠️', 'Gagal menghubungi Worker: ' + escapeHtml(e.message || String(e)));
+      if(reloadBtn) reloadBtn.disabled = false;
       return;
     }
     if(!res.ok || !data){
-      box.innerHTML = emptyState('⚠️', 'Gagal memuat data GPS.id' + (data && data.error ? (': ' + escapeHtml(data.error)) : ` (HTTP ${res.status})`));
+      const msg = 'Gagal memuat data GPS.id' + (data && data.error ? (': ' + escapeHtml(data.error)) : ` (HTTP ${res.status})`);
+      if(silent && lastGoodCardHtml){ box.innerHTML = lastGoodCardHtml; renderSyncWarnInto(box, 'Gagal memuat data GPS.id saat sinkron otomatis.'); }
+      else box.innerHTML = emptyState('⚠️', msg);
+      if(reloadBtn) reloadBtn.disabled = false;
       return;
     }
 
@@ -11841,12 +11884,16 @@ async function openCarTrackingModal(carId){
     else if(Array.isArray(data?.message)) list = data.message;
     if(!list){
       box.innerHTML = emptyState('⚠️','Format respons GPS.id belum dikenali. Hubungi pengembang untuk menyesuaikan pemetaan field.');
+      lastGoodCardHtml = null;
+      if(reloadBtn) reloadBtn.disabled = false;
       return;
     }
 
     const v = list.find(x => String(x.imei ?? x.IMEI ?? '') === String(car.imeiGps));
     if(!v){
       box.innerHTML = emptyState('🛰️', `IMEI ${escapeHtml(String(car.imeiGps))} belum/tidak ditemukan di akun GPS.id ini.`);
+      lastGoodCardHtml = null;
+      if(reloadBtn) reloadBtn.disabled = false;
       return;
     }
 
@@ -11886,10 +11933,23 @@ async function openCarTrackingModal(carId){
           ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" rel="noopener" class="gps-card-maps-link">📍 Lihat Posisi di Peta</a>` : ''}
         </div>
       </div>
+      <div id="car-tracking-sync-warn"></div>
     `;
+    // v3.148.0 -- kartu berhasil dimuat: simpan sebagai cadangan buat
+    // ditampilkan lagi kalau siklus auto-refresh berikutnya sempat gagal.
+    lastGoodCardHtml = box.innerHTML;
+    if(reloadBtn) reloadBtn.disabled = false;
   }
 
+  if(reloadBtn) reloadBtn.onclick = () => load(false);
+
   await load(false);
+  // v3.148.0 -- auto-sinkron: selama popup ini terbuka, data terus
+  // diperbarui otomatis tiap 15 detik tanpa perlu tindakan apa pun. Kalau
+  // satu siklus gagal (mis. koneksi putus sesaat), kartu yang sudah
+  // tampil TIDAK dihapus -- load() di atas akan menampilkan lagi data
+  // terakhir yang berhasil + catatan peringatan kecil, lalu otomatis
+  // mencoba sinkron lagi di siklus berikutnya.
   carTrackingModalTimer = setInterval(()=>{
     if(document.getElementById('car-tracking-modal-body')) load(true);
     else stopPolling();
@@ -13157,6 +13217,14 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.148.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 BARU: tombol "🔄 Muat Ulang" ditambahkan di popup kartu "Lacak Kendaraan" per mobil (tombol 🛰️ Lacak di Data Mobil) -- sebelumnya popup ini cuma bisa menunggu siklus auto-refresh 15 detik, sekarang bisa dipaksa ambil data terbaru kapan saja.',
+      '🐛 Perbaikan auto-sinkron popup Lacak Kendaraan: sebelumnya kalau 1 siklus auto-refresh gagal (mis. koneksi putus sesaat), kartu yang sudah tampil ikut ditimpa pesan error dan datanya hilang dari layar. Sekarang kartu terakhir yang berhasil dimuat tetap ditampilkan, cukup ditambah catatan kecil kalau sinkron terakhir gagal -- sistem otomatis mencoba lagi di siklus berikutnya.',
+    ]
+  },
   {
     v: '3.146.0',
     date: '30 Jul 2026',
