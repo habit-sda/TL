@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.138.0">
+<meta name="app-version" content="3.140.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1282,7 +1282,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.138.0';
+const APP_VERSION = '3.140.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -3483,7 +3483,7 @@ function renderHapusData(){
       service: () => { const s=matched.data; const kat=serviceItems(s).map(it=>it.kategori).filter(Boolean).join(', ')||'-'; return { text:`✅ Servis ditemukan: <b>${escapeHtml(carLabel(s.carId))}</b> — ${escapeHtml(kat)} · ${fmtDate(s.tanggal)}`, label:'Hapus Servis Ini' }; },
       destination: () => { const d=matched.data; return { text:`✅ Tujuan ditemukan: <b>${escapeHtml(d.nama)}</b>${d.jarakKm!=null?' — '+Number(d.jarakKm).toLocaleString('id-ID')+' KM':''}`, label:'Hapus Tujuan Ini' }; },
       driver: () => { const d=matched.data; return { text:`✅ Sopir ditemukan: <b>${escapeHtml(d.nama)}</b>${d.noHp?' — '+escapeHtml(d.noHp):''}`, label:'Hapus Sopir Ini' }; },
-      document: () => { const d=matched.data; return { text:`✅ Dokumen ditemukan: <b>${escapeHtml(d.jenis)} — ${escapeHtml(carLabel(d.carId))}</b> · berlaku s/d ${fmtDate(d.tglExpired)}`, label:'Hapus Dokumen Ini' }; },
+      document: () => { const d=matched.data; return { text:`✅ Dokumen ditemukan: <b>${escapeHtml(d.jenis)} — ${escapeHtml(subjectLabel(d))}</b> · berlaku s/d ${fmtDate(d.tglExpired)}`, label:'Hapus Dokumen Ini' }; },
       booking: () => { const b=matched.data; return { text:`✅ Booking ditemukan: <b>${escapeHtml(carLabel(b.carId))}</b> — ${escapeHtml(b.tujuan||'-')} · ${fmtDate(b.tglMulai)}`, label:'Hapus Booking Ini' }; },
       etollcard: () => { const c=matched.data; return { text:`✅ Kartu E-Toll ditemukan: <b>${escapeHtml(c.nomorKartu)}</b>${c.mobilId?' — '+escapeHtml(carLabel(c.mobilId)):''}`, label:'Hapus Kartu Ini' }; },
     };
@@ -9929,6 +9929,23 @@ function openServiceModal(editId){
 // sedang dipilih di form.
 const DOC_JENIS_MOBIL = ['STNK', 'Pajak Kendaraan', 'Asuransi'];
 const DOC_JENIS_SOPIR = ['SIM A', 'SIM B I', 'SIM B II', 'SIM C', 'KTP'];
+// v3.139.0 -- Kategori/jenis dokumen tambahan yang diketik manual oleh
+// petugas (mis. "Kartu KIR", "SIM D") -- disimpan PERMANEN per subjek
+// (state.customDocJenis.mobil / .sopir) supaya begitu ditambahkan, langsung
+// bisa dipakai & muncul lagi di form berikutnya, bukan cuma sekali pakai.
+// Lazy-init lewat getDocJenisList() supaya data lama (sebelum fitur ini)
+// tetap aman dibuka tanpa perlu migrasi terpisah.
+function getDocJenisList(subjek){
+  if(!state.customDocJenis) state.customDocJenis = { mobil: [], sopir: [] };
+  if(!Array.isArray(state.customDocJenis[subjek])) state.customDocJenis[subjek] = [];
+  const builtin = subjek==='sopir' ? DOC_JENIS_SOPIR : DOC_JENIS_MOBIL;
+  return [...builtin, ...state.customDocJenis[subjek]];
+}
+const DOC_JENIS_CUSTOM_SENTINEL = '__tambah_kategori_baru__';
+function jenisOptionsHtml(subjek){
+  return getDocJenisList(subjek).map(j=>`<option value="${escapeHtml(j)}">${escapeHtml(j)}</option>`).join('')
+    + `<option value="${DOC_JENIS_CUSTOM_SENTINEL}">+ Tambah kategori baru…</option>`;
+}
 // v3.85.0 (mobil) / v3.138.0 (sopir) -- saran otomatis Masa Berlaku sesuai
 // siklus BAKU tiap jenis dokumen (STNK ganti fisik tiap 5 tahun, Pajak
 // Kendaraan tiap 1 tahun, SIM di Indonesia berlaku 5 tahun). Asuransi & KTP
@@ -9953,7 +9970,7 @@ function renderDocs(){
   document.getElementById('btn-export-doc').onclick = () => {
     exportToExcel('dokumen', 'Dokumen', state.documents.map(d=>({
       Untuk: d.subjek==='sopir' ? 'Sopir' : 'Mobil', 'Pemilik': subjectLabel(d), Jenis: d.jenis||'', Nomor: d.nomor||'',
-      Terbit: d.tglTerbit||'', 'Masa Berlaku': d.tglExpired||'',
+      Keterangan: d.keterangan||'', Terbit: d.tglTerbit||'', 'Masa Berlaku': d.tglExpired||'',
     })));
   };
 
@@ -9972,7 +9989,7 @@ function renderDocs(){
     }
     wrap.innerHTML = `
       <div class="table-scroll desktop-data-table"><table>
-        <thead><tr><th>Kode</th><th>Untuk</th><th>Jenis</th><th>Nomor</th><th>Terbit</th><th>Masa Berlaku</th><th>Status</th></tr></thead>
+        <thead><tr><th>Kode</th><th>Untuk</th><th>Jenis</th><th>Nomor</th><th>Keterangan</th><th>Terbit</th><th>Masa Berlaku</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${items.map(d=>`
             <tr>
@@ -9980,9 +9997,13 @@ function renderDocs(){
               <td>${d.subjek==='sopir'?'🪪 ':'🚗 '}${escapeHtml(subjectLabel(d))}</td>
               <td>${escapeHtml(d.jenis)}</td>
               <td>${escapeHtml(d.nomor||'-')}</td>
+              <td>${escapeHtml(d.keterangan||'-')}</td>
               <td>${fmtDate(d.tglTerbit)}</td>
               <td>${fmtDate(d.tglExpired)}</td>
               <td>${docStatusBadge(d)}</td>
+              <td style="text-align:right;white-space:nowrap;">
+                <button class="btn btn-ghost btn-sm" data-edit="${d.id}">✏️ Edit</button>
+              </td>
             </tr>`).join('')}
         </tbody>
       </table></div>
@@ -9992,11 +10013,16 @@ function renderDocs(){
             <div class="data-card-title"><span>${escapeHtml(d.jenis)} — ${d.subjek==='sopir'?'🪪 ':'🚗 '}${escapeHtml(subjectLabel(d))}</span>${docStatusBadge(d)}</div>
             <div class="data-card-row"><span class="k">Kode</span><span class="v">${codeBadgeHtml(d.kode)}</span></div>
             <div class="data-card-row"><span class="k">Nomor</span><span class="v">${escapeHtml(d.nomor||'-')}</span></div>
+            ${d.keterangan ? `<div class="data-card-row"><span class="k">Keterangan</span><span class="v">${escapeHtml(d.keterangan)}</span></div>` : ''}
             <div class="data-card-row"><span class="k">Terbit</span><span class="v">${fmtDate(d.tglTerbit)}</span></div>
             <div class="data-card-row"><span class="k">Masa Berlaku</span><span class="v">${fmtDate(d.tglExpired)}</span></div>
+            <div class="data-card-actions">
+              <button class="btn btn-ghost btn-sm" data-edit="${d.id}">✏️ Edit</button>
+            </div>
           </div>`).join('')}
       </div>
     `;
+    wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openDocModal(b.dataset.edit));
   }
   renderTable(allItems);
 
@@ -10021,21 +10047,21 @@ function deleteDocument(id, onDeleted){
   });
 }
 
-function openDocModal(){
-  if(state.cars.length===0 && state.drivers.length===0){
+function openDocModal(editId){
+  const editing = editId ? state.documents.find(d=>d.id===editId) : null;
+  if(!editing && state.cars.length===0 && state.drivers.length===0){
     showToast('Tambahkan data mobil atau data sopir terlebih dahulu sebelum mencatat dokumen.', true);
     return;
   }
   const carOptions = state.cars.map(c=>`<option value="${c.id}">${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}</option>`).join('');
   const driverOptions = state.drivers.map(d=>`<option value="${d.id}">${escapeHtml(d.nama)}</option>`).join('');
-  const jenisOptionsMobil = DOC_JENIS_MOBIL.map(j=>`<option value="${j}">${j}</option>`).join('');
-  const jenisOptionsSopir = DOC_JENIS_SOPIR.map(j=>`<option value="${j}">${j}</option>`).join('');
+  const subjekAwal = editing ? (editing.subjek||'mobil') : (state.cars.length===0 && state.drivers.length>0 ? 'sopir' : 'mobil');
   const body = `
     <div class="field">
       <label>Dokumen ini milik *</label>
       <select id="in-subjek">
-        <option value="mobil">🚗 Mobil (STNK / Pajak / Asuransi)</option>
-        <option value="sopir">🪪 Sopir (SIM / dll)</option>
+        <option value="mobil" ${subjekAwal==='mobil'?'selected':''}>🚗 Mobil (STNK / Pajak / Asuransi)</option>
+        <option value="sopir" ${subjekAwal==='sopir'?'selected':''}>🪪 Sopir (SIM / dll)</option>
       </select>
     </div>
     <div class="field" id="f-car">
@@ -10051,28 +10077,36 @@ function openDocModal(){
     </div>
     <div class="field" id="f-jenis">
       <label>Jenis Dokumen *</label>
-      <select id="in-jenis-mobil">
-        <option value="">— pilih jenis —</option>
-        ${jenisOptionsMobil}
-      </select>
-      <select id="in-jenis-sopir" style="display:none;">
-        <option value="">— pilih jenis —</option>
-        ${jenisOptionsSopir}
-      </select>
+      <!-- v3.140.0 -- dibungkus div sendiri (bukan toggle display di <select>
+           langsung) supaya cocok dgn enhanceSelectAsDropdown(), yang
+           membungkus tiap <select> jadi widget custom terpisah (.cdd) --
+           kalau cuma toggle <select> aslinya, widget custom-nya TETAP
+           kelihatan karena select aslinya sudah disembunyikan sejak awal
+           oleh enhanceSelectAsDropdown, bukan oleh toggle kita. -->
+      <div id="wrap-jenis-mobil">
+        <select id="in-jenis-mobil"><option value="">— pilih jenis —</option>${jenisOptionsHtml('mobil')}</select>
+      </div>
+      <div id="wrap-jenis-sopir" style="display:none;">
+        <select id="in-jenis-sopir"><option value="">— pilih jenis —</option>${jenisOptionsHtml('sopir')}</select>
+      </div>
       <div class="err-msg">Pilih jenis dokumen.</div>
     </div>
     <div class="field">
       <label>Nomor Dokumen</label>
-      <input type="text" id="in-nomor" placeholder="Nomor STNK/polis/SIM/dsb (opsional)">
+      <input type="text" id="in-nomor" placeholder="Nomor STNK/polis/SIM/dsb (opsional)" value="${escapeHtml(editing?.nomor||'')}">
+    </div>
+    <div class="field">
+      <label>Keterangan</label>
+      <input type="text" id="in-keterangan" placeholder="Catatan tambahan (opsional)" value="${escapeHtml(editing?.keterangan||'')}">
     </div>
     <div class="grid-2">
       <div class="field">
         <label>Tanggal Terbit</label>
-        <input type="date" id="in-terbit" value="${today()}">
+        <input type="date" id="in-terbit" value="${editing?.tglTerbit || today()}">
       </div>
       <div class="field" id="f-expired">
         <label>Masa Berlaku Sampai *</label>
-        <input type="date" id="in-expired">
+        <input type="date" id="in-expired" value="${editing?.tglExpired || ''}">
         <div class="err-msg">Tanggal masa berlaku wajib diisi.</div>
         <div class="hint">STNK, Pajak Kendaraan &amp; SIM terisi otomatis sesuai siklus baku dari Tanggal Terbit begitu Jenis dipilih -- boleh diubah manual kalau perlu.</div>
       </div>
@@ -10086,7 +10120,7 @@ function openDocModal(){
   }
 
   openModal({
-    title: 'Tambah Dokumen',
+    title: editing ? 'Edit Dokumen' : 'Tambah Dokumen',
     body,
     onSave: () => {
       const subjek = document.getElementById('in-subjek').value;
@@ -10094,28 +10128,48 @@ function openDocModal(){
       const driverId = subjek==='sopir' ? document.getElementById('in-driver').value : '';
       const jenis = jenisSelectAktif().value;
       const nomor = document.getElementById('in-nomor').value.trim();
+      const keterangan = document.getElementById('in-keterangan').value.trim();
       const tglTerbit = document.getElementById('in-terbit').value || today();
       const tglExpired = document.getElementById('in-expired').value;
 
       let valid = true;
       if(subjek==='mobil'){ toggleFieldError('f-car', !carId); if(!carId) valid=false; }
       else { toggleFieldError('f-driver', !driverId); if(!driverId) valid=false; }
-      toggleFieldError('f-jenis', !jenis); if(!jenis) valid=false;
+      toggleFieldError('f-jenis', !jenis || jenis===DOC_JENIS_CUSTOM_SENTINEL); if(!jenis || jenis===DOC_JENIS_CUSTOM_SENTINEL) valid=false;
       toggleFieldError('f-expired', !tglExpired); if(!tglExpired) valid=false;
       if(!valid) return false;
 
-      const doc = { id: uid(), kode: nextDocumentCode(), subjek, jenis, nomor, tglTerbit, tglExpired, petugas: currentAdmin };
-      if(subjek==='mobil') doc.carId = carId; else doc.driverId = driverId;
-      state.documents.push(touch(doc));
-      saveData();
-      logActivity('dokumen', 'Tambah dokumen', `${jenis} — ${subjectLabel(doc)}`);
-      showToast('Dokumen ditambahkan.');
+      if(editing){
+        Object.assign(editing, { subjek, jenis, nomor, keterangan, tglTerbit, tglExpired });
+        editing.carId = subjek==='mobil' ? carId : undefined;
+        editing.driverId = subjek==='sopir' ? driverId : undefined;
+        touch(editing);
+        saveData();
+        logActivity('dokumen', 'Ubah dokumen', `${jenis} — ${subjectLabel(editing)}`);
+        showToast('Dokumen diperbarui.');
+      } else {
+        const doc = { id: uid(), kode: nextDocumentCode(), subjek, jenis, nomor, keterangan, tglTerbit, tglExpired, petugas: currentAdmin };
+        if(subjek==='mobil') doc.carId = carId; else doc.driverId = driverId;
+        state.documents.push(touch(doc));
+        saveData();
+        logActivity('dokumen', 'Tambah dokumen', `${jenis} — ${subjectLabel(doc)}`);
+        showToast('Dokumen ditambahkan.');
+      }
       renderDocs();
       return true;
     }
   });
 
-  let expiredDiisiManual = false;
+  if(editing && editing.subjek==='mobil'){
+    const sel = document.getElementById('in-car'); sel.value = editing.carId||'';
+    if(sel._cddRefresh) sel._cddRefresh();
+  }
+  if(editing && editing.subjek==='sopir'){
+    const sel = document.getElementById('in-driver'); sel.value = editing.driverId||'';
+    if(sel._cddRefresh) sel._cddRefresh();
+  }
+
+  let expiredDiisiManual = !!editing; // saat edit, jangan timpa tanggal yg sudah diisi
   document.getElementById('in-expired').addEventListener('input', ()=>{ expiredDiisiManual = true; });
   function saranMasaBerlaku(){
     if(expiredDiisiManual) return;
@@ -10127,25 +10181,67 @@ function openDocModal(){
     d.setFullYear(d.getFullYear() + siklusTahun);
     document.getElementById('in-expired').value = d.toISOString().slice(0,10);
   }
-  function toggleSubjekUI(){
+  function toggleSubjekUI(resetJenis){
     const isSopir = document.getElementById('in-subjek').value==='sopir';
     document.getElementById('f-car').style.display = isSopir ? 'none' : '';
     document.getElementById('f-driver').style.display = isSopir ? '' : 'none';
-    document.getElementById('in-jenis-mobil').style.display = isSopir ? 'none' : '';
-    document.getElementById('in-jenis-sopir').style.display = isSopir ? '' : 'none';
+    document.getElementById('wrap-jenis-mobil').style.display = isSopir ? 'none' : '';
+    document.getElementById('wrap-jenis-sopir').style.display = isSopir ? '' : 'none';
     toggleFieldError('f-car', false);
     toggleFieldError('f-driver', false);
-    expiredDiisiManual = false;
-    document.getElementById('in-expired').value = '';
+    if(resetJenis){
+      expiredDiisiManual = false;
+      document.getElementById('in-expired').value = '';
+      saranMasaBerlaku();
+    }
+  }
+  document.getElementById('in-subjek').addEventListener('change', ()=> toggleSubjekUI(true));
+  toggleSubjekUI(false); // tampilan awal -- JANGAN reset tanggal saat edit
+  if(editing){
+    const sel = jenisSelectAktif();
+    sel.value = editing.jenis;
+    if(sel.value !== editing.jenis){
+      // jenis-nya sudah tidak ada di daftar (mis. kategori custom yg
+      // sempat dihapus manual dari state) -- tambahkan sebagai opsi
+      // sementara supaya nilai lama tidak hilang begitu saja saat disimpan ulang.
+      const opt = document.createElement('option');
+      opt.value = editing.jenis; opt.textContent = editing.jenis;
+      sel.insertBefore(opt, sel.lastElementChild);
+      sel.value = editing.jenis;
+    }
+    if(sel._cddRefresh) sel._cddRefresh();
+  }
+
+  // v3.139.0 -- kategori manual: begitu opsi "+ Tambah kategori baru…"
+  // dipilih, minta nama kategorinya (pola prompt() yang sama dipakai utk
+  // "Nama petugas baru"/"Nama sopir baru" di modul lain), simpan PERMANEN
+  // ke state.customDocJenis[subjek] supaya langsung bisa dipakai & tetap
+  // ada di form berikutnya -- baru lalu pilih otomatis kategori itu.
+  function handleJenisChange(selectEl, subjek){
+    if(selectEl.value !== DOC_JENIS_CUSTOM_SENTINEL){ saranMasaBerlaku(); return; }
+    const nama = prompt('Nama kategori dokumen baru (mis. SIM D, Kartu KIR, dll):');
+    const trimmed = (nama||'').trim();
+    if(!trimmed){
+      selectEl.value = '';
+      if(selectEl._cddRefresh) selectEl._cddRefresh();
+      return;
+    }
+    const existing = getDocJenisList(subjek).some(j=> j.toLowerCase()===trimmed.toLowerCase());
+    if(!existing){
+      state.customDocJenis[subjek].push(trimmed);
+      saveData();
+      const sentinelOpt = selectEl.querySelector(`option[value="${DOC_JENIS_CUSTOM_SENTINEL}"]`);
+      const newOpt = document.createElement('option');
+      newOpt.value = trimmed; newOpt.textContent = trimmed;
+      selectEl.insertBefore(newOpt, sentinelOpt);
+      showToast(`Kategori "${trimmed}" ditambahkan & siap dipakai.`);
+    }
+    selectEl.value = trimmed;
+    if(selectEl._cddRefresh) selectEl._cddRefresh();
     saranMasaBerlaku();
   }
-  document.getElementById('in-subjek').addEventListener('change', toggleSubjekUI);
-  // Kalau salah satu data (mobil/sopir) kosong, langsung set subjek yang datanya ADA,
-  // supaya petugas tidak perlu ganti dropdown dulu ke opsi yang kosong.
-  if(state.cars.length===0 && state.drivers.length>0) document.getElementById('in-subjek').value = 'sopir';
-  toggleSubjekUI();
-  document.getElementById('in-jenis-mobil').addEventListener('change', saranMasaBerlaku);
-  document.getElementById('in-jenis-sopir').addEventListener('change', saranMasaBerlaku);
+  document.getElementById('in-jenis-mobil').addEventListener('change', function(){ handleJenisChange(this, 'mobil'); });
+  document.getElementById('in-jenis-sopir').addEventListener('change', function(){ handleJenisChange(this, 'sopir'); });
   document.getElementById('in-terbit').addEventListener('change', saranMasaBerlaku);
 }
 
@@ -12431,6 +12527,17 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.140.0',
+    date: '29 Jul 2026',
+    notes: [
+      '🐛 Perbaikan menu Dokumen: dropdown "Jenis Dokumen" untuk Sopir sempat tidak kelihatan sama sekali (ketimpa tampilan dropdown Mobil) -- sekarang benar tertukar sesuai pilihan "Dokumen ini milik".',
+      '✏️ Tombol Edit ditambahkan di menu Dokumen (sebelumnya cuma bisa Tambah -- untuk hapus tetap lewat menu Hapus Data dengan kode DOK-xxxx seperti biasa, bukan tombol di halaman ini).',
+      'Kategori Jenis Dokumen sekarang bisa ditambah manual ("+ Tambah kategori baru…") langsung dari form Tambah/Edit Dokumen -- begitu diketik, langsung tersimpan permanen & siap dipakai lagi di form berikutnya (mis. "SIM D", "Kartu KIR").',
+      'Field "Keterangan" ditambahkan di form Dokumen untuk catatan bebas.',
+      '📊 BARU: Laporan Bulanan Otomatis -- setiap awal bulan (tanggal 1-7 WIB), Worker otomatis kirim ringkasan (total biaya, total KM, jumlah trip per Mobil & per Sopir bulan lalu) ke semua Admin lewat Telegram, lengkap dengan lampiran file CSV rinciannya (bisa dibuka langsung di Excel).',
+    ]
+  },
   {
     v: '3.138.0',
     date: '29 Jul 2026',
