@@ -39,19 +39,28 @@
       "name": "Catat Perjalanan",
       "short_name": "Catat Perjalanan",
       "description": "Langsung buka form Tambah Perjalanan",
-      "url": "./?shortcut=usage"
+      "url": "./?shortcut=usage",
+      "icons": [
+        { "src": "icons/shortcut-catat.png", "sizes": "192x192", "type": "image/png" }
+      ]
     },
     {
       "name": "Rute Pulang",
       "short_name": "Rute Pulang",
       "description": "Langsung pilih mobil untuk lihat rute pulangnya",
-      "url": "./?shortcut=rutepulang"
+      "url": "./?shortcut=rutepulang",
+      "icons": [
+        { "src": "icons/shortcut-rute.png", "sizes": "192x192", "type": "image/png" }
+      ]
     },
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
       "description": "Buka ringkasan kondisi armada",
-      "url": "./?shortcut=dashboard"
+      "url": "./?shortcut=dashboard",
+      "icons": [
+        { "src": "icons/shortcut-dashboard.png", "sizes": "192x192", "type": "image/png" }
+      ]
     }
   ]
 }
