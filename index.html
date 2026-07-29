@@ -11702,6 +11702,7 @@ function renderGpsTracking(){
       wrap.innerHTML = emptyState('⚠️', 'Gagal memuat data GPS.id' + (data && data.error ? (': ' + escapeHtml(data.error)) : ` (HTTP ${res.status})`));
       return;
     }
+    const isStale = res.headers.get('X-Gps-Cache') === 'stale' || res.headers.get('X-Gps-Cache') === 'stale-error';
 
     let list = null;
     if(Array.isArray(data)) list = data;
@@ -11719,6 +11720,7 @@ function renderGpsTracking(){
     }
 
     wrap.innerHTML = `
+      ${isStale ? `<p style="font-size:11px;color:#B45309;margin:0 0 10px 0;">⏳ GPS.id sedang membatasi permintaan sebentar -- data di bawah ini dari cache terakhir (mungkin agak basi), akan otomatis fresh lagi begitu limitnya reda.</p>` : ''}
       <div class="gps-card-list">
         ${list.map(v=>{
           const imei = v.imei ?? v.IMEI ?? null;
@@ -11766,7 +11768,7 @@ function renderGpsTracking(){
 
   document.getElementById('btn-gps-refresh').onclick = () => load(false);
   load(false);
-  gpsTrackingTimer = setInterval(()=>{ if(currentRoute==='gps' && !document.hidden) load(true); else { clearInterval(gpsTrackingTimer); gpsTrackingTimer=null; } }, 30000);
+  gpsTrackingTimer = setInterval(()=>{ if(currentRoute==='gps' && !document.hidden) load(true); else { clearInterval(gpsTrackingTimer); gpsTrackingTimer=null; } }, 45000);
 }
 
 /* ========================================================================
