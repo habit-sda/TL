@@ -1713,7 +1713,13 @@ function defaultData(){
 // HANYA terkirim ke Admin (TELEGRAM_CHAT_ID / ADMIN_CHAT_ID) -- lihat
 // targetDriverIds: [] di alert-nya -- BUKAN ke sopir manapun, beda dari
 // kategori lain yang bisa disiarkan ke sopir lewat notifKategori.
-const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 };
+const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24,
+  // v3.147.0 -- Alert Kecepatan Berlebih: batas default (km/j) dipakai untuk
+  // mobil yang belum diisi batasnya sendiri (field "batasKecepatanKmh" di
+  // Data Mobil, sama polanya dengan Budget Bulanan). speedAlertCooldownMinutes
+  // dipakai supaya Telegram tidak spam kalau mobilnya ngebut terus-terusan
+  // -- 1 notifikasi per mobil per rentang waktu ini, BUKAN 1x sekali selamanya.
+  speedAlertEnabled: true, speedLimitKmh: 120, speedAlertCooldownMinutes: 15 };
 // v3.103.0 -- Langganan notifikasi PER SOPIR: tiap sopir bisa diatur cuma
 // dapat kategori tertentu (mis. Budi cuma dapat Dokumen+Servis, Siti cuma
 // BBM+E-Toll) lewat driver.notifKategori (array key di bawah). PENTING:
@@ -3684,6 +3690,25 @@ function renderSettings(){
         </div>
         <div class="hint" style="margin:-4px 0 12px;">Nilai "default" di sini cuma dipakai untuk mobil/kartu yang BELUM diisi batasnya sendiri-sendiri (di Data Mobil / Kartu E-Toll) -- mengisi batas di situ tetap didahulukan.</div>
         <div style="border-top:1px solid var(--line);margin-top:4px;padding-top:14px;">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="in-notif-speed-enabled" ${getNotifSettings().speedAlertEnabled?'checked':''} style="width:16px;height:16px;">
+            🚨 Alert Kecepatan Berlebih
+          </label>
+          <div class="hint" style="margin:4px 0 10px;">Begitu kecepatan kendaraan (dari GPS.id) melebihi batas, Admin langsung dapat notifikasi Telegram -- <b>khusus Admin</b>, tidak dikirim ke sopir. Sumber kecepatan sama dengan menu 🛰️ Lacak Kendaraan.</div>
+          <div class="grid-2" id="notif-speed-fields" style="${getNotifSettings().speedAlertEnabled?'':'opacity:0.5;pointer-events:none;'}">
+            <div class="field">
+              <label>Batas kecepatan default (km/jam)</label>
+              <input type="text" inputmode="numeric" id="in-notif-speed-limit" value="${getNotifSettings().speedLimitKmh}">
+              <div class="hint">Dipakai untuk mobil yang belum diisi "Batas Kecepatan" sendiri di Data Mobil.</div>
+            </div>
+            <div class="field">
+              <label>Jangan ulangi notifikasi yang sama selama (menit)</label>
+              <input type="text" inputmode="numeric" id="in-notif-speed-cooldown" value="${getNotifSettings().speedAlertCooldownMinutes}">
+              <div class="hint">Supaya Telegram tidak spam kalau mobilnya ngebut terus. Selama masih di atas batas, notifikasi berikutnya baru dikirim lagi setelah jeda ini.</div>
+            </div>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
           <div class="field" style="max-width:280px;">
             <label>⏱️ Cek notifikasi berkala setiap</label>
             <select id="in-notif-check-interval">
@@ -3825,7 +3850,7 @@ function renderSettings(){
   attachIntegerOnlyInput('in-toleransi-gap');
   if(insightUnlocked){
     renderNotifPermissionStatus();
-    ['in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min','in-notif-budget-pct'].forEach(id=>{
+    ['in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min','in-notif-budget-pct','in-notif-speed-limit','in-notif-speed-cooldown'].forEach(id=>{
       attachIntegerOnlyInput(id);
     });
     document.getElementById('btn-save-notif-settings').onclick = () => {
@@ -3838,6 +3863,9 @@ function renderSettings(){
       const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
       const quietHoursEnd = document.getElementById('in-notif-quiet-end').value || NOTIF_SETTINGS_DEFAULT.quietHoursEnd;
       const checkIntervalMinutes = Number(document.getElementById('in-notif-check-interval').value) || NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes;
+      const speedAlertEnabled = document.getElementById('in-notif-speed-enabled').checked;
+      const speedLimitKmh = Number(document.getElementById('in-notif-speed-limit').value || 0);
+      const speedAlertCooldownMinutes = Number(document.getElementById('in-notif-speed-cooldown').value || 0);
       state.notifSettings = {
         docExpiryDays: NOTIF_SETTINGS_DEFAULT.docExpiryDays, // v3.138.0 -- sudah tidak dipakai, jadwal dokumen sekarang tetap (lihat DOC_EXPIRY_MILESTONES_DAYS)
         serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
@@ -3847,6 +3875,9 @@ function renderSettings(){
         tripDurationWarnHours: tripLamaJam>0 ? tripLamaJam : NOTIF_SETTINGS_DEFAULT.tripDurationWarnHours,
         quietHoursEnabled, quietHoursStart, quietHoursEnd,
         checkIntervalMinutes: [5,10,15,30,60].includes(checkIntervalMinutes) ? checkIntervalMinutes : NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes,
+        speedAlertEnabled,
+        speedLimitKmh: speedLimitKmh>0 ? speedLimitKmh : NOTIF_SETTINGS_DEFAULT.speedLimitKmh,
+        speedAlertCooldownMinutes: speedAlertCooldownMinutes>0 ? speedAlertCooldownMinutes : NOTIF_SETTINGS_DEFAULT.speedAlertCooldownMinutes,
       };
       saveData();
       showToast('Ambang batas notifikasi disimpan.');
@@ -3855,6 +3886,10 @@ function renderSettings(){
     document.getElementById('in-notif-quiethours').addEventListener('change', function(){
       const timesWrap = document.getElementById('notif-quiethours-times');
       if(timesWrap) timesWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
+    });
+    document.getElementById('in-notif-speed-enabled').addEventListener('change', function(){
+      const fieldsWrap = document.getElementById('notif-speed-fields');
+      if(fieldsWrap) fieldsWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
     });
     document.getElementById('btn-goto-drivers-telegram').onclick = () => navigate('drivers');
     document.getElementById('btn-refresh-notif-history').onclick = renderNotifHistory;
@@ -5540,6 +5575,7 @@ function renderCars(){
               <td>${activeUsage ? `<span class="badge warn">Dipakai — ${escapeHtml(driverLabel(activeUsage.driverId, activeUsage.driver))}</span>` : `<span class="badge ok">Tersedia</span>`}</td>
               <td>${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Pengingat nonaktif</span>`}</td>
               <td style="text-align:right;white-space:nowrap;">
+                <button class="btn btn-ghost btn-sm" data-lacak="${c.id}" title="Lacak Kendaraan (posisi GPS.id real-time)">🛰️ Lacak</button>
                 <button class="btn btn-ghost btn-sm" data-qr="${c.id}" title="Kode QR untuk mobil ini">📱 QR</button>
                 <button class="btn btn-ghost btn-sm" data-darurat="${c.id}" title="Kartu Info Darurat">🆘</button>
                 <button class="btn btn-ghost btn-sm" data-edit="${c.id}">Edit</button>
@@ -5565,6 +5601,7 @@ function renderCars(){
             <div class="data-card-row"><span class="k">Status</span><span class="v">${activeUsage ? `<span class="badge warn">Dipakai</span>` : `<span class="badge ok">Tersedia</span>`}</span></div>
             <div class="data-card-row"><span class="k">Servis Berikutnya</span><span class="v">${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Nonaktif</span>`}</span></div>
             <div class="data-card-actions">
+              <button class="btn btn-ghost btn-sm" data-lacak="${c.id}">🛰️ Lacak</button>
               <button class="btn btn-ghost btn-sm" data-qr="${c.id}">📱 QR</button>
               <button class="btn btn-ghost btn-sm" data-darurat="${c.id}">🆘 Info Darurat</button>
               <button class="btn btn-ghost btn-sm" data-edit="${c.id}">✏️ Edit</button>
@@ -5576,6 +5613,7 @@ function renderCars(){
     wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> openCarModal(b.dataset.edit));
     wrap.querySelectorAll('[data-qr]').forEach(b=> b.onclick = ()=> openCarQrModal(b.dataset.qr));
     wrap.querySelectorAll('[data-darurat]').forEach(b=> b.onclick = ()=> openEmergencyCardModal(b.dataset.darurat));
+    wrap.querySelectorAll('[data-lacak]').forEach(b=> b.onclick = ()=> openCarTrackingModal(b.dataset.lacak));
     wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteCar(b.dataset.del));
   }
   renderTable(list);
@@ -5688,6 +5726,11 @@ function openCarModal(editId){
       <div class="hint">IMEI unit GPS Tracker terpasang di mobil ini (dilihat dari akun GPS.id Anda). Isi ini supaya halaman "Lacak Kendaraan" tahu posisi mana milik mobil mana, dan menampilkan foto & nama mobil dari data ini -- bukan cuma data mentah dari GPS.id.</div>
     </div>
     <div class="field">
+      <label>🚨 Batas Kecepatan Alert (km/jam, opsional)</label>
+      <input type="text" inputmode="numeric" id="in-batas-kecepatan" placeholder="Contoh: 120" value="${editing&&editing.batasKecepatanKmh!=null?escapeHtml(String(editing.batasKecepatanKmh)):''}">
+      <div class="hint">Kalau diisi, mobil ini dipantau lewat GPS.id -- begitu kecepatan melebihi angka ini, Admin dapat notifikasi Telegram. Kosongkan untuk pakai batas default (diatur di menu ⏰ Ambang Batas Notifikasi). Butuh IMEI GPS.id terisi di atas.</div>
+    </div>
+    <div class="field">
       <label>Odometer Saat Ini (KM)</label>
       <input type="text" inputmode="numeric" id="in-odo" placeholder="Contoh: 45.000" value="${editing?fmtRibuanInitial(editing.odometerSaatIni):''}">
       <div class="hint">Terisi/terupdate otomatis tiap kali mobil ditandai "kembali", tapi bisa diedit manual di sini.</div>
@@ -5792,6 +5835,7 @@ function openCarModal(editId){
       const nomorMesin = document.getElementById('in-nomor-mesin').value.trim();
       const kontakBengkel = document.getElementById('in-kontak-bengkel').value.trim();
       const imeiGps = document.getElementById('in-imei-gps').value.trim();
+      const batasKecepatanVal = document.getElementById('in-batas-kecepatan').value.trim();
       const modelMobil = document.getElementById('in-model').value.trim();
       const tahun = document.getElementById('in-tahun').value.trim();
       const warna = document.getElementById('in-warna').value.trim();
@@ -5847,14 +5891,16 @@ function openCarModal(editId){
       if(ccMesin!=null && ccMesin<=0) ccMesin = null;
       let budgetBulanan = budgetBulananVal === '' ? null : Number(budgetBulananVal);
       if(budgetBulanan!=null && budgetBulanan<=0) budgetBulanan = null;
+      let batasKecepatanKmh = batasKecepatanVal === '' ? null : Number(batasKecepatanVal);
+      if(batasKecepatanKmh!=null && batasKecepatanKmh<=0) batasKecepatanKmh = null;
 
       if(editing){
-        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, imeiGps, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan});
+        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, imeiGps, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan, batasKecepatanKmh});
         touch(editing);
         logActivity('mobil', 'Edit data mobil', `${merk} ${modelMobil} — ${plat}`);
         showToast('Data mobil diperbarui.');
       } else {
-        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, imeiGps, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan, createdAt: today(), petugas: currentAdmin}));
+        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, imeiGps, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan, batasKecepatanKmh, createdAt: today(), petugas: currentAdmin}));
         logActivity('mobil', 'Tambah mobil baru', `${merk} ${modelMobil} — ${plat}`);
         showToast('Mobil baru ditambahkan.');
       }
@@ -11721,6 +11767,133 @@ function renderGpsTracking(){
   document.getElementById('btn-gps-refresh').onclick = () => load(false);
   load(false);
   gpsTrackingTimer = setInterval(()=>{ if(currentRoute==='gps' && !document.hidden) load(true); else { clearInterval(gpsTrackingTimer); gpsTrackingTimer=null; } }, 30000);
+}
+
+/* ========================================================================
+   POPUP "Kartu Lacak Kendaraan" per mobil (v3.147.0) -- dipanggil dari
+   tombol "🛰️ Lacak" di Data Mobil, supaya bisa langsung cek posisi 1
+   mobil tanpa pindah ke menu penuh "Lacak Kendaraan". Sumber data & cara
+   ambilnya SAMA PERSIS dengan renderGpsTracking() (proxy /gpsid/vehicles
+   lewat Worker), cuma disaring ke 1 IMEI saja lalu ditampilkan sebagai 1
+   kartu di dalam modal. Auto-refresh tiap 15 detik selama popup terbuka,
+   berhenti sendiri begitu modal ditutup (klik Tutup/X/area luar).
+   Baris "Kecepatan" ikut menandai kalau sedang melebihi batas kecepatan
+   mobil ini (atau default global di Ambang Batas Notifikasi) dengan
+   badge merah -- selaras dengan alert Telegram "Kecepatan berlebih".
+   ======================================================================== */
+let carTrackingModalTimer = null;
+async function openCarTrackingModal(carId){
+  const car = state.cars.find(c=>c.id===carId);
+  if(!car) return;
+
+  if(carTrackingModalTimer){ clearInterval(carTrackingModalTimer); carTrackingModalTimer = null; }
+
+  openModal({
+    title: `🛰️ Lacak Kendaraan — ${escapeHtml((car.merk||'')+' '+(car.modelMobil||''))} (${escapeHtml(car.plat||'')})`,
+    body: `<div id="car-tracking-modal-body">${emptyState('🛰️','Memuat posisi kendaraan...')}</div>`,
+    onSave: () => true
+  });
+  const saveBtn = document.getElementById('modal-save');
+  if(saveBtn) saveBtn.textContent = 'Tutup';
+  const cancelBtn = document.getElementById('modal-cancel');
+  if(cancelBtn) cancelBtn.style.display = 'none';
+
+  const stopPolling = () => { if(carTrackingModalTimer){ clearInterval(carTrackingModalTimer); carTrackingModalTimer=null; } };
+  const overlay = document.getElementById('modal-overlay');
+  if(overlay) overlay.addEventListener('click', (e)=>{ if(e.target.id==='modal-overlay') stopPolling(); });
+  const closeBtn = document.getElementById('modal-close');
+  if(closeBtn) closeBtn.addEventListener('click', stopPolling);
+  if(saveBtn) saveBtn.addEventListener('click', stopPolling);
+
+  if(!car.imeiGps){
+    const box = document.getElementById('car-tracking-modal-body');
+    if(box) box.innerHTML = emptyState('🔌','Mobil ini belum dihubungkan ke GPS.id. Isi field "IMEI GPS.id" di Edit Mobil dulu supaya posisinya bisa dilacak dari sini.');
+    return;
+  }
+
+  async function load(silent){
+    const box = document.getElementById('car-tracking-modal-body');
+    if(!box){ stopPolling(); return; } // modal sudah ditutup
+
+    if(!isGhConnected()){
+      box.innerHTML = emptyState('📴','Sinkronisasi Cloud belum diatur. Proxy GPS.id ikut lewat Worker yang sama -- atur dulu di badge "☁️ Sinkron" di header.');
+      return;
+    }
+    if(!silent) box.innerHTML = emptyState('🛰️','Memuat posisi kendaraan...');
+
+    let res, data;
+    try{
+      res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/gpsid/vehicles`, { headers: { 'accept':'application/json' } });
+      data = await res.json().catch(()=> null);
+    } catch(e){
+      box.innerHTML = emptyState('⚠️', 'Gagal menghubungi Worker: ' + escapeHtml(e.message || String(e)));
+      return;
+    }
+    if(!res.ok || !data){
+      box.innerHTML = emptyState('⚠️', 'Gagal memuat data GPS.id' + (data && data.error ? (': ' + escapeHtml(data.error)) : ` (HTTP ${res.status})`));
+      return;
+    }
+
+    let list = null;
+    if(Array.isArray(data)) list = data;
+    else if(Array.isArray(data?.message?.data)) list = data.message.data;
+    else if(Array.isArray(data?.data)) list = data.data;
+    else if(Array.isArray(data?.message)) list = data.message;
+    if(!list){
+      box.innerHTML = emptyState('⚠️','Format respons GPS.id belum dikenali. Hubungi pengembang untuk menyesuaikan pemetaan field.');
+      return;
+    }
+
+    const v = list.find(x => String(x.imei ?? x.IMEI ?? '') === String(car.imeiGps));
+    if(!v){
+      box.innerHTML = emptyState('🛰️', `IMEI ${escapeHtml(String(car.imeiGps))} belum/tidak ditemukan di akun GPS.id ini.`);
+      return;
+    }
+
+    const foto = car.fotoUrl || null;
+    const kecepatan = v.speed ?? v.kecepatan ?? null;
+    const kecepatanNum = kecepatan!=null ? Number(kecepatan) : null;
+    const batasKecepatan = (car.batasKecepatanKmh!=null && car.batasKecepatanKmh!=='') ? Number(car.batasKecepatanKmh) : (Number(getNotifSettings().speedLimitKmh) || 120);
+    const overSpeed = kecepatanNum!=null && !isNaN(kecepatanNum) && kecepatanNum > batasKecepatan;
+    const waktu = v.last_update ?? v.gps_date ?? v.updated_at ?? v.waktu ?? v.gps_time ?? null;
+    const accRaw = v.acc ?? v.acc_status ?? v.status_mesin ?? null;
+    const accOn = accRaw===1 || accRaw===true || String(accRaw).toUpperCase()==='ON';
+    const lat = v.latitude ?? v.lat ?? null;
+    const lon = v.longitude ?? v.lon ?? null;
+    const mapsUrl = (lat!=null && lon!=null) ? `https://www.google.com/maps?q=${encodeURIComponent(lat)},${encodeURIComponent(lon)}` : null;
+    const doorRaw = v.door ?? null;
+    const doorOpen = String(doorRaw).toUpperCase()==='OPEN';
+    const mileageM = v.mileage!=null ? Number(v.mileage) : null;
+    const mileageKm = (mileageM!=null && !isNaN(mileageM)) ? Math.round(mileageM/1000) : null;
+    const battery = v.battery ?? null;
+    const satellite = v.satellite ?? null;
+
+    box.innerHTML = `
+      <div class="gps-card-list">
+        <div class="gps-card">
+          <div class="gps-card-head">
+            ${foto ? `<img src="${escapeHtml(foto)}" class="gps-card-thumb" onerror="this.style.display='none'">` : `<div class="gps-card-thumb gps-card-thumb-placeholder">🚗</div>`}
+            <div class="gps-card-title-wrap">
+              <div class="gps-card-title">${escapeHtml((car.merk||'')+' '+(car.modelMobil||''))} — ${escapeHtml(car.plat||'')}</div>
+            </div>
+            ${accRaw!=null ? (accOn ? '<span class="badge ok">Mesin ON</span>' : '<span class="badge neutral">Mesin OFF</span>') : ''}
+          </div>
+          ${kecepatanNum!=null ? `<div class="data-card-row"><span class="k">Kecepatan</span><span class="v">${overSpeed ? `<span class="badge danger">🚨 ${escapeHtml(String(kecepatanNum))} km/j — lewat batas ${batasKecepatan}</span>` : `${escapeHtml(String(kecepatanNum))} km/j`}</span></div>` : ''}
+          ${mileageKm!=null ? `<div class="data-card-row"><span class="k">Odometer GPS</span><span class="v">${mileageKm.toLocaleString('id-ID')} km</span></div>` : ''}
+          ${doorRaw ? `<div class="data-card-row"><span class="k">Pintu</span><span class="v">${doorOpen?'<span class="badge warn">Terbuka</span>':'<span class="badge neutral">Tertutup</span>'}</span></div>` : ''}
+          ${waktu ? `<div class="data-card-row"><span class="k">Update Terakhir</span><span class="v">${escapeHtml(String(waktu))}</span></div>` : ''}
+          ${(battery!=null||satellite!=null) ? `<div class="data-card-row"><span class="k">Device GPS</span><span class="v">${battery!=null?('🔋'+escapeHtml(String(battery))+'%'):''}${(battery!=null&&satellite!=null)?'&nbsp;&nbsp;':''}${satellite!=null?('🛰️'+escapeHtml(String(satellite))):''}</span></div>` : ''}
+          ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" rel="noopener" class="gps-card-maps-link">📍 Lihat Posisi di Peta</a>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  await load(false);
+  carTrackingModalTimer = setInterval(()=>{
+    if(document.getElementById('car-tracking-modal-body')) load(true);
+    else stopPolling();
+  }, 15000);
 }
 
 function openEtollHistoryModal(cardId){
