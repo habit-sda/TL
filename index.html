@@ -2079,7 +2079,7 @@ function renderSyncIndicator(){
     // tersambung, tidak ada cara lain lewat UI utk membukanya lagi (mis.
     // utk isi field baru "Notify Secret"). Sekarang selalu jadi link,
     // supaya modal itu bisa dibuka kapan saja.
-    el.innerHTML = '<a href="#" id="openGhModalLink" style="color:inherit;text-decoration:none;">☁️ Sinkron aktif' + lastText + ' · ⚙️</a>';
+    el.innerHTML = '<a href="#" id="openGhModalLink" style="color:inherit;text-decoration:none;">☁️ Sinkron aktif' + lastText + ' · ⚙️</a> <a href="#" id="manualSyncBtn" title="Sinkron sekarang" style="color:inherit;text-decoration:none;margin-left:4px;">' + (manualSyncInProgress ? '⏳' : '🔄') + '</a>';
     el.className = 'badge ok';
   } else {
     el.innerHTML = '📴 Sinkron tidak berjalan — <a href="#" id="openGhModalLink" style="color:inherit;text-decoration:underline;">atur repository</a>';
@@ -2089,6 +2089,28 @@ function renderSyncIndicator(){
 document.addEventListener('click', (e)=>{
   const link = e.target.closest('#openGhModalLink');
   if(link){ e.preventDefault(); openGhModal(); }
+});
+// v3.137.0 -- Tombol "Sinkron Sekarang" (🔄) di sebelah badge status cloud.
+// Melengkapi auto-sync (timer 20 detik + visibilitychange + sinkron saat
+// pindah menu) untuk kasus jarang: user mau MEMASTIKAN data terbaru SAAT
+// ITU JUGA (mis. baru terima kabar sopir lapor "tiba" lewat Telegram),
+// tanpa perlu pindah menu atau tunggu timer. manualSyncInProgress mencegah
+// klik dobel memicu 2 fetch bersamaan (yang bisa saling rebutan `sha`).
+let manualSyncInProgress = false;
+async function doManualSync(){
+  if(manualSyncInProgress || !isGhConnected()) return;
+  manualSyncInProgress = true;
+  renderSyncIndicator();
+  try{
+    await fetchFromGithub();
+  } finally {
+    manualSyncInProgress = false;
+    renderSyncIndicator();
+  }
+}
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('#manualSyncBtn');
+  if(btn){ e.preventDefault(); doManualSync(); }
 });
 setInterval(()=>{ if(!document.hidden) renderSyncIndicator(); }, 30000);
 
@@ -4018,7 +4040,26 @@ function navigate(route, opts){
   closeDrawer();
   renderNotifBell();
   renderActiveTripBubble();
+  // v3.137.0 -- Sinkron otomatis begitu pindah menu (bukan cuma andalkan
+  // timer 20 detik / visibilitychange). Menutup celah: user sudah punya
+  // app terbuka (tab tidak pernah "hidden"), lalu pindah ke menu lain
+  // dalam beberapa detik setelah ada perubahan dari device/Telegram lain --
+  // tanpa ini, menu itu sempat menampilkan data BASI sampai timer 20 detik
+  // berikutnya jalan. Dibatasi ROUTE_SYNC_MIN_GAP_MS supaya klak-klik cepat
+  // antar menu tidak memicu fetch bertubi-tubi (juga mencegah rekursi tak
+  // langsung: fetchFromGithub() sendiri manggil navigate(currentRoute) kalau
+  // ada perubahan lokal -- panggilan itu akan lolos throttle ini karena
+  // timestamp-nya sudah ke-update di baris bawah SEBELUM fetch dimulai).
+  if(!opts.fromBack && isGhConnected()){
+    const now = Date.now();
+    if(now - lastRouteSyncAttempt > ROUTE_SYNC_MIN_GAP_MS){
+      lastRouteSyncAttempt = now;
+      fetchFromGithub();
+    }
+  }
 }
+let lastRouteSyncAttempt = 0;
+const ROUTE_SYNC_MIN_GAP_MS = 5000;
 
 document.querySelectorAll('.menu-item').forEach(el=>{
   el.addEventListener('click', ()=> navigate(el.dataset.route));
