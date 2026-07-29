@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.136.2">
+<meta name="app-version" content="3.138.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1282,7 +1282,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.136.2';
+const APP_VERSION = '3.138.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1640,7 +1640,7 @@ function loadData(){
 }
 function defaultData(){
   return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], notifAdmins: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
-    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 } };
+    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 } };
 }
 // v3.95.0 -- Pengaturan Notifikasi (nilai ambang batas dipakai computeAlerts()
 // & telegram-notify.mjs). PENTING: dibaca lewat fungsi ini SAJA (bukan baca
@@ -1657,7 +1657,12 @@ function defaultData(){
 // PENTING: Resi Perjalanan (🧾, dikirim begitu status diubah "Selesai")
 // SENGAJA TIDAK ikut diatur angka ini -- itu tetap dicek tiap tick (maks.
 // 5 menit) supaya sopir selalu cepat dapat resinya, apa pun pengaturan ini.
-const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 };
+// v3.137.0 -- "budgetWarnPct" -- ambang batas Budget Bulanan per mobil (lihat
+// computeAlerts(), kategori 'budget-'). Notifikasi kategori ini SENGAJA
+// HANYA terkirim ke Admin (TELEGRAM_CHAT_ID / ADMIN_CHAT_ID) -- lihat
+// targetDriverIds: [] di alert-nya -- BUKAN ke sopir manapun, beda dari
+// kategori lain yang bisa disiarkan ke sopir lewat notifKategori.
+const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 };
 // v3.103.0 -- Langganan notifikasi PER SOPIR: tiap sopir bisa diatur cuma
 // dapat kategori tertentu (mis. Budi cuma dapat Dokumen+Servis, Siti cuma
 // BBM+E-Toll) lewat driver.notifKategori (array key di bawah). PENTING:
@@ -1666,7 +1671,7 @@ const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDe
 // "tidak dapat apa-apa" -- supaya tidak ada yg tiba-tiba berhenti dapat
 // notif cuma karena field barunya belum diisi.
 const NOTIF_CATEGORIES = [
-  { key:'doc', label:'Dokumen Kadaluarsa', prefix:'doc-' },
+  { key:'doc', label:'Dokumen Kadaluarsa (Mobil & Sopir)', prefix:'doc-' },
   { key:'service', label:'Servis/Ganti Oli', prefix:'svc-' },
   { key:'etoll', label:'Saldo E-Toll Rendah', prefix:'etoll-' },
   { key:'bbm', label:'BBM Menipis', prefix:'bbm-' },
@@ -1746,6 +1751,10 @@ function ensureCodesAssigned(){
   state.destinations.forEach(d=>{ if(!d.kode){ d.kode = nextDestinationCode(); changed = true; } });
   state.drivers.forEach(d=>{ if(!d.kode){ d.kode = nextDriverCode(); changed = true; } });
   state.documents.forEach(d=>{ if(!d.kode){ d.kode = nextDocumentCode(); changed = true; } });
+  // v3.138.0 -- dokumen lama (sebelum fitur "Dokumen milik Sopir") tidak
+  // punya field subjek -- tandai eksplisit 'mobil' supaya subjectLabel() &
+  // computeAlerts() tidak perlu menebak-nebak lewat ada/tidaknya carId.
+  state.documents.forEach(d=>{ if(!d.subjek){ d.subjek = 'mobil'; changed = true; } });
   state.bookings.forEach(b=>{ if(!b.kode){ b.kode = nextBookingCode(); changed = true; } });
   state.etollCards.forEach(c=>{ if(!c.kode){ c.kode = nextEtollCardCode(); changed = true; } });
   if(changed) saveData();
@@ -2978,6 +2987,15 @@ function etollCardPreviewHtml(card){
     <div class="etoll-merged-divider"></div>
   `;
 }
+// v3.138.0 -- Dokumen sekarang bisa milik Mobil ATAU Sopir (d.subjek: 'mobil'
+// | 'sopir') -- fungsi ini SATU-SATUNYA tempat yang tahu cara menampilkan
+// "pemilik" dokumen apa pun subjeknya, supaya tidak ada tempat lain yang
+// perlu tahu perbedaannya (tabel Dokumen, lonceng notifikasi, export Excel,
+// dll semua cukup panggil ini). Dokumen lama (sebelum fitur ini ada) tidak
+// punya field subjek sama sekali -- dianggap 'mobil' (lihat migrateState()).
+function subjectLabel(d){
+  return d.subjek==='sopir' ? driverLabel(d.driverId) : carLabel(d.carId);
+}
 function driverLabel(driverId, legacyDriverText){
   // Defensive: catatan lama (sebelum modul Data Sopir ada) menyimpan nama sopir
   // sebagai teks bebas (legacyDriverText). Fallback ini menjaga data lama tetap tampil.
@@ -3564,8 +3582,8 @@ function renderSettings(){
         </p>
         <div class="grid-2">
           <div class="field">
-            <label>Dokumen: ingatkan berapa hari sebelum kadaluarsa</label>
-            <input type="text" inputmode="numeric" id="in-notif-doc-days" value="${getNotifSettings().docExpiryDays}">
+            <label>📄 Dokumen (Mobil &amp; Sopir): jadwal pengingat</label>
+            <div class="hint" style="margin-top:2px;">Tetap di 3 titik: <b>2 bulan</b>, <b>1 bulan</b>, dan <b>1 minggu</b> sebelum kadaluarsa, lalu terus muncul selama belum diperpanjang -- tidak bisa diubah di sini.</div>
           </div>
           <div class="field">
             <label>Servis: mulai peringatan di berapa % dari jadwal</label>
@@ -3578,6 +3596,11 @@ function renderSettings(){
           <div class="field">
             <label>E-Toll: batas minimum saldo default (Rp) jika kartu belum diatur sendiri</label>
             <input type="text" inputmode="numeric" id="in-notif-etoll-min" value="${getNotifSettings().etollMinDefault}">
+          </div>
+          <div class="field">
+            <label>💰 Budget Bulanan: mulai peringatan di berapa % dari limit</label>
+            <input type="text" inputmode="numeric" id="in-notif-budget-pct" value="${getNotifSettings().budgetWarnPct}">
+            <div class="hint">Hanya berlaku untuk mobil yang sudah diisi "Budget Bulanan" di Data Mobil. Notifikasi Telegram-nya <b>khusus Admin</b>, tidak dikirim ke sopir.</div>
           </div>
           <div class="field">
             <label>⏳ Trip dianggap "kelamaan" belum Tiba setelah (jam)</label>
@@ -3728,24 +3751,25 @@ function renderSettings(){
   attachIntegerOnlyInput('in-toleransi-gap');
   if(insightUnlocked){
     renderNotifPermissionStatus();
-    ['in-notif-doc-days','in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min'].forEach(id=>{
+    ['in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min','in-notif-budget-pct'].forEach(id=>{
       attachIntegerOnlyInput(id);
     });
     document.getElementById('btn-save-notif-settings').onclick = () => {
-      const docDays = Number(document.getElementById('in-notif-doc-days').value || 0);
       const svcPct = Number(document.getElementById('in-notif-service-pct').value || 0);
       const bbmMin = Number(document.getElementById('in-notif-bbm-min').value || 0);
       const etollMin = Number(document.getElementById('in-notif-etoll-min').value || 0);
+      const budgetPct = Number(document.getElementById('in-notif-budget-pct').value || 0);
       const tripLamaJam = Number(document.getElementById('in-notif-trip-lama').value || 0);
       const quietHoursEnabled = document.getElementById('in-notif-quiethours').checked;
       const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
       const quietHoursEnd = document.getElementById('in-notif-quiet-end').value || NOTIF_SETTINGS_DEFAULT.quietHoursEnd;
       const checkIntervalMinutes = Number(document.getElementById('in-notif-check-interval').value) || NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes;
       state.notifSettings = {
-        docExpiryDays: docDays>=0 ? docDays : NOTIF_SETTINGS_DEFAULT.docExpiryDays,
+        docExpiryDays: NOTIF_SETTINGS_DEFAULT.docExpiryDays, // v3.138.0 -- sudah tidak dipakai, jadwal dokumen sekarang tetap (lihat DOC_EXPIRY_MILESTONES_DAYS)
         serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
         bbmMinDefault: bbmMin>=0 ? bbmMin : NOTIF_SETTINGS_DEFAULT.bbmMinDefault,
         etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
+        budgetWarnPct: (budgetPct>0 && budgetPct<=100) ? budgetPct : NOTIF_SETTINGS_DEFAULT.budgetWarnPct,
         tripDurationWarnHours: tripLamaJam>0 ? tripLamaJam : NOTIF_SETTINGS_DEFAULT.tripDurationWarnHours,
         quietHoursEnabled, quietHoursStart, quietHoursEnd,
         checkIntervalMinutes: [5,10,15,30,60].includes(checkIntervalMinutes) ? checkIntervalMinutes : NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes,
@@ -4016,17 +4040,39 @@ document.getElementById('drawer-overlay').addEventListener('click', closeDrawer)
    MODUL 1: DASHBOARD
    ======================================================================== */
 /* ---------------- Notifikasi (lonceng) — dipakai di semua halaman ---------------- */
+// v3.138.0 -- Titik pengingat TETAP (tidak bisa diubah lewat Pengaturan,
+// beda dari ambang batas lain di NOTIF_SETTINGS_DEFAULT) untuk SEMUA
+// dokumen -- baik milik Mobil (STNK/Pajak/Asuransi) maupun Sopir (SIM/dll):
+// ~2 bulan, ~1 bulan, dan 1 minggu sebelum kadaluarsa, ditambah begitu
+// sudah lewat (kedaluwarsa, level danger, terus muncul sampai diperpanjang
+// & tanggalnya diperbarui). "~2 bulan"/"~1 bulan" dipakai literal 60/30
+// hari (bukan kalender bulan sungguhan) supaya perhitungannya sederhana &
+// konsisten dipakai dari sini maupun (nanti disalin manual, lihat catatan
+// v3.95.0 di dekat NOTIF_SETTINGS_DEFAULT) telegram-notify.mjs.
+const DOC_EXPIRY_MILESTONES_DAYS = [60, 30, 7];
+function docExpiryAlertLevel(sisa){
+  if(sisa < 0) return 'danger';
+  if(sisa <= 7) return 'danger';
+  return 'warn';
+}
 function computeAlerts(){
   const alerts = [];
   const ns = getNotifSettings();
   state.documents.forEach(d=>{
     const sisa = daysBetween(d.tglExpired);
-    if(sisa <= ns.docExpiryDays){
+    const isMilestone = sisa < 0 || DOC_EXPIRY_MILESTONES_DAYS.some(m => sisa <= m);
+    if(isMilestone){
+      const pemilik = subjectLabel(d);
       alerts.push({
         id: 'doc-'+d.id,
-        route:'docs', ic: sisa<0?'⛔':'📄', level: sisa<0?'danger':'warn',
+        route:'docs', ic: sisa<0?'⛔':'📄', level: docExpiryAlertLevel(sisa),
         judul: `${d.jenis} ${sisa<0?'kedaluwarsa':'akan habis'}`,
-        keterangan: `${carLabel(d.carId)} — ${sisa<0 ? Math.abs(sisa)+' hari lalu' : sisa+' hari lagi'}`
+        keterangan: `${pemilik} — ${sisa<0 ? Math.abs(sisa)+' hari lalu' : sisa+' hari lagi'}. Abaikan kalau sudah diperpanjang.`,
+        // Dokumen Sopir (SIM, dll) dikirim LANGSUNG cuma ke sopir bersangkutan
+        // (mekanisme sama seperti reminder Booking) -- dokumen Mobil tetap
+        // disiarkan seperti biasa (null = semua sopir dgn Chat ID, tunduk ke
+        // langganan kategori notifKategori masing-masing).
+        targetDriverIds: (d.subjek==='sopir' && d.driverId) ? [d.driverId] : null,
       });
     }
   });
@@ -4053,6 +4099,38 @@ function computeAlerts(){
       }
     }
   });
+  // v3.137.0 -- Budget/Limit Biaya Bulanan per mobil: kalau mobil sudah
+  // diisi "Budget Bulanan" (car.budgetBulanan, di Data Mobil), bandingkan
+  // dengan total biaya bulan berjalan (BBM+Tol+Servis+Operasional lain --
+  // PERSIS rumus grandTotal di computeMonthlyReport(), supaya angkanya
+  // selalu sama dengan yang dilihat di Laporan Bulanan, tidak dihitung
+  // ulang dengan rumus terpisah). Mobil yang budgetBulanan-nya kosong/0
+  // TIDAK dicek sama sekali (anggap "tidak dibatasi").
+  // SENGAJA notifikasi Telegram-nya HANYA ke Admin (targetDriverIds: [] --
+  // array KOSONG, beda dari null yang berarti "semua sopir") -- budget
+  // adalah urusan pengelola, bukan sopir, jadi tidak ikut mekanisme
+  // langganan kategori per sopir (notifKategori) seperti kategori lain.
+  // Bel di aplikasi TETAP menampilkan ke siapa pun yang buka app (computeAlerts()
+  // sendiri tidak membedakan penerima -- pembedaan itu terjadi belakangan
+  // di alertsForDriver()/telegram-notify.mjs, KHUSUS jalur pengiriman Telegram).
+  const bulanIniStr = today().slice(0, 7);
+  const laporanBulanIniUntukBudget = computeMonthlyReport(bulanIniStr);
+  state.cars.forEach(c=>{
+    const budget = Number(c.budgetBulanan) || 0;
+    if(budget <= 0) return;
+    const baris = laporanBulanIniUntukBudget.perMobil.find(r=> r.car.id===c.id);
+    const totalBiaya = baris ? baris.grandTotal : 0;
+    const pct = totalBiaya / budget;
+    if(pct >= (ns.budgetWarnPct/100)){
+      alerts.push({
+        id: 'budget-'+c.id, route:'laporan', ic:'💰', level: pct>=1?'danger':'warn',
+        judul: pct>=1 ? 'Budget bulanan terlampaui' : 'Mendekati budget bulanan',
+        keterangan: `${carLabel(c.id)} — ${fmtMoney(totalBiaya)} dari ${fmtMoney(budget)} (${Math.round(pct*100)}%)`,
+        targetDriverIds: [], // KHUSUS Admin -- lihat catatan di atas
+      });
+    }
+  });
+
   const hariIniStr = today();
   // v3.121.0 -- Pengingat "Trip Kelamaan Belum Tiba": kalau sebuah trip
   // masih berstatus "digunakan" (belum ditandai Tiba) sudah lebih lama dari
@@ -5595,6 +5673,14 @@ function openCarModal(editId){
     <div class="field" id="box-batas-bensin">
       ${renderBatasBensinFieldHTML(editing&&editing.batasMinimumBensin!=null?editing.batasMinimumBensin:null, editing&&editing.tipeIndikatorBbm==='bar', editing&&editing.maxBarBbm?editing.maxBarBbm:8)}
     </div>
+    <div class="panel-head" style="padding:0;border:none;margin:16px 0 8px 0;">
+      <h2 style="font-size:13px;">💰 Budget Bulanan (opsional)</h2>
+    </div>
+    <div class="field">
+      <label>Limit biaya bulanan (Rp) — BBM + Tol + Servis + Operasional lain</label>
+      <input type="text" inputmode="numeric" id="in-budget-bulanan" placeholder="Contoh: 3.000.000" value="${editing&&editing.budgetBulanan!=null?fmtRibuanInitial(editing.budgetBulanan):''}">
+      <div class="hint">Kalau diisi, mobil ini dipantau tiap bulan berjalan -- begitu total biaya mendekati/melewati angka ini, Admin dapat notifikasi Telegram (ambang batas % diatur di menu ⏰ Ambang Batas Notifikasi). Kosongkan kalau tidak perlu dibatasi.</div>
+    </div>
   `;
   openModal({
     title: editing ? 'Edit Data Mobil' : 'Tambah Mobil Baru',
@@ -5622,6 +5708,7 @@ function openCarModal(editId){
       const efisiensiMinVal = document.getElementById('in-efisiensi-min').value;
       const efisiensiMaxVal = document.getElementById('in-efisiensi-max').value;
       const ccMesinVal = document.getElementById('in-cc-mesin').value;
+      const budgetBulananVal = getRibuanValue('in-budget-bulanan');
 
       let valid = true;
       toggleFieldError('f-merk', !merk); if(!merk) valid=false;
@@ -5658,14 +5745,16 @@ function openCarModal(editId){
       }
       let ccMesin = ccMesinVal === '' ? null : Number(ccMesinVal);
       if(ccMesin!=null && ccMesin<=0) ccMesin = null;
+      let budgetBulanan = budgetBulananVal === '' ? null : Number(budgetBulananVal);
+      if(budgetBulanan!=null && budgetBulanan<=0) budgetBulanan = null;
 
       if(editing){
-        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin});
+        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan});
         touch(editing);
         logActivity('mobil', 'Edit data mobil', `${merk} ${modelMobil} — ${plat}`);
         showToast('Data mobil diperbarui.');
       } else {
-        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, createdAt: today(), petugas: currentAdmin}));
+        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan, createdAt: today(), petugas: currentAdmin}));
         logActivity('mobil', 'Tambah mobil baru', `${merk} ${modelMobil} — ${plat}`);
         showToast('Mobil baru ditambahkan.');
       }
@@ -5686,6 +5775,7 @@ function openCarModal(editId){
   attachIntegerOnlyInput('in-kapasitas-tangki');
   attachRibuanInput('in-calc-nilai-penuh');
   attachRibuanInput('in-calc-harga-liter');
+  attachRibuanInput('in-budget-bulanan');
   function autoHitungKapasitas(){
     const nilaiPenuh = Number(getRibuanValue('in-calc-nilai-penuh'))||0;
     const hargaLiter = Number(getRibuanValue('in-calc-harga-liter'))||0;
@@ -5832,9 +5922,10 @@ function renderDrivers(){
 
 function deleteDriver(id, onDeleted){
   const usedInUsage = state.usage.some(u=>u.driverId===id);
+  const relatedDocs = state.documents.some(d=>d.subjek==='sopir' && d.driverId===id);
   let warn = 'Hapus data sopir ini?';
-  if(usedInUsage){
-    warn += '\n\nPerhatian: sopir ini pernah tercatat pada riwayat penggunaan mobil. Riwayat tersebut akan tetap ada namun akan ditandai "sopir telah dihapus".';
+  if(usedInUsage || relatedDocs){
+    warn += '\n\nPerhatian: sopir ini pernah tercatat pada riwayat penggunaan mobil' + (relatedDocs?' dan/atau memiliki dokumen (SIM, dll) terkait':'') + '. Riwayat/dokumen tersebut akan tetap ada namun akan ditandai "sopir telah dihapus".';
   }
   openConfirmModal(warn, ()=>{
     const driverName = driverLabel(id);
@@ -9781,22 +9872,53 @@ function openServiceModal(editId){
 }
 
 /* ========================================================================
-   MODUL 6: DOKUMEN (STNK, Pajak, Asuransi)
+   MODUL 6: DOKUMEN (Mobil: STNK/Pajak/Asuransi -- Sopir: SIM/dll)
+   ------------------------------------------------------------------------
+   v3.138.0 -- Sebelumnya dokumen HANYA bisa ditautkan ke Mobil. Sekarang
+   tiap dokumen punya field d.subjek ('mobil' atau 'sopir') yang menentukan
+   dokumen itu ditautkan ke carId atau driverId. Tidak ada batasan "1 sopir
+   1 dokumen" di manapun -- state.documents tetap array biasa, jadi 1 sopir
+   bebas punya beberapa SIM sekaligus (mis. SIM A + SIM C), masing-masing
+   baris/tanggal kadaluarsa sendiri-sendiri. Lihat subjectLabel() untuk cara
+   menampilkan pemiliknya, dan computeAlerts() untuk cara notifikasi SIM
+   diarahkan LANGSUNG ke sopir bersangkutan (targetDriverIds).
    ======================================================================== */
+// Jenis dokumen per subjek -- daftarnya SENGAJA dipisah (bukan 1 dropdown
+// gabungan) supaya opsi yang muncul selalu relevan dengan subjek yang
+// sedang dipilih di form.
+const DOC_JENIS_MOBIL = ['STNK', 'Pajak Kendaraan', 'Asuransi'];
+const DOC_JENIS_SOPIR = ['SIM A', 'SIM B I', 'SIM B II', 'SIM C', 'KTP'];
+// v3.85.0 (mobil) / v3.138.0 (sopir) -- saran otomatis Masa Berlaku sesuai
+// siklus BAKU tiap jenis dokumen (STNK ganti fisik tiap 5 tahun, Pajak
+// Kendaraan tiap 1 tahun, SIM di Indonesia berlaku 5 tahun). Asuransi & KTP
+// SENGAJA tidak disarankan -- Asuransi beda-beda tergantung polis (tidak
+// ada siklus baku), KTP elektronik seumur hidup (tidak ada tanggal
+// kadaluarsa baku yang bisa dihitung otomatis).
+const SIKLUS_DOKUMEN_TAHUN = { 'STNK': 5, 'Pajak Kendaraan': 1, 'SIM A': 5, 'SIM B I': 5, 'SIM B II': 5, 'SIM C': 5 };
+
+function docOwnerSearchText(d){
+  return (d.subjek==='sopir' ? driverLabel(d.driverId) : carLabel(d.carId)).toLowerCase();
+}
+function docStatusBadge(d){
+  const sisa = daysBetween(d.tglExpired);
+  if(sisa < 0) return `<span class="badge danger">Kedaluwarsa</span>`;
+  if(sisa <= 30) return `<span class="badge warn">${sisa} hari lagi</span>`;
+  return `<span class="badge ok">Berlaku</span>`;
+}
 function renderDocs(){
   document.getElementById('header-actions').innerHTML =
     `<button class="btn btn-primary" id="btn-add-doc">+ Tambah Dokumen</button>${exportBtnHtml('btn-export-doc')}`;
   document.getElementById('btn-add-doc').onclick = () => openDocModal();
   document.getElementById('btn-export-doc').onclick = () => {
     exportToExcel('dokumen', 'Dokumen', state.documents.map(d=>({
-      Mobil: carLabel(d.carId), Jenis: d.jenis||'', Nomor: d.nomor||'',
+      Untuk: d.subjek==='sopir' ? 'Sopir' : 'Mobil', 'Pemilik': subjectLabel(d), Jenis: d.jenis||'', Nomor: d.nomor||'',
       Terbit: d.tglTerbit||'', 'Masa Berlaku': d.tglExpired||'',
     })));
   };
 
   const allItems = [...state.documents].sort((a,b)=> a.tglExpired.localeCompare(b.tglExpired));
   const html = `<div class="panel"><div class="panel-body">
-    <div class="search-row"><input type="text" id="doc-search" placeholder="Cari mobil, jenis dokumen, atau nomor..."></div>
+    <div class="search-row"><input type="text" id="doc-search" placeholder="Cari mobil, sopir, jenis dokumen, atau nomor..."></div>
     <div id="doc-table-wrap"></div>
   </div></div>`;
   document.getElementById('content').innerHTML = html;
@@ -9809,43 +9931,29 @@ function renderDocs(){
     }
     wrap.innerHTML = `
       <div class="table-scroll desktop-data-table"><table>
-        <thead><tr><th>Kode</th><th>Mobil</th><th>Jenis</th><th>Nomor</th><th>Terbit</th><th>Masa Berlaku</th><th>Status</th></tr></thead>
+        <thead><tr><th>Kode</th><th>Untuk</th><th>Jenis</th><th>Nomor</th><th>Terbit</th><th>Masa Berlaku</th><th>Status</th></tr></thead>
         <tbody>
-          ${items.map(d=>{
-            const sisa = daysBetween(d.tglExpired);
-            let badge;
-            if(sisa < 0) badge = `<span class="badge danger">Kedaluwarsa</span>`;
-            else if(sisa <= 30) badge = `<span class="badge warn">${sisa} hari lagi</span>`;
-            else badge = `<span class="badge ok">Berlaku</span>`;
-            return `
+          ${items.map(d=>`
             <tr>
               <td>${codeBadgeHtml(d.kode)}</td>
-              <td>${escapeHtml(carLabel(d.carId))}</td>
+              <td>${d.subjek==='sopir'?'🪪 ':'🚗 '}${escapeHtml(subjectLabel(d))}</td>
               <td>${escapeHtml(d.jenis)}</td>
               <td>${escapeHtml(d.nomor||'-')}</td>
               <td>${fmtDate(d.tglTerbit)}</td>
               <td>${fmtDate(d.tglExpired)}</td>
-              <td>${badge}</td>
-            </tr>`;
-          }).join('')}
+              <td>${docStatusBadge(d)}</td>
+            </tr>`).join('')}
         </tbody>
       </table></div>
       <div class="data-card-list">
-        ${items.map(d=>{
-          const sisa = daysBetween(d.tglExpired);
-          let badge;
-          if(sisa < 0) badge = `<span class="badge danger">Kedaluwarsa</span>`;
-          else if(sisa <= 30) badge = `<span class="badge warn">${sisa} hari lagi</span>`;
-          else badge = `<span class="badge ok">Berlaku</span>`;
-          return `
+        ${items.map(d=>`
           <div class="data-card">
-            <div class="data-card-title"><span>${escapeHtml(d.jenis)} — ${escapeHtml(carLabel(d.carId))}</span>${badge}</div>
+            <div class="data-card-title"><span>${escapeHtml(d.jenis)} — ${d.subjek==='sopir'?'🪪 ':'🚗 '}${escapeHtml(subjectLabel(d))}</span>${docStatusBadge(d)}</div>
             <div class="data-card-row"><span class="k">Kode</span><span class="v">${codeBadgeHtml(d.kode)}</span></div>
             <div class="data-card-row"><span class="k">Nomor</span><span class="v">${escapeHtml(d.nomor||'-')}</span></div>
             <div class="data-card-row"><span class="k">Terbit</span><span class="v">${fmtDate(d.tglTerbit)}</span></div>
             <div class="data-card-row"><span class="k">Masa Berlaku</span><span class="v">${fmtDate(d.tglExpired)}</span></div>
-          </div>`;
-        }).join('')}
+          </div>`).join('')}
       </div>
     `;
   }
@@ -9854,7 +9962,7 @@ function renderDocs(){
   document.getElementById('doc-search').addEventListener('input', (e)=>{
     const q = e.target.value.trim().toLowerCase();
     renderTable(allItems.filter(d =>
-      carLabel(d.carId).toLowerCase().includes(q) || d.jenis.toLowerCase().includes(q) || (d.nomor||'').toLowerCase().includes(q)
+      docOwnerSearchText(d).includes(q) || d.jenis.toLowerCase().includes(q) || (d.nomor||'').toLowerCase().includes(q)
     ));
   });
 }
@@ -9864,7 +9972,7 @@ function deleteDocument(id, onDeleted){
     const d = state.documents.find(x=>x.id===id);
     markDeleted('documents', id);
     state.documents = state.documents.filter(x=>x.id!==id);
-    if(d) logActivity('dokumen', 'Hapus dokumen', `${d.jenis} — ${carLabel(d.carId)}`);
+    if(d) logActivity('dokumen', 'Hapus dokumen', `${d.jenis} — ${subjectLabel(d)}`);
     saveData();
     showToast('Dokumen dihapus.');
     if(currentRoute==='docs') renderDocs();
@@ -9873,30 +9981,48 @@ function deleteDocument(id, onDeleted){
 }
 
 function openDocModal(){
-  if(state.cars.length===0){
-    showToast('Tambahkan data mobil terlebih dahulu sebelum mencatat dokumen.', true);
+  if(state.cars.length===0 && state.drivers.length===0){
+    showToast('Tambahkan data mobil atau data sopir terlebih dahulu sebelum mencatat dokumen.', true);
     return;
   }
   const carOptions = state.cars.map(c=>`<option value="${c.id}">${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}</option>`).join('');
+  const driverOptions = state.drivers.map(d=>`<option value="${d.id}">${escapeHtml(d.nama)}</option>`).join('');
+  const jenisOptionsMobil = DOC_JENIS_MOBIL.map(j=>`<option value="${j}">${j}</option>`).join('');
+  const jenisOptionsSopir = DOC_JENIS_SOPIR.map(j=>`<option value="${j}">${j}</option>`).join('');
   const body = `
+    <div class="field">
+      <label>Dokumen ini milik *</label>
+      <select id="in-subjek">
+        <option value="mobil">🚗 Mobil (STNK / Pajak / Asuransi)</option>
+        <option value="sopir">🪪 Sopir (SIM / dll)</option>
+      </select>
+    </div>
     <div class="field" id="f-car">
       <label>Mobil *</label>
       <select id="in-car"><option value="">— pilih mobil —</option>${carOptions}</select>
       <div class="err-msg">Pilih mobil.</div>
     </div>
+    <div class="field" id="f-driver" style="display:none;">
+      <label>Sopir *</label>
+      <select id="in-driver"><option value="">— pilih sopir —</option>${driverOptions}</select>
+      <div class="err-msg">Pilih sopir.</div>
+      <div class="hint">Boleh lebih dari 1 dokumen untuk sopir yang sama (mis. SIM A &amp; SIM C sekaligus).</div>
+    </div>
     <div class="field" id="f-jenis">
       <label>Jenis Dokumen *</label>
-      <select id="in-jenis">
+      <select id="in-jenis-mobil">
         <option value="">— pilih jenis —</option>
-        <option value="STNK">STNK</option>
-        <option value="Pajak Kendaraan">Pajak Kendaraan</option>
-        <option value="Asuransi">Asuransi</option>
+        ${jenisOptionsMobil}
+      </select>
+      <select id="in-jenis-sopir" style="display:none;">
+        <option value="">— pilih jenis —</option>
+        ${jenisOptionsSopir}
       </select>
       <div class="err-msg">Pilih jenis dokumen.</div>
     </div>
     <div class="field">
       <label>Nomor Dokumen</label>
-      <input type="text" id="in-nomor" placeholder="Nomor STNK/polis/dsb (opsional)">
+      <input type="text" id="in-nomor" placeholder="Nomor STNK/polis/SIM/dsb (opsional)">
     </div>
     <div class="grid-2">
       <div class="field">
@@ -9907,48 +10033,52 @@ function openDocModal(){
         <label>Masa Berlaku Sampai *</label>
         <input type="date" id="in-expired">
         <div class="err-msg">Tanggal masa berlaku wajib diisi.</div>
-        <div class="hint">STNK &amp; Pajak Kendaraan terisi otomatis sesuai siklus baku (5 tahun / 1 tahun dari Tanggal Terbit) begitu Jenis dipilih -- boleh diubah manual kalau perlu.</div>
+        <div class="hint">STNK, Pajak Kendaraan &amp; SIM terisi otomatis sesuai siklus baku dari Tanggal Terbit begitu Jenis dipilih -- boleh diubah manual kalau perlu.</div>
       </div>
     </div>
   `;
+
+  function jenisSelectAktif(){
+    return document.getElementById('in-subjek').value==='sopir'
+      ? document.getElementById('in-jenis-sopir')
+      : document.getElementById('in-jenis-mobil');
+  }
+
   openModal({
-    title: 'Tambah Dokumen Kendaraan',
+    title: 'Tambah Dokumen',
     body,
     onSave: () => {
-      const carId = document.getElementById('in-car').value;
-      const jenis = document.getElementById('in-jenis').value;
+      const subjek = document.getElementById('in-subjek').value;
+      const carId = subjek==='mobil' ? document.getElementById('in-car').value : '';
+      const driverId = subjek==='sopir' ? document.getElementById('in-driver').value : '';
+      const jenis = jenisSelectAktif().value;
       const nomor = document.getElementById('in-nomor').value.trim();
       const tglTerbit = document.getElementById('in-terbit').value || today();
       const tglExpired = document.getElementById('in-expired').value;
 
       let valid = true;
-      toggleFieldError('f-car', !carId); if(!carId) valid=false;
+      if(subjek==='mobil'){ toggleFieldError('f-car', !carId); if(!carId) valid=false; }
+      else { toggleFieldError('f-driver', !driverId); if(!driverId) valid=false; }
       toggleFieldError('f-jenis', !jenis); if(!jenis) valid=false;
       toggleFieldError('f-expired', !tglExpired); if(!tglExpired) valid=false;
       if(!valid) return false;
 
-      state.documents.push(touch({id: uid(), kode: nextDocumentCode(), carId, jenis, nomor, tglTerbit, tglExpired, petugas: currentAdmin}));
+      const doc = { id: uid(), kode: nextDocumentCode(), subjek, jenis, nomor, tglTerbit, tglExpired, petugas: currentAdmin };
+      if(subjek==='mobil') doc.carId = carId; else doc.driverId = driverId;
+      state.documents.push(touch(doc));
       saveData();
-      logActivity('dokumen', 'Tambah dokumen', `${jenis} — ${carLabel(carId)}`);
+      logActivity('dokumen', 'Tambah dokumen', `${jenis} — ${subjectLabel(doc)}`);
       showToast('Dokumen ditambahkan.');
       renderDocs();
       return true;
     }
   });
 
-  // v3.85.0 -- saran otomatis Masa Berlaku sesuai siklus BAKU tiap jenis
-  // dokumen (di Indonesia siklusnya BEDA: STNK ganti fisik tiap 5 tahun,
-  // Pajak Kendaraan tiap 1 tahun -- kalau digabung/disamaratakan gampang
-  // salah hitung manual). Asuransi SENGAJA tidak disarankan (masa
-  // berlakunya beda-beda tergantung polis, tidak ada siklus baku).
-  // Cuma menyarankan, TIDAK memaksa -- begitu petugas mengetik SENDIRI di
-  // field Masa Berlaku, saran otomatis berhenti menimpa lagi.
-  const SIKLUS_DOKUMEN_TAHUN = { 'STNK': 5, 'Pajak Kendaraan': 1 };
   let expiredDiisiManual = false;
   document.getElementById('in-expired').addEventListener('input', ()=>{ expiredDiisiManual = true; });
   function saranMasaBerlaku(){
     if(expiredDiisiManual) return;
-    const jenis = document.getElementById('in-jenis').value;
+    const jenis = jenisSelectAktif().value;
     const siklusTahun = SIKLUS_DOKUMEN_TAHUN[jenis];
     if(!siklusTahun) return;
     const tglTerbit = document.getElementById('in-terbit').value || today();
@@ -9956,7 +10086,25 @@ function openDocModal(){
     d.setFullYear(d.getFullYear() + siklusTahun);
     document.getElementById('in-expired').value = d.toISOString().slice(0,10);
   }
-  document.getElementById('in-jenis').addEventListener('change', saranMasaBerlaku);
+  function toggleSubjekUI(){
+    const isSopir = document.getElementById('in-subjek').value==='sopir';
+    document.getElementById('f-car').style.display = isSopir ? 'none' : '';
+    document.getElementById('f-driver').style.display = isSopir ? '' : 'none';
+    document.getElementById('in-jenis-mobil').style.display = isSopir ? 'none' : '';
+    document.getElementById('in-jenis-sopir').style.display = isSopir ? '' : 'none';
+    toggleFieldError('f-car', false);
+    toggleFieldError('f-driver', false);
+    expiredDiisiManual = false;
+    document.getElementById('in-expired').value = '';
+    saranMasaBerlaku();
+  }
+  document.getElementById('in-subjek').addEventListener('change', toggleSubjekUI);
+  // Kalau salah satu data (mobil/sopir) kosong, langsung set subjek yang datanya ADA,
+  // supaya petugas tidak perlu ganti dropdown dulu ke opsi yang kosong.
+  if(state.cars.length===0 && state.drivers.length>0) document.getElementById('in-subjek').value = 'sopir';
+  toggleSubjekUI();
+  document.getElementById('in-jenis-mobil').addEventListener('change', saranMasaBerlaku);
+  document.getElementById('in-jenis-sopir').addEventListener('change', saranMasaBerlaku);
   document.getElementById('in-terbit').addEventListener('change', saranMasaBerlaku);
 }
 
@@ -12242,6 +12390,24 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.138.0',
+    date: '29 Jul 2026',
+    notes: [
+      '🪪 Dokumen sekarang bisa dicatat untuk Sopir juga, tidak lagi khusus Mobil -- di menu Tambah Dokumen, pilih "Sopir" lalu jenisnya (SIM A/SIM B I/SIM B II/SIM C/KTP). 1 sopir boleh punya beberapa dokumen sekaligus (mis. SIM A + SIM C).',
+      'Jadwal pengingat kadaluarsa dokumen (Mobil maupun Sopir) sekarang di 3 titik tetap: 2 bulan, 1 bulan, dan 1 minggu sebelum tanggalnya habis -- lalu terus muncul di lonceng selama belum diperbarui. Setiap notifikasinya kini menyertakan catatan "abaikan kalau sudah diperpanjang".',
+      'Notifikasi Telegram untuk dokumen milik Sopir (SIM, dll) dikirim LANGSUNG khusus ke sopir bersangkutan (nomor Telegram-nya sendiri) -- bukan disiarkan ke semua sopir seperti dokumen Mobil.',
+    ]
+  },
+  {
+    v: '3.137.0',
+    date: '29 Jul 2026',
+    notes: [
+      '💰 Budget Bulanan (opsional) per mobil: isi limit biaya bulanan di Data Mobil (BBM+Tol+Servis+Operasional lain), nanti begitu total biaya bulan berjalan mendekati/melewati ambang batas (diatur di menu ⏰ Ambang Batas Notifikasi), Admin dapat notifikasi Telegram. Khusus Admin -- tidak dikirim ke sopir. Mobil yang budget-nya kosong tidak dipantau.',
+      'Rekonsiliasi otomatis odometer mobil & saldo kartu E-Toll setiap sinkron cloud, supaya angka yang sempat "nyangkut" akibat penghapusan catatan perjalanan lama ikut kebetulkan sendiri tanpa perlu dicek manual satu-satu.',
+      'Admin Penerima Notifikasi Telegram sekarang bisa lebih dari satu nomor (menu Pengaturan), masing-masing dengan label nama & preferensi notifikasi trip selesai sendiri (off / ringkas / resi lengkap) -- dikirim instan paralel dengan resi ke sopir.',
+    ]
+  },
   {
     v: '3.136.2',
     date: '28 Jul 2026',
