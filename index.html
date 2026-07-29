@@ -797,6 +797,38 @@
      juga -- sebelumnya popup ini nyaris tak terlihat batasnya. */
   .trip-action-item[data-act="cancel"]{background:var(--bg);}
   .trip-action-item[data-act="cancel"]:hover{background:var(--neutral-bg);}
+
+  /* ---------------- v3.146.0 -- Popup "Mesin Dinyalakan" (deteksi GPS.id) ----------------
+     Gaya B: banner ringkas dari bawah layar, meniru pola #trip-bubble yang
+     sudah ada -- tidak menutupi seluruh layar, gampang diabaikan kalau lagi
+     sibuk, tapi tetap jelas terlihat. */
+  #gps-engine-popup{position:fixed;left:16px;right:16px;bottom:20px;z-index:160;max-width:400px;margin:0 auto;}
+  .gps-engine-banner-card{
+    background:var(--card);border:1.5px solid var(--blue);border-radius:14px;padding:14px;
+    box-shadow:0 14px 34px rgba(0,0,0,0.28);
+  }
+  .gps-engine-banner-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;}
+  .gps-engine-banner-icon{font-size:19px;line-height:1;}
+  .gps-engine-banner-title{font-weight:700;font-size:13.5px;color:var(--text);}
+  .gps-engine-banner-sub{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .gps-engine-banner-x{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 4px;line-height:1;}
+  .gps-engine-banner-btn{width:100%;background:var(--blue);color:#fff;border:none;border-radius:9px;padding:11px 12px;font-size:13.5px;font-weight:700;cursor:pointer;}
+  [data-theme="dark"] .gps-engine-banner-btn{color:#0B1220;}
+
+  /* ---------------- v3.146.0 -- Field auto-isi dari GPS.id (Gaya B) ----------------
+     Dipakai di "Odometer Saat Berangkat" (Catat Perjalanan, KHUSUS lewat
+     popup di atas) dan "Odometer Saat Tiba" (Tandai Kembali, seperti biasa)
+     -- supaya field yang terisi otomatis dari GPS.id terlihat JELAS beda
+     dari input manual, dan jelas ini angka perkiraan bukan angka pasti. */
+  .field.gps-est-active{background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--radius);padding:12px;}
+  .gps-est-input-wrap{position:relative;}
+  .gps-est-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;}
+  .gps-est-input-wrap input.gps-est-padded{padding-left:32px;}
+  .gps-est-badge{
+    display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;
+    padding:2px 8px;border-radius:20px;background:var(--amber-bg);color:var(--amber);
+    border:1px solid var(--amber);cursor:pointer;font-family:inherit;
+  }
   @media(max-width:768px){
     #trip-bubble{bottom:16px;right:16px;}
     .trip-action-menu{width:88vw;max-width:280px;}
@@ -1220,6 +1252,8 @@
   <div class="trip-bubble-panel" id="trip-bubble-panel" style="display:none;"></div>
 </div>
 
+<div id="gps-engine-popup" style="display:none;"></div>
+
 <div class="modal-overlay" id="gh-modal-overlay" style="display:none;">
   <div class="modal">
     <div class="modal-head">
@@ -1299,7 +1333,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.145.0';
+const APP_VERSION = '3.146.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -7477,10 +7511,16 @@ function markReturned(id){
     <p style="font-size:13px;color:var(--muted);margin-top:0;">Perbarui kondisi mobil saat kembali (opsional).</p>
     <div class="grid-2">
       <div class="field" id="f-odo-kembali">
-        <label>Odometer Saat Tiba (KM)</label>
-        <input type="text" inputmode="numeric" id="in-odo-kembali" placeholder="Contoh: 45.230" value="${fmtRibuanInitial(u.odoKembali)}">
+        <label style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Odometer Saat Tiba (KM)</span>
+          <span id="odo-kembali-est-badge"></span>
+        </label>
+        <div class="gps-est-input-wrap">
+          <span class="gps-est-icon" id="odo-kembali-est-icon" style="display:none;">🛰️</span>
+          <input type="text" inputmode="numeric" id="in-odo-kembali" placeholder="Contoh: 45.230" value="${fmtRibuanInitial(u.odoKembali)}">
+        </div>
         <div class="err-msg">Odometer tiba tidak boleh lebih kecil dari odometer berangkat (${u.odoKeluar!=null ? Number(u.odoKeluar).toLocaleString('id-ID') : '-'} KM).</div>
-        <div class="hint" id="odo-kembali-gps-hint" style="color:var(--blue);"></div>
+        <div class="hint" id="odo-kembali-gps-hint" style="display:none;"></div>
       </div>
       <div class="field">
         <label>Jam Tiba</label>
@@ -7614,13 +7654,14 @@ function markReturned(id){
   // Tetap bisa diedit manual -- ini cuma bantuan, bukan pengunci field.
   if(carForFuel && carForFuel.imeiGps && u.odoKembali == null){
     const gpsHintKembali = document.getElementById('odo-kembali-gps-hint');
-    if(gpsHintKembali) gpsHintKembali.textContent = '🛰️ Mengambil odometer dari GPS.id...';
+    if(gpsHintKembali){ gpsHintKembali.style.display = ''; gpsHintKembali.style.color = 'var(--muted)'; gpsHintKembali.textContent = '🛰️ Mengambil odometer dari GPS.id...'; }
     fetchOdoFromGpsId(carForFuel.imeiGps).then(km=>{
       if(!document.getElementById('in-odo-kembali')) return; // modal sudah ditutup
       if(km!=null){
         document.getElementById('in-odo-kembali').value = fmtRibuanInitial(km);
-        if(gpsHintKembali) gpsHintKembali.textContent = `🛰️ Otomatis dari GPS.id (${fmtRibuanInitial(km)} KM) -- bisa diedit kalau perlu dikoreksi.`;
+        setGpsEstimateField('f-odo-kembali','in-odo-kembali','odo-kembali-est-icon','odo-kembali-est-badge','odo-kembali-gps-hint', km, 'tiba');
       } else if(gpsHintKembali){
+        gpsHintKembali.style.display = 'none';
         gpsHintKembali.textContent = '';
       }
     });
@@ -8753,11 +8794,17 @@ function openUsageModal(editId, presetCarId){
         <input type="time" id="in-jam-keluar" value="${editing&&editing.jamKeluar?editing.jamKeluar:new Date().toTimeString().slice(0,5)}">
       </div>
     </div>
-    <div class="field">
-      <label>Odometer Saat Berangkat (KM)</label>
-      <input type="text" inputmode="numeric" id="in-odo-keluar" placeholder="Contoh: 45.000" value="${editing?fmtRibuanInitial(editing.odoKeluar):''}">
+    <div class="field" id="f-odo-keluar">
+      <label style="display:flex;align-items:center;justify-content:space-between;">
+        <span>Odometer Saat Berangkat (KM)</span>
+        <span id="odo-keluar-est-badge"></span>
+      </label>
+      <div class="gps-est-input-wrap">
+        <span class="gps-est-icon" id="odo-keluar-est-icon" style="display:none;">🛰️</span>
+        <input type="text" inputmode="numeric" id="in-odo-keluar" placeholder="Contoh: 45.000" value="${editing?fmtRibuanInitial(editing.odoKeluar):''}">
+      </div>
       <div class="hint">Diisi supaya jarak tempuh perjalanan ini bisa dihitung otomatis.</div>
-      <div class="hint" id="odo-keluar-gps-hint" style="color:var(--blue);"></div>
+      <div class="hint" id="odo-keluar-gps-hint" style="display:none;"></div>
     </div>
     <div class="field" id="box-bensin-keluar">
       ${renderFuelFieldHTML('in-bensin', 'Sisa Bensin Saat Berangkat', editing?getBensinKeluar(editing):null, editing?state.cars.find(c=>c.id===editing.carId):null)}
@@ -8923,30 +8970,20 @@ function openUsageModal(editId, presetCarId){
   }
   wireBensinKeluarInput();
   updateFuelRangeInsight();
-  document.getElementById('in-car').addEventListener('change', async function(){
+  document.getElementById('in-car').addEventListener('change', function(){
     const car = state.cars.find(c=>c.id===this.value);
     document.getElementById('box-bensin-keluar').innerHTML = renderFuelFieldHTML('in-bensin', 'Sisa Bensin Saat Berangkat', null, car);
     wireBensinKeluarInput();
     updateFuelRangeInsight();
 
-    // v3.143.0 -- auto-isi Odometer Berangkat dari GPS.id kalau mobil ini
-    // sudah dihubungkan IMEI-nya (Data Mobil). Tetap bisa diedit manual --
-    // ini cuma bantuan, bukan pengunci field.
-    const gpsHint = document.getElementById('odo-keluar-gps-hint');
-    if(car && car.imeiGps){
-      if(gpsHint) gpsHint.textContent = '🛰️ Mengambil odometer dari GPS.id...';
-      const km = await fetchOdoFromGpsId(car.imeiGps);
-      const stillSameCar = document.getElementById('in-car') && document.getElementById('in-car').value===car.id;
-      if(!stillSameCar) return; // mobil sudah diganti lagi sebelum respons datang -- abaikan
-      if(km!=null){
-        document.getElementById('in-odo-keluar').value = fmtRibuanInitial(km);
-        if(gpsHint) gpsHint.textContent = `🛰️ Otomatis dari GPS.id (${fmtRibuanInitial(km)} KM) -- bisa diedit kalau perlu dikoreksi.`;
-      } else if(gpsHint){
-        gpsHint.textContent = '⚠️ Tidak bisa mengambil odometer dari GPS.id -- isi manual.';
-      }
-    } else if(gpsHint){
-      gpsHint.textContent = '';
-    }
+    // v3.146.0 -- Odometer Berangkat TIDAK LAGI auto-isi di sini (beda dari
+    // v3.143.0 sebelumnya). Sekarang auto-isi HANYA terjadi lewat popup
+    // "Mesin Dinyalakan" (lihat openUsageModalFromGpsEnginePopup()) --
+    // ganti mobil manual di form ini (atau buka form ini biasa) selalu
+    // kosong, isi manual seperti biasa. Kalau field ini sempat bergaya
+    // "Estimasi GPS" (dari popup) lalu mobilnya diganti manual, style itu
+    // dilepas -- angka lama sudah tidak relevan utk mobil baru.
+    clearGpsEstimateField('f-odo-keluar','in-odo-keluar','odo-keluar-est-icon','odo-keluar-est-badge','odo-keluar-gps-hint');
   });
 
   // Pilih kartu E-Toll → saldo saat ini otomatis tersalin ke field "Saldo Saat Berangkat",
@@ -11403,6 +11440,171 @@ async function fetchOdoFromGpsId(imei){
   } catch(e){ return null; }
 }
 
+// ============================================================================
+// v3.146.0 -- Popup "Mesin Dinyalakan" (deteksi transisi acc OFF -> ON dari
+// GPS.id) + penandaan visual field yang terisi otomatis dari GPS.id.
+// ============================================================================
+
+// ---- Bagian A: badge/field "Estimasi GPS" (dipakai Catat Perjalanan & Tandai Kembali) ----
+// Pola SAMA PERSIS dgn badge "Estimasi"/"Akurat" yang sudah ada di E-Toll
+// (openBadgeExplainModal) -- supaya konsisten & bisa di-tap utk penjelasan.
+function openGpsOdoEstimateInfoModal(){
+  openBadgeExplainModal('🛰️', 'Estimasi GPS', 'Angka odometer ini diambil otomatis dari perangkat GPS.id yang terhubung ke mobil ini -- bukan hasil catat manual.', 'Bisa berbeda sedikit dari odometer fisik sebenarnya (pembulatan/jeda sinkron GPS.id) -- <b>cek ulang sebelum simpan</b>, dan boleh dikoreksi manual kapan saja kalau ternyata beda.');
+}
+function setGpsEstimateField(fieldId, inputId, iconId, badgeId, hintId, km, kapan){
+  const fieldEl = document.getElementById(fieldId);
+  const iconEl = document.getElementById(iconId);
+  const inputEl = document.getElementById(inputId);
+  const badgeEl = document.getElementById(badgeId);
+  const hintEl = document.getElementById(hintId);
+  if(fieldEl) fieldEl.classList.add('gps-est-active');
+  if(iconEl) iconEl.style.display = '';
+  if(inputEl) inputEl.classList.add('gps-est-padded');
+  if(badgeEl) badgeEl.innerHTML = `<button type="button" class="gps-est-badge" onclick="openGpsOdoEstimateInfoModal()">🛰️ Estimasi GPS</button>`;
+  if(hintEl){
+    hintEl.style.display = '';
+    hintEl.style.color = 'var(--amber)';
+    hintEl.textContent = `🛰️ Otomatis dari GPS.id (${fmtRibuanInitial(km)} KM${kapan?', saat '+kapan:''}) -- bukan angka pasti, cek ulang sebelum simpan.`;
+  }
+}
+function clearGpsEstimateField(fieldId, inputId, iconId, badgeId, hintId){
+  const fieldEl = document.getElementById(fieldId);
+  const iconEl = document.getElementById(iconId);
+  const inputEl = document.getElementById(inputId);
+  const badgeEl = document.getElementById(badgeId);
+  const hintEl = document.getElementById(hintId);
+  if(fieldEl) fieldEl.classList.remove('gps-est-active');
+  if(iconEl) iconEl.style.display = 'none';
+  if(inputEl) inputEl.classList.remove('gps-est-padded');
+  if(badgeEl) badgeEl.innerHTML = '';
+  if(hintEl){ hintEl.style.display = 'none'; hintEl.textContent = ''; }
+}
+
+// ---- Bagian B: popup "Mesin Dinyalakan" ----
+// State di memori (TIDAK disimpan ke localStorage/GitHub) -- cukup utk 1
+// sesi aplikasi terbuka. imei -> {acc:'ON'|'OFF', asked:bool}
+let gpsEnginePopupState = {};
+let gpsEnginePopupTimer = null;
+let gpsEnginePopupShownImei = null;
+let gpsEnginePopupPolling = false;
+
+async function fetchGpsVehicleListForPopup(){
+  if(!isGhConnected()) return null;
+  try{
+    const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/gpsid/vehicles`, { headers: { 'accept':'application/json' } });
+    const data = await res.json().catch(()=>null);
+    if(!res.ok || !data) return null;
+    if(Array.isArray(data)) return data;
+    if(Array.isArray(data?.message?.data)) return data.message.data;
+    if(Array.isArray(data?.data)) return data.data;
+    if(Array.isArray(data?.message)) return data.message;
+    return null;
+  } catch(e){ return null; }
+}
+
+function renderGpsEnginePopup(car, gpsOdoKm){
+  gpsEnginePopupShownImei = car.imeiGps;
+  const box = document.getElementById('gps-engine-popup');
+  if(!box) return;
+  box.innerHTML = `
+    <div class="gps-engine-banner-card">
+      <div class="gps-engine-banner-row">
+        <span class="gps-engine-banner-icon">🛰️</span>
+        <div style="flex:1;">
+          <div class="gps-engine-banner-title">${escapeHtml(car.plat||carLabel(car.id))} baru dinyalakan</div>
+          <div class="gps-engine-banner-sub">Catat perjalanan sekarang?</div>
+        </div>
+        <button class="gps-engine-banner-x" id="gps-engine-popup-x" aria-label="Tutup">✕</button>
+      </div>
+      <button class="gps-engine-banner-btn" id="gps-engine-popup-yes">📝 Ya, catat perjalanan</button>
+    </div>
+  `;
+  box.style.display = 'block';
+  document.getElementById('gps-engine-popup-x').onclick = () => hideGpsEnginePopup(car.imeiGps, true);
+  document.getElementById('gps-engine-popup-yes').onclick = () => {
+    hideGpsEnginePopup(car.imeiGps, true);
+    openUsageModalFromGpsEnginePopup(car, gpsOdoKm);
+  };
+}
+// dipanggil saat: (1) dijawab Ya/Tidak, (2) mesin terdeteksi mati lagi
+// sebelum dijawab, (3) mobil ini sudah sempat ganti status jadi "digunakan"
+// lewat jalur lain (mis. dicatat manual duluan sebelum sempat ditap).
+function hideGpsEnginePopup(imei, markAsked){
+  if(gpsEnginePopupShownImei !== imei) return;
+  gpsEnginePopupShownImei = null;
+  const box = document.getElementById('gps-engine-popup');
+  if(box){ box.style.display = 'none'; box.innerHTML = ''; }
+  if(markAsked && gpsEnginePopupState[imei]) gpsEnginePopupState[imei].asked = true;
+}
+
+async function pollGpsEnginePopup(){
+  if(gpsEnginePopupPolling) return; // hindari tumpang tindih kalau request sebelumnya belum selesai
+  if(document.hidden) return; // cuma jalan selagi tab/app ini aktif dibuka
+  if(!isGhConnected()) return;
+  const carsWithImei = state.cars.filter(c => c.imeiGps);
+  if(!carsWithImei.length) return;
+  gpsEnginePopupPolling = true;
+  try{
+    const list = await fetchGpsVehicleListForPopup();
+    if(!list) return;
+    carsWithImei.forEach(car => {
+      const v = list.find(x => String(x.imei ?? x.IMEI ?? '') === String(car.imeiGps));
+      if(!v) return;
+      const nowAcc = String(v.acc ?? '').toUpperCase();
+      if(nowAcc !== 'ON' && nowAcc !== 'OFF') return; // data tidak jelas -- abaikan siklus ini
+      const prev = gpsEnginePopupState[car.imeiGps] || {acc:null, asked:false};
+
+      // Transisi OFF -> ON terdeteksi (butuh status OFF yang SUDAH diketahui
+      // sebelumnya -- supaya mobil yang sudah ON sejak app pertama dibuka
+      // TIDAK langsung memicu popup begitu saja).
+      if(prev.acc === 'OFF' && nowAcc === 'ON' && !prev.asked){
+        const sudahDalamPerjalanan = state.usage.some(u => u.carId === car.id && u.status === 'digunakan');
+        if(!sudahDalamPerjalanan){
+          const km = (v.mileage!=null && !isNaN(Number(v.mileage))) ? Math.round(Number(v.mileage)/1000) : null;
+          renderGpsEnginePopup(car, km);
+        }
+      }
+
+      // Mesin dimatikan lagi -- popup (kalau masih terbuka utk mobil ini &
+      // belum dijawab) otomatis hilang, dan "asked" direset supaya siklus
+      // ON berikutnya bisa nanya lagi dari awal.
+      if(nowAcc === 'OFF'){
+        if(gpsEnginePopupShownImei === car.imeiGps) hideGpsEnginePopup(car.imeiGps, false);
+        gpsEnginePopupState[car.imeiGps] = {acc:'OFF', asked:false};
+      } else {
+        gpsEnginePopupState[car.imeiGps] = {acc:'ON', asked: prev.asked};
+      }
+    });
+  } finally {
+    gpsEnginePopupPolling = false;
+  }
+}
+function startGpsEnginePopupWatcher(){
+  if(gpsEnginePopupTimer) return;
+  pollGpsEnginePopup();
+  gpsEnginePopupTimer = setInterval(pollGpsEnginePopup, 45000);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) pollGpsEnginePopup(); });
+}
+
+// Dipanggil saat sopir/petugas tap "Ya" di popup -- buka Catat Perjalanan
+// dgn mobil TERPILIH otomatis + odometer terisi dari GPS.id (bernuansa
+// "Estimasi GPS", lihat setGpsEstimateField). INI SATU-SATUNYA jalur yang
+// boleh auto-isi tipe mobil & odometer keluar -- buka manual (tombol "+
+// Catat Perjalanan" biasa) TIDAK auto-isi apa pun, sesuai permintaan.
+function openUsageModalFromGpsEnginePopup(car, gpsOdoKm){
+  openUsageModal(null, car.id);
+  setTimeout(() => {
+    const carSel = document.getElementById('in-car');
+    if(carSel) carSel.value = car.id;
+    if(gpsOdoKm != null){
+      const odoInput = document.getElementById('in-odo-keluar');
+      if(odoInput) odoInput.value = fmtRibuanInitial(gpsOdoKm);
+      setGpsEstimateField('f-odo-keluar','in-odo-keluar','odo-keluar-est-icon','odo-keluar-est-badge','odo-keluar-gps-hint', gpsOdoKm, 'mesin dinyalakan');
+    }
+  }, 220); // ditunda dikit -- biar modal Catat Perjalanan selesai render dulu (pola sama dgn openUsageModal(null, carId) lain di app)
+}
+
+
 // v3.142.0 -- Halaman "Lacak Kendaraan": posisi & status kendaraan real-time
 // dari GPS.id, lewat proxy GET /gpsid/vehicles di Worker (kredensial GPS.id
 // tersimpan sebagai Secret di Cloudflare, TIDAK PERNAH terkirim ke browser).
@@ -12782,6 +12984,15 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.146.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 BARU: popup "🛰️ [Plat] baru dinyalakan" muncul otomatis di aplikasi (selagi dibuka) saat GPS.id mendeteksi mesin mobil dinyalakan -- tap "Ya, catat perjalanan" langsung buka form Catat Perjalanan dgn mobil & odometer terisi otomatis. Tidak muncul kalau mobil itu sedang dalam perjalanan aktif, dan otomatis hilang sendiri kalau mesin dimatikan lagi sebelum sempat dijawab.',
+      'PERUBAHAN PERILAKU: Odometer Saat Berangkat (Catat Perjalanan) TIDAK LAGI auto-isi otomatis saat mobil dipilih manual (beda dari v3.143.0) -- sekarang HANYA auto-isi lewat popup di atas. Odometer Saat Tiba (Tandai Kembali) tidak berubah, tetap auto-isi seperti biasa.',
+      'Field odometer yang terisi otomatis dari GPS.id sekarang ditandai jelas: latar kotak diberi warna, ikon 🛰️ di dalam input, plus badge "Estimasi GPS" yang bisa di-tap untuk penjelasan -- pola sama dgn badge Estimasi/Akurat di E-Toll -- supaya jelas ini angka perkiraan, bukan angka pasti, dan wajib dicek ulang sebelum simpan.',
+    ]
+  },
   {
     v: '3.145.0',
     date: '30 Jul 2026',
@@ -14761,6 +14972,7 @@ loadGhConfig();
 if(isGhConnected()){
   fetchFromGithub();
   startAutoSync();
+  startGpsEnginePopupWatcher(); // v3.146.0 -- popup "Mesin Dinyalakan" (deteksi GPS.id)
 }
 
 /* ============================================================================
