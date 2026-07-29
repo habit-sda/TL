@@ -719,6 +719,22 @@
   .data-card-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #F0F1F3;}
   .data-card-actions .btn{font-size:10.5px;padding:6px 9px;}
 
+  /* ---------------- Kartu Lacak Kendaraan (GPS.id) -- v3.142.0 ----------------
+     Beda dari .data-card-list: selalu tampil grid di semua ukuran layar
+     (desktop maupun HP), tidak disembunyikan lewat breakpoint mobile, karena
+     halaman ini belum ada versi tabel desktopnya. */
+  .gps-card-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px;}
+  .gps-card{border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,0.04);transition:box-shadow .15s ease;}
+  .gps-card:hover{box-shadow:0 4px 14px rgba(16,24,40,0.08);}
+  .gps-card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;}
+  .gps-card-thumb{width:44px;height:44px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--hover-bg);}
+  .gps-card-thumb-placeholder{display:flex;align-items:center;justify-content:center;font-size:20px;}
+  .gps-card-title-wrap{flex:1;min-width:0;}
+  .gps-card-title{font-weight:800;font-size:13.5px;line-height:1.35;}
+  .gps-card-imei-warn{font-size:10.5px;color:var(--amber);margin-top:3px;line-height:1.4;}
+  .gps-card-maps-link{display:inline-block;margin-top:10px;padding-top:10px;border-top:1px solid #F0F1F3;font-size:11.5px;font-weight:700;color:var(--blue);text-decoration:none;}
+  .gps-card-maps-link:hover{text-decoration:underline;}
+
   /* ---------------- Daftar peringatan/alert bertumpuk (Dashboard, BBM, Servis) ---------------- */
   .alert-list-item{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--line);}
   .alert-list-item:last-child{border-bottom:none;}
@@ -1283,7 +1299,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.141.0';
+const APP_VERSION = '3.145.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -5633,6 +5649,11 @@ function openCarModal(editId){
       <div class="hint">Muncul di Kartu Info Darurat mobil ini (tombol "🆘 Info Darurat") -- dicetak & disimpan di dalam mobil, bukan cuma di HP, untuk situasi darurat/kecelakaan saat tidak ada sinyal.</div>
     </div>
     <div class="field">
+      <label>IMEI GPS.id (opsional)</label>
+      <input type="text" data-no-uppercase="1" id="in-imei-gps" placeholder="Contoh: 869066061196599" value="${editing&&editing.imeiGps?escapeHtml(editing.imeiGps):''}">
+      <div class="hint">IMEI unit GPS Tracker terpasang di mobil ini (dilihat dari akun GPS.id Anda). Isi ini supaya halaman "Lacak Kendaraan" tahu posisi mana milik mobil mana, dan menampilkan foto & nama mobil dari data ini -- bukan cuma data mentah dari GPS.id.</div>
+    </div>
+    <div class="field">
       <label>Odometer Saat Ini (KM)</label>
       <input type="text" inputmode="numeric" id="in-odo" placeholder="Contoh: 45.000" value="${editing?fmtRibuanInitial(editing.odometerSaatIni):''}">
       <div class="hint">Terisi/terupdate otomatis tiap kali mobil ditandai "kembali", tapi bisa diedit manual di sini.</div>
@@ -5736,6 +5757,7 @@ function openCarModal(editId){
       const nomorRangka = document.getElementById('in-nomor-rangka').value.trim();
       const nomorMesin = document.getElementById('in-nomor-mesin').value.trim();
       const kontakBengkel = document.getElementById('in-kontak-bengkel').value.trim();
+      const imeiGps = document.getElementById('in-imei-gps').value.trim();
       const modelMobil = document.getElementById('in-model').value.trim();
       const tahun = document.getElementById('in-tahun').value.trim();
       const warna = document.getElementById('in-warna').value.trim();
@@ -5793,12 +5815,12 @@ function openCarModal(editId){
       if(budgetBulanan!=null && budgetBulanan<=0) budgetBulanan = null;
 
       if(editing){
-        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan});
+        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, imeiGps, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan});
         touch(editing);
         logActivity('mobil', 'Edit data mobil', `${merk} ${modelMobil} — ${plat}`);
         showToast('Data mobil diperbarui.');
       } else {
-        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan, createdAt: today(), petugas: currentAdmin}));
+        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, imeiGps, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan, createdAt: today(), petugas: currentAdmin}));
         logActivity('mobil', 'Tambah mobil baru', `${merk} ${modelMobil} — ${plat}`);
         showToast('Mobil baru ditambahkan.');
       }
@@ -7458,6 +7480,7 @@ function markReturned(id){
         <label>Odometer Saat Tiba (KM)</label>
         <input type="text" inputmode="numeric" id="in-odo-kembali" placeholder="Contoh: 45.230" value="${fmtRibuanInitial(u.odoKembali)}">
         <div class="err-msg">Odometer tiba tidak boleh lebih kecil dari odometer berangkat (${u.odoKeluar!=null ? Number(u.odoKeluar).toLocaleString('id-ID') : '-'} KM).</div>
+        <div class="hint" id="odo-kembali-gps-hint" style="color:var(--blue);"></div>
       </div>
       <div class="field">
         <label>Jam Tiba</label>
@@ -7583,6 +7606,25 @@ function markReturned(id){
   attachRibuanInput('in-odo-kembali');
   attachRibuanInput('in-biaya-bensin');
   attachIntegerOnlyInput('in-liter-bensin');
+
+  // v3.143.0 -- auto-isi Odometer Tiba dari GPS.id kalau mobil ini sudah
+  // dihubungkan IMEI-nya (Data Mobil) DAN odometer tiba belum pernah diisi
+  // sebelumnya (supaya tidak menimpa data yang sudah final saat cuma
+  // membuka lagi trip yang sudah selesai untuk dikoreksi field lain).
+  // Tetap bisa diedit manual -- ini cuma bantuan, bukan pengunci field.
+  if(carForFuel && carForFuel.imeiGps && u.odoKembali == null){
+    const gpsHintKembali = document.getElementById('odo-kembali-gps-hint');
+    if(gpsHintKembali) gpsHintKembali.textContent = '🛰️ Mengambil odometer dari GPS.id...';
+    fetchOdoFromGpsId(carForFuel.imeiGps).then(km=>{
+      if(!document.getElementById('in-odo-kembali')) return; // modal sudah ditutup
+      if(km!=null){
+        document.getElementById('in-odo-kembali').value = fmtRibuanInitial(km);
+        if(gpsHintKembali) gpsHintKembali.textContent = `🛰️ Otomatis dari GPS.id (${fmtRibuanInitial(km)} KM) -- bisa diedit kalau perlu dikoreksi.`;
+      } else if(gpsHintKembali){
+        gpsHintKembali.textContent = '';
+      }
+    });
+  }
 
   const barWidgetKembali = document.querySelector('#box-bensin-kembali .bar-picker-widget');
   if(barWidgetKembali){
@@ -8715,6 +8757,7 @@ function openUsageModal(editId, presetCarId){
       <label>Odometer Saat Berangkat (KM)</label>
       <input type="text" inputmode="numeric" id="in-odo-keluar" placeholder="Contoh: 45.000" value="${editing?fmtRibuanInitial(editing.odoKeluar):''}">
       <div class="hint">Diisi supaya jarak tempuh perjalanan ini bisa dihitung otomatis.</div>
+      <div class="hint" id="odo-keluar-gps-hint" style="color:var(--blue);"></div>
     </div>
     <div class="field" id="box-bensin-keluar">
       ${renderFuelFieldHTML('in-bensin', 'Sisa Bensin Saat Berangkat', editing?getBensinKeluar(editing):null, editing?state.cars.find(c=>c.id===editing.carId):null)}
@@ -8880,11 +8923,30 @@ function openUsageModal(editId, presetCarId){
   }
   wireBensinKeluarInput();
   updateFuelRangeInsight();
-  document.getElementById('in-car').addEventListener('change', function(){
+  document.getElementById('in-car').addEventListener('change', async function(){
     const car = state.cars.find(c=>c.id===this.value);
     document.getElementById('box-bensin-keluar').innerHTML = renderFuelFieldHTML('in-bensin', 'Sisa Bensin Saat Berangkat', null, car);
     wireBensinKeluarInput();
     updateFuelRangeInsight();
+
+    // v3.143.0 -- auto-isi Odometer Berangkat dari GPS.id kalau mobil ini
+    // sudah dihubungkan IMEI-nya (Data Mobil). Tetap bisa diedit manual --
+    // ini cuma bantuan, bukan pengunci field.
+    const gpsHint = document.getElementById('odo-keluar-gps-hint');
+    if(car && car.imeiGps){
+      if(gpsHint) gpsHint.textContent = '🛰️ Mengambil odometer dari GPS.id...';
+      const km = await fetchOdoFromGpsId(car.imeiGps);
+      const stillSameCar = document.getElementById('in-car') && document.getElementById('in-car').value===car.id;
+      if(!stillSameCar) return; // mobil sudah diganti lagi sebelum respons datang -- abaikan
+      if(km!=null){
+        document.getElementById('in-odo-keluar').value = fmtRibuanInitial(km);
+        if(gpsHint) gpsHint.textContent = `🛰️ Otomatis dari GPS.id (${fmtRibuanInitial(km)} KM) -- bisa diedit kalau perlu dikoreksi.`;
+      } else if(gpsHint){
+        gpsHint.textContent = '⚠️ Tidak bisa mengambil odometer dari GPS.id -- isi manual.';
+      }
+    } else if(gpsHint){
+      gpsHint.textContent = '';
+    }
   });
 
   // Pilih kartu E-Toll → saldo saat ini otomatis tersalin ke field "Saldo Saat Berangkat",
@@ -11315,29 +11377,62 @@ function renderEtollCards(){
   });
 }
 
-// v3.141.0 -- Halaman "Lacak Kendaraan": posisi & status kendaraan real-time
+// v3.143.0 -- Helper dipakai di form "Catat Perjalanan" & "Tandai Kembali":
+// ambil odometer TERKINI dari GPS.id untuk imei tertentu (kalau mobilnya
+// sudah dihubungkan lewat field "IMEI GPS.id" di Data Mobil), supaya field
+// Odometer bisa terisi otomatis TAPI TETAP BISA DIEDIT MANUAL -- ini cuma
+// bantuan, bukan pengunci. Mengembalikan angka KM (dibulatkan) atau null
+// kalau imei kosong/proxy gagal/imei tidak ketemu di akun GPS.id.
+async function fetchOdoFromGpsId(imei){
+  if(!imei || !isGhConnected()) return null;
+  try{
+    const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/gpsid/vehicles`, { headers: { 'accept':'application/json' } });
+    const data = await res.json().catch(()=>null);
+    if(!res.ok || !data) return null;
+    let list = null;
+    if(Array.isArray(data)) list = data;
+    else if(Array.isArray(data?.message?.data)) list = data.message.data;
+    else if(Array.isArray(data?.data)) list = data.data;
+    else if(Array.isArray(data?.message)) list = data.message;
+    if(!list) return null;
+    const v = list.find(x => String(x.imei ?? x.IMEI ?? '') === String(imei));
+    if(!v || v.mileage==null) return null;
+    const m = Number(v.mileage);
+    if(isNaN(m)) return null;
+    return Math.round(m/1000); // asumsi field "mileage" GPS.id dalam meter
+  } catch(e){ return null; }
+}
+
+// v3.142.0 -- Halaman "Lacak Kendaraan": posisi & status kendaraan real-time
 // dari GPS.id, lewat proxy GET /gpsid/vehicles di Worker (kredensial GPS.id
 // tersimpan sebagai Secret di Cloudflare, TIDAK PERNAH terkirim ke browser).
-// CATATAN: struktur respons "Get Vehicle" GPS.id belum dipastikan persis
-// (dokumentasi yang tersedia baru contoh endpoint Get Token). Supaya
-// halaman ini tidak rusak kalau nama field berbeda dari dugaan, dicoba
-// beberapa kemungkinan nama field yang umum dipakai API GPS/AVL, dan kalau
-// tidak ada yang cocok, tetap ditampilkan data mentahnya (JSON) supaya
-// tetap berguna sambil field mapping-nya disempurnakan belakangan.
+// Field per kendaraan (imei, plate, acc, speed, mileage, door, last_update,
+// battery, satellite, longitude/latitude) sudah dikonfirmasi dari respons
+// akun GPS.id yang sesungguhnya. Kalau tersambung ke mobil lewat field
+// "IMEI GPS.id" di Data Mobil (car.imeiGps), kartu menampilkan foto & nama
+// mobil dari data internal -- kalau belum, tetap tampil pakai data GPS.id
+// apa adanya plus peringatan supaya IMEI-nya dihubungkan.
+// Auto-refresh tiap 30 detik selama halaman ini masih terbuka (tanpa perlu
+// klik apa pun), mengikuti pola auto-refresh lain di app (lihat
+// checkForUpdate/renderSyncIndicator). Data mentah (JSON) sengaja tidak lagi
+// ditampilkan di UI -- pengguna cukup lihat kartunya.
+let gpsTrackingTimer = null;
 function renderGpsTracking(){
+  if(gpsTrackingTimer){ clearInterval(gpsTrackingTimer); gpsTrackingTimer = null; }
+
   document.getElementById('header-actions').innerHTML =
     `<button class="btn btn-primary" id="btn-gps-refresh">🔄 Muat Ulang</button>`;
 
   document.getElementById('content').innerHTML = `
     <div class="panel"><div class="panel-body">
       <p style="font-size:11.5px;color:var(--muted);margin:0 0 12px 0;line-height:1.6;">
-        Posisi & status kendaraan diambil langsung dari GPS.id lewat Worker Anda. Data ini TIDAK tersimpan di GitHub -- selalu diambil ulang setiap halaman ini dibuka atau tombol "Muat Ulang" ditekan.
+        Posisi & status kendaraan diambil langsung dari GPS.id lewat Worker Anda, dan diperbarui otomatis tiap 30 detik selama halaman ini terbuka -- tidak perlu menekan apa pun. Data ini tidak tersimpan di GitHub.
       </p>
       <div id="gps-tracking-wrap"></div>
     </div></div>
   `;
 
-  async function load(){
+  async function load(silent){
     const wrap = document.getElementById('gps-tracking-wrap');
     if(!wrap) return;
 
@@ -11346,7 +11441,7 @@ function renderGpsTracking(){
       return;
     }
 
-    wrap.innerHTML = emptyState('🛰️','Memuat data kendaraan...');
+    if(!silent) wrap.innerHTML = emptyState('🛰️','Memuat data kendaraan...');
     let res, data;
     try{
       res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/gpsid/vehicles`, { headers: { 'accept':'application/json' } });
@@ -11360,7 +11455,6 @@ function renderGpsTracking(){
       return;
     }
 
-    // Coba beberapa kemungkinan bentuk respons (list kendaraan).
     let list = null;
     if(Array.isArray(data)) list = data;
     else if(Array.isArray(data?.message?.data)) list = data.message.data;
@@ -11368,9 +11462,7 @@ function renderGpsTracking(){
     else if(Array.isArray(data?.message)) list = data.message;
 
     if(!list){
-      wrap.innerHTML = `
-        <p style="font-size:11.5px;color:var(--muted);margin:0 0 10px 0;">Format respons GPS.id belum dikenali otomatis -- ini data mentah yang diterima (kirimkan ini supaya tampilannya bisa dirapikan):</p>
-        <pre style="white-space:pre-wrap;font-size:11px;background:var(--hover-bg);padding:10px;border-radius:8px;overflow:auto;">${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
+      wrap.innerHTML = emptyState('⚠️','Format respons GPS.id belum dikenali. Hubungi pengembang untuk menyesuaikan pemetaan field.');
       return;
     }
     if(list.length === 0){
@@ -11379,59 +11471,54 @@ function renderGpsTracking(){
     }
 
     wrap.innerHTML = `
-      <div class="data-card-list">
+      <div class="gps-card-list">
         ${list.map(v=>{
-          // Struktur field dikonfirmasi dari respons asli GPS.id (endpoint
-          // Get Vehicle): plate, device_name, acc, door, battery, speed,
-          // mileage, address, longitude/latitude, last_positioning,
-          // last_update. Field lain (imei, owner, gsm_no, dll) tidak
-          // ditampilkan di kartu tapi tetap ada di "data mentah".
-          const plat = v.plate || v.device_name || '(tanpa nama)';
-          const lat = v.latitude!=null ? parseFloat(v.latitude) : null;
-          const lng = v.longitude!=null ? parseFloat(v.longitude) : null;
-          const punyaKoordinat = lat!=null && lng!=null && !isNaN(lat) && !isNaN(lng) && !(lat===0 && lng===0);
-          // GPS.id sering tidak mengisi "address" (null) -- kalau begitu,
-          // tetap tampilkan koordinat sebagai tautan Google Maps supaya
-          // lokasi tetap bisa dilihat/dilacak.
-          const lokasiHtml = v.address
-            ? escapeHtml(String(v.address))
-            : (punyaKoordinat
-                ? `<a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener">${lat.toFixed(5)}, ${lng.toFixed(5)} ↗</a>`
-                : null);
-          const kecepatan = v.speed;
-          const accOn = String(v.acc).toUpperCase() === 'ON';
-          const pintuBuka = String(v.door).toUpperCase() === 'OPEN';
-          const baterai = v.battery!=null && v.battery!=='' ? v.battery : null;
-          // Odometer dari GPS.id dalam meter -> tampilkan dalam km.
-          const odoKm = (typeof v.mileage === 'number') ? (v.mileage/1000) : null;
-          // "Update Terakhir" = terakhir device lapor ke server; bisa beda
-          // dgn "Posisi Terakhir" = terakhir sinyal GPS valid didapat (mis.
-          // mesin OFF lama, device masih lapor tapi posisi tidak berubah).
-          const waktuUpdate = v.last_update || null;
-          const waktuPosisi = v.last_positioning || null;
+          const imei = v.imei ?? v.IMEI ?? null;
+          const car = imei ? state.cars.find(c => c.imeiGps && String(c.imeiGps)===String(imei)) : null;
+
+          const platRaw = v.plate ?? v.no_polisi ?? v.plat_nomor ?? v.vehicle_number ?? v.nopol ?? v.name ?? v.vehicle_name ?? null;
+          const judul = car ? `${escapeHtml(car.merk||'')} ${escapeHtml(car.modelMobil||'')} — ${escapeHtml(car.plat||'')}`.trim() : (platRaw ? escapeHtml(String(platRaw)) : '(tanpa nama)');
+          const foto = car && car.fotoUrl ? car.fotoUrl : null;
+
+          const kecepatan = v.speed ?? v.kecepatan ?? null;
+          const waktu = v.last_update ?? v.gps_date ?? v.updated_at ?? v.waktu ?? v.gps_time ?? null;
+          const accRaw = v.acc ?? v.acc_status ?? v.status_mesin ?? null;
+          const accOn = accRaw===1 || accRaw===true || String(accRaw).toUpperCase()==='ON';
+          const lat = v.latitude ?? v.lat ?? null;
+          const lon = v.longitude ?? v.lon ?? null;
+          const mapsUrl = (lat!=null && lon!=null) ? `https://www.google.com/maps?q=${encodeURIComponent(lat)},${encodeURIComponent(lon)}` : null;
+          const doorRaw = v.door ?? null;
+          const doorOpen = String(doorRaw).toUpperCase()==='OPEN';
+          const mileageM = v.mileage!=null ? Number(v.mileage) : null;
+          const mileageKm = (mileageM!=null && !isNaN(mileageM)) ? Math.round(mileageM/1000) : null;
+          const battery = v.battery ?? null;
+          const satellite = v.satellite ?? null;
+
           return `
-          <div class="data-card">
-            <div class="data-card-title">${escapeHtml(String(plat))}</div>
-            ${lokasiHtml ? `<div class="data-card-row"><span class="k">Lokasi</span><span class="v">${lokasiHtml}</span></div>` : ''}
+          <div class="gps-card">
+            <div class="gps-card-head">
+              ${foto ? `<img src="${escapeHtml(foto)}" class="gps-card-thumb" onerror="this.style.display='none'">` : `<div class="gps-card-thumb gps-card-thumb-placeholder">🚗</div>`}
+              <div class="gps-card-title-wrap">
+                <div class="gps-card-title">${judul}</div>
+                ${(!car && imei) ? `<div class="gps-card-imei-warn">IMEI ${escapeHtml(String(imei))} belum dihubungkan ke mobil manapun. Isi field "IMEI GPS.id" di Data Mobil supaya tampil nama & foto mobilnya.</div>` : ''}
+              </div>
+              ${accRaw!=null ? (accOn ? '<span class="badge ok">Mesin ON</span>' : '<span class="badge neutral">Mesin OFF</span>') : ''}
+            </div>
             ${kecepatan!=null ? `<div class="data-card-row"><span class="k">Kecepatan</span><span class="v">${escapeHtml(String(kecepatan))} km/j</span></div>` : ''}
-            ${v.acc!=null ? `<div class="data-card-row"><span class="k">Status Mesin</span><span class="v">${accOn ? '<span class="badge ok">ON</span>' : '<span class="badge neutral">OFF</span>'}</span></div>` : ''}
-            ${v.door!=null ? `<div class="data-card-row"><span class="k">Pintu</span><span class="v">${pintuBuka ? '<span class="badge warn">TERBUKA</span>' : '<span class="badge neutral">TERTUTUP</span>'}</span></div>` : ''}
-            ${odoKm!=null ? `<div class="data-card-row"><span class="k">Odometer</span><span class="v">${odoKm.toLocaleString('id-ID',{maximumFractionDigits:1})} km</span></div>` : ''}
-            ${baterai!=null ? `<div class="data-card-row"><span class="k">Baterai GPS</span><span class="v">${escapeHtml(String(baterai))}%</span></div>` : ''}
-            ${waktuPosisi ? `<div class="data-card-row"><span class="k">Posisi Terakhir</span><span class="v">${escapeHtml(String(waktuPosisi))}</span></div>` : ''}
-            ${waktuUpdate ? `<div class="data-card-row"><span class="k">Update Terakhir</span><span class="v">${escapeHtml(String(waktuUpdate))}</span></div>` : ''}
+            ${mileageKm!=null ? `<div class="data-card-row"><span class="k">Odometer GPS</span><span class="v">${mileageKm.toLocaleString('id-ID')} km</span></div>` : ''}
+            ${doorRaw ? `<div class="data-card-row"><span class="k">Pintu</span><span class="v">${doorOpen?'<span class="badge warn">Terbuka</span>':'<span class="badge neutral">Tertutup</span>'}</span></div>` : ''}
+            ${waktu ? `<div class="data-card-row"><span class="k">Update Terakhir</span><span class="v">${escapeHtml(String(waktu))}</span></div>` : ''}
+            ${(battery!=null||satellite!=null) ? `<div class="data-card-row"><span class="k">Device GPS</span><span class="v">${battery!=null?('🔋'+escapeHtml(String(battery))+'%'):''}${(battery!=null&&satellite!=null)?'&nbsp;&nbsp;':''}${satellite!=null?('🛰️'+escapeHtml(String(satellite))):''}</span></div>` : ''}
+            ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" rel="noopener" class="gps-card-maps-link">📍 Lihat Posisi di Peta</a>` : ''}
           </div>`;
         }).join('')}
       </div>
-      <details style="margin-top:14px;">
-        <summary style="cursor:pointer;font-size:11.5px;color:var(--muted);">Lihat data mentah (JSON)</summary>
-        <pre style="white-space:pre-wrap;font-size:11px;background:var(--hover-bg);padding:10px;border-radius:8px;overflow:auto;margin-top:8px;">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
-      </details>
     `;
   }
 
-  document.getElementById('btn-gps-refresh').onclick = load;
-  load();
+  document.getElementById('btn-gps-refresh').onclick = () => load(false);
+  load(false);
+  gpsTrackingTimer = setInterval(()=>{ if(currentRoute==='gps' && !document.hidden) load(true); else { clearInterval(gpsTrackingTimer); gpsTrackingTimer=null; } }, 30000);
 }
 
 function openEtollHistoryModal(cardId){
@@ -12695,6 +12782,39 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.145.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 BARU (Worker): konfirmasi odometer GPS.id di Telegram ("Apakah benar?") sekarang bisa dijawab dgn TAP tombol "✅ Ya, benar" / "✏️ Isi manual" langsung dari chat, tidak wajib ketik manual lagi -- ketik "ya"/"tidak" tetap berfungsi seperti biasa buat yang lebih suka mengetik.',
+    ]
+  },
+  {
+    v: '3.144.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 BARU (Worker): saat sopir ketik "tiba" di Telegram untuk mobil yang IMEI GPS.id-nya sudah dihubungkan (Data Mobil), bot sekarang tanya-konfirmasi dulu odometer dari GPS.id ("Sistem GPS mendeteksi odometer sekarang: xxxxx KM. Apakah benar?") -- ketik "ya" untuk lanjut pakai angka itu, atau "tidak" untuk isi manual seperti biasa. Mobil yang belum dihubungkan IMEI-nya tetap langsung ditanya manual seperti sebelumnya.',
+    ]
+  },
+  {
+    v: '3.143.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 BARU: Odometer Saat Berangkat (form Catat Perjalanan) dan Odometer Saat Tiba (form Tandai Kembali) sekarang otomatis terisi dari GPS.id kalau mobilnya sudah dihubungkan lewat field "IMEI GPS.id" (Data Mobil) -- tetap bisa diedit manual kalau perlu dikoreksi, ini cuma bantuan supaya petugas tidak perlu buka dashboard GPS.id terpisah lalu ketik ulang.',
+      'Catatan: field indikator BBM (Bar/Persen) BELUM bisa diisi otomatis dari GPS.id -- akun GPS.id yang tersambung saat ini tidak mengirim data level bensin sama sekali (device GPS umumnya tidak dipasangi sensor tangki tambahan), jadi field ini tetap manual seperti biasa.',
+    ]
+  },
+  {
+    v: '3.142.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🐛 Perbaikan halaman Lacak Kendaraan: sebelumnya kartu posisi kendaraan sengaja dibuat khusus tampilan HP (class .data-card-list), jadi di layar desktop malah tersembunyi (display:none) dan yang kelihatan cuma bagian "Lihat data mentah (JSON)" -- sekarang pakai layout kartu baru (.gps-card-list) yang selalu tampil di semua ukuran layar.',
+      '🟢 BARU: field "IMEI GPS.id" di Data Mobil (opsional) -- isi manual sekali per mobil, lalu halaman Lacak Kendaraan otomatis mencocokkan data posisi GPS.id dengan mobil yang sesuai (tampil nama & foto mobil, bukan cuma data mentah dari GPS.id).',
+      '🟢 BARU: halaman Lacak Kendaraan diperbarui otomatis tiap 30 detik selama halaman dibuka -- tidak perlu tekan "Muat Ulang" berulang kali.',
+      'Blok "Lihat data mentah (JSON)" di halaman Lacak Kendaraan dihapus dari tampilan supaya lebih rapi untuk pengguna sehari-hari.',
+      'Kartu Lacak Kendaraan sekarang juga menampilkan Odometer GPS, status Pintu, dan info baterai/sinyal satelit device GPS.',
+    ]
+  },
   {
     v: '3.141.0',
     date: '29 Jul 2026',
