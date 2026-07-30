@@ -804,16 +804,16 @@
      sibuk, tapi tetap jelas terlihat. */
   #gps-engine-popup{position:fixed;left:16px;right:16px;bottom:20px;z-index:160;max-width:400px;margin:0 auto;}
   .gps-engine-banner-card{
-    background:var(--card);border:1.5px solid var(--blue);border-radius:14px;padding:14px;
-    box-shadow:0 14px 34px rgba(0,0,0,0.28);
+    background:#2C2C2A;border:1.5px solid #D85A30;border-radius:14px;padding:14px;
+    box-shadow:0 14px 34px rgba(0,0,0,0.4);cursor:grab;touch-action:none;
   }
+  .gps-engine-banner-card.dragging{cursor:grabbing;}
   .gps-engine-banner-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;}
   .gps-engine-banner-icon{font-size:19px;line-height:1;}
-  .gps-engine-banner-title{font-weight:700;font-size:13.5px;color:var(--text);}
-  .gps-engine-banner-sub{font-size:11.5px;color:var(--muted);margin-top:2px;}
-  .gps-engine-banner-x{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 4px;line-height:1;}
-  .gps-engine-banner-btn{width:100%;background:var(--blue);color:#fff;border:none;border-radius:9px;padding:11px 12px;font-size:13.5px;font-weight:700;cursor:pointer;}
-  [data-theme="dark"] .gps-engine-banner-btn{color:#0B1220;}
+  .gps-engine-banner-title{font-weight:700;font-size:13.5px;color:#FAECE7;}
+  .gps-engine-banner-sub{font-size:11.5px;color:#F0997B;margin-top:2px;}
+  .gps-engine-banner-x{background:none;border:none;color:#F0997B;font-size:16px;cursor:pointer;padding:2px 4px;line-height:1;}
+  .gps-engine-banner-btn{width:100%;background:#D85A30;color:#FAECE7;border:none;border-radius:9px;padding:11px 12px;font-size:13.5px;font-weight:700;cursor:pointer;}
 
   /* ---------------- v3.146.0 -- Field auto-isi dari GPS.id (Gaya B) ----------------
      Dipakai di "Odometer Saat Berangkat" (Catat Perjalanan, KHUSUS lewat
@@ -1333,7 +1333,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.148.0';
+const APP_VERSION = '3.149.0';
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -11552,6 +11552,13 @@ function renderGpsEnginePopup(car, gpsOdoKm){
   gpsEnginePopupShownImei = car.imeiGps;
   const box = document.getElementById('gps-engine-popup');
   if(!box) return;
+  // reset posisi ke default (bawah-tengah) tiap muncul baru, hasil geseran sebelumnya tidak terbawa
+  box.style.left = '16px';
+  box.style.right = '16px';
+  box.style.top = '';
+  box.style.bottom = '20px';
+  box.style.width = '';
+  box.style.margin = '0 auto';
   box.innerHTML = `
     <div class="gps-engine-banner-card">
       <div class="gps-engine-banner-row">
@@ -11572,6 +11579,53 @@ function renderGpsEnginePopup(car, gpsOdoKm){
     openUsageModalFromGpsEnginePopup(car, gpsOdoKm);
   };
 }
+// ---------------- Popup mesin dinyalakan: bisa digeser (drag) ----------------
+// Dipasang sekali di elemen pembungkus #gps-engine-popup (bukan di dalam
+// renderGpsEnginePopup) karena innerHTML-nya diganti tiap kali popup muncul --
+// listener di elemen pembungkus tetap hidup walau isinya diganti-ganti.
+// Tap pada tombol "Ya" / "X" sengaja tidak memicu drag supaya tetap bisa ditap.
+(function initGpsEnginePopupDrag(){
+  const box = document.getElementById('gps-engine-popup');
+  if(!box) return;
+  let dragging = false;
+  let startX = 0, startY = 0, startLeft = 0, startTop = 0, pointerId = null;
+
+  box.addEventListener('pointerdown', (e) => {
+    const card = e.target.closest('.gps-engine-banner-card');
+    if(!card || e.target.closest('button')) return;
+    const rect = box.getBoundingClientRect();
+    box.style.width = rect.width + 'px';
+    box.style.left = rect.left + 'px';
+    box.style.top = rect.top + 'px';
+    box.style.right = 'auto';
+    box.style.bottom = 'auto';
+    box.style.margin = '0';
+    startX = e.clientX; startY = e.clientY;
+    startLeft = rect.left; startTop = rect.top;
+    dragging = true; pointerId = e.pointerId;
+    card.classList.add('dragging');
+    box.setPointerCapture(pointerId);
+  });
+
+  box.addEventListener('pointermove', (e) => {
+    if(!dragging || e.pointerId !== pointerId) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    const maxLeft = window.innerWidth - box.offsetWidth;
+    const maxTop = window.innerHeight - box.offsetHeight;
+    box.style.left = Math.max(0, Math.min(maxLeft, startLeft + dx)) + 'px';
+    box.style.top = Math.max(0, Math.min(maxTop, startTop + dy)) + 'px';
+  });
+
+  function endDrag(e){
+    if(!dragging) return;
+    dragging = false;
+    const card = box.querySelector('.gps-engine-banner-card');
+    if(card) card.classList.remove('dragging');
+  }
+  box.addEventListener('pointerup', endDrag);
+  box.addEventListener('pointercancel', endDrag);
+})();
+
 // dipanggil saat: (1) dijawab Ya/Tidak, (2) mesin terdeteksi mati lagi
 // sebelum dijawab, (3) mobil ini sudah sempat ganti status jadi "digunakan"
 // lewat jalur lain (mis. dicatat manual duluan sebelum sempat ditap).
