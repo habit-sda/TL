@@ -1333,7 +1333,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.158.0';
+const APP_VERSION = '3.159.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -12329,7 +12329,11 @@ async function openCarTrackingModal(carId){
     modalFoot.insertBefore(reloadBtn, modalFoot.firstChild);
   }
 
-  const stopPolling = () => { if(carTrackingModalTimer){ clearInterval(carTrackingModalTimer); carTrackingModalTimer=null; } };
+  let carTrackingMiniMap = null; // v3.159.0 -- instance peta mini Leaflet khusus popup ini, dibuat ulang tiap siklus berhasil (lihat renderCarTrackingMiniMap)
+  const stopPolling = () => {
+    if(carTrackingModalTimer){ clearInterval(carTrackingModalTimer); carTrackingModalTimer=null; }
+    if(carTrackingMiniMap){ try{ carTrackingMiniMap.remove(); }catch(e){} carTrackingMiniMap = null; }
+  };
   const overlay = document.getElementById('modal-overlay');
   if(overlay) overlay.addEventListener('click', (e)=>{ if(e.target.id==='modal-overlay') stopPolling(); });
   const closeBtn = document.getElementById('modal-close');
@@ -12446,7 +12450,8 @@ async function openCarTrackingModal(carId){
           ${doorRaw ? `<div class="data-card-row"><span class="k">Pintu</span><span class="v">${doorOpen?'<span class="badge warn">Terbuka</span>':'<span class="badge neutral">Tertutup</span>'}</span></div>` : ''}
           ${waktu ? `<div class="data-card-row"><span class="k">Update Terakhir</span><span class="v">${escapeHtml(String(waktu))}</span></div>` : ''}
           ${(battery!=null||satellite!=null) ? `<div class="data-card-row"><span class="k">Device GPS</span><span class="v">${battery!=null?('🔋'+escapeHtml(String(battery))+'%'):''}${(battery!=null&&satellite!=null)?'&nbsp;&nbsp;':''}${satellite!=null?('🛰️'+escapeHtml(String(satellite))):''}</span></div>` : ''}
-          ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" rel="noopener" class="gps-card-maps-link">📍 Lihat Posisi di Peta</a>` : ''}
+          ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" rel="noopener" class="gps-card-maps-link">📍 Lihat Posisi di Peta (Google Maps)</a>` : ''}
+          ${(lat!=null && lon!=null) ? `<div id="car-tracking-mini-map" style="height:200px;border-radius:12px;overflow:hidden;margin-top:10px;background:var(--neutral-bg);"></div>` : ''}
         </div>
       </div>
       <div id="car-tracking-sync-warn"></div>
@@ -12455,6 +12460,36 @@ async function openCarTrackingModal(carId){
     // ditampilkan lagi kalau siklus auto-refresh berikutnya sempat gagal.
     lastGoodCardHtml = box.innerHTML;
     if(reloadBtn) reloadBtn.disabled = false;
+
+    // v3.159.0 -- Peta mini live per mobil (Leaflet + OpenStreetMap, gratis,
+    // pola SAMA dgn peta di halaman penuh Lacak Kendaraan). Kontainer-nya
+    // SELALU baru tiap box.innerHTML ditulis ulang di atas, jadi instance
+    // peta lama (kalau ada) dibuang dulu sebelum bikin yang baru -- supaya
+    // tidak nyantol ke elemen DOM yang sudah lenyap.
+    if(carTrackingMiniMap){ try{ carTrackingMiniMap.remove(); }catch(e){} carTrackingMiniMap = null; }
+    if(lat!=null && lon!=null){
+      try{
+        await loadLeaflet();
+        const mapEl = document.getElementById('car-tracking-mini-map');
+        if(mapEl && window.L){
+          carTrackingMiniMap = L.map('car-tracking-mini-map', { zoomControl:false, attributionControl:false }).setView([lat,lon], 15);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(carTrackingMiniMap);
+          const warna = accOn ? '#0E9488' : '#94A3B8';
+          const icon = L.divIcon({
+            className: '',
+            html: `<div style="width:30px;height:30px;border-radius:50%;background:${warna};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,24,40,.35);border:2px solid #fff;font-size:15px;">🚗</div>`,
+            iconSize: [30,30], iconAnchor: [15,15],
+          });
+          L.marker([lat,lon], {icon}).addTo(carTrackingMiniMap);
+          setTimeout(()=>{ if(carTrackingMiniMap) carTrackingMiniMap.invalidateSize(); }, 50);
+        }
+      }catch(e){
+        // Diam -- peta gagal dimuat (mis. offline) TIDAK menghalangi sisa kartu
+        // (kecepatan/odometer/dll tetap tampil), link "Lihat Posisi di Peta" di
+        // atas tetap jadi cadangan buat lihat lokasi lewat Google Maps.
+        console.log('Peta mini Lacak Kendaraan gagal dimuat:', e.message);
+      }
+    }
   }
 
   if(reloadBtn) reloadBtn.onclick = () => load(false);
@@ -13739,6 +13774,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.159.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 BARU: popup "🛰️ Lacak" per mobil (tombol di Data Mobil) sekarang menampilkan peta mini live (Leaflet + OpenStreetMap, gratis) langsung di dalam kartu, bukan cuma link "Lihat Posisi di Peta" yang buka Google Maps di tab baru -- lebih cepat dicek kalau mobilnya banyak, tidak perlu pindah ke halaman penuh Lacak Kendaraan cuma buat lihat 1 mobil. Ikut auto-refresh tiap 15 detik seperti data lain di popup ini. Link "Lihat Posisi di Peta (Google Maps)" tetap ada sebagai cadangan/navigasi.',
+    ]
+  },
   {
     v: '3.158.0',
     date: '30 Jul 2026',
