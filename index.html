@@ -6992,9 +6992,15 @@ function renderUsage(){
     const biayaTolInfo = getBiayaTolTerpakai(u);
     const linkedCard = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
     let jarakBadge = '-';
+    // Badge tappable "🛰️ Insight GPS" -- cuma muncul kalau mobilnya sudah
+    // dihubungkan IMEI GPS.id (Data Mobil) & trip sudah punya tanggal/jam
+    // Berangkat-Tiba lengkap (dibutuhkan utk query rentang /report/history).
+    const gpsInsightBadge = (carForRow && carForRow.imeiGps && u.tglKeluar && u.tglKembali)
+      ? ` <span class="badge neutral" style="cursor:pointer;" onclick="openGpsInsightModal('${u.id}')">🛰️ Insight GPS</span>`
+      : '';
     if(u.odoKeluar!=null && u.odoKembali!=null){
       const jarak = u.odoKembali - u.odoKeluar;
-      jarakBadge = jarak >= 0 ? `${jarak.toLocaleString('id-ID')} KM${jarakAnomaliBadgeHtml(u)}` : `<span class="badge danger">Data tidak valid</span>`;
+      jarakBadge = jarak >= 0 ? `${jarak.toLocaleString('id-ID')} KM${jarakAnomaliBadgeHtml(u)}${gpsInsightBadge}` : `<span class="badge danger">Data tidak valid</span>`;
     } else if(u.odoKeluar!=null){
       jarakBadge = `<span class="badge neutral">Belum kembali</span>`;
     }
@@ -11546,6 +11552,96 @@ async function fetchOdoFromGpsId(imei){
     if(isNaN(m)) return null;
     return Math.round(m/1000); // asumsi field "mileage" GPS.id dalam meter
   } catch(e){ return null; }
+}
+
+// ============================================================================
+// Insight GPS per Trip -- kombinasi gap odometer (Berangkat -> Tiba) dgn
+// histori GPS.id (/report/history) pada rentang waktu trip yang sama:
+// total durasi mesin benar-benar ON + jarak versi GPS.id, dibandingkan dgn
+// jarak odometer manual yang sudah dicatat. ON-DEMAND (tombol/badge di
+// Riwayat Trip), TIDAK dipanggil otomatis massal -- lihat handler Worker
+// handleGpsIdTripInsight() untuk alasannya.
+// ============================================================================
+
+// Bentuk rentang waktu "YYYY-MM-DD HH:MM:SS" dari data trip, sesuai format
+// yang diminta parameter start/end GPS.id. Kalau jam tiba belum tercatat
+// (jarang, tapi jaga-jaga), pakai 23:59:59 di tanggal tiba sbg batas aman.
+function gpsTripRangeFor(u){
+  if(!u.tglKeluar || !u.tglKembali) return null;
+  const start = `${u.tglKeluar} ${u.jamKeluar || '00:00'}:00`;
+  const end = `${u.tglKembali} ${u.jamKembali || '23:59'}:59`;
+  return { start, end };
+}
+
+async function fetchGpsTripInsight(imei, start, end){
+  if(!imei || !isGhConnected()) return { error: 'GPS.id belum terhubung (cek pengaturan Worker).' };
+  try{
+    const params = new URLSearchParams({ imei, start, end });
+    const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/gpsid/trip-insight?${params.toString()}`, { headers: { 'accept':'application/json' } });
+    const data = await res.json().catch(()=>null);
+    if(!res.ok || !data || data.error) return { error: data?.error || `HTTP ${res.status}` };
+    return data;
+  } catch(e){ return { error: e.message }; }
+}
+
+async function openGpsInsightModal(tripId){
+  const u = state.usage.find(x=>x.id===tripId);
+  if(!u) return;
+  const car = state.cars.find(c=>c.id===u.carId);
+  if(!car || !car.imeiGps){
+    openBadgeExplainModal('🛰️', 'Insight GPS.id', 'Mobil ini belum dihubungkan ke IMEI GPS.id.', 'Hubungkan IMEI-nya dulu di menu Data Mobil untuk memakai fitur ini.');
+    return;
+  }
+  const range = gpsTripRangeFor(u);
+  if(!range){
+    openBadgeExplainModal('🛰️', 'Insight GPS.id', 'Trip ini belum punya data Berangkat/Tiba yang lengkap.', 'Insight GPS baru bisa dihitung setelah trip ditandai Tiba.');
+    return;
+  }
+
+  openModal({
+    title: '🛰️ Insight GPS.id',
+    body: `<p id="gps-insight-body" style="font-size:13.5px;line-height:1.6;margin:0;">⏳ Mengambil data dari GPS.id...</p>`,
+    onSave: () => true
+  });
+  const saveBtn = document.getElementById('modal-save'); if(saveBtn) saveBtn.textContent = 'Tutup';
+  const cancelBtn = document.getElementById('modal-cancel'); if(cancelBtn) cancelBtn.style.display = 'none';
+
+  const insight = await fetchGpsTripInsight(car.imeiGps, range.start, range.end);
+  const bodyEl = document.getElementById('gps-insight-body');
+  if(!bodyEl) return; // modal sudah ditutup pengguna sebelum data selesai diambil
+
+  if(insight.error){
+    bodyEl.innerHTML = `⚠️ Gagal mengambil data: ${escapeHtml(insight.error)}`;
+    return;
+  }
+  if(!insight.pointCount){
+    bodyEl.innerHTML = `Tidak ada titik data GPS.id pada rentang waktu trip ini -- kemungkinan perangkat offline/idle saat itu.`;
+    return;
+  }
+
+  const manualJarak = (u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) ? (u.odoKembali - u.odoKeluar) : null;
+  const jam = Math.floor((insight.engineOnMinutes||0)/60);
+  const menit = (insight.engineOnMinutes||0)%60;
+  const durasiLabel = insight.engineOnMinutes!=null ? `${jam}j ${menit}m` : '-';
+  const jarakGpsLabel = insight.gpsDistanceKm!=null ? `${insight.gpsDistanceKm.toLocaleString('id-ID')} KM` : '-';
+  const jarakManualLabel = manualJarak!=null ? `${manualJarak.toLocaleString('id-ID')} KM` : '-';
+
+  let selisihLine = '';
+  if(manualJarak!=null && insight.gpsDistanceKm!=null){
+    const selisih = Math.round((insight.gpsDistanceKm - manualJarak)*10)/10;
+    const jauh = Math.abs(selisih) > Math.max(5, manualJarak*0.1);
+    selisihLine = `<div class="hint" style="font-size:12px;margin-top:10px;line-height:1.6;">Selisih GPS vs manual: <b>${selisih>0?'+':''}${selisih.toLocaleString('id-ID')} KM</b>${jauh ? ' -- cukup jauh, cek odometer manual atau kalibrasi GPS.id.' : ' -- wajar.'}</div>`;
+  }
+
+  bodyEl.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div class="data-card-row"><span class="k">Mesin ON</span><span class="v">${durasiLabel}</span></div>
+      <div class="data-card-row"><span class="k">Jarak GPS.id</span><span class="v">${jarakGpsLabel}</span></div>
+      <div class="data-card-row"><span class="k">Jarak Manual</span><span class="v">${jarakManualLabel}</span></div>
+      <div class="data-card-row"><span class="k">Titik Data</span><span class="v">${insight.pointCount.toLocaleString('id-ID')}</span></div>
+    </div>
+    ${selisihLine}
+  `;
 }
 
 // ============================================================================
