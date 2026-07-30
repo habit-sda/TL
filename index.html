@@ -16059,7 +16059,11 @@ window.addEventListener('popstate', ()=>{
     // langsung keluar aplikasi.
     navigate('dashboard', {fromBack:true});
   } else {
-    openExitConfirmModal();
+    // Popup konfirmasi "Yakin keluar halaman?" DIMATIKAN atas permintaan --
+    // sebelumnya di sini dipanggil openExitConfirmModal(). Sekarang langsung
+    // keluar aplikasi secara alami, sama seperti kalau user pilih "Iya".
+    exitConfirmed = true;
+    history.back();
   }
 });
 function openExitConfirmModal(){
