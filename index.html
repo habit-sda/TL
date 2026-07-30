@@ -802,7 +802,7 @@
      Gaya B: banner ringkas dari bawah layar, meniru pola #trip-bubble yang
      sudah ada -- tidak menutupi seluruh layar, gampang diabaikan kalau lagi
      sibuk, tapi tetap jelas terlihat. */
-  #gps-engine-popup{position:fixed;left:16px;right:16px;bottom:20px;z-index:160;max-width:400px;margin:0 auto;}
+  #gps-engine-popup{position:fixed;left:16px;right:16px;bottom:20px;z-index:160;max-width:400px;margin:0 auto;touch-action:none;}
   .gps-engine-banner-card{
     background:#2C2C2A;border:1.5px solid #D85A30;border-radius:14px;padding:14px;
     box-shadow:0 14px 34px rgba(0,0,0,0.4);cursor:grab;touch-action:none;
@@ -1333,7 +1333,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.159.0';
+const APP_VERSION = '3.162.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1358,7 +1358,7 @@ const GPS_ODO_AUTOFILL_ENABLED = true;
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
-const SYNC_COLLECTIONS = ['cars','drivers','usage','services','documents','etollCards','etollTransactions','activityLog','bookings','destinations','notifAdmins'];
+const SYNC_COLLECTIONS = ['cars','drivers','usage','services','documents','etollCards','etollTransactions','activityLog','bookings','destinations','notifAdmins','pendingTripReminders'];
 
 function defaultTombstones(){
   return { cars:[], drivers:[], usage:[], services:[], documents:[], etollCards:[], etollTransactions:[], activityLog:[], bookings:[], destinations:[], notifAdmins:[] };
@@ -1402,6 +1402,7 @@ function touch(obj){ obj.updatedAt = Date.now(); return obj; }
 function ensureDestinationsArray(){
   if(!Array.isArray(state.destinations)) state.destinations = [];
   if(!Array.isArray(state.notifAdmins)) state.notifAdmins = [];
+  if(!Array.isArray(state.pendingTripReminders)) state.pendingTripReminders = [];
 }
 
 // Rata-rata Jarak & BBM dari riwayat Catat Perjalanan untuk 1 nama tujuan
@@ -2369,6 +2370,13 @@ async function fetchFromGithub(){
 
     ghConfig.sha = data.sha;
     saveGhConfig(ghConfig);
+
+    // v3.160.0/v3.162.0 -- setiap kali sync selesai: (1) tutup popup yang
+    // KEBETULAN sudah terbuka di HP ini kalau ternyata urusannya sudah
+    // selesai duluan di HP lain, (2) baru setelah itu, munculin reminder
+    // baru (kalau ada & belum ada popup lain yang tampil).
+    autoCloseGpsEnginePopupIfResolved();
+    checkPendingTripRemindersAndShowPopup();
 
     if(remoteNeedsUpdate){
       // Ada perubahan lokal yang belum ada di GitHub -> push balik hasil gabungannya.
@@ -9226,20 +9234,28 @@ function openUsageModal(editId, presetCarId){
   }
   wireBensinKeluarInput();
   updateFuelRangeInsight();
-  document.getElementById('in-car').addEventListener('change', function(){
+  document.getElementById('in-car').addEventListener('change', async function(){
     const car = state.cars.find(c=>c.id===this.value);
     document.getElementById('box-bensin-keluar').innerHTML = renderFuelFieldHTML('in-bensin', 'Sisa Bensin Saat Berangkat', null, car);
     wireBensinKeluarInput();
     updateFuelRangeInsight();
 
-    // v3.146.0 -- Odometer Berangkat TIDAK LAGI auto-isi di sini (beda dari
-    // v3.143.0 sebelumnya). Sekarang auto-isi HANYA terjadi lewat popup
-    // "Mesin Dinyalakan" (lihat openUsageModalFromGpsEnginePopup()) --
-    // ganti mobil manual di form ini (atau buka form ini biasa) selalu
-    // kosong, isi manual seperti biasa. Kalau field ini sempat bergaya
-    // "Estimasi GPS" (dari popup) lalu mobilnya diganti manual, style itu
-    // dilepas -- angka lama sudah tidak relevan utk mobil baru.
+    // v3.161.0 -- DINYALAKAN LAGI atas permintaan langsung: Odometer
+    // Berangkat auto-isi (tetap SARAN, bisa dikoreksi manual) juga di form
+    // manual "+ Catat Perjalanan" ini, bukan cuma lewat popup "Mesin
+    // Dinyalakan" -- asal mobil yang dipilih punya IMEI GPS.id & togel
+    // GPS_ODO_AUTOFILL_ENABLED masih menyala.
     clearGpsEstimateField('f-odo-keluar','in-odo-keluar','odo-keluar-est-icon','odo-keluar-est-badge','odo-keluar-gps-hint');
+    if(GPS_ODO_AUTOFILL_ENABLED && car && car.imeiGps){
+      const carIdSaatFetch = car.id;
+      const km = await fetchOdoFromGpsId(car.imeiGps);
+      const carSelSekarang = document.getElementById('in-car');
+      if(!carSelSekarang || carSelSekarang.value !== carIdSaatFetch) return; // mobil sudah diganti lagi sebelum respons datang -- abaikan
+      if(km != null){
+        document.getElementById('in-odo-keluar').value = fmtRibuanInitial(km);
+        setGpsEstimateField('f-odo-keluar','in-odo-keluar','odo-keluar-est-icon','odo-keluar-est-badge','odo-keluar-gps-hint', km, null);
+      }
+    }
   });
 
   // Pilih kartu E-Toll → saldo saat ini otomatis tersalin ke field "Saldo Saat Berangkat",
@@ -12011,6 +12027,71 @@ function hideGpsEnginePopup(imei, markAsked){
     gpsEnginePopupState[imei].asked = true;
     saveGpsEnginePopupState();
   }
+  // v3.160.0 -- Tandai juga reminder dari server (kalau ada -- hasil deteksi
+  // cron Worker, lihat checkGpsEngineWatch di worker.js) sebagai
+  // "acknowledged", lalu sinkronkan. Supaya device LAIN yang baca data yang
+  // sama ikut berhenti menampilkan popup untuk kejadian ON ini juga --
+  // bukan cuma di device yang menjawabnya.
+  if(markAsked){
+    const car = state.cars.find(c => c.imeiGps === imei);
+    if(car){
+      let changed = false;
+      (state.pendingTripReminders||[]).forEach(r=>{
+        if(r.carId === car.id && !r.acknowledged){ r.acknowledged = true; touch(r); changed = true; }
+      });
+      if(changed){
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        scheduleCloudPush();
+      }
+    }
+  }
+}
+
+// v3.160.0 -- Jaring pengaman UTAMA supaya popup "Catat perjalanan sekarang?"
+// TETAP konsisten muncul, tidak peduli app baru dibuka/reload, HP mana pun,
+// atau app sempat tertutup persis pas mobilnya dinyalakan. Beda dari
+// pollGpsEnginePopup (di atas) yang cuma jalan LIVE selama app ini terbuka &
+// status "sempat OFF"-nya cuma disimpan per sesi/device -- ini baca
+// state.pendingTripReminders yang diisi cron di WORKER (server), disimpan
+// PERMANEN & ikut sinkron biasa (SYNC_COLLECTIONS) ke semua device. Jadi
+// walau device ini TIDAK PERNAH melihat sendiri momen mesin dinyalakan,
+// begitu data tersinkron (auto-sync tiap 20 detik / saat app dibuka), popup
+// tetap muncul.
+// v3.162.0 -- Kebalikan dari checkPendingTripRemindersAndShowPopup: fungsi
+// itu cuma munculin popup BARU (dan diam kalau sudah ada popup terbuka).
+// Ini yang MENUTUP popup yang SUDAH TERBUKA di HP ini, kalau ternyata
+// urusannya sudah selesai duluan di HP lain -- entah sopir/admin di HP lain
+// sudah tap "Ya" (trip sudah dibuat) atau tap "✕" (reminder ditandai
+// selesai). Tanpa ini, popup yang KEBETULAN SUDAH TAMPIL di HP ini PAS
+// momen itu terjadi di HP lain akan nyangkut sampai ditutup manual.
+function autoCloseGpsEnginePopupIfResolved(){
+  if(!gpsEnginePopupShownImei) return;
+  const car = state.cars.find(c => c.imeiGps === gpsEnginePopupShownImei);
+  if(!car) return;
+  const sudahDalamPerjalanan = state.usage.some(u => u.carId === car.id && u.status === 'digunakan');
+  const masihAdaReminderTerbuka = (state.pendingTripReminders||[]).some(r => r.carId === car.id && !r.acknowledged);
+  if(sudahDalamPerjalanan || !masihAdaReminderTerbuka){
+    hideGpsEnginePopup(car.imeiGps, true);
+    if(sudahDalamPerjalanan) showToast(`${car.plat||carLabel(car.id)} sudah dicatat perjalanannya dari perangkat lain.`);
+  }
+}
+
+function checkPendingTripRemindersAndShowPopup(){
+  if(gpsEnginePopupShownImei) return; // sudah ada popup lain yang tampil
+  const list = state.pendingTripReminders || [];
+  if(!list.length) return;
+  const oneDayAgo = Date.now() - 24*60*60*1000;
+  for(const r of list){
+    if(r.acknowledged) continue;
+    if(new Date(r.detectedAt).getTime() < oneDayAgo) continue; // terlalu basi, kemungkinan sudah tidak relevan
+    const car = state.cars.find(c => c.id === r.carId);
+    if(!car || !car.imeiGps) continue;
+    if(gpsEnginePopupState[car.imeiGps]?.asked) continue; // sudah pernah ditutup manual di sesi ini
+    const sudahDalamPerjalanan = state.usage.some(u => u.carId === car.id && u.status === 'digunakan');
+    if(sudahDalamPerjalanan) continue;
+    renderGpsEnginePopup(car, r.gpsOdoKm);
+    break; // 1 popup dulu -- kalau ada beberapa mobil sekaligus, sisanya menyusul giliran berikutnya
+  }
 }
 
 async function pollGpsEnginePopup(){
@@ -12052,15 +12133,17 @@ async function pollGpsEnginePopup(){
       }
     });
     saveGpsEnginePopupState();
+    autoCloseGpsEnginePopupIfResolved(); // v3.162.0 -- lihat catatan di definisinya
   } finally {
     gpsEnginePopupPolling = false;
   }
 }
 function startGpsEnginePopupWatcher(){
   if(gpsEnginePopupTimer) return;
+  checkPendingTripRemindersAndShowPopup(); // v3.160.0 -- cek dulu reminder dari server sebelum mulai poll live
   pollGpsEnginePopup();
   gpsEnginePopupTimer = setInterval(pollGpsEnginePopup, 45000);
-  document.addEventListener('visibilitychange', () => { if(!document.hidden) pollGpsEnginePopup(); });
+  document.addEventListener('visibilitychange', () => { if(!document.hidden){ checkPendingTripRemindersAndShowPopup(); pollGpsEnginePopup(); } });
 }
 
 // Dipanggil saat sopir/petugas tap "Ya" di popup -- buka Catat Perjalanan
@@ -13821,6 +13904,28 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.162.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🐛 Perbaikan: popup "Catat perjalanan sekarang?" yang KEBETULAN sudah terbuka di 1 HP sekarang otomatis IKUT TERTUTUP kalau urusannya sudah selesai duluan di HP lain (perjalanannya sudah dicatat, atau reminder-nya sudah ditutup) -- sebelumnya popup yang sudah tampil duluan itu nyangkut sampai ditutup manual, walau di HP lain sudah dijawab. Dicek tiap siklus live 45 detik & tiap sinkronisasi (~20 detik).',
+    ]
+  },
+  {
+    v: '3.161.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 Odometer Berangkat auto-isi (saran, tetap bisa dikoreksi manual) DINYALAKAN LAGI di form manual "+ Catat Perjalanan" -- sebelumnya (v3.146.0) auto-isi cuma jalan lewat popup "Mesin Dinyalakan". Sekarang begitu mobil dipilih di dropdown, kalau mobilnya punya IMEI GPS.id terhubung, field Odometer Berangkat langsung terisi dari GPS.id (ditandai badge "🛰️ Estimasi GPS").',
+    ]
+  },
+  {
+    v: '3.160.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 BARU: deteksi "mesin dinyalakan tanpa trip" (popup "Catat perjalanan sekarang?") sekarang JUGA dijalankan di server (cron Worker, tiap ±5 menit) -- bukan cuma live di browser lagi. Sebelumnya status "sempat OFF" cuma tersimpan di 1 device/tab (sessionStorage), jadi hilang tiap app di-reload/HP dikunci lama, dan tidak pernah muncul di HP lain. Sekarang status itu disimpan permanen di data yang disinkron (pendingTripReminders) -- popup tetap muncul di device mana pun begitu data tersinkron, walau device itu sendiri tidak sempat "melihat" momen mesin dinyalakan. SENGAJA TIDAK mengirim Telegram apa pun -- cuma dicatat diam-diam.',
+      'Perkuat CSS popup ini (touch-action pada wrapper) untuk membantu fitur geser (drag) yang sebelumnya kadang tidak responsif di sebagian HP Android.',
+    ]
+  },
   {
     v: '3.159.0',
     date: '30 Jul 2026',
