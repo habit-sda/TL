@@ -1358,7 +1358,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.166.0';
+const APP_VERSION = '3.168.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -3176,6 +3176,21 @@ function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+// v3.166.0 -- Badge kecil "🟢 Aktif" / "⚪ Nonaktif" ditaruh di sebelah label
+// checkbox pengaturan on/off (Jam Sunyi, Alert Kecepatan, Kalibrasi GPS, dst)
+// supaya statusnya kelihatan jelas sekilas, bukan cuma tanda centang kecil
+// yang gampang keliru dibaca. `id` dipakai supaya JS bisa update badge ini
+// live begitu checkbox di-toggle, tanpa perlu render ulang seluruh panel.
+function toggleStatusBadgeHtml(id, enabled){
+  return `<span id="${id}" class="badge ${enabled?'ok':'neutral'}" style="margin-left:auto;">${enabled?'🟢 Aktif':'⚪ Nonaktif'}</span>`;
+}
+function updateToggleStatusBadge(id, enabled){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.className = `badge ${enabled?'ok':'neutral'}`;
+  el.textContent = enabled?'🟢 Aktif':'⚪ Nonaktif';
+}
+
 // Tombol "📍 Navigasi" -- dipakai di 3 tempat (tabel Catat Perjalanan, tabel
 // Booking Mobil, bubble perjalanan aktif) supaya SATU markup/gaya yang sama,
 // bukan ditulis ulang 3x. Kembalikan string kosong kalau mapsLink kosong,
@@ -3755,6 +3770,7 @@ function renderSettings(){
           <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
             <input type="checkbox" id="in-notif-speed-enabled" ${getNotifSettings().speedAlertEnabled?'checked':''} style="width:16px;height:16px;">
             🚨 Alert Kecepatan Berlebih
+            ${toggleStatusBadgeHtml('notif-speed-status-badge', getNotifSettings().speedAlertEnabled)}
           </label>
           <div class="hint" style="margin:4px 0 10px;">Begitu kecepatan kendaraan (dari GPS.id) melebihi batas, Admin langsung dapat notifikasi Telegram -- <b>khusus Admin</b>, tidak dikirim ke sopir. Sumber kecepatan sama dengan menu 🛰️ Lacak Kendaraan.</div>
           <div class="grid-2" id="notif-speed-fields" style="${getNotifSettings().speedAlertEnabled?'':'opacity:0.5;pointer-events:none;'}">
@@ -3769,6 +3785,7 @@ function renderSettings(){
           <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
             <input type="checkbox" id="in-notif-kalibrasi-enabled" ${getNotifSettings().kalibrasiGpsEnabled?'checked':''} style="width:16px;height:16px;">
             🛰️ Pengingat Kalibrasi Odometer GPS.id
+            ${toggleStatusBadgeHtml('notif-kalibrasi-status-badge', getNotifSettings().kalibrasiGpsEnabled)}
           </label>
           <div class="hint" style="margin:4px 0 10px;">Odometer GPS.id dihitung dari akumulasi sinyal GPS (bukan sensor odometer fisik mobil), jadi bisa meleset jauh kalau tidak dikalibrasi ulang -- Admin diingatkan berkala lewat Telegram untuk cek & reset. <b>Khusus Admin</b>, tidak dikirim ke sopir. Cuma untuk mobil yang sudah diisi IMEI GPS.id.<br>Cara kalibrasi: buka gps.id/v3/vehicle → Vehicle Management → klik ikon Mileage di baris mobil → sesuaikan "New Mileage" (odometer asli KM × 1000, dalam meter) → klik Reset Mileage.</div>
           <div class="grid-2" id="notif-kalibrasi-fields" style="${getNotifSettings().kalibrasiGpsEnabled?'':'opacity:0.5;pointer-events:none;'}">
@@ -3796,6 +3813,7 @@ function renderSettings(){
           <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
             <input type="checkbox" id="in-notif-quiethours" ${getNotifSettings().quietHoursEnabled?'checked':''} style="width:16px;height:16px;">
             🌙 Jam Sunyi (tunda notifikasi Telegram level "Perlu Diperhatikan")
+            ${toggleStatusBadgeHtml('notif-quiethours-status-badge', getNotifSettings().quietHoursEnabled)}
           </label>
           <div class="hint" style="margin:4px 0 10px;">Notifikasi <b>Mendesak</b> (mis. saldo E-Toll habis) TETAP terkirim kapan pun -- cuma yang levelnya "Perlu Diperhatikan" yang ditunda ke pengecekan berikutnya selama masih dalam rentang jam ini.</div>
           <div class="grid-2" id="notif-quiethours-times" style="${getNotifSettings().quietHoursEnabled?'':'opacity:0.5;pointer-events:none;'}">
@@ -3961,14 +3979,17 @@ function renderSettings(){
     document.getElementById('in-notif-quiethours').addEventListener('change', function(){
       const timesWrap = document.getElementById('notif-quiethours-times');
       if(timesWrap) timesWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
+      updateToggleStatusBadge('notif-quiethours-status-badge', this.checked);
     });
     document.getElementById('in-notif-speed-enabled').addEventListener('change', function(){
       const fieldsWrap = document.getElementById('notif-speed-fields');
       if(fieldsWrap) fieldsWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
+      updateToggleStatusBadge('notif-speed-status-badge', this.checked);
     });
     document.getElementById('in-notif-kalibrasi-enabled').addEventListener('change', function(){
       const fieldsWrap = document.getElementById('notif-kalibrasi-fields');
       if(fieldsWrap) fieldsWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
+      updateToggleStatusBadge('notif-kalibrasi-status-badge', this.checked);
     });
     document.getElementById('btn-goto-drivers-telegram').onclick = () => navigate('drivers');
     document.getElementById('btn-refresh-notif-history').onclick = renderNotifHistory;
@@ -8640,6 +8661,48 @@ async function sendBookingApprovalRequest(b){
   }
 }
 
+// v3.168.0 -- Begitu booking baru dibuat DAN sudah dipilih sopirnya, sopir
+// langsung dapat 1 pesan instan lewat Telegram ("Mobil berhasil dibooking,
+// silakan menunggu untuk kemudian di-approve oleh admin") -- supaya sopir
+// tahu dari awal bahwa jadwalnya sudah tercatat, TAPI belum pasti aktif
+// sebelum admin menyetujui. Pakai endpoint generik /notify-trip-selesai yang
+// sudah ada (cukup chatId+text, tidak perlu tombol) -- sama seperti resi
+// perjalanan ke sopir. Fire-and-forget & diam-diam gagal (booking tetap
+// tersimpan seperti biasa) -- dicatat di b.telegramDriverNotifSent supaya
+// tidak dobel terkirim kalau saveData() lain sempat memicu ulang.
+async function sendDriverBookingCreatedNotif(b){
+  try{
+    if(!isGhConnected() || !ghConfig.notifySecret) return;
+    if(!b.driverId || b.telegramDriverNotifSent) return;
+    const driver = state.drivers.find(d=>d.id===b.driverId);
+    const chatId = driver && (driver.telegramChatId||'').toString().trim();
+    if(!chatId) return; // sopir ini tidak terdaftar Telegram -- tidak ada yang bisa dikirim
+    const text = [
+      '🚗 <b>Mobil Berhasil Dibooking</b>',
+      '',
+      `${escapeHtml(carLabel(b.carId))} — ${escapeHtml(b.tujuan||'-')}`,
+      `Mulai: ${escapeHtml(fmtDate(b.tglMulai))} ${b.jamMulai||''}`,
+      `Selesai: ${escapeHtml(fmtDate(b.tglSelesai))} ${b.jamSelesai||''}`,
+      '',
+      'Silakan menunggu, booking ini masih perlu di-approve oleh admin dulu sebelum aktif. Nanti dikabari lagi begitu sudah diproses.',
+    ].join('\n');
+    const bodyStr = JSON.stringify({ chatId, text });
+    const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+      body: bodyStr,
+      ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
+    });
+    if(res.ok){
+      b.telegramDriverNotifSent = true;
+      touch(b);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+  }catch(e){
+    console.error('Notifikasi booking ke sopir gagal terkirim (tidak masalah, booking tetap tersimpan):', e);
+  }
+}
+
 function buildTripReceiptElement(u){
   const jarak = (u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) ? (u.odoKembali-u.odoKeluar) : null;
   const car = state.cars.find(c=>c.id===u.carId);
@@ -9716,7 +9779,7 @@ function openBookingModal(editId){
           status:'menunggu', catatan: document.getElementById('in-catatan').value.trim(), notifDriverIds,
           petugas: currentAdmin,
           approvedBy: null, approvedAt: null, rejectedBy: null, rejectedAt: null,
-          telegramApprovalSentAdminIds: []
+          telegramApprovalSentAdminIds: [], telegramDriverNotifSent: false
         });
         state.bookings.push(bookingBaru);
         if(jenisPenggunaan !== 'pribadi'){
@@ -9725,6 +9788,7 @@ function openBookingModal(editId){
         logActivity('booking', 'Buat booking baru (menunggu persetujuan)', `${carLabel(carId)} — ${tujuan}`);
         showToast('Booking dibuat — menunggu persetujuan admin.');
         sendBookingApprovalRequest(bookingBaru);
+        sendDriverBookingCreatedNotif(bookingBaru);
       }
       saveData();
       renderBookings();
@@ -14043,6 +14107,20 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.168.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 BARU: Sopir yang tercantum di booking (kalau sudah terdaftar Telegram Chat ID) sekarang langsung dapat pesan Telegram begitu bookingnya dibuat -- "Mobil berhasil dibooking, silakan menunggu untuk kemudian di-approve oleh admin". Begitu admin memproses (Setuju/Tolak) lewat Telegram, sopir dikabari lagi hasilnya. ⚠️ <b>Upload ulang worker.js terbaru ke Cloudflare Worker</b> supaya kabar hasil approve/tolak ke sopir ikut terkirim -- bagian "booking dibuat" murni di sisi index.html (pakai endpoint /notify-trip-selesai yang sudah ada, tidak perlu Worker baru), tapi bagian hasil approve/tolak butuh worker.js versi ini.',
+    ]
+  },
+  {
+    v: '3.167.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 BARU: indikator "🟢 Aktif" / "⚪ Nonaktif" di sebelah 3 pengaturan on/off yang sebelumnya cuma tanda centang kecil (Pengaturan → Ambang Batas Notifikasi): 🌙 Jam Sunyi, 🚨 Alert Kecepatan Berlebih, 🛰️ Pengingat Kalibrasi Odometer GPS.id -- supaya statusnya kelihatan jelas sekilas tanpa perlu perhatikan tanda centangnya baik-baik. Update LIVE begitu dicentang/dilepas (belum perlu klik Simpan), sama seperti field terkait yang sudah lebih dulu meredup/terang.',
+    ]
+  },
   {
     v: '3.166.0',
     date: '30 Jul 2026',
