@@ -61,6 +61,15 @@
       "icons": [
         { "src": "icons/shortcut-dashboard.png", "sizes": "192x192", "type": "image/png" }
       ]
+    },
+    {
+      "name": "Lacak Mobil",
+      "short_name": "Lacak Mobil",
+      "description": "Langsung buka peta live posisi kendaraan",
+      "url": "./?shortcut=lacakmobil",
+      "icons": [
+        { "src": "icons/shortcut-lacak-mobil.png", "sizes": "192x192", "type": "image/png" }
+      ]
     }
   ]
 }
