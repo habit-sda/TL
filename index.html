@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.154.0">
+<meta name="app-version" content="3.171.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1358,7 +1358,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.168.0';
+const APP_VERSION = '3.171.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -13685,6 +13685,21 @@ function openBbmStandaloneModal(){
     showToast('Belum ada mobil terdaftar.', true);
     return;
   }
+  // v3.155.0 -- field "Isi BBM" di sini DISAMAKAN dgn field kartu "Isi BBM" di
+  // Biaya Operasional/Pribadi (Jenis BBM *, Nominal, Liter opsional, Catatan
+  // opsional) supaya sopir/petugas tidak bingung ada 2 bentuk form "Isi BBM"
+  // yang berbeda-beda di aplikasi. "Bensin Sebelum/Sesudah Isi" (gauge) TETAP
+  // dipertahankan di sini (berbeda dari Biaya Operasional yang cuma punya
+  // "Level Sebelum" opsional) -- karena entri "Luar Trip" ini TIDAK ADA induk
+  // trip yang nanti mengisi Bensin Kembali di Tandai Tiba, jadi satu-satunya
+  // cara buildFuelChain() tahu berapa liter yang benar-benar bertambah adalah
+  // dari selisih Sebelum -> Sesudah yang diisi manual di sini.
+  let selJenisBbm = '';
+  let selJenisBbmCustom = '';
+  const customFuelTypesUsed = Array.from(new Set(
+    state.usage.flatMap(x => usageBiayaOpItems(x).map(it => it.jenisBbm))
+      .filter(k => k && !JENIS_BBM_DEFAULT.includes(k))
+  )).sort((a,b)=> a.localeCompare(b));
   function draw(carId){
     const car = carId ? state.cars.find(c=>c.id===carId) : null;
     const latest = car ? fuelLatestReading(car.id) : null;
@@ -13703,6 +13718,29 @@ function openBbmStandaloneModal(){
         <label>Tanggal</label>
         <input type="date" id="in-bbm-tanggal" value="${today()}">
       </div>
+      <div class="grid-2">
+        <div class="field" id="f-bbm-jenis">
+          <label>Jenis BBM *</label>
+          <select id="in-bbm-jenis">
+            <option value="">— pilih —</option>
+            ${JENIS_BBM_DEFAULT.map(j=>`<option value="${j}" ${selJenisBbm===j?'selected':''}>${j}</option>`).join('')}
+            ${customFuelTypesUsed.length ? `<optgroup label="Jenis lain (pernah dipakai)">
+              ${customFuelTypesUsed.map(j=>`<option value="${escapeHtml(j)}" ${selJenisBbm===j?'selected':''}>${escapeHtml(j)}</option>`).join('')}
+            </optgroup>` : ''}
+            <option value="__lainnya__" ${selJenisBbm==='__lainnya__'?'selected':''}>+ Jenis lain (baru)...</option>
+          </select>
+          <div class="err-msg">Jenis BBM wajib dipilih.</div>
+        </div>
+        <div class="field" id="f-bbm-biaya">
+          <label>Nominal (Rp) *</label>
+          <input type="text" inputmode="numeric" id="in-bbm-biaya" placeholder="Contoh: 150.000">
+          <div class="err-msg">Nominal wajib diisi, lebih dari 0.</div>
+        </div>
+      </div>
+      ${selJenisBbm==='__lainnya__' ? `
+      <div class="field">
+        <input type="text" id="in-bbm-jenis-custom" placeholder="Contoh: Dexlite" value="${escapeHtml(selJenisBbmCustom||'')}" autocomplete="off">
+      </div>` : ''}
       <div class="field" id="f-bbm-sebelum">
         ${renderFuelFieldHTML('in-bbm-sebelum', 'Bensin Sebelum Isi', bensinSebelumDefault, car)}
         ${latest ? `<div class="hint">Terisi otomatis dari catatan BBM terakhir mobil ini -- boleh disesuaikan kalau memang beda.</div>` : `<div class="hint" style="color:var(--red);">Belum ada riwayat BBM mobil ini -- isi manual sesuai kondisi terkini.</div>`}
@@ -13710,16 +13748,13 @@ function openBbmStandaloneModal(){
       <div class="field" id="f-bbm-sesudah">
         ${renderFuelFieldHTML('in-bbm-sesudah', 'Bensin Sesudah Isi', null, car)}
       </div>
-      <div class="grid-2">
-        <div class="field">
-          <label>Liter BBM</label>
-          <input type="text" inputmode="decimal" id="in-bbm-liter" placeholder="Contoh: 15">
-        </div>
-        <div class="field" id="f-bbm-biaya">
-          <label>Biaya BBM (Rp) *</label>
-          <input type="text" inputmode="numeric" id="in-bbm-biaya" placeholder="Contoh: 150.000">
-          <div class="err-msg">Biaya wajib diisi, lebih dari 0.</div>
-        </div>
+      <div class="field">
+        <label>Liter <span style="color:var(--muted);font-weight:400;">(opsional)</span></label>
+        <input type="text" inputmode="decimal" id="in-bbm-liter" placeholder="Contoh: 15">
+      </div>
+      <div class="field">
+        <label>Catatan <span style="color:var(--muted);font-weight:400;">(opsional)</span></label>
+        <input type="text" id="in-bbm-catatan" placeholder="Detail tambahan">
       </div>
       ` : `<p style="font-size:12.5px;color:var(--muted);">Pilih mobil dulu untuk lanjut.</p>`}
     `;
@@ -13732,8 +13767,11 @@ function openBbmStandaloneModal(){
         const bensinSebelum = document.getElementById('in-bbm-sebelum').value;
         const bensinSesudah = document.getElementById('in-bbm-sesudah').value;
         const liter = document.getElementById('in-bbm-liter').value.trim();
+        const catatan = document.getElementById('in-bbm-catatan').value.trim();
         const biaya = Number(getRibuanValue('in-bbm-biaya'))||0;
+        const jenisBbmFinal = selJenisBbm==='__lainnya__' ? selJenisBbmCustom.trim() : selJenisBbm;
         let valid = true;
+        toggleFieldError('f-bbm-jenis', !jenisBbmFinal); if(!jenisBbmFinal) valid=false;
         toggleFieldError('f-bbm-biaya', biaya<=0); if(biaya<=0) valid=false;
         if(!valid) return false;
 
@@ -13746,8 +13784,10 @@ function openBbmStandaloneModal(){
           odoKeluar: car.odometerSaatIni, odoKembali: car.odometerSaatIni,
           bensinKeluar: bensinSebelum!==''? Number(bensinSebelum) : null,
           bensinKembali: bensinSesudah!==''? Number(bensinSesudah) : null,
+          jenisBbm: jenisBbmFinal,
           literBensin: liter? Number(liter) : null,
           biayaBensin: biaya,
+          catatan: catatan || undefined,
           petugas: currentAdmin,
         }));
         saveData();
@@ -13762,6 +13802,10 @@ function openBbmStandaloneModal(){
       attachRibuanInput('in-bbm-biaya');
       wireBarPickerWidget('#f-bbm-sebelum .bar-picker-widget', 'in-bbm-sebelum');
       wireBarPickerWidget('#f-bbm-sesudah .bar-picker-widget', 'in-bbm-sesudah');
+      const jenisSelect = document.getElementById('in-bbm-jenis');
+      if(jenisSelect) jenisSelect.addEventListener('change', function(){ selJenisBbm = this.value; draw(carId); });
+      const jenisCustomInput = document.getElementById('in-bbm-jenis-custom');
+      if(jenisCustomInput) jenisCustomInput.addEventListener('input', function(){ selJenisBbmCustom = this.value; });
     }
     enhanceAllSelects(document.getElementById('modal-root'));
   }
@@ -14107,6 +14151,43 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.171.0',
+    date: '31 Jul 2026',
+    notes: [
+      '🔧 Alur approval Booking via Telegram: kalau booking dibuat oleh SOPIR yang chatId-nya kebetulan juga terdaftar sbg Admin Penerima Notifikasi Telegram, dia sekarang DIKECUALIKAN dari daftar admin yang dikirimi tombol "✅ Setuju"/"❌ Tolak" untuk booking miliknya sendiri -- harus admin lain yang aktif di menu "Admin Penerima Notifikasi Telegram" yang memproses. (Kalau dia ternyata satu-satunya admin terdaftar, permintaan tetap dikirim ke dia sbg jalan darurat supaya booking tidak nyangkut selamanya -- disertai catatan bahwa ini kondisi darurat.)',
+      '⚠️ <b>Upload ulang worker.js terbaru</b> supaya perubahan ini aktif.',
+    ]
+  },
+  {
+    v: '3.170.0',
+    date: '31 Jul 2026',
+    notes: [
+      '🟢 BARU (chat Telegram): sopir/admin terdaftar bisa ketik <b>"booking"</b> (atau <b>"pesan"</b>/<b>"boking"</b>/<b>"keep"</b>) untuk membuat Booking Mobil baru langsung dari chat -- bot menanyakan mobil, keperluan, tujuan, link maps (opsional), jadwal mulai, lalu durasi pemakaian (bebas: "3 jam", "4 hari 5 jam", "1/2 hari", dst -- otomatis dihitung jadi jadwal selesai), dan catatan (opsional).',
+      'Kalau yang chat adalah SOPIR terdaftar, field Sopir pada booking otomatis diisi dirinya sendiri (kalau chatId yang sama kebetulan juga terdaftar sbg admin, tetap diperlakukan sbg sopir). Kalau yang chat admin (bukan sopir), field Sopir dikosongkan (bisa diisi belakangan lewat aplikasi).',
+      'Jadwal yang BENTROK dengan booking lain utk mobil yang sama langsung ditolak (tidak disimpan) -- bot menunjukkan booking yang bentrok & minta pilih mobil lain (data lain yang sudah diisi tidak perlu diulang) atau ketik "batal".',
+      'Alur approval admin TIDAK diubah sama sekali -- booking yang dibuat lewat Telegram tetap berstatus "menunggu" dan tetap butuh admin tap "✅ Setuju"/"❌ Tolak" di Telegram, persis seperti booking yang dibuat lewat aplikasi.',
+      '⚠️ <b>Upload ulang worker.js terbaru</b> supaya fitur ini aktif.',
+    ]
+  },
+  {
+    v: '3.169.1',
+    date: '31 Jul 2026',
+    notes: [
+      '🟢 BARU (chat Telegram): kalau sopir/admin mengetik sesuatu yang tidak cocok dengan perintah apa pun ("tiba", "isi", "biaya"/"operasional"/"pribadi", "saldo"), bot sekarang membalas dengan daftar rekomendasi perintah yang bisa dipakai -- bukan diam saja seperti sebelumnya. Balasan ini hanya dikirim ke chat yang memang dikenal (sopir/admin/pengguna saldo) supaya bot tidak ikut membalas orang asing yang menyasar webhook.',
+      '⚠️ <b>Upload ulang worker.js terbaru</b> supaya perubahan ini aktif.',
+    ]
+  },
+  {
+    v: '3.169.0',
+    date: '31 Jul 2026',
+    notes: [
+      '🟢 BARU (chat Telegram sopir): ketik <b>"isi"</b> kapan saja (tidak perlu sedang trip) -- bot menawarkan "⛽ Isi BBM" atau "💳 Isi Saldo E-Toll" (luar trip), lalu menanyakan SEMUA field satu-satu (persis field form Aksi Cepat di dashboard) sebelum menyimpan ke sistem.',
+      '🟢 BARU (chat Telegram sopir): kalau sedang ada trip berjalan, ketik <b>"biaya"</b>/<b>"operasional"</b>/<b>"pribadi"</b> -- bot menampilkan menu kategori Biaya Operasional/Biaya Pribadi (menyesuaikan jenis perjalanan), lalu setelah kategori dipilih, bot menanyakan field yang PERSIS sama dengan kartu kategori itu di form Biaya Operasional/Pribadi aplikasi (bisa tambah lebih dari 1 item sebelum selesai).',
+      'Form "⛽ Beli BBM (Luar Trip)" di Aksi Cepat Dashboard disamakan field-nya dengan kartu "Isi BBM" di Biaya Operasional/Pribadi: field "Jenis BBM" (wajib) & "Catatan" (opsional) ditambahkan, label "Biaya BBM" diganti "Nominal" -- field "Bensin Sebelum/Sesudah Isi" tetap dipertahankan (beda dari Biaya Operasional) karena entri luar trip ini tidak punya trip induk yang mengisi Bensin Kembali.',
+      '⚠️ <b>Upload ulang worker.js & index.html terbaru</b> supaya ketiga perubahan di atas aktif. Catatan jujur: alur chat "isi"/"biaya" baru ini baru dipasang di jalur webhook real-time (processTelegramUpdate) -- BELUM di-porting ke jalur fallback polling (runNotifyCheck) yang biasanya cuma jadi cadangan kalau webhook gagal.',
+    ]
+  },
   {
     v: '3.168.0',
     date: '30 Jul 2026',
