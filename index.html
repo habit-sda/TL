@@ -1358,7 +1358,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.164.0';
+const APP_VERSION = '3.165.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -13976,6 +13976,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.165.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 BARU (bot Telegram, worker.js): command "saldo" -- ketik "saldo" untuk pilih kategori (E-Toll, Sisa BBM Tangki, Odometer, Efisiensi BBM, Biaya BBM Bulan Ini, Masa Berlaku Dokumen, Servis Berikutnya, Budget Bulanan), lalu pilih kartu/mobil/dokumennya lewat tombol untuk lihat detail. Ketik langsung nama kategorinya ("etoll", "bbm"/"tangki", "odo", "efisiensi"/"konsumsi bbm", "biaya bbm", "dokumen", "servis", "budget") untuk lompat langsung ke daftar, skip menu utama. Terbuka untuk Admin & Sopir yang chat-nya sudah terdaftar di aplikasi; chat lain diabaikan diam-diam. ⚠️ <b>Upload ulang worker.js terbaru ke Cloudflare Worker</b> supaya fitur ini aktif -- perubahan murni di sisi Worker, tidak ada perubahan di index.html selain nomor versi ini.',
+    ]
+  },
   {
     v: '3.164.0',
     date: '30 Jul 2026',
