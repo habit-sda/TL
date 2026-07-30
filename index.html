@@ -798,6 +798,23 @@
   .trip-action-item[data-act="cancel"]{background:var(--bg);}
   .trip-action-item[data-act="cancel"]:hover{background:var(--neutral-bg);}
 
+  /* v3.164.0 -- Baris "Jarak sejak berangkat" (indikator KM live dari
+     GPS.id, "Opsi B — baris statistik" yang dipilih user), ditempatkan
+     PERSIS di bawah "✕ Batal" & sebelum "✏️ Edit". Dipisah dari
+     .trip-action-item (bukan <div class="trip-action-item">) karena ini
+     BUKAN tombol aksi yang bisa diklik -- cuma indikator baca-saja, jadi
+     sengaja tidak dikasih cursor:pointer / hover / listener klik apapun.
+     Warna & border SENGAJA memakai variabel yang SUDAH dipakai di menu ini
+     (var(--muted) utk sub-teks, var(--line) utk garis pemisah) -- tidak ada
+     warna baru diperkenalkan, sesuai permintaan user. */
+  .trip-action-distance{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:12px 16px;border-bottom:1px solid var(--line);
+  }
+  .trip-action-distance-label{font-size:13px;font-weight:600;}
+  .trip-action-distance-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+  .trip-action-distance-value{font-size:17px;font-weight:800;white-space:nowrap;}
+
   /* ---------------- v3.146.0 -- Popup "Mesin Dinyalakan" (deteksi GPS.id) ----------------
      Gaya B: banner ringkas dari bawah layar, meniru pola #trip-bubble yang
      sudah ada -- tidak menutupi seluruh layar, gampang diabaikan kalau lagi
@@ -833,6 +850,8 @@
     #trip-bubble{bottom:16px;right:16px;}
     .trip-action-menu{width:88vw;max-width:280px;}
     .trip-action-item{padding:16px 18px;font-size:15px;}
+    .trip-action-distance{padding:14px 18px;}
+    .trip-action-distance-value{font-size:18px;}
     /* Khusus layar sempit: tampilkan kartu Catat Perjalanan, sembunyikan
        tabel lebar (yang butuh geser kanan-kiri). Desktop tidak terpengaruh. */
     .desktop-usage-table{display:none;}
@@ -1339,7 +1358,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.163.0';
+const APP_VERSION = '3.164.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -5127,10 +5146,28 @@ function openTripActionMenu(usageId, anchorEl){
   // KHUSUS bubble ini kelewat sampai sekarang ketahuan lewat laporan pengguna.
   const isOperasional = u.jenisPenggunaan !== 'pribadi';
 
+  // v3.164.0 -- Indikator "Jarak sejak berangkat" (Opsi B, live dari
+  // GPS.id). Cuma tampil kalau SEMUA syarat ini terpenuhi: mobilnya sudah
+  // dihubungkan IMEI GPS.id, odometer berangkat sudah tercatat, DAN trip
+  // ini masih berjalan (belum ditandai Tiba) -- kalau tidak, baris ini
+  // tidak dirender sama sekali (bukan disembunyikan pakai display:none,
+  // supaya tidak menyisakan celah kosong di menu utk trip yg tidak
+  // memenuhi syarat, mis. dibuka dari trip yang sudah selesai).
+  const carForDistance = state.cars.find(c=>c.id===u.carId);
+  const showDistanceRow = !!(carForDistance && carForDistance.imeiGps && u.odoKeluar!=null && u.odoKembali==null);
+
   const menu = document.createElement('div');
   menu.className = 'trip-action-menu';
   menu.innerHTML = `
     <div class="trip-action-item" data-act="cancel" style="color:var(--muted);border-bottom:1px solid var(--line);">✕ Batal</div>
+    ${showDistanceRow ? `
+    <div class="trip-action-distance" id="trip-action-distance-row">
+      <div>
+        <div class="trip-action-distance-label">📍 Jarak sejak berangkat</div>
+        <div class="trip-action-distance-sub" id="trip-action-distance-sub">GPS.id, memuat...</div>
+      </div>
+      <div class="trip-action-distance-value" id="trip-action-distance-value">–</div>
+    </div>` : ''}
     <div class="trip-action-item" data-act="edit">✏️ Edit</div>
     <div class="trip-action-item" data-act="biayaop">${isOperasional ? '🧾 Biaya Operasional' : '🏠 Biaya Pribadi'}</div>
     <div class="trip-action-item" data-act="return">✅ Tiba</div>
@@ -5146,11 +5183,40 @@ function openTripActionMenu(usageId, anchorEl){
   menu.style.top = Math.max(8, top) + 'px';
   menu.style.left = Math.max(8, left) + 'px';
 
+  // v3.164.0 -- Ambil & tampilkan jarak (bulat ke bawah ke kelipatan 1 KM,
+  // sama seperti dibulatkan-nya odometer GPS.id -- lihat fetchOdoFromGpsId),
+  // diulang tiap 25 detik SELAMA menu ini masih terbuka di layar. Interval
+  // sengaja tidak terlalu rapat supaya tidak boros kuota API GPS.id/proxy
+  // Worker -- angka di layar tetap "kelipatan 1 KM" krn itu granularitas
+  // tampilan, bukan berarti perlu update tiap detik. Timer berhenti sendiri
+  // (clearInterval) begitu menu ini lenyap dari DOM, termasuk saat menu
+  // ditutup lewat aksi "✅ Tiba" -- jadi indikator otomatis ikut hilang.
+  let distancePollTimer = null;
+  if(showDistanceRow){
+    const updateDistanceIndicator = async ()=>{
+      if(!document.body.contains(menu)){ if(distancePollTimer) clearInterval(distancePollTimer); return; }
+      const odoNow = await fetchOdoFromGpsId(carForDistance.imeiGps);
+      if(!document.body.contains(menu)){ if(distancePollTimer) clearInterval(distancePollTimer); return; } // menu sempat ditutup selagi fetch berjalan
+      const valEl = document.getElementById('trip-action-distance-value');
+      const subEl = document.getElementById('trip-action-distance-sub');
+      if(odoNow==null){
+        if(subEl) subEl.textContent = 'GPS.id, data tidak tersedia';
+        return;
+      }
+      const jarakKm = Math.max(0, Math.floor(odoNow - u.odoKeluar));
+      if(valEl) valEl.textContent = `${jarakKm.toLocaleString('id-ID')} km`;
+      if(subEl) subEl.textContent = 'GPS.id, baru saja diperbarui';
+    };
+    updateDistanceIndicator();
+    distancePollTimer = setInterval(updateDistanceIndicator, 25000);
+  }
+
   menu.querySelectorAll('[data-act]').forEach(item=>{
     item.addEventListener('click', ()=>{
       const act = item.dataset.act;
-      if(act==='cancel'){ menu.remove(); return; } // cuma tutup menu ini, tidak ada perubahan apapun
-      if(act==='copykode'){ menu.remove(); return; } // penyalinan sudah ditangani listener global [data-copy-code] (event bubbling ke document)
+      if(act==='cancel'){ if(distancePollTimer) clearInterval(distancePollTimer); menu.remove(); return; } // cuma tutup menu ini, tidak ada perubahan apapun
+      if(act==='copykode'){ if(distancePollTimer) clearInterval(distancePollTimer); menu.remove(); return; } // penyalinan sudah ditangani listener global [data-copy-code] (event bubbling ke document)
+      if(distancePollTimer) clearInterval(distancePollTimer);
       menu.remove();
       document.getElementById('trip-bubble-panel').style.display = 'none';
       if(act==='edit') openUsageModal(u.id);
@@ -5161,7 +5227,7 @@ function openTripActionMenu(usageId, anchorEl){
   });
   setTimeout(()=>{
     document.addEventListener('click', function closeMenu(e){
-      if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('click', closeMenu); }
+      if(!menu.contains(e.target)){ if(distancePollTimer) clearInterval(distancePollTimer); menu.remove(); document.removeEventListener('click', closeMenu); }
     });
   }, 0);
 }
@@ -13910,6 +13976,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.164.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 BARU: menu aksi bubble "Mobil Jalan" sekarang menampilkan indikator "📍 Jarak sejak berangkat" tepat di bawah "✕ Batal" -- live dari GPS.id (dibulatkan ke kelipatan 1 KM, diperbarui otomatis tiap ±25 detik selagi menu terbuka). Cuma tampil kalau mobilnya punya IMEI GPS.id terhubung & odometer berangkat sudah tercatat; otomatis hilang begitu menu ditutup, termasuk saat trip ditandai "✅ Tiba". Tidak ada perubahan warna/ikon apapun di elemen menu yang sudah ada.',
+    ]
+  },
   {
     v: '3.163.0',
     date: '30 Jul 2026',
