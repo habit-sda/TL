@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.152.0">
+<meta name="app-version" content="3.154.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1333,7 +1333,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.152.0';
+const APP_VERSION = '3.154.0';
 
 /* ---------------- Pengaturan: Auto-isi Odometer dari GPS.id ----------------
    v3.150.0 -- SATU saklar terpusat untuk semua tempat yang menyarankan/
@@ -1341,11 +1341,15 @@ const APP_VERSION = '3.152.0';
    "mesin dinyalakan", Odometer Tiba via modal Tandai Kembali, dan
    konfirmasi odometer di alur Telegram "tiba" -- lihat GPS_ODO_AUTOFILL_ENABLED
    yang SAMA persis di worker.js, harus diubah BERSAMAAN di kedua file).
-   Dimatikan (false) karena odometer GPS.id vs odometer asli dashboard mobil
-   selisihnya jauh -- sopir/petugas WAJIB isi manual. Kalau nanti akurasinya
-   sudah bisa dipercaya lagi, tinggal ganti jadi true di sini SAJA (index.html)
-   dan di worker.js, tidak perlu ubah logika lain. */
-const GPS_ODO_AUTOFILL_ENABLED = false;
+   Sempat dimatikan (false) di v3.150.0 karena saat itu odometer GPS.id vs
+   odometer asli dashboard mobil selisihnya jauh. v3.154.0 -- dinyalakan lagi
+   (true) setelah akurasi GPS.id armada ini dicek ulang & dikonfirmasi sudah
+   OK. Isian tetap SARAN/prefill, bukan kunci mati -- field odometer tetap
+   bisa dikoreksi manual kapan saja sebelum disimpan (lihat badge "🛰️
+   Estimasi GPS" & hint amber yang menyertainya di tiap field). Kalau nanti
+   ternyata menyimpang lagi, tinggal balikin ke false di sini SAJA
+   (index.html) dan di worker.js, tidak perlu bongkar ulang logikanya. */
+const GPS_ODO_AUTOFILL_ENABLED = true;
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -5063,6 +5067,13 @@ function openEfisiensiInfoModal(tipe, extra, maxParam){
     judul = 'Menunggu Akumulasi'; ikon = '⏳';
     isi = `Pergeseran indikator BBM trip ini (jarak ${extra?extra.toLocaleString('id-ID')+' KM':'-'}) masih terlalu tipis untuk dipercaya sendirian.`;
     catatan = 'BUKAN berarti tidak ada data -- jarak & liternya otomatis digabung ke trip berikutnya (mobil yang sama) begitu indikator bergerak cukup besar untuk dihitung dengan andal. Ini mencegah angka Efisiensi yang keliatan "terlalu irit" cuma karena pergeseran indikator yang belum jelas.';
+  } else if(tipe==='rentang'){
+    // v3.154.0 (poin H) -- extra=carriedInKm (KM yg digabung dari trip
+    // sebelumnya, kalau ada), maxParam=confidence ('tinggi'/'sedang'/'asumsi').
+    const confLabel = {tinggi:'Tinggi', sedang:'Sedang', asumsi:'Rendah (baru pas lolos ambang)'}[maxParam] || maxParam;
+    judul = 'Rentang Efisiensi'; ikon = '📏';
+    isi = `Angka Efisiensi di atas ditampilkan sebagai RENTANG, bukan 1 angka tunggal -- lebar rentangnya diturunkan dari resolusi indikator BBM mobil ini (makin kasar indikatornya, makin lebar rentangnya).${extra>0?` Termasuk <b>${extra.toLocaleString('id-ID')} KM</b> dari trip sebelumnya yang digabung.`:''}`;
+    catatan = `Tingkat keyakinan: <b>${confLabel}</b>. Ini supaya angkanya tidak terkesan pasti padahal dasarnya cuma pembacaan indikator BBM yang kasar -- makin banyak sampel isi ulang nyata mobil ini tercatat, makin sempit rentangnya ke depannya.`;
   } else if(tipe==='bawah'){
     const rentang = `${extra!=null?extra:''}${extra!=null&&maxParam!=null?'–':''}${maxParam!=null?maxParam:''} KM/L`;
     judul = 'Di Bawah Rentang Wajar'; ikon = '⚠️';
@@ -6567,6 +6578,7 @@ function openDestinationModal(editId){
 
       if(editing){
         const namaLama = editing.nama;
+        const mapsLinkLama = editing.mapsLink || '';
         Object.assign(editing, {nama, jarakKm, bbmLiter, mapsLink: mapsLink || null});
         touch(editing);
         logActivity('tujuan', 'Edit data tujuan', nama);
@@ -6592,6 +6604,32 @@ function openDestinationModal(editId){
                 saveData();
                 logActivity('tujuan', 'Samakan nama tujuan di catatan lama', `"${namaLama}" → "${nama}" (${total} catatan)`);
                 showToast(`${total} catatan diperbarui.`);
+                if(currentRoute==='usage') renderUsage();
+                if(currentRoute==='bookings') renderBookings();
+              }
+            );
+          }
+        }
+        // v3.152.0 -- Kalau Link Maps baru DIISI/DIUBAH di sini, tawarkan
+        // sinkronkan ke catatan Perjalanan/Booking LAMA ke tujuan yang sama
+        // yang Link Maps-nya masih KOSONG. SENGAJA cuma isi yang kosong --
+        // tidak menimpa link yang mungkin sudah ditempel manual berbeda di
+        // trip tertentu (mis. gudang/pintu masuk berbeda utk tujuan sama),
+        // supaya tidak menimpa data yang sengaja dibedakan petugas lapangan.
+        if(mapsLink && mapsLink !== mapsLinkLama){
+          const needleMaps = nama.trim().toLowerCase();
+          const kosongUsage = state.usage.filter(u=> !u.mapsLink && (u.tujuan||'').trim().toLowerCase()===needleMaps);
+          const kosongBooking = state.bookings.filter(b=> !b.mapsLink && (b.tujuan||'').trim().toLowerCase()===needleMaps);
+          const totalMaps = kosongUsage.length + kosongBooking.length;
+          if(totalMaps>0){
+            openConfirmModal(
+              `Link Maps tujuan "${escapeHtml(nama)}" baru disimpan. Isikan juga ke ${totalMaps} catatan Perjalanan/Booking lama ke tujuan ini yang Link Maps-nya masih kosong?`,
+              ()=>{
+                kosongUsage.forEach(u=>{ u.mapsLink = mapsLink; touch(u); });
+                kosongBooking.forEach(b=>{ b.mapsLink = mapsLink; touch(b); });
+                saveData();
+                logActivity('tujuan', 'Sinkronkan Link Maps ke catatan lama', `"${nama}" -> ${totalMaps} catatan`);
+                showToast(`${totalMaps} catatan lama diperbarui dengan Link Maps.`);
                 if(currentRoute==='usage') renderUsage();
                 if(currentRoute==='bookings') renderBookings();
               }
@@ -6933,6 +6971,34 @@ function renderUsage(){
     return '';
   }
 
+  // v3.154.0 (poin H) -- Lebar pita ketidakpastian rasio, DITURUNKAN dari
+  // resolusi indikator BBM mobil ini (rumus SAMA PERSIS dgn resolusiLiter di
+  // buildFuelChain -- sengaja tidak diimpor dari sana krn buildFuelChain
+  // fungsinya per-mobil sedangkan ini perlu per-trip, jadi dihitung ulang di
+  // sini dari `car` yg sudah ada). "1 Bar/1% bisa mewakili ±segitu Liter"
+  // (lihat catatan panjang di buildFuelChain) -- dipakai sbg pita ± di
+  // sekitar estimasi liter titik, lalu diproyeksikan ke KM/L. Trip yg
+  // pergeserannya SUDAH jauh di atas ambang minimum (2x resolusi) otomatis
+  // dapat pita yg proporsinya lebih kecil (lebih presisi) krn penyebutnya
+  // (literTerbakarRiil) sudah lebih besar -- konsisten dgn kenapa trip yg
+  // baru pas lolos ambang ditandai 'sedang', bukan 'tinggi'.
+  function ratioResolusiLiter(car){
+    return (car.tipeIndikatorBbm === 'bar' && car.maxBarBbm)
+      ? Number(car.kapasitasTangkiLiter||0) / Number(car.maxBarBbm)
+      : Number(car.kapasitasTangkiLiter||0) / 100;
+  }
+  function ratioRangeHtml(entry, car){
+    const resolusi = ratioResolusiLiter(car);
+    if(!resolusi || !entry.literTerbakarRiil || !entry.effectiveKm) return null;
+    const literLow = Math.max(0.01, entry.literTerbakarRiil - resolusi);
+    const literHigh = entry.literTerbakarRiil + resolusi;
+    const ratioHigh = entry.effectiveKm / literLow;
+    const ratioLow = entry.effectiveKm / literHigh;
+    const relUncertainty = resolusi / entry.literTerbakarRiil;
+    const confidence = relUncertainty <= 0.15 ? 'tinggi' : (relUncertainty <= 0.35 ? 'sedang' : 'asumsi');
+    return { ratioLow, ratioHigh, confidence };
+  }
+
   function ratioStatusHtml(u, entry, car){
     if(entry && entry.resolved){
       const isFullToFull = getBensinKeluar(u)===100 && getBensinKembali(u)===100;
@@ -6940,7 +7006,18 @@ function renderUsage(){
       const badgeText = isFullToFull ? 'Full-to-Full' : 'Estimasi';
       const badgeTipe = isFullToFull ? 'full' : 'estimasi';
       const carriedInKm = entry.carriedInKm>0 ? entry.carriedInKm : 0;
-      return `${entry.ratio.toFixed(1)} KM/L <span class="badge ${badgeCls}" style="cursor:pointer;" onclick="openEfisiensiInfoModal('${badgeTipe}', ${carriedInKm})">${badgeText}</span>${efisiensiWajarBadgeHtml(entry.ratio, car)}`;
+      // v3.154.0 (poin H) -- tampilkan RENTANG (bukan cuma titik tunggal)
+      // begitu bisa dihitung, supaya tidak terkesan pasti padahal berbasis
+      // sampel tipis. Kalau rentangnya nyaris tidak berarti (mis. mobil tipe
+      // Persen dgn kapasitas tangki kosong/belum diisi), diam-diam jatuh ke
+      // tampilan titik tunggal seperti sebelumnya -- TIDAK memaksakan
+      // rentang yang tidak bisa dihitung.
+      const range = ratioRangeHtml(entry, car);
+      const confCls = range ? {tinggi:'ok', sedang:'warn', asumsi:'neutral'}[range.confidence] : null;
+      const rentangLabel = range
+        ? `${range.ratioLow.toFixed(1)}–${range.ratioHigh.toFixed(1)} KM/L <span class="badge ${confCls}" style="cursor:pointer;" onclick="openEfisiensiInfoModal('rentang', ${carriedInKm}, '${range.confidence}')">${range.confidence}</span>`
+        : `${entry.ratio.toFixed(1)} KM/L`;
+      return `${rentangLabel} <span class="badge ${badgeCls}" style="cursor:pointer;" onclick="openEfisiensiInfoModal('${badgeTipe}', ${carriedInKm})">${badgeText}</span>${efisiensiWajarBadgeHtml(entry.ratio, car)}`;
     }
     if(entry && entry.method==='pending'){
       // Jujur ke petugas: BUKAN "tidak ada data", tapi "belum cukup untuk
@@ -10839,14 +10916,36 @@ function buildFuelChain(carId){
 // trip yang kebetulan resolve sendiri) -- dipakai bersama oleh Kalkulator
 // Rasio Konsumsi, Ringkasan per Mobil, Estimasi Jarak Tersisa, dan Deteksi
 // Anomali, supaya keempatnya konsisten dan sama-sama bebas dari bias di atas.
+// v3.147.0 -- avgRatio SEKARANG estimator "memori pendek" (EWMA per trip
+// resolved, urut kronologis), BUKAN lagi rata-rata kumulatif sepanjang masa.
+// Alasan: servis, ganti oli, atau keausan mesin mengubah efisiensi riil dari
+// waktu ke waktu, tapi rata-rata kumulatif polos tetap dibebani data lama yg
+// sudah tidak relevan -- mobil yg baru diservis & jadi lebih irit butuh
+// puluhan trip baru utk "menggeser" rata-rata lama yg sudah kadung besar.
+// EWMA menimbang trip TERBARU lebih besar sehingga lebih cepat merespons
+// kondisi mobil saat ini, sambil tetap meredam 1 trip yg kebetulan aneh
+// (bukan cuma pakai angka trip terakhir mentah-mentah).
+//   ALPHA=0.25 -> tiap trip baru menyumbang 25% ke estimasi, 75% sisanya
+//   warisan dari estimasi sebelumnya (yg sendiri sudah meluruh geometris
+//   dari trip-trip sebelum itu) -- kira-kira setara "jendela efektif" ~7
+//   trip resolved terakhir yg paling berpengaruh ke angkanya.
+// Trip yg belum resolved (masih 'pending'/'fallback') TIDAK ikut EWMA --
+// konsisten dgn buildFuelChain, cuma rasio yg sudah cukup andal yg dipakai.
+const FUEL_EWMA_ALPHA = 0.25;
 function getCarFuelStats(carId){
   const chain = buildFuelChain(carId);
   let totalKm = 0, totalLiter = 0;
+  let ewma = null;
   chain.forEach(entry=>{
-    if(entry.resolved){ totalKm += entry.effectiveKm; totalLiter += entry.literTerbakarRiil; }
+    if(entry.resolved){
+      totalKm += entry.effectiveKm; totalLiter += entry.literTerbakarRiil;
+      if(isFinite(entry.ratio) && entry.ratio>0){
+        ewma = (ewma==null) ? entry.ratio : (FUEL_EWMA_ALPHA*entry.ratio + (1-FUEL_EWMA_ALPHA)*ewma);
+      }
+    }
   });
   return {
-    avgRatio: (totalKm>0 && totalLiter>0) ? totalKm/totalLiter : null,
+    avgRatio: ewma,
     totalLiterTerpakai: totalLiter,
   };
 }
@@ -11633,6 +11732,13 @@ async function openGpsInsightModal(tripId){
     selisihLine = `<div class="hint" style="font-size:12px;margin-top:10px;line-height:1.6;">Selisih GPS vs manual: <b>${selisih>0?'+':''}${selisih.toLocaleString('id-ID')} KM</b>${jauh ? ' -- cukup jauh, cek odometer manual atau kalibrasi GPS.id.' : ' -- wajar.'}</div>`;
   }
 
+  // v3.147.0 -- kalau ada titik yg dibuang krn kecepatan tidak wajar (noise
+  // GPS, lihat GPS_NOISE_MAX_SPEED_KMH di worker.js), tampilkan supaya
+  // petugas tahu jarak di atas sudah disaring, bukan mentah-mentah.
+  const noiseLine = insight.noiseFilteredCount
+    ? `<div class="hint" style="font-size:12px;margin-top:4px;">${insight.noiseFilteredCount.toLocaleString('id-ID')} titik dibuang karena kecepatan tidak wajar (noise GPS).</div>`
+    : '';
+
   bodyEl.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:8px;">
       <div class="data-card-row"><span class="k">Mesin ON</span><span class="v">${durasiLabel}</span></div>
@@ -11640,6 +11746,7 @@ async function openGpsInsightModal(tripId){
       <div class="data-card-row"><span class="k">Jarak Manual</span><span class="v">${jarakManualLabel}</span></div>
       <div class="data-card-row"><span class="k">Titik Data</span><span class="v">${insight.pointCount.toLocaleString('id-ID')}</span></div>
     </div>
+    ${noiseLine}
     ${selisihLine}
   `;
 }
@@ -13433,6 +13540,24 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.154.0',
+    date: '30 Jul 2026',
+    notes: [
+      'PERUBAHAN PERILAKU: auto-isi/auto-saran odometer dari GPS.id DINYALAKAN LAGI (Odometer Keluar via popup "mesin dinyalakan", Odometer Tiba via modal Tandai Kembali, konfirmasi odometer di bot Telegram) setelah akurasi GPS.id armada dicek ulang & dikonfirmasi sudah OK -- lihat GPS_ODO_AUTOFILL_ENABLED (v3.150.0). Tetap SARAN/prefill, bukan kunci mati -- semua field masih bisa dikoreksi manual sebelum disimpan.',
+      'Efisiensi rata-rata per mobil (dipakai Deteksi Anomali, estimasi jarak tersisa, ringkasan armada) sekarang dihitung pakai EWMA (memori pendek, trip terbaru berbobot lebih besar) -- bukan lagi rata-rata kumulatif sepanjang masa, supaya lebih cepat menyesuaikan begitu mobil habis servis/kondisinya berubah.',
+      'Insight GPS.id: titik histori dengan kecepatan tidak wajar (>180 km/j, kemungkinan lompatan sinyal) sekarang disaring sebelum dipakai hitung jarak -- jumlah titik yang disaring ditampilkan di modal.',
+      '🟢 BARU: bot Telegram sekarang memvalidasi level BBM yang diketik sopir saat trip ditutup -- kalau hasilnya tersirat jauh dari efisiensi rata-rata mobil itu (kemungkinan salah baca/ketik), bot tanya-konfirmasi dulu sebelum lanjut, bukan menunggu ditandai di Deteksi Anomali setelah tersimpan.',
+      '🟢 BARU: Efisiensi BBM per trip sekarang ditampilkan sebagai RENTANG (mis. "11.2–13.8 KM/L") dengan badge tingkat keyakinan (tinggi/sedang/asumsi), bukan 1 angka tunggal yang terkesan pasti -- lebar rentangnya mengikuti kekasaran indikator BBM mobil itu.',
+    ]
+  },
+  {
+    v: '3.153.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 BARU: Sinkronkan Link Maps ke catatan lama -- saat Link Maps tujuan ditambah/diubah di Data Tujuan, sekarang ditawarkan untuk langsung mengisikannya juga ke semua catatan Perjalanan/Booking LAMA ke tujuan yang sama yang Link Maps-nya masih kosong (sebelumnya harus dibuka & di-Edit satu-satu supaya tombol "Rute" muncul). Cuma mengisi yang KOSONG, tidak menimpa Link Maps yang mungkin sudah beda sendiri di trip tertentu.',
+    ]
+  },
   {
     v: '3.152.0',
     date: '30 Jul 2026',
