@@ -998,6 +998,12 @@
   .field input:focus, .field select:focus, .field textarea:focus{
     outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,111,237,0.12);
   }
+  /* v3.163.0 -- Angka Odometer ditebalkan & dibesarkan (senada gaya angka
+     Saldo E-Toll di .etoll-input-row) supaya lebih gampang dibaca sekilas --
+     ini field penting yang sering dicek ulang sebelum simpan. */
+  #in-odo-keluar, #in-odo-kembali{
+    font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace;
+  }
   .field.error input, .field.error select{border-color:var(--red);}
   .field .err-msg{font-size:11.5px;color:var(--red);margin-top:4px;display:none;}
   .field.error .err-msg{display:block;}
@@ -1333,7 +1339,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.162.0';
+const APP_VERSION = '3.163.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -13904,6 +13910,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.163.0',
+    date: '30 Jul 2026',
+    notes: [
+      'Angka Odometer (Saat Berangkat & Saat Tiba) ditebalkan & dibesarkan, senada gaya angka Saldo E-Toll -- lebih gampang dibaca sekilas, terutama saat cek ulang angka Estimasi GPS sebelum simpan.',
+    ]
+  },
   {
     v: '3.162.0',
     date: '30 Jul 2026',
