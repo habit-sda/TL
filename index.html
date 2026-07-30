@@ -11857,25 +11857,68 @@ function clearGpsEstimateField(fieldId, inputId, iconId, badgeId, hintId){
 }
 
 // ---- Bagian B: popup "Mesin Dinyalakan" ----
-// State di memori (TIDAK disimpan ke localStorage/GitHub) -- cukup utk 1
-// sesi aplikasi terbuka. imei -> {acc:'ON'|'OFF', asked:bool}
+// State disimpan di memori DAN dicermin ke sessionStorage. imei -> {acc:'ON'|'OFF', asked:bool}
+// Kenapa sessionStorage juga: kalau app reload di tab/sesi yang sama (mis.
+// popup "Versi Baru Tersedia" nge-refresh, atau Android "membangunkan"
+// proses background), status "sempat OFF" yang cuma di variabel memori akan
+// HILANG dan popup ON tidak akan pernah muncul sampai siklus OFF berikutnya
+// benar-benar tertangkap lagi. sessionStorage tetap hidup selama tab/app
+// belum benar-benar ditutup, jadi status ON/OFF ikut selamat lewat reload.
+const GPS_ENGINE_POPUP_STATE_SESSION_KEY = 'fleetops_gps_engine_popup_state';
 let gpsEnginePopupState = {};
+try{
+  const savedPopupState = sessionStorage.getItem(GPS_ENGINE_POPUP_STATE_SESSION_KEY);
+  if(savedPopupState) gpsEnginePopupState = JSON.parse(savedPopupState) || {};
+}catch(e){ gpsEnginePopupState = {}; }
+function saveGpsEnginePopupState(){
+  try{ sessionStorage.setItem(GPS_ENGINE_POPUP_STATE_SESSION_KEY, JSON.stringify(gpsEnginePopupState)); }catch(e){}
+}
 let gpsEnginePopupTimer = null;
 let gpsEnginePopupShownImei = null;
 let gpsEnginePopupPolling = false;
+// Hitung gagal fetch berturut-turut -- dipakai buat log peringatan kalau
+// pengecekan GPS.id nyangkut lama (bukan cuma error sesekali biasa).
+let gpsEnginePopupFailStreak = 0;
+const GPS_ENGINE_POPUP_FETCH_TIMEOUT_MS = 12000;
+const GPS_ENGINE_POPUP_FAIL_STREAK_WARN = 3; // ~3 siklus x 45dtk =~ 2 menit gagal terus
 
 async function fetchGpsVehicleListForPopup(){
   if(!isGhConnected()) return null;
+  // PENTING: kasih timeout eksplisit. Tanpa ini, kalau 1 request nyangkut
+  // (koneksi lemot/nyaris putus), fetch bisa gantung lama dan siklus
+  // berikutnya baru jalan setelah itu selesai -- popup jadi diam-diam
+  // berhenti mengecek tanpa pesan error apa pun.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), GPS_ENGINE_POPUP_FETCH_TIMEOUT_MS);
   try{
-    const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/gpsid/vehicles`, { headers: { 'accept':'application/json' } });
+    const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/gpsid/vehicles`, {
+      headers: { 'accept':'application/json' },
+      signal: controller.signal
+    });
     const data = await res.json().catch(()=>null);
-    if(!res.ok || !data) return null;
+    if(!res.ok || !data){
+      console.warn('[gps-engine-popup] fetch gagal:', res.status);
+      gpsEnginePopupFailStreak++;
+      return null;
+    }
+    gpsEnginePopupFailStreak = 0;
     if(Array.isArray(data)) return data;
     if(Array.isArray(data?.message?.data)) return data.message.data;
     if(Array.isArray(data?.data)) return data.data;
     if(Array.isArray(data?.message)) return data.message;
+    console.warn('[gps-engine-popup] format respons tidak dikenali:', data);
+    gpsEnginePopupFailStreak++;
     return null;
-  } catch(e){ return null; }
+  } catch(e){
+    console.warn('[gps-engine-popup] fetch error/timeout:', e?.message || e);
+    gpsEnginePopupFailStreak++;
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+    if(gpsEnginePopupFailStreak >= GPS_ENGINE_POPUP_FAIL_STREAK_WARN){
+      console.warn(`[gps-engine-popup] gagal ${gpsEnginePopupFailStreak}x berturut-turut -- deteksi mesin ON mungkin tidak akan muncul sampai koneksi/Worker pulih.`);
+    }
+  }
 }
 
 function renderGpsEnginePopup(car, gpsOdoKm){
@@ -11964,7 +12007,10 @@ function hideGpsEnginePopup(imei, markAsked){
   gpsEnginePopupShownImei = null;
   const box = document.getElementById('gps-engine-popup');
   if(box){ box.style.display = 'none'; box.innerHTML = ''; }
-  if(markAsked && gpsEnginePopupState[imei]) gpsEnginePopupState[imei].asked = true;
+  if(markAsked && gpsEnginePopupState[imei]){
+    gpsEnginePopupState[imei].asked = true;
+    saveGpsEnginePopupState();
+  }
 }
 
 async function pollGpsEnginePopup(){
@@ -12005,6 +12051,7 @@ async function pollGpsEnginePopup(){
         gpsEnginePopupState[car.imeiGps] = {acc:'ON', asked: prev.asked};
       }
     });
+    saveGpsEnginePopupState();
   } finally {
     gpsEnginePopupPolling = false;
   }
