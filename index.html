@@ -1333,7 +1333,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.157.0';
+const APP_VERSION = '3.158.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -4314,7 +4314,17 @@ function computeAlerts(){
   // atas. ID pakai "bucket" hari (kelipatan kalibrasiGpsIntervalHari) supaya
   // pengingat ini muncul lagi tiap N hari selama mobil masih terhubung
   // imeiGps, bukan cuma sekali lalu diam selamanya.
-  if(ns.kalibrasiGpsEnabled !== false){
+  // v3.158.0 -- SENGAJA cuma ditampilkan di app (Dashboard "Perlu Perhatian"
+  // & lonceng) kalau sesi ini sudah PIN Mode Sopir (001100/009900) --
+  // dipakai ULANG variabel modeSopirUnlocked yang sudah ada, TIDAK bikin
+  // PIN baru. Alasan: panel Dashboard sengaja tidak bisa di-dismiss (biar
+  // tidak ada yang terlewat), jadi ini muncul TIAP HARI selama app dibuka
+  // -- dirasa mengganggu kalau tampil ke siapa pun yang buka app. Dengan
+  // PIN, notif ini "diam" secara default, baru kelihatan begitu Admin buka
+  // PIN utk sesi itu -- reset lagi ke tersembunyi tiap sesi/tab baru,
+  // PERSIS pola Mode Sopir lainnya. TIDAK mempengaruhi pengiriman Telegram
+  // (itu jalan di server/Worker, tidak tahu status PIN di browser).
+  if(ns.kalibrasiGpsEnabled !== false && modeSopirUnlocked){
     const kalibrasiIntervalHari = Math.max(1, Number(ns.kalibrasiGpsIntervalHari) || 30);
     const kalibrasiBucket = Math.floor(Math.floor(Date.now()/86400000) / kalibrasiIntervalHari);
     state.cars.forEach(c=>{
@@ -13729,6 +13739,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.158.0',
+    date: '30 Jul 2026',
+    notes: [
+      'Notifikasi "🛰️ Kalibrasi Odometer GPS.id" di Dashboard (panel "Perlu Perhatian") sekarang cuma tampil kalau sesi ini sudah buka PIN Mode Sopir (001100 atau 009900) -- sebelumnya muncul ke siapa pun tiap kali Dashboard dibuka, tiap hari selama masa berlaku pengingat (panel ini memang sengaja tidak bisa di-dismiss). Tidak mempengaruhi pengiriman Telegram ke Admin, itu tetap jalan seperti biasa lewat jadwal cron.',
+    ]
+  },
   {
     v: '3.157.0',
     date: '30 Jul 2026',
