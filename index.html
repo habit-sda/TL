@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.140.0">
+<meta name="app-version" content="3.151.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1333,7 +1333,19 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.149.0';
+const APP_VERSION = '3.151.0';
+
+/* ---------------- Pengaturan: Auto-isi Odometer dari GPS.id ----------------
+   v3.150.0 -- SATU saklar terpusat untuk semua tempat yang menyarankan/
+   mengisi field odometer pakai data GPS.id (Odometer Keluar via popup
+   "mesin dinyalakan", Odometer Tiba via modal Tandai Kembali, dan
+   konfirmasi odometer di alur Telegram "tiba" -- lihat GPS_ODO_AUTOFILL_ENABLED
+   yang SAMA persis di worker.js, harus diubah BERSAMAAN di kedua file).
+   Dimatikan (false) karena odometer GPS.id vs odometer asli dashboard mobil
+   selisihnya jauh -- sopir/petugas WAJIB isi manual. Kalau nanti akurasinya
+   sudah bisa dipercaya lagi, tinggal ganti jadi true di sini SAJA (index.html)
+   dan di worker.js, tidak perlu ubah logika lain. */
+const GPS_ODO_AUTOFILL_ENABLED = false;
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
@@ -1719,7 +1731,15 @@ const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDe
   // Data Mobil, sama polanya dengan Budget Bulanan). speedAlertCooldownMinutes
   // dipakai supaya Telegram tidak spam kalau mobilnya ngebut terus-terusan
   // -- 1 notifikasi per mobil per rentang waktu ini, BUKAN 1x sekali selamanya.
-  speedAlertEnabled: true, speedLimitKmh: 120, speedAlertCooldownMinutes: 15 };
+  speedAlertEnabled: true, speedLimitKmh: 120, speedAlertCooldownMinutes: 15,
+  // v3.151.0 -- Pengingat Kalibrasi Odometer GPS.id: odometer yang dilaporkan
+  // GPS.id dihitung dari akumulasi jarak sinyal GPS, BUKAN dibaca dari sensor
+  // odometer fisik mobil -- jadi bisa drift jauh dari odometer dashboard asli
+  // kalau tidak di-"Reset Mileage" secara berkala di gps.id/v3/vehicle. Ini
+  // KHUSUS pengingat berkala ke Admin (targetDriverIds: [], sama pola dengan
+  // Budget/Kecepatan) supaya tidak lupa cek & kalibrasi ulang -- TIDAK
+  // mengubah/mengisi apa pun secara otomatis, murni pengingat manual.
+  kalibrasiGpsEnabled: true, kalibrasiGpsIntervalHari: 30 };
 // v3.103.0 -- Langganan notifikasi PER SOPIR: tiap sopir bisa diatur cuma
 // dapat kategori tertentu (mis. Budi cuma dapat Dokumen+Servis, Siti cuma
 // BBM+E-Toll) lewat driver.notifKategori (array key di bawah). PENTING:
@@ -3701,10 +3721,19 @@ function renderSettings(){
               <input type="text" inputmode="numeric" id="in-notif-speed-limit" value="${getNotifSettings().speedLimitKmh}">
               <div class="hint">Dipakai untuk mobil yang belum diisi "Batas Kecepatan" sendiri di Data Mobil.</div>
             </div>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="in-notif-kalibrasi-enabled" ${getNotifSettings().kalibrasiGpsEnabled?'checked':''} style="width:16px;height:16px;">
+            🛰️ Pengingat Kalibrasi Odometer GPS.id
+          </label>
+          <div class="hint" style="margin:4px 0 10px;">Odometer GPS.id dihitung dari akumulasi sinyal GPS (bukan sensor odometer fisik mobil), jadi bisa meleset jauh kalau tidak dikalibrasi ulang -- Admin diingatkan berkala lewat Telegram untuk cek & "Reset Mileage" di gps.id/v3/vehicle. <b>Khusus Admin</b>, tidak dikirim ke sopir. Cuma untuk mobil yang sudah diisi IMEI GPS.id.</div>
+          <div class="grid-2" id="notif-kalibrasi-fields" style="${getNotifSettings().kalibrasiGpsEnabled?'':'opacity:0.5;pointer-events:none;'}">
             <div class="field">
-              <label>Jangan ulangi notifikasi yang sama selama (menit)</label>
-              <input type="text" inputmode="numeric" id="in-notif-speed-cooldown" value="${getNotifSettings().speedAlertCooldownMinutes}">
-              <div class="hint">Supaya Telegram tidak spam kalau mobilnya ngebut terus. Selama masih di atas batas, notifikasi berikutnya baru dikirim lagi setelah jeda ini.</div>
+              <label>Ulangi pengingat tiap (hari)</label>
+              <input type="text" inputmode="numeric" id="in-notif-kalibrasi-interval" value="${getNotifSettings().kalibrasiGpsIntervalHari}">
+              <div class="hint">Mis. 30 = diingatkan sebulan sekali per mobil yang punya IMEI GPS.id.</div>
             </div>
           </div>
         </div>
@@ -3850,7 +3879,7 @@ function renderSettings(){
   attachIntegerOnlyInput('in-toleransi-gap');
   if(insightUnlocked){
     renderNotifPermissionStatus();
-    ['in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min','in-notif-budget-pct','in-notif-speed-limit','in-notif-speed-cooldown'].forEach(id=>{
+    ['in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min','in-notif-budget-pct','in-notif-speed-limit','in-notif-speed-cooldown','in-notif-kalibrasi-interval'].forEach(id=>{
       attachIntegerOnlyInput(id);
     });
     document.getElementById('btn-save-notif-settings').onclick = () => {
@@ -3866,6 +3895,8 @@ function renderSettings(){
       const speedAlertEnabled = document.getElementById('in-notif-speed-enabled').checked;
       const speedLimitKmh = Number(document.getElementById('in-notif-speed-limit').value || 0);
       const speedAlertCooldownMinutes = Number(document.getElementById('in-notif-speed-cooldown').value || 0);
+      const kalibrasiGpsEnabled = document.getElementById('in-notif-kalibrasi-enabled').checked;
+      const kalibrasiGpsIntervalHari = Number(document.getElementById('in-notif-kalibrasi-interval').value || 0);
       state.notifSettings = {
         docExpiryDays: NOTIF_SETTINGS_DEFAULT.docExpiryDays, // v3.138.0 -- sudah tidak dipakai, jadwal dokumen sekarang tetap (lihat DOC_EXPIRY_MILESTONES_DAYS)
         serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
@@ -3878,6 +3909,8 @@ function renderSettings(){
         speedAlertEnabled,
         speedLimitKmh: speedLimitKmh>0 ? speedLimitKmh : NOTIF_SETTINGS_DEFAULT.speedLimitKmh,
         speedAlertCooldownMinutes: speedAlertCooldownMinutes>0 ? speedAlertCooldownMinutes : NOTIF_SETTINGS_DEFAULT.speedAlertCooldownMinutes,
+        kalibrasiGpsEnabled,
+        kalibrasiGpsIntervalHari: kalibrasiGpsIntervalHari>0 ? kalibrasiGpsIntervalHari : NOTIF_SETTINGS_DEFAULT.kalibrasiGpsIntervalHari,
       };
       saveData();
       showToast('Ambang batas notifikasi disimpan.');
@@ -3889,6 +3922,10 @@ function renderSettings(){
     });
     document.getElementById('in-notif-speed-enabled').addEventListener('change', function(){
       const fieldsWrap = document.getElementById('notif-speed-fields');
+      if(fieldsWrap) fieldsWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
+    });
+    document.getElementById('in-notif-kalibrasi-enabled').addEventListener('change', function(){
+      const fieldsWrap = document.getElementById('notif-kalibrasi-fields');
       if(fieldsWrap) fieldsWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
     });
     document.getElementById('btn-goto-drivers-telegram').onclick = () => navigate('drivers');
@@ -4259,6 +4296,28 @@ function computeAlerts(){
       });
     }
   });
+
+  // v3.151.0 -- Pengingat Kalibrasi Odometer GPS.id: odometer dari GPS.id
+  // dihitung dari akumulasi sinyal GPS (bukan sensor odometer fisik), jadi
+  // bisa drift jauh dari odometer dashboard asli kalau tidak dikalibrasi
+  // ulang secara berkala (menu "Reset Mileage" di gps.id/v3/vehicle).
+  // targetDriverIds: [] -- KHUSUS Admin, pola sama dgn Budget Bulanan di
+  // atas. ID pakai "bucket" hari (kelipatan kalibrasiGpsIntervalHari) supaya
+  // pengingat ini muncul lagi tiap N hari selama mobil masih terhubung
+  // imeiGps, bukan cuma sekali lalu diam selamanya.
+  if(ns.kalibrasiGpsEnabled !== false){
+    const kalibrasiIntervalHari = Math.max(1, Number(ns.kalibrasiGpsIntervalHari) || 30);
+    const kalibrasiBucket = Math.floor(Math.floor(Date.now()/86400000) / kalibrasiIntervalHari);
+    state.cars.forEach(c=>{
+      if(!c.imeiGps) return;
+      alerts.push({
+        id: `kalibrasi-${c.id}-${kalibrasiBucket}`, route:'cars', ic:'🛰️', level:'warn',
+        judul: 'Kalibrasi Odometer GPS.id',
+        keterangan: `${carLabel(c.id)} — bandingkan odometer dashboard asli dengan GPS.id (menu Reset Mileage di gps.id/v3/vehicle), reset kalau selisihnya sudah jauh. Pengingat rutin tiap ${kalibrasiIntervalHari} hari.`,
+        targetDriverIds: [],
+      });
+    });
+  }
 
   const hariIniStr = today();
   // v3.121.0 -- Pengingat "Trip Kelamaan Belum Tiba": kalau sebuah trip
@@ -7698,7 +7757,10 @@ function markReturned(id){
   // sebelumnya (supaya tidak menimpa data yang sudah final saat cuma
   // membuka lagi trip yang sudah selesai untuk dikoreksi field lain).
   // Tetap bisa diedit manual -- ini cuma bantuan, bukan pengunci field.
-  if(carForFuel && carForFuel.imeiGps && u.odoKembali == null){
+  // v3.150.0 -- digate oleh GPS_ODO_AUTOFILL_ENABLED (lihat definisinya di
+  // atas file): odometer GPS.id vs odometer asli dashboard selisihnya jauh,
+  // jadi auto-isi dimatikan sampai akurasinya bisa dipercaya lagi.
+  if(GPS_ODO_AUTOFILL_ENABLED && carForFuel && carForFuel.imeiGps && u.odoKembali == null){
     const gpsHintKembali = document.getElementById('odo-kembali-gps-hint');
     if(gpsHintKembali){ gpsHintKembali.style.display = ''; gpsHintKembali.style.color = 'var(--muted)'; gpsHintKembali.textContent = '🛰️ Mengambil odometer dari GPS.id...'; }
     fetchOdoFromGpsId(carForFuel.imeiGps).then(km=>{
@@ -11687,16 +11749,18 @@ function startGpsEnginePopupWatcher(){
 }
 
 // Dipanggil saat sopir/petugas tap "Ya" di popup -- buka Catat Perjalanan
-// dgn mobil TERPILIH otomatis + odometer terisi dari GPS.id (bernuansa
-// "Estimasi GPS", lihat setGpsEstimateField). INI SATU-SATUNYA jalur yang
-// boleh auto-isi tipe mobil & odometer keluar -- buka manual (tombol "+
-// Catat Perjalanan" biasa) TIDAK auto-isi apa pun, sesuai permintaan.
+// dgn mobil TERPILIH otomatis. Odometer Keluar auto-isi dari GPS.id HANYA
+// kalau GPS_ODO_AUTOFILL_ENABLED true (lihat definisinya di atas file) --
+// v3.150.0 dimatikan karena odometer GPS.id vs dashboard mobil selisihnya
+// jauh. INI SATU-SATUNYA jalur yang boleh auto-isi tipe mobil & odometer
+// keluar -- buka manual (tombol "+ Catat Perjalanan" biasa) TIDAK auto-isi
+// apa pun, sesuai permintaan.
 function openUsageModalFromGpsEnginePopup(car, gpsOdoKm){
   openUsageModal(null, car.id);
   setTimeout(() => {
     const carSel = document.getElementById('in-car');
     if(carSel) carSel.value = car.id;
-    if(gpsOdoKm != null){
+    if(GPS_ODO_AUTOFILL_ENABLED && gpsOdoKm != null){
       const odoInput = document.getElementById('in-odo-keluar');
       if(odoInput) odoInput.value = fmtRibuanInitial(gpsOdoKm);
       setGpsEstimateField('f-odo-keluar','in-odo-keluar','odo-keluar-est-icon','odo-keluar-est-badge','odo-keluar-gps-hint', gpsOdoKm, 'mesin dinyalakan');
@@ -13273,6 +13337,29 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.151.0',
+    date: '30 Jul 2026',
+    notes: [
+      '🟢 BARU: Pengingat Kalibrasi Odometer GPS.id -- notifikasi Telegram berkala (default tiap 30 hari, bisa diatur) khusus ke Admin untuk cek & "Reset Mileage" odometer GPS.id vs odometer asli dashboard mobil, karena GPS.id menghitung jarak dari sinyal GPS (bukan sensor odometer fisik) sehingga bisa drift jauh kalau tidak dikalibrasi ulang. Berlaku untuk mobil yang sudah diisi IMEI GPS.id. Bisa dimatikan/diatur intervalnya di Pengaturan Notifikasi.',
+    ]
+  },
+  {
+    v: '3.150.0',
+    date: '30 Jul 2026',
+    notes: [
+      'PERUBAHAN PERILAKU: auto-isi/auto-saran odometer dari GPS.id DIMATIKAN di semua tempat -- Odometer Keluar (popup "mesin dinyalakan"), Odometer Tiba (modal Tandai Kembali), dan konfirmasi odometer di bot Telegram saat ketik "tiba" -- karena angka odometer GPS.id vs odometer asli di dashboard mobil selisihnya jauh. Semua field ini sekarang WAJIB diisi manual seperti sebelum v3.143.0.',
+      'Ditambah 1 saklar terpusat GPS_ODO_AUTOFILL_ENABLED (di index.html DAN worker.js, harus diubah bersamaan) supaya gampang dinyalakan lagi kapan pun akurasinya sudah bisa dipercaya -- tidak perlu bongkar ulang logikanya.',
+    ]
+  },
+  {
+    v: '3.149.0',
+    date: '30 Jul 2026',
+    notes: [
+      'Warna popup "🛰️ [Plat] baru dinyalakan" diganti dari skema biru/putih (kurang kontras di beberapa layar) jadi skema coral gelap supaya lebih jelas terlihat.',
+      '🟢 BARU: popup "mesin dinyalakan" sekarang bisa digeser (drag/tarik) ke posisi mana pun di layar, baik lewat sentuhan maupun mouse -- tombol "Ya, catat perjalanan" dan "✕" tetap bisa ditap normal.',
+    ]
+  },
   {
     v: '3.148.0',
     date: '30 Jul 2026',
