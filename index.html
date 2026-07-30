@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.151.0">
+<meta name="app-version" content="3.152.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1333,7 +1333,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.151.0';
+const APP_VERSION = '3.152.0';
 
 /* ---------------- Pengaturan: Auto-isi Odometer dari GPS.id ----------------
    v3.150.0 -- SATU saklar terpusat untuk semua tempat yang menyarankan/
@@ -3728,7 +3728,7 @@ function renderSettings(){
             <input type="checkbox" id="in-notif-kalibrasi-enabled" ${getNotifSettings().kalibrasiGpsEnabled?'checked':''} style="width:16px;height:16px;">
             🛰️ Pengingat Kalibrasi Odometer GPS.id
           </label>
-          <div class="hint" style="margin:4px 0 10px;">Odometer GPS.id dihitung dari akumulasi sinyal GPS (bukan sensor odometer fisik mobil), jadi bisa meleset jauh kalau tidak dikalibrasi ulang -- Admin diingatkan berkala lewat Telegram untuk cek & "Reset Mileage" di gps.id/v3/vehicle. <b>Khusus Admin</b>, tidak dikirim ke sopir. Cuma untuk mobil yang sudah diisi IMEI GPS.id.</div>
+          <div class="hint" style="margin:4px 0 10px;">Odometer GPS.id dihitung dari akumulasi sinyal GPS (bukan sensor odometer fisik mobil), jadi bisa meleset jauh kalau tidak dikalibrasi ulang -- Admin diingatkan berkala lewat Telegram untuk cek & reset. <b>Khusus Admin</b>, tidak dikirim ke sopir. Cuma untuk mobil yang sudah diisi IMEI GPS.id.<br>Cara kalibrasi: buka gps.id/v3/vehicle → Vehicle Management → klik ikon Mileage di baris mobil → sesuaikan "New Mileage" (odometer asli KM × 1000, dalam meter) → klik Reset Mileage.</div>
           <div class="grid-2" id="notif-kalibrasi-fields" style="${getNotifSettings().kalibrasiGpsEnabled?'':'opacity:0.5;pointer-events:none;'}">
             <div class="field">
               <label>Ulangi pengingat tiap (hari)</label>
@@ -4313,7 +4313,7 @@ function computeAlerts(){
       alerts.push({
         id: `kalibrasi-${c.id}-${kalibrasiBucket}`, route:'cars', ic:'🛰️', level:'warn',
         judul: 'Kalibrasi Odometer GPS.id',
-        keterangan: `${carLabel(c.id)} — bandingkan odometer dashboard asli dengan GPS.id (menu Reset Mileage di gps.id/v3/vehicle), reset kalau selisihnya sudah jauh. Pengingat rutin tiap ${kalibrasiIntervalHari} hari.`,
+        keterangan: `${carLabel(c.id)} — bandingkan odometer dashboard asli dengan GPS.id, reset kalau selisihnya sudah jauh. Caranya: buka gps.id/v3/vehicle → Vehicle Management → klik ikon Mileage di baris mobil ini → sesuaikan "New Mileage" (odometer asli KM × 1000, dalam meter) → klik Reset Mileage. Pengingat rutin tiap ${kalibrasiIntervalHari} hari.`,
         targetDriverIds: [],
       });
     });
@@ -13337,6 +13337,13 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.152.0',
+    date: '30 Jul 2026',
+    notes: [
+      'Pesan Pengingat Kalibrasi Odometer GPS.id (bel aplikasi + Telegram) sekarang menyertakan panduan langkah demi langkah: buka gps.id/v3/vehicle → Vehicle Management → klik ikon Mileage di baris mobil → sesuaikan "New Mileage" (odometer asli KM × 1000, dalam meter) → klik Reset Mileage -- supaya admin mana pun (bukan cuma yang sudah terbiasa) bisa langsung ikuti tanpa perlu tanya lagi.',
+    ]
+  },
   {
     v: '3.151.0',
     date: '30 Jul 2026',
