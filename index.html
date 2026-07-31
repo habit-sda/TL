@@ -3063,7 +3063,12 @@ function serviceReminderInfo(car){
     ? ` (perkiraan ${perkiraanTanggal.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})})`
     : '';
 
-  if(pct >= 1) return {level:'danger', text:'Sudah waktunya servis/ganti oli'+perkiraanText};
+  // v3.??? -- FIX: kalau status sudah "danger" (sudah lewat jadwal), JANGAN
+  // ikut tampilkan "(perkiraan ...)" -- itu cuma berguna buat status warn/ok
+  // (heads-up ke depan). Menampilkannya di status danger kontradiktif: teks
+  // sudah bilang "sudah waktunya" tapi tanggal perkiraan malah nunjuk ke
+  // masa depan, kesannya "belum perlu sampai nanti".
+  if(pct >= 1) return {level:'danger', text:'Sudah waktunya servis/ganti oli'};
   if(pct >= (getNotifSettings().serviceWarnPct/100)) return {level:'warn', text:'Segera servis (mendekati jadwal)'+perkiraanText};
   return {level:'ok', text:'Servis masih jauh'+perkiraanText};
 }
