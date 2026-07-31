@@ -892,6 +892,8 @@
   .icon-badge.amber{background:#FEF3DC;}
   .icon-badge.red{background:#FCE8E7;}
   .icon-badge.purple{background:#F1EBFC;}
+  .icon-badge.orange{background:#FEEBDC;}
+  .icon-badge.teal{background:#DFF5F2;}
   /* v3.113.0 -- Mode Gelap: daripada redefinisi 5 warna pastel di atas
      satu-per-satu, cukup diredupkan otomatis (tetap kelihatan warnanya,
      cuma tidak menyilaukan di tengah latar gelap). */
@@ -5844,7 +5846,7 @@ function renderDashboard(){
         `}
         <button class="quick-action-btn" data-action="booking"><span class="ic icon-badge amber">📅</span>Buat Booking</button>
         <button class="quick-action-btn" data-action="rutepulang"><span class="ic icon-badge green">${navCompassIconHtml('#2E7D4F', '#fff', 24)}</span>Rute Pulang</button>
-        <button class="quick-action-btn" id="qa-lacak-jalan" data-action="lacakjalan" style="display:none;"><span class="ic"><img src="data:image/png;base64,${ICON_LACAK_MOBIL_B64}" style="width:20px;height:20px;object-fit:contain;display:block;"></span>Lacak Mobil Jalan</button>
+        <button class="quick-action-btn" id="qa-lacak-jalan" data-action="lacakjalan" style="display:none;"><span class="ic icon-badge blue"><img src="data:image/png;base64,${ICON_LACAK_MOBIL_B64}" style="width:20px;height:20px;object-fit:contain;display:block;"></span>Lacak Mobil Jalan</button>
         <button class="quick-action-btn" data-action="bbmluar"><span class="ic icon-badge orange">⛽</span>Beli BBM<br>(Luar Trip)</button>
         <button class="quick-action-btn" data-action="etollluar"><span class="ic icon-badge teal">💳</span>Isi E-Toll<br>(Luar Trip)</button>
       </div>
