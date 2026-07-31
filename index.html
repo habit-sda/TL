@@ -7971,6 +7971,26 @@ function markReturned(id){
       }
 
       saveData();
+      // Rata-rata kecepatan trip ini (histori GPS.id), dihitung SEKALI saat trip
+      // ditutup -- PORTING PERSIS dari finalizeTutupTrip()/computeTripAvgSpeedKmh()
+      // di worker.js (fitur "kecepatan"/nama sopir khusus Super Admin Telegram),
+      // supaya trip yang ditutup lewat aplikasi web ini juga punya avgSpeedKmh,
+      // bukan cuma trip yang ditutup lewat bot. Best-effort & async SETELAH
+      // saveData() di atas -- tidak pernah memblokir/menunda penutupan trip kalau
+      // IMEI belum ada, GPS.id gagal, atau rate limit; kalau berhasil, disimpan
+      // lewat saveData() kedua begitu datang (mirip pola GPS_ODO_AUTOFILL).
+      if(carForFuel && carForFuel.imeiGps){
+        const rangeSpeed = gpsTripRangeFor(u);
+        if(rangeSpeed){
+          fetchGpsTripInsight(carForFuel.imeiGps, rangeSpeed.start, rangeSpeed.end).then(data=>{
+            if(data && !data.error && data.avgSpeedKmh != null){
+              u.avgSpeedKmh = data.avgSpeedKmh;
+              touch(u);
+              saveData();
+            }
+          }).catch(()=>{});
+        }
+      }
       // v3.136.0 -- kirim Resi Telegram INSTAN (paralel, tidak menunggu sinkron
       // GitHub) begitu trip ditandai selesai. Diam-diam gagal kalau belum
       // diatur/offline -- resi tetap terjamin lewat cron GitHub Actions.
