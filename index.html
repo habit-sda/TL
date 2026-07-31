@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.180.0">
+<meta name="app-version" content="3.183.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1386,7 +1386,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.180.0';
+const APP_VERSION = '3.183.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1821,7 +1821,14 @@ const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDe
   // KHUSUS pengingat berkala ke Admin (targetDriverIds: [], sama pola dengan
   // Budget/Kecepatan) supaya tidak lupa cek & kalibrasi ulang -- TIDAK
   // mengubah/mengisi apa pun secara otomatis, murni pengingat manual.
-  kalibrasiGpsEnabled: true, kalibrasiGpsIntervalHari: 30 };
+  kalibrasiGpsEnabled: true, kalibrasiGpsIntervalHari: 30,
+  // v3.183.0 -- Cegah Approve Booking Sendiri: kalau pengaju booking (yang
+  // membuatnya di aplikasi) kebetulan JUGA salah satu admin penerima
+  // notifikasi Telegram, dia TIDAK BOLEH menyetujui/menolak booking
+  // ajuannya sendiri lewat tombol Telegram -- harus admin LAIN, apapun
+  // perannya. KECUALI kalau tidak ada admin lain sama sekali (biar tidak
+  // menggantung selamanya), baru diizinkan diproses sendiri.
+  bookingApprovalBlockSelfApprove: true };
 // v3.103.0 -- Langganan notifikasi PER SOPIR: tiap sopir bisa diatur cuma
 // dapat kategori tertentu (mis. Budi cuma dapat Dokumen+Servis, Siti cuma
 // BBM+E-Toll) lewat driver.notifKategori (array key di bawah). PENTING:
@@ -4407,6 +4414,11 @@ function renderSettingsDetailNotifGabungan(){
           </div>
         </div>
         <div class="hint" style="margin:-4px 0 12px;">Nilai "default" di sini cuma dipakai untuk mobil/kartu yang BELUM diisi batasnya sendiri-sendiri (di Data Mobil / Kartu E-Toll) -- mengisi batas di situ tetap didahulukan.</div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;margin-top:6px;">
+          <input type="checkbox" id="in-notif-block-self-approve" ${getNotifSettings().bookingApprovalBlockSelfApprove!==false?'checked':''} style="width:16px;height:16px;">
+          🚫 Cegah Approve Booking Sendiri
+        </label>
+        <div class="hint" style="margin:4px 0 0;">Kalau pengaju booking JUGA salah satu admin penerima notifikasi Telegram, dia tidak boleh menyetujui/menolak booking ajuannya sendiri -- harus admin LAIN, apapun perannya. Kecuali kalau memang tidak ada admin lain sama sekali (supaya tidak menggantung selamanya), baru diizinkan diproses sendiri.</div>
         </div>
         ${settingsEditBarHtml('ambang-batas','btn-edit-ambang-batas','btn-save-ambang-batas','btn-cancel-ambang-batas')}
       </div>
@@ -4539,7 +4551,7 @@ function renderSettingsDetailNotifGabungan(){
       <div class="panel-head"><h2>🧑‍💼 Admin Finance (Penerima Nota &amp; Tanda Terima)</h2></div>
       <div class="panel-body">
         <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
-          Daftar TERPISAH dari "Admin Penerima Notifikasi Telegram" -- Admin Finance di sini <b>hanya</b> menerima foto nota &amp; tanda terima yang dikirim sopir lewat bot per trip <b>operasional</b> (bukan trip Pribadi), (sopir kirim foto kapan saja lalu ketik <b>kirim</b> saat selesai, atau otomatis diingatkan lewat Telegram kalau lupa 5 jam setelah trip ditutup). Admin Finance tidak ikut menerima notifikasi berkala apa pun. <b>Syarat baru:</b> Chat ID di sini HANYA akan benar-benar dikirimi pesan kalau nomor yang sama juga terdaftar sbg Sopir atau Admin Penerima Notifikasi Telegram di aplikasi ini -- kalau belum, orangnya tidak akan menerima apa pun walau sudah didaftarkan sbg Admin Finance. Setelah baris disimpan, field dikunci -- tap ✏️ Edit untuk mengubah.
+          Daftar TERPISAH dari "Admin Penerima Notifikasi Telegram" -- Admin Finance di sini <b>hanya</b> menerima foto nota &amp; tanda terima yang dikirim sopir lewat bot per trip <b>operasional</b> (bukan trip Pribadi) begitu sopir kirim foto lalu ketik <b>kirim</b>, plus notifikasi berkala (Dokumen/Servis/Laporan Bulanan) sesuai yang diatur di menu Notifikasi Telegram per Peran. Independen sepenuhnya -- cukup terdaftar & terisi Chat ID di sini, tidak perlu terdaftar di tempat lain. Setelah baris disimpan, field dikunci -- tap ✏️ Edit untuk mengubah.
         </p>
         <div id="finance-admins-list">${renderFinanceAdminsRows()}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
@@ -4658,6 +4670,7 @@ function renderSettingsDetailNotifGabungan(){
       const etollMin = Number(getRibuanValue('in-notif-etoll-min') || 0);
       const budgetPct = Number(document.getElementById('in-notif-budget-pct').value || 0);
       const tripLamaJam = Number(document.getElementById('in-notif-trip-lama').value || 0);
+      const bookingApprovalBlockSelfApprove = document.getElementById('in-notif-block-self-approve').checked;
       // v3.178.0 -- pakai spread dari getNotifSettings() SAAT INI, cuma
       // TIMPA field kategori ini -- karena field kategori LAIN (speed,
       // kalibrasi, jam sunyi) TIDAK ADA lagi di halaman yang sama sejak
@@ -4669,6 +4682,7 @@ function renderSettingsDetailNotifGabungan(){
         etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
         budgetWarnPct: (budgetPct>0 && budgetPct<=100) ? budgetPct : NOTIF_SETTINGS_DEFAULT.budgetWarnPct,
         tripDurationWarnHours: tripLamaJam>0 ? tripLamaJam : NOTIF_SETTINGS_DEFAULT.tripDurationWarnHours,
+        bookingApprovalBlockSelfApprove,
       };
       saveData();
       showToast('Ambang batas notifikasi disimpan.');
@@ -5858,8 +5872,22 @@ function openInsightPinModal(opts){
         return false;
       }
       insightUnlocked = true;
-      try{ sessionStorage.setItem(INSIGHT_UNLOCK_SESSION_KEY, '1'); }catch(e){}
-      showToast('Insight terbuka untuk sesi ini.');
+      // v3.182.0 -- PERBAIKAN BUG: sebelumnya jalur PIN ini (titik "·") HANYA
+      // membuka insightUnlocked, TIDAK ikut membuka modeSopirUnlocked --
+      // akibatnya menu SIDEBAR (Data Mobil, Laporan Bulanan, dst, yg
+      // visibilitasnya bergantung ke modeSopirUnlocked) TETAP tersembunyi
+      // walau PIN 009900 sudah benar & konten HALAMAN yang sedang dibuka
+      // sudah kelihatan lengkap -- gejala "cuma buka pengaturan notif, menu
+      // lain tidak ikut terbuka". PIN 009900 SEHARUSNYA berarti "buka semua
+      // tanpa kecuali" TIDAK PEDULI dari jalur mana dimasukkan (tekan-lama
+      // logo ATAU titik ini) -- sekarang keduanya konsisten.
+      modeSopirUnlocked = true;
+      try{
+        sessionStorage.setItem(INSIGHT_UNLOCK_SESSION_KEY, '1');
+        sessionStorage.setItem(MODE_SOPIR_SESSION_KEY, '1');
+      }catch(e){}
+      showToast('Insight & Mode Sopir terbuka untuk sesi ini.');
+      applyModeSopirVisibility();
       refreshInsightPanels();
       // BARU -- dipakai khusus klik titik "·" utk langsung membuka menu
       // "Notifikasi Telegram per Peran" begitu PIN benar (lihat listener
@@ -15223,6 +15251,28 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.183.0',
+    date: '31 Jul 2026',
+    notes: [
+      'Fitur baru: "🚫 Cegah Approve Booking Sendiri" (Pengaturan → Ambang Batas Notifikasi, Super Admin). Kalau pengaju booking JUGA salah satu admin penerima notifikasi Telegram, dia tidak bisa lagi menyetujui/menolak booking ajuannya sendiri lewat tombol Telegram -- harus admin lain, apapun perannya. KECUALI kalau tidak ada admin lain sama sekali (supaya booking tidak menggantung selamanya), baru diizinkan diproses sendiri sbg jalan keluar. Bisa dimatikan lewat toggle ini kalau tidak diperlukan. Diverifikasi lewat simulasi 4 skenario. ⚠️ <b>Upload ulang worker.js terbaru</b> supaya aturan ini aktif.',
+    ]
+  },
+  {
+    v: '3.182.0',
+    date: '31 Jul 2026',
+    notes: [
+      'Perbaikan bug: PIN Super Akses (009900) yang dimasukkan lewat titik kecil "·" (bukan tekan-lama logo) sebelumnya HANYA membuka konten Insight, TIDAK ikut membuka menu sidebar (Data Mobil, Laporan Bulanan, dst) -- gejalanya "cuma buka pengaturan notif, menu lain tidak ikut terbuka". Sekarang PIN 009900 selalu membuka SEMUA menu tanpa kecuali, dari jalur mana pun dimasukkan. Diverifikasi lewat simulasi memakai skenario persis yang dilaporkan.',
+    ]
+  },
+  {
+    v: '3.181.0',
+    date: '31 Jul 2026',
+    notes: [
+      'Admin Finance sekarang independen sepenuhnya -- syarat lama "harus JUGA terdaftar sbg Sopir/Admin Penerima Notifikasi Telegram" DIHAPUS. Cukup terdaftar & terisi Chat ID di menu Admin Finance saja, sudah langsung bisa menerima pesan.',
+      'Fitur "Pengingat 5 Jam" (nota/tanda terima belum dikirim) DIHAPUS TOTAL sesuai permintaan. ⚠️ <b>Upload ulang worker.js terbaru ke Cloudflare Worker</b> supaya kedua perubahan ini aktif.',
+    ]
+  },
   {
     v: '3.180.0',
     date: '31 Jul 2026',
