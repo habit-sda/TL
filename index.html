@@ -1360,7 +1360,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.172.0';
+const APP_VERSION = '3.173.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -2963,65 +2963,94 @@ function computeAvgKmPerDay(carId){
 // Fungsi ini murni informasi di form input, TIDAK memblokir simpan (servis
 // yang telat dicatat tetap valid & sah untuk dicatat apa adanya, mis. sopir
 // baru sempat servis beberapa hari/KM sesudah harusnya).
-function serviceOverdueAtInputWarning(carId, tanggal, odometer, excludeServiceId){
+// v4.0 -- FIX: dulu fungsi ini selalu bandingkan ke car.intervalKm/intervalBulan
+// (satu set interval) TERLEPAS dari kategori item yang sedang diketik, dan
+// acuan "servis sebelumnya" diambil dari kunjungan servis APAPUN kategorinya.
+// Sekarang, sejak Ganti Oli & Servis Berkala punya interval SENDIRI-SENDIRI,
+// pengecekan overdue-nya juga harus per kategori: kalau form ini berisi item
+// "Ganti Oli", dibandingkan ke intervalKm/intervalBulan & catatan Ganti Oli
+// terakhir; kalau berisi "Servis Berkala / Tune Up", dibandingkan ke
+// intervalKmServis/intervalBulanServis & catatan Servis Berkala terakhir.
+// Kategori lain (Rem, AC, dst) tidak dicek karena memang tidak punya interval.
+const MAINTENANCE_INTERVAL_CATEGORIES = [
+  { kategori:'Ganti Oli', kmField:'intervalKm', bulanField:'intervalBulan', labelPendek:'Ganti Oli' },
+  { kategori:'Servis Berkala / Tune Up', kmField:'intervalKmServis', bulanField:'intervalBulanServis', labelPendek:'Servis Berkala' }
+];
+function serviceOverdueAtInputWarning(carId, tanggal, odometer, excludeServiceId, kategoriDiInput){
   const car = state.cars.find(c=>c.id===carId);
-  if(!car || (!car.intervalKm && !car.intervalBulan)) return null;
+  if(!car) return null;
+  const kategoriSet = new Set(kategoriDiInput||[]);
 
-  // Servis SEBELUMNYA jadi acuan pembanding: yang tanggalnya <= tanggal yang
-  // sedang diisi, bukan record yang sedang diedit sendiri (kalau mode edit).
-  const prevService = state.services
-    .filter(s=> s.carId===carId && s.id!==excludeServiceId && s.tanggal && tanggal && s.tanggal<=tanggal)
-    .sort((a,b)=> b.tanggal.localeCompare(a.tanggal))[0];
+  const allParts = [];
+  MAINTENANCE_INTERVAL_CATEGORIES.forEach(({kategori, kmField, bulanField, labelPendek})=>{
+    if(!kategoriSet.has(kategori)) return; // form ini tidak berisi kategori ini -- tidak relevan dicek
+    const intervalKm = car[kmField], intervalBulan = car[bulanField];
+    if(!intervalKm && !intervalBulan) return;
 
-  if(!prevService) return null; // servis pertama utk mobil ini -- tidak ada acuan pembanding
+    // Catatan SEBELUMNYA dari kategori yang SAMA -- yang tanggalnya <= tanggal
+    // yang sedang diisi, bukan record yang sedang diedit sendiri (kalau mode edit).
+    const prevRecord = state.services
+      .filter(s=> s.carId===carId && s.id!==excludeServiceId && s.tanggal && tanggal && s.tanggal<=tanggal
+        && serviceItems(s).some(it=>(it.kategori||'').trim()===kategori))
+      .sort((a,b)=> b.tanggal.localeCompare(a.tanggal))[0];
 
-  const parts = [];
+    if(!prevRecord) return; // catatan pertama utk kategori ini -- tidak ada acuan pembanding
 
-  if(car.intervalKm && prevService.odometer!=null && odometer!=null){
-    const traveled = odometer - prevService.odometer;
-    if(traveled > car.intervalKm){
-      const lewat = traveled - car.intervalKm;
-      parts.push(`<b>${lewat.toLocaleString('id-ID')} KM</b> melewati batas interval ${car.intervalKm.toLocaleString('id-ID')} KM (servis sebelumnya di ${Number(prevService.odometer).toLocaleString('id-ID')} KM)`);
+    const parts = [];
+    if(intervalKm && prevRecord.odometer!=null && odometer!=null){
+      const traveled = odometer - prevRecord.odometer;
+      if(traveled > intervalKm){
+        const lewat = traveled - intervalKm;
+        parts.push(`<b>${lewat.toLocaleString('id-ID')} KM</b> melewati batas interval ${intervalKm.toLocaleString('id-ID')} KM (${labelPendek} sebelumnya di ${Number(prevRecord.odometer).toLocaleString('id-ID')} KM)`);
+      }
     }
-  }
-  if(car.intervalBulan && prevService.tanggal && tanggal){
-    const months = monthsBetween(prevService.tanggal, tanggal);
-    if(months > car.intervalBulan){
-      const lewatBulan = Math.round((months - car.intervalBulan) * 10) / 10;
-      parts.push(`<b>${lewatBulan} bulan</b> melewati batas interval ${car.intervalBulan} bulan (servis sebelumnya ${fmtDate(prevService.tanggal)})`);
+    if(intervalBulan && prevRecord.tanggal && tanggal){
+      const months = monthsBetween(prevRecord.tanggal, tanggal);
+      if(months > intervalBulan){
+        const lewatBulan = Math.round((months - intervalBulan) * 10) / 10;
+        parts.push(`<b>${lewatBulan} bulan</b> melewati batas interval ${intervalBulan} bulan (${labelPendek} sebelumnya ${fmtDate(prevRecord.tanggal)})`);
+      }
     }
-  }
-  if(parts.length===0) return null;
-  return `⚠️ Servis ini tercatat ${parts.join(' & ')}. Tetap bisa disimpan -- ini cuma pengingat kalau jadwalnya sempat kelewat.`;
+    if(parts.length>0) allParts.push(`${labelPendek}: ${parts.join(' & ')}`);
+  });
+
+  if(allParts.length===0) return null;
+  return `⚠️ ${allParts.join('<br>')}. Tetap bisa disimpan -- ini cuma pengingat kalau jadwalnya sempat kelewat.`;
 }
 
-function serviceReminderInfo(car){
-  if(!car.intervalKm && !car.intervalBulan) return null;
+/* v4.0 -- REFACTOR: dulu cuma ada SATU pengingat ("Servis/Ganti Oli") yang
+   diam-diam cuma menghitung kategori "Ganti Oli" saja -- kategori "Servis
+   Berkala / Tune Up" ikut disebut di label tapi tidak pernah benar-benar
+   dihitung. Sekarang dipecah jadi dua pengingat INDEPENDEN, masing-masing
+   dengan interval sendiri (car.intervalKm/intervalBulan utk Ganti Oli,
+   car.intervalKmServis/intervalBulanServis utk Servis Berkala) dan acuan
+   catatan servis terakhir dari KATEGORI-nya masing-masing. Logika hitungnya
+   (persen KM/bulan, perkiraan tanggal) sama persis seperti sebelumnya, cuma
+   diparameterkan supaya tidak duplikat kode. */
+function computeMaintenanceReminder(car, {kategori, intervalKm, intervalBulan, labelBelumAda, labelSudahWaktunya, labelSegera, labelMasihJauh}){
+  if(!intervalKm && !intervalBulan) return null;
 
-  // v3.??? -- FIX: pengingat servis/ganti oli HARUS dihitung dari catatan
-  // servis TERAKHIR yang kategorinya "Ganti Oli" saja, bukan dari kunjungan
-  // servis apapun (Rem, Ban, AC, dll). Sebelumnya dipakai servis TERBARU
-  // apapun kategorinya, jadi kalau ada servis lain (mis. Ban & Balancing)
-  // yang tanggalnya lebih baru dari ganti oli terakhir, badge ganti oli
-  // ikut "kereset" ke odometer servis lain itu -- padahal olinya sendiri
-  // sudah lama lewat interval. Satu catatan servis bisa berisi banyak
+  // Acuan HARUS catatan servis TERAKHIR yang salah satu itemnya berkategori
+  // persis `kategori` ini -- bukan kunjungan servis apapun -- supaya kunjungan
+  // servis kategori lain (mis. Rem/AC) yang tanggalnya lebih baru tidak ikut
+  // "mereset" pengingat kategori ini. Satu catatan servis bisa berisi banyak
   // kategori sekaligus (lihat serviceItems()), makanya dicek via .some().
-  const lastOilChange = state.services
-    .filter(s=>s.carId===car.id && serviceItems(s).some(it=>(it.kategori||'').trim()==='Ganti Oli'))
+  const lastRecord = state.services
+    .filter(s=>s.carId===car.id && serviceItems(s).some(it=>(it.kategori||'').trim()===kategori))
     .sort((a,b)=> b.tanggal.localeCompare(a.tanggal))[0];
 
-  if(!lastOilChange){
-    return {level:'warn', text:'Belum ada riwayat Ganti Oli tercatat'};
+  if(!lastRecord){
+    return {level:'warn', text:labelBelumAda};
   }
 
   let pctKm = null, pctBulan = null;
-  if(car.intervalKm && lastOilChange.odometer!=null && car.odometerSaatIni!=null){
-    const traveled = car.odometerSaatIni - lastOilChange.odometer;
-    pctKm = traveled / car.intervalKm;
+  if(intervalKm && lastRecord.odometer!=null && car.odometerSaatIni!=null){
+    const traveled = car.odometerSaatIni - lastRecord.odometer;
+    pctKm = traveled / intervalKm;
   }
-  if(car.intervalBulan){
-    const months = monthsBetween(lastOilChange.tanggal, today());
-    pctBulan = months / car.intervalBulan;
+  if(intervalBulan){
+    const months = monthsBetween(lastRecord.tanggal, today());
+    pctBulan = months / intervalBulan;
   }
   if(pctKm===null && pctBulan===null){
     return {level:'warn', text:'Data odometer belum cukup untuk hitung pengingat'};
@@ -3034,28 +3063,21 @@ function serviceReminderInfo(car){
   // rata-rata keduanya -- prinsip yang sama dgn pengecekan pct di atas
   // (mana pun yang duluan tercapai, itu yang jadi patokan).
   let perkiraanTanggal = null;
-  if(car.intervalBulan && lastOilChange.tanggal){
-    const d = new Date(lastOilChange.tanggal);
-    d.setMonth(d.getMonth() + car.intervalBulan);
+  if(intervalBulan && lastRecord.tanggal){
+    const d = new Date(lastRecord.tanggal);
+    d.setMonth(d.getMonth() + intervalBulan);
     perkiraanTanggal = d;
   }
-  if(car.intervalKm && lastOilChange.odometer!=null && car.odometerSaatIni!=null){
+  if(intervalKm && lastRecord.odometer!=null && car.odometerSaatIni!=null){
     const avgKmPerDay = computeAvgKmPerDay(car.id);
     if(avgKmPerDay && avgKmPerDay>0){
-      // v3.??? -- FIX: perkiraan tanggal berbasis KM SEKARANG dihitung MAJU
-      // dari tanggal servis TERAKHIR (lastOilChange.tanggal + intervalKm/avgKmPerDay
-      // hari), bukan MUNDUR dari hari ini sejumlah hari yang sudah kelewat
-      // (rumus lama: `hari ini + sisaKm/avgKmPerDay`, sisaKm NEGATIF kalau
-      // sudah lewat interval). Rumus lama sama sekali tidak diikat ke
-      // tanggal servis terakhir -- makin jauh kelewat & makin kecil rata-rata
-      // KM/hari, makin jauh mundur ke belakang hasilnya (bisa nyasar ke
-      // tahun-tahun sebelumnya, mis. "perkiraan 05 Jun 2024" padahal servis
-      // terakhir baru Des 2026). Rumus baru selalu diikat ke lastOilChange.tanggal
-      // supaya hasilnya selalu masuk akal -- kalau pun jatuh di masa lalu,
-      // artinya "harusnya sudah servis sekitar tanggal segini", bukan angka
-      // acak dari ekstrapolasi hari ini.
-      const dKm = new Date(lastOilChange.tanggal);
-      dKm.setDate(dKm.getDate() + Math.round(car.intervalKm / avgKmPerDay));
+      // Perkiraan tanggal berbasis KM dihitung MAJU dari tanggal servis
+      // TERAKHIR (lastRecord.tanggal + intervalKm/avgKmPerDay hari), selalu
+      // diikat ke lastRecord.tanggal supaya hasilnya selalu masuk akal --
+      // kalau pun jatuh di masa lalu, artinya "harusnya sudah servis sekitar
+      // tanggal segini", bukan angka acak dari ekstrapolasi hari ini.
+      const dKm = new Date(lastRecord.tanggal);
+      dKm.setDate(dKm.getDate() + Math.round(intervalKm / avgKmPerDay));
       if(!perkiraanTanggal || dKm < perkiraanTanggal) perkiraanTanggal = dKm;
     }
   }
@@ -3063,14 +3085,41 @@ function serviceReminderInfo(car){
     ? ` (perkiraan ${perkiraanTanggal.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})})`
     : '';
 
-  // v3.??? -- FIX: kalau status sudah "danger" (sudah lewat jadwal), JANGAN
-  // ikut tampilkan "(perkiraan ...)" -- itu cuma berguna buat status warn/ok
-  // (heads-up ke depan). Menampilkannya di status danger kontradiktif: teks
-  // sudah bilang "sudah waktunya" tapi tanggal perkiraan malah nunjuk ke
-  // masa depan, kesannya "belum perlu sampai nanti".
-  if(pct >= 1) return {level:'danger', text:'Sudah waktunya servis/ganti oli'};
-  if(pct >= (getNotifSettings().serviceWarnPct/100)) return {level:'warn', text:'Segera servis (mendekati jadwal)'+perkiraanText};
-  return {level:'ok', text:'Servis masih jauh'+perkiraanText};
+  // Kalau status sudah "danger" (sudah lewat jadwal), JANGAN ikut tampilkan
+  // "(perkiraan ...)" -- itu cuma berguna buat status warn/ok (heads-up ke
+  // depan). Menampilkannya di status danger kontradiktif: teks sudah bilang
+  // "sudah waktunya" tapi tanggal perkiraan malah nunjuk ke masa depan,
+  // kesannya "belum perlu sampai nanti".
+  if(pct >= 1) return {level:'danger', text:labelSudahWaktunya};
+  if(pct >= (getNotifSettings().serviceWarnPct/100)) return {level:'warn', text:labelSegera+perkiraanText};
+  return {level:'ok', text:labelMasihJauh+perkiraanText};
+}
+
+function oilReminderInfo(car){
+  return computeMaintenanceReminder(car, {
+    kategori: 'Ganti Oli',
+    intervalKm: car.intervalKm,
+    intervalBulan: car.intervalBulan,
+    labelBelumAda: 'Belum ada riwayat Ganti Oli tercatat',
+    labelSudahWaktunya: 'Sudah waktunya ganti oli',
+    labelSegera: 'Segera ganti oli (mendekati jadwal)',
+    labelMasihJauh: 'Ganti oli masih jauh'
+  });
+}
+// Nama lama dipertahankan sebagai alias supaya kode lain yang belum
+// dimigrasi tetap jalan -- serviceReminderInfo() SELALU berarti Ganti Oli.
+function serviceReminderInfo(car){ return oilReminderInfo(car); }
+
+function servisBerkalaReminderInfo(car){
+  return computeMaintenanceReminder(car, {
+    kategori: 'Servis Berkala / Tune Up',
+    intervalKm: car.intervalKmServis,
+    intervalBulan: car.intervalBulanServis,
+    labelBelumAda: 'Belum ada riwayat Servis Berkala tercatat',
+    labelSudahWaktunya: 'Sudah waktunya servis berkala',
+    labelSegera: 'Segera servis berkala (mendekati jadwal)',
+    labelMasihJauh: 'Servis berkala masih jauh'
+  });
 }
 
 const SERVICE_CATEGORIES = ['Ganti Oli','Servis Berkala / Tune Up','Rem','Ban & Balancing','AC','Kelistrikan','Suspensi/Understel','Aki','Lainnya'];
@@ -4499,9 +4548,13 @@ function computeAlerts(){
     }
   });
   state.cars.forEach(c=>{
-    const r = serviceReminderInfo(c);
-    if(r && (r.level==='warn' || r.level==='danger')){
-      alerts.push({ id:'svc-'+c.id, route:'cars', ic:'🔧', level:r.level, judul:'Servis/Ganti Oli', keterangan: `${carLabel(c.id)} — ${r.text}` });
+    const rOli = oilReminderInfo(c);
+    if(rOli && (rOli.level==='warn' || rOli.level==='danger')){
+      alerts.push({ id:'svc-oli-'+c.id, route:'cars', ic:'🔧', level:rOli.level, judul:'Ganti Oli', keterangan: `${carLabel(c.id)} — ${rOli.text}` });
+    }
+    const rServis = servisBerkalaReminderInfo(c);
+    if(rServis && (rServis.level==='warn' || rServis.level==='danger')){
+      alerts.push({ id:'svc-berkala-'+c.id, route:'cars', ic:'🔧', level:rServis.level, judul:'Servis Berkala', keterangan: `${carLabel(c.id)} — ${rServis.text}` });
     }
   });
   state.etollCards.forEach(card=>{
@@ -6052,11 +6105,12 @@ function renderCars(){
     }
     wrap.innerHTML = `
       <div class="table-scroll desktop-data-table"><table>
-        <thead><tr><th>Kode</th><th>Plat Nomor</th><th>Merk / Model</th><th>Tahun</th><th>Warna</th><th>Odometer</th><th>Status Saat Ini</th><th>Servis Berikutnya</th><th></th></tr></thead>
+        <thead><tr><th>Kode</th><th>Plat Nomor</th><th>Merk / Model</th><th>Tahun</th><th>Warna</th><th>Odometer</th><th>Status Saat Ini</th><th>Ganti Oli</th><th>Servis Berkala</th><th></th></tr></thead>
         <tbody>
           ${items.map(c=>{
             const activeUsage = state.usage.find(u=>u.carId===c.id && u.status==='digunakan');
-            const reminder = serviceReminderInfo(c);
+            const reminderOli = oilReminderInfo(c);
+            const reminderServis = servisBerkalaReminderInfo(c);
             return `
             <tr>
               <td>${codeBadgeHtml(c.kode)}</td>
@@ -6066,7 +6120,8 @@ function renderCars(){
               <td>${escapeHtml(c.warna)}</td>
               <td>${odoCellHtml(c)}</td>
               <td>${activeUsage ? `<span class="badge warn">Dipakai — ${escapeHtml(driverLabel(activeUsage.driverId, activeUsage.driver))}</span>` : `<span class="badge ok">Tersedia</span>`}</td>
-              <td>${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Pengingat nonaktif</span>`}</td>
+              <td>${reminderOli ? `<span class="badge ${reminderOli.level}">${escapeHtml(reminderOli.text)}</span>` : `<span class="badge neutral">Pengingat nonaktif</span>`}</td>
+              <td>${reminderServis ? `<span class="badge ${reminderServis.level}">${escapeHtml(reminderServis.text)}</span>` : `<span class="badge neutral">Pengingat nonaktif</span>`}</td>
               <td style="text-align:right;white-space:nowrap;">
                 <button class="btn btn-ghost btn-sm" data-lacak="${c.id}" title="Lacak Kendaraan (posisi GPS.id real-time)">🛰️ Lacak</button>
                 <button class="btn btn-ghost btn-sm" data-qr="${c.id}" title="Kode QR untuk mobil ini">📱 QR</button>
@@ -6080,7 +6135,8 @@ function renderCars(){
       <div class="data-card-list">
         ${items.map(c=>{
           const activeUsage = state.usage.find(u=>u.carId===c.id && u.status==='digunakan');
-          const reminder = serviceReminderInfo(c);
+          const reminderOli = oilReminderInfo(c);
+          const reminderServis = servisBerkalaReminderInfo(c);
           return `
           <div class="data-card">
             <div class="data-card-title">
@@ -6092,7 +6148,8 @@ function renderCars(){
             <div class="data-card-row"><span class="k">Warna</span><span class="v">${escapeHtml(c.warna)}</span></div>
             <div class="data-card-row"><span class="k">Odometer</span><span class="v">${odoCellHtml(c)}</span></div>
             <div class="data-card-row"><span class="k">Status</span><span class="v">${activeUsage ? `<span class="badge warn">Dipakai</span>` : `<span class="badge ok">Tersedia</span>`}</span></div>
-            <div class="data-card-row"><span class="k">Servis Berikutnya</span><span class="v">${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Nonaktif</span>`}</span></div>
+            <div class="data-card-row"><span class="k">Ganti Oli</span><span class="v">${reminderOli ? `<span class="badge ${reminderOli.level}">${escapeHtml(reminderOli.text)}</span>` : `<span class="badge neutral">Nonaktif</span>`}</span></div>
+            <div class="data-card-row"><span class="k">Servis Berkala</span><span class="v">${reminderServis ? `<span class="badge ${reminderServis.level}">${escapeHtml(reminderServis.text)}</span>` : `<span class="badge neutral">Nonaktif</span>`}</span></div>
             <div class="data-card-actions">
               <button class="btn btn-ghost btn-sm" data-lacak="${c.id}">🛰️ Lacak</button>
               <button class="btn btn-ghost btn-sm" data-qr="${c.id}">📱 QR</button>
@@ -6230,19 +6287,33 @@ function openCarModal(editId){
       <div class="hint">Terisi/terupdate otomatis tiap kali mobil ditandai "kembali", tapi bisa diedit manual di sini.</div>
     </div>
     <div class="panel-head" style="padding:0;border:none;margin:16px 0 8px 0;">
-      <h2 style="font-size:13px;">Pengingat Servis / Ganti Oli (opsional)</h2>
+      <h2 style="font-size:13px;">Pengingat Ganti Oli (opsional)</h2>
     </div>
     <div class="grid-2">
       <div class="field">
-        <label>Interval Servis (KM)</label>
+        <label>Interval Ganti Oli (KM)</label>
         <input type="text" inputmode="numeric" id="in-interval-km" placeholder="Contoh: 5.000" value="${editing?fmtRibuanInitial(editing.intervalKm):''}">
       </div>
       <div class="field">
-        <label>Interval Servis (Bulan)</label>
+        <label>Interval Ganti Oli (Bulan)</label>
         <input type="text" inputmode="numeric" id="in-interval-bulan" placeholder="Contoh: 6" value="${editing&&editing.intervalBulan?editing.intervalBulan:''}">
       </div>
     </div>
-    <div class="field"><div class="hint" style="margin-top:-6px;">Kosongkan kalau belum ingin pengingat aktif untuk mobil ini. Sistem memakai riwayat servis terakhir (menu Servis & Maintenance) sebagai acuan.</div></div>
+    <div class="field"><div class="hint" style="margin-top:-6px;">Kosongkan kalau belum ingin pengingat Ganti Oli aktif untuk mobil ini. Sistem memakai catatan servis terakhir berkategori "Ganti Oli" (menu Servis &amp; Maintenance) sebagai acuan.</div></div>
+    <div class="panel-head" style="padding:0;border:none;margin:16px 0 8px 0;">
+      <h2 style="font-size:13px;">Pengingat Servis Berkala (opsional)</h2>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Interval Servis Berkala (KM)</label>
+        <input type="text" inputmode="numeric" id="in-interval-km-servis" placeholder="Contoh: 10.000" value="${editing?fmtRibuanInitial(editing.intervalKmServis):''}">
+      </div>
+      <div class="field">
+        <label>Interval Servis Berkala (Bulan)</label>
+        <input type="text" inputmode="numeric" id="in-interval-bulan-servis" placeholder="Contoh: 12" value="${editing&&editing.intervalBulanServis?editing.intervalBulanServis:''}">
+      </div>
+    </div>
+    <div class="field"><div class="hint" style="margin-top:-6px;">Kosongkan kalau belum ingin pengingat Servis Berkala aktif untuk mobil ini. Sistem memakai catatan servis terakhir berkategori "Servis Berkala / Tune Up" (menu Servis &amp; Maintenance) sebagai acuan -- independen dari pengingat Ganti Oli di atas.</div></div>
     <div class="panel-head" style="padding:0;border:none;margin:16px 0 8px 0;">
       <h2 style="font-size:13px;">Kapasitas Tangki BBM (opsional)</h2>
     </div>
@@ -6337,6 +6408,8 @@ function openCarModal(editId){
       const odoVal = getRibuanValue('in-odo');
       const intervalKmVal = getRibuanValue('in-interval-km');
       const intervalBulanVal = document.getElementById('in-interval-bulan').value;
+      const intervalKmServisVal = getRibuanValue('in-interval-km-servis');
+      const intervalBulanServisVal = document.getElementById('in-interval-bulan-servis').value;
       const batasBensinVal = document.getElementById('in-batas-bensin').value;
       const kapasitasTangkiVal = document.getElementById('in-kapasitas-tangki').value;
       const calcNilaiTangkiPenuhVal = getRibuanValue('in-calc-nilai-penuh');
@@ -6363,6 +6436,8 @@ function openCarModal(editId){
       const odometerSaatIni = odoVal === '' ? (editing?editing.odometerSaatIni ?? null : null) : Number(odoVal);
       const intervalKm = intervalKmVal === '' ? null : Number(intervalKmVal);
       const intervalBulan = intervalBulanVal === '' ? null : Number(intervalBulanVal);
+      const intervalKmServis = intervalKmServisVal === '' ? null : Number(intervalKmServisVal);
+      const intervalBulanServis = intervalBulanServisVal === '' ? null : Number(intervalBulanServisVal);
       const kapasitasTangkiLiter = kapasitasTangkiVal === '' ? null : Number(kapasitasTangkiVal);
       const calcNilaiTangkiPenuh = calcNilaiTangkiPenuhVal === '' ? null : Number(calcNilaiTangkiPenuhVal);
       const calcHargaPerLiter = calcHargaPerLiterVal === '' ? null : Number(calcHargaPerLiterVal);
@@ -6389,12 +6464,12 @@ function openCarModal(editId){
       if(batasKecepatanKmh!=null && batasKecepatanKmh<=0) batasKecepatanKmh = null;
 
       if(editing){
-        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, imeiGps, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan, batasKecepatanKmh});
+        Object.assign(editing, {merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, imeiGps, odometerSaatIni, intervalKm, intervalBulan, intervalKmServis, intervalBulanServis, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan, batasKecepatanKmh});
         touch(editing);
         logActivity('mobil', 'Edit data mobil', `${merk} ${modelMobil} — ${plat}`);
         showToast('Data mobil diperbarui.');
       } else {
-        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, imeiGps, odometerSaatIni, intervalKm, intervalBulan, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan, batasKecepatanKmh, createdAt: today(), petugas: currentAdmin}));
+        state.cars.push(touch({id: uid(), kode: nextCarCode(), merk, modelMobil, tahun: tahunNum, warna, plat, fotoUrl, mapsRutePulang, nomorRangka, nomorMesin, kontakBengkel, imeiGps, odometerSaatIni, intervalKm, intervalBulan, intervalKmServis, intervalBulanServis, batasMinimumBensin, kapasitasTangkiLiter, tipeIndikatorBbm, maxBarBbm, calcNilaiTangkiPenuh, calcHargaPerLiter, efisiensiMinKmL, efisiensiMaxKmL, ccMesin, budgetBulanan, batasKecepatanKmh, createdAt: today(), petugas: currentAdmin}));
         logActivity('mobil', 'Tambah mobil baru', `${merk} ${modelMobil} — ${plat}`);
         showToast('Mobil baru ditambahkan.');
       }
@@ -10733,7 +10808,7 @@ function openServiceModal(editId){
 
     formItems.forEach(it=>{
       const katEl = document.getElementById('item-kat-'+it.id);
-      if(katEl) katEl.addEventListener('change', ()=>{ syncFormItemsFromDom(); renderItems(); });
+      if(katEl) katEl.addEventListener('change', ()=>{ syncFormItemsFromDom(); renderItems(); updateOdoOverdueWarn(); });
       attachRibuanInput('item-biaya-'+it.id);
       const biayaEl = document.getElementById('item-biaya-'+it.id);
       if(biayaEl) biayaEl.addEventListener('input', updateTotal);
@@ -10761,7 +10836,8 @@ function openServiceModal(editId){
     const tanggal = document.getElementById('in-tanggal').value;
     const odoVal = getRibuanValue('in-odo-servis');
     const odometer = odoVal==='' ? null : Number(odoVal);
-    const msg = carId ? serviceOverdueAtInputWarning(carId, tanggal, odometer, editing?editing.id:null) : null;
+    const kategoriDiInput = formItems.map(it=> it.kategori==='__lainnya__' ? (it.kategoriCustom||'').trim() : (it.kategori||'').trim());
+    const msg = carId ? serviceOverdueAtInputWarning(carId, tanggal, odometer, editing?editing.id:null, kategoriDiInput) : null;
     wrap.innerHTML = msg ? `<div class="hint" style="background:var(--red-bg);color:var(--red);padding:8px 10px;border-radius:6px;margin:-4px 0 12px;">${msg}</div>` : '';
   }
 
@@ -14523,6 +14599,14 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.173.0',
+    date: '31 Jul 2026',
+    notes: [
+      '🟢 BARU (bot Telegram, worker.js): pesan "Belum paham nih" sekarang jauh lebih ringkas -- daftar perintah panjang dipindah ke tombol baru <b>📋 Rekomendasi Perintah</b>. Tap tombol itu untuk lihat daftar lengkap dgn deskripsi, dikelompokkan TRIP/KEUANGAN/ADMIN, dan tiap nama perintah ditulis sebagai link <b>/berangkat</b> dkk -- tap link-nya langsung terkirim otomatis (tanpa perlu ketik manual), atau tetap bisa diketik manual TANPA garis miring seperti biasa.',
+      '⚠️ <b>Upload ulang worker.js terbaru ke Cloudflare Worker</b> supaya fitur ini aktif -- perubahan murni di sisi Worker, tidak ada perubahan lain di index.html selain nomor versi ini.',
+    ]
+  },
   {
     v: '3.172.0',
     date: '31 Jul 2026',
