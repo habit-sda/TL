@@ -3040,12 +3040,22 @@ function serviceReminderInfo(car){
     perkiraanTanggal = d;
   }
   if(car.intervalKm && lastOilChange.odometer!=null && car.odometerSaatIni!=null){
-    const sisaKm = car.intervalKm - (car.odometerSaatIni - lastOilChange.odometer);
     const avgKmPerDay = computeAvgKmPerDay(car.id);
     if(avgKmPerDay && avgKmPerDay>0){
-      const sisaHari = sisaKm / avgKmPerDay; // boleh negatif kalau sudah lewat -- artinya "harusnya sudah dari X hari lalu"
-      const dKm = new Date();
-      dKm.setDate(dKm.getDate() + Math.round(sisaHari));
+      // v3.??? -- FIX: perkiraan tanggal berbasis KM SEKARANG dihitung MAJU
+      // dari tanggal servis TERAKHIR (lastOilChange.tanggal + intervalKm/avgKmPerDay
+      // hari), bukan MUNDUR dari hari ini sejumlah hari yang sudah kelewat
+      // (rumus lama: `hari ini + sisaKm/avgKmPerDay`, sisaKm NEGATIF kalau
+      // sudah lewat interval). Rumus lama sama sekali tidak diikat ke
+      // tanggal servis terakhir -- makin jauh kelewat & makin kecil rata-rata
+      // KM/hari, makin jauh mundur ke belakang hasilnya (bisa nyasar ke
+      // tahun-tahun sebelumnya, mis. "perkiraan 05 Jun 2024" padahal servis
+      // terakhir baru Des 2026). Rumus baru selalu diikat ke lastOilChange.tanggal
+      // supaya hasilnya selalu masuk akal -- kalau pun jatuh di masa lalu,
+      // artinya "harusnya sudah servis sekitar tanggal segini", bukan angka
+      // acak dari ekstrapolasi hari ini.
+      const dKm = new Date(lastOilChange.tanggal);
+      dKm.setDate(dKm.getDate() + Math.round(car.intervalKm / avgKmPerDay));
       if(!perkiraanTanggal || dKm < perkiraanTanggal) perkiraanTanggal = dKm;
     }
   }
@@ -10490,7 +10500,7 @@ function renderService(){
 
   let html = anomalyPanel + `<div class="panel"><div class="panel-body">
     <div class="search-row">
-      <input type="text" id="service-search" placeholder="Cari mobil, bengkel, atau catatan...">
+      <input type="text" id="service-search" placeholder="Cari mobil, kategori, bengkel, atau catatan...">
       <select class="select-inline" id="service-filter-kategori" style="min-width:180px;">
         <option value="">Semua kategori</option>
         ${categoriesInUse.map(k=>`<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join('')}
@@ -10580,10 +10590,15 @@ function renderService(){
     const filterKey = q + '|' + kategori;
     if(filterKey !== lastServiceFilterKey){ servicePage = 1; lastServiceFilterKey = filterKey; }
     const filtered = rows.filter(r=>{
+      // v3.??? -- FIX: pencarian sebelumnya TIDAK mengecek kolom kategori
+      // (r.item.kategori) sama sekali, cuma mobil/bengkel/catatan -- jadi
+      // ketik nama kategori (mis. "ganti oli") tidak pernah ketemu kecuali
+      // kebetulan kata itu juga ada di catatan. Sekarang kategori ikut dicek.
       const matchQ = !q ||
         carLabel(r.service.carId).toLowerCase().includes(q) ||
         (r.service.bengkel||'').toLowerCase().includes(q) ||
-        (r.item.catatan||'').toLowerCase().includes(q);
+        (r.item.catatan||'').toLowerCase().includes(q) ||
+        (r.item.kategori||'').toLowerCase().includes(q);
       const matchKat = !kategori || r.item.kategori === kategori;
       return matchQ && matchKat;
     });
