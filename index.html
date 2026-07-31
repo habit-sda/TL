@@ -2949,6 +2949,50 @@ function computeAvgKmPerDay(carId){
   return totalKm / RATA2_KM_HARIAN_JENDELA_HARI;
 }
 
+// v3.??? -- BARU: Peringatan (non-blok) di form Catat/Edit Servis kalau
+// odometer/tanggal yang diketik ternyata SUDAH MELEWATI jadwal interval
+// dihitung dari servis SEBELUMNYA. Sebelumnya tidak ada pengecekan sama
+// sekali di titik input -- serviceReminderInfo() cuma menghitung MUNDUR ke
+// servis BERIKUTNYA berdasarkan servis TERBARU (lastService) & odometerSaatIni
+// mobil; begitu servis yang telat ini disimpan, ia langsung jadi lastService
+// baru DAN car.odometerSaatIni ikut di-set sama dengannya (lihat onSave di
+// openServiceModal), sehingga traveled = odometerSaatIni - lastService.odometer
+// selalu balik ke 0 -- keterlambatannya tidak pernah kelihatan/diberi tahu.
+// Fungsi ini murni informasi di form input, TIDAK memblokir simpan (servis
+// yang telat dicatat tetap valid & sah untuk dicatat apa adanya, mis. sopir
+// baru sempat servis beberapa hari/KM sesudah harusnya).
+function serviceOverdueAtInputWarning(carId, tanggal, odometer, excludeServiceId){
+  const car = state.cars.find(c=>c.id===carId);
+  if(!car || (!car.intervalKm && !car.intervalBulan)) return null;
+
+  // Servis SEBELUMNYA jadi acuan pembanding: yang tanggalnya <= tanggal yang
+  // sedang diisi, bukan record yang sedang diedit sendiri (kalau mode edit).
+  const prevService = state.services
+    .filter(s=> s.carId===carId && s.id!==excludeServiceId && s.tanggal && tanggal && s.tanggal<=tanggal)
+    .sort((a,b)=> b.tanggal.localeCompare(a.tanggal))[0];
+
+  if(!prevService) return null; // servis pertama utk mobil ini -- tidak ada acuan pembanding
+
+  const parts = [];
+
+  if(car.intervalKm && prevService.odometer!=null && odometer!=null){
+    const traveled = odometer - prevService.odometer;
+    if(traveled > car.intervalKm){
+      const lewat = traveled - car.intervalKm;
+      parts.push(`<b>${lewat.toLocaleString('id-ID')} KM</b> melewati batas interval ${car.intervalKm.toLocaleString('id-ID')} KM (servis sebelumnya di ${Number(prevService.odometer).toLocaleString('id-ID')} KM)`);
+    }
+  }
+  if(car.intervalBulan && prevService.tanggal && tanggal){
+    const months = monthsBetween(prevService.tanggal, tanggal);
+    if(months > car.intervalBulan){
+      const lewatBulan = Math.round((months - car.intervalBulan) * 10) / 10;
+      parts.push(`<b>${lewatBulan} bulan</b> melewati batas interval ${car.intervalBulan} bulan (servis sebelumnya ${fmtDate(prevService.tanggal)})`);
+    }
+  }
+  if(parts.length===0) return null;
+  return `⚠️ Servis ini tercatat ${parts.join(' & ')}. Tetap bisa disimpan -- ini cuma pengingat kalau jadwalnya sempat kelewat.`;
+}
+
 function serviceReminderInfo(car){
   if(!car.intervalKm && !car.intervalBulan) return null;
 
@@ -10436,6 +10480,7 @@ function openServiceModal(editId){
         <input type="text" inputmode="numeric" id="in-odo-servis" placeholder="Contoh: 45.000" value="${editing&&editing.odometer!=null?fmtRibuanInitial(editing.odometer):''}">
       </div>
     </div>
+    <div id="odo-servis-warn"></div>
     <div class="field">
       <label>Bengkel</label>
       <input type="text" id="in-bengkel" placeholder="Nama bengkel" autocomplete="off" value="${editing?escapeHtml(editing.bengkel||''):''}">
@@ -10545,6 +10590,17 @@ function openServiceModal(editId){
     updateTotal();
   }
 
+  function updateOdoOverdueWarn(){
+    const wrap = document.getElementById('odo-servis-warn');
+    if(!wrap) return;
+    const carId = document.getElementById('in-car').value;
+    const tanggal = document.getElementById('in-tanggal').value;
+    const odoVal = getRibuanValue('in-odo-servis');
+    const odometer = odoVal==='' ? null : Number(odoVal);
+    const msg = carId ? serviceOverdueAtInputWarning(carId, tanggal, odometer, editing?editing.id:null) : null;
+    wrap.innerHTML = msg ? `<div class="hint" style="background:var(--red-bg);color:var(--red);padding:8px 10px;border-radius:6px;margin:-4px 0 12px;">${msg}</div>` : '';
+  }
+
   openModal({
     title: editing ? 'Edit Servis / Maintenance' : 'Catat Servis / Maintenance',
     body,
@@ -10626,6 +10682,13 @@ function openServiceModal(editId){
   attachAutocomplete('in-bengkel', () => state.services.map(s=>s.bengkel));
   wireBengkelMapsAutofill('in-bengkel', 'in-maps-bengkel', editing ? editing.id : null, 'maps-bengkel-preview');
   renderItems();
+
+  // Live-update peringatan "servis ini sudah melewati jadwal interval" tiap
+  // kali mobil/tanggal/odometer diubah -- lihat serviceOverdueAtInputWarning().
+  document.getElementById('in-car').addEventListener('change', updateOdoOverdueWarn);
+  document.getElementById('in-tanggal').addEventListener('change', updateOdoOverdueWarn);
+  document.getElementById('in-odo-servis').addEventListener('input', updateOdoOverdueWarn);
+  updateOdoOverdueWarn();
   document.getElementById('btn-add-item').addEventListener('click', ()=>{
     syncFormItemsFromDom();
     formItems.push({ id: uid(), kategori:'', kategoriCustom:'', biaya:'', catatan:'' });
