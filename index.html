@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.172.0">
+<meta name="app-version" content="3.176.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1308,7 +1308,7 @@
       <div class="field">
         <label>Notify Secret <span style="font-weight:400;color:var(--muted);">(opsional -- utk Resi Telegram instan)</span></label>
         <input type="text" id="gh-modal-notifysecret" data-no-uppercase="1" placeholder="Samakan dgn Secret NOTIFY_SECRET di dasbor Cloudflare Worker">
-        <div class="hint">Kosongkan kalau belum diatur di Worker -- Resi Perjalanan tetap terkirim seperti biasa lewat jadwal GitHub Actions (cuma tidak instan).</div>
+        <div class="hint">Kosongkan kalau belum diatur di Worker -- Resi Perjalanan tetap terkirim seperti biasa lewat jadwal Cron Worker (cuma tidak instan).</div>
       </div>
       <div id="gh-modal-status" class="hint"></div>
     </div>
@@ -1360,7 +1360,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.173.0';
+const APP_VERSION = '3.176.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1737,6 +1737,13 @@ function loadData(){
       // beli makan dekat, dll yang memang sengaja tidak dicatat sebagai
       // trip terpisah). Default 15 KM. Lihat buildFuelChain().
       toleransiGapKm: (typeof parsed.toleransiGapKm === 'number' && parsed.toleransiGapKm >= 0) ? parsed.toleransiGapKm : 15,
+      // v3.95.0 -- Ambang Batas Notifikasi. PERBAIKAN BUG: field ini SEBELUMNYA
+      // tidak ikut di-whitelist di sini, jadi custom setting yang sudah
+      // disimpan selalu balik ke default tiap reload/sinkron -- baru ketahuan
+      // & diperbaiki bersamaan dgn penambahan notifRolePrefs di bawah.
+      notifSettings: (parsed.notifSettings && typeof parsed.notifSettings==='object') ? parsed.notifSettings : defaultData().notifSettings,
+      // BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin).
+      notifRolePrefs: (parsed.notifRolePrefs && typeof parsed.notifRolePrefs==='object') ? parsed.notifRolePrefs : {},
     };
   }catch(e){
     console.error('Gagal membaca data tersimpan, memakai data kosong.', e);
@@ -1746,7 +1753,13 @@ function loadData(){
 }
 function defaultData(){
   return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], notifAdmins: [], financeAdmins: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
-    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 } };
+    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 },
+    // BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin, lihat
+    // getNotifRolePrefs() & renderNotifTelegramRoles()). Kosong di sini
+    // SENGAJA -- nilai default sesungguhnya (yang meniru perilaku LAMA
+    // sebelum fitur ini ada) diisi oleh getNotifRolePrefs(), bukan di sini,
+    // supaya satu-satunya sumber kebenaran default cuma di 1 tempat.
+    notifRolePrefs: {} };
 }
 // v3.95.0 -- Pengaturan Notifikasi (nilai ambang batas dipakai computeAlerts()
 // & telegram-notify.mjs). PENTING: dibaca lewat fungsi ini SAJA (bukan baca
@@ -1824,6 +1837,130 @@ function alertsForDriver(allAlerts, driver){
 }
 function getNotifSettings(){
   return { ...NOTIF_SETTINGS_DEFAULT, ...(state.notifSettings||{}) };
+}
+// ============================================================================
+// BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin, PIN 009900
+// -- SAMA dgn PIN Insight, lihat titik "·" di "FleetOps — Stay in Control").
+// TERPISAH TOTAL dari notifKategori per-SOPIR INDIVIDUAL yang sudah ada
+// (Data Sopir, dikunci PIN Insight juga) -- ini pengaturan level PERAN
+// (default utk 3 peran: sopir/finance/admin), bukan per orang. Kalau nanti
+// ada driver.notifKategori yang lebih spesifik, itu tetap jadi PEMBATAS
+// TAMBAHAN di atas izin peran ini (harus keduanya mengizinkan), bukan
+// pengganti.
+//
+// Super Admin (state.superAdmins, didaftarkan via PIN 010194 di Telegram)
+// SENGAJA TIDAK ada di sini -- mereka selalu menerima SEMUA kategori,
+// tidak bisa/tidak perlu diatur (lihat catatan di runNotifyCheck worker.js).
+//
+// Default di bawah SENGAJA meniru PERSIS perilaku pengiriman yang sudah
+// berjalan SEBELUM menu ini dibuat, supaya menu ini tidak diam-diam
+// mengubah siapa dapat notifikasi apa sampai Super Admin benar-benar
+// membuka & mengubahnya sendiri:
+// - Admin (notifAdmins/TELEGRAM_CHAT_ID): SEMUA kategori (sudah dapat semua).
+// - Finance (financeAdmins): cuma Servis & Dokumen Mobil (sesuai blok
+//   "Notifikasi Finance" yang sudah ada di worker.js).
+// - Sopir (drivers): 6 kategori yang memang bisa sampai ke sopir lewat
+//   notifKategori individual (doc/service/etoll/bbm/booking/tripLama) --
+//   Budget/Kalibrasi/Kecepatan TIDAK PERNAH sampai ke sopir sebelumnya
+//   (targetDriverIds: [] hardcode), jadi default-nya tetap off di sini.
+const NOTIF_ROLE_CATEGORIES = [
+  { key:'doc', label:'Dokumen Kadaluarsa' },
+  { key:'service', label:'Servis/Ganti Oli' },
+  { key:'etoll', label:'Saldo E-Toll Rendah' },
+  { key:'bbm', label:'BBM Menipis' },
+  { key:'booking', label:'Reminder Booking' },
+  { key:'tripLama', label:'Trip Kelamaan Belum Tiba' },
+  { key:'budget', label:'Budget Bulanan' },
+  { key:'kalibrasi', label:'Kalibrasi Odometer GPS.id' },
+  { key:'speed', label:'Kecepatan Berlebih' },
+];
+const NOTIF_ROLE_PREFS_DEFAULT = {
+  sopir:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:false, kalibrasi:false, speed:false },
+  finance: { doc:true,  service:true,  etoll:false, bbm:false, booking:false, tripLama:false, budget:false, kalibrasi:false, speed:false },
+  admin:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:true,  kalibrasi:true,  speed:true  },
+};
+function getNotifRolePrefs(){
+  const saved = (state.notifRolePrefs && typeof state.notifRolePrefs==='object') ? state.notifRolePrefs : {};
+  const out = {};
+  ['sopir','finance','admin'].forEach(peran=>{
+    out[peran] = { ...NOTIF_ROLE_PREFS_DEFAULT[peran], ...(saved[peran]||{}) };
+  });
+  return out;
+}
+// ============================================================================
+// BARU -- Halaman menu khusus Super Admin: "🔔 Notifikasi Telegram per
+// Peran". Cuma bisa dibuka via titik "·" di "FleetOps — Stay in Control"
+// (PIN 009900, sama dgn PIN Insight) -- lihat wireInsightPinTrigger &
+// refreshInsightPanels(). SENGAJA TIDAK mencatat activityLog sama sekali
+// (baik saat dibuka maupun saat Simpan) -- ini menu Super Admin, bukan
+// aktivitas operasional biasa yang perlu terlihat di riwayat aplikasi.
+// ============================================================================
+function renderNotifTelegramRoles(){
+  document.getElementById('header-actions').innerHTML = '';
+  const content = document.getElementById('content');
+  // Guard PERTAHANAN -- seharusnya tidak pernah kejadian (satu-satunya jalan
+  // masuk ke rute ini sudah lewat PIN), tapi dijaga juga di sini kalau
+  // suatu saat ada jalan masuk lain (mis. sessionStorage insightUnlocked
+  // sempat lepas sinkron dgn tampilan). TIDAK ada tombol buka PIN di sini
+  // supaya tetap konsisten: satu-satunya pintu resmi ya titik "·" itu.
+  if(!insightUnlocked){
+    content.innerHTML = `
+      <div class="panel">
+        <div class="panel-body">
+          <p class="hint">🔒 Menu ini khusus Super Admin. Buka lewat titik kecil "·" di tulisan "FleetOps — Stay in Control" (pojok kiri bawah sidebar).</p>
+        </div>
+      </div>`;
+    return;
+  }
+  const prefs = getNotifRolePrefs();
+  const kolom = [
+    { key:'sopir', label:'🚗 Sopir' },
+    { key:'finance', label:'💰 Finance' },
+    { key:'admin', label:'🛡️ Admin' },
+  ];
+  const rows = NOTIF_ROLE_CATEGORIES.map(cat => `
+    <tr>
+      <td style="font-weight:600;">${escapeHtml(cat.label)}</td>
+      ${kolom.map(k => `
+        <td style="text-align:center;">
+          <input type="checkbox" class="in-notifrole" data-peran="${k.key}" data-kategori="${cat.key}"
+            ${prefs[k.key][cat.key] ? 'checked' : ''} style="width:19px;height:19px;">
+        </td>
+      `).join('')}
+    </tr>
+  `).join('');
+  const html = `
+    <div class="panel">
+      <div class="panel-head"><h2>🔔 Notifikasi Telegram per Peran</h2></div>
+      <div class="panel-body">
+        <p class="hint" style="margin:0 0 12px;line-height:1.6;">
+          Menu khusus Super Admin -- atur kategori notifikasi Telegram berkala apa saja yang boleh
+          diterima tiap peran. <b>Super Admin (010194 di Telegram) tidak ada di sini karena selalu
+          menerima SEMUA kategori.</b> Untuk Sopir, ini jadi batas level-PERAN -- kalau sopir tertentu
+          di Data Sopir sudah punya langganan kategori sendiri yang lebih sempit, itu tetap berlaku
+          sebagai pembatas tambahan di atas izin peran ini.
+        </p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Kategori</th>${kolom.map(k=>`<th style="text-align:center;">${k.label}</th>`).join('')}</tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <button class="btn btn-primary" id="btn-save-notifrole" style="margin-top:14px;">Simpan</button>
+      </div>
+    </div>
+  `;
+  content.innerHTML = html;
+  document.getElementById('btn-save-notifrole').onclick = () => {
+    const next = { sopir:{}, finance:{}, admin:{} };
+    document.querySelectorAll('.in-notifrole').forEach(el=>{
+      next[el.dataset.peran][el.dataset.kategori] = el.checked;
+    });
+    state.notifRolePrefs = next;
+    // SENGAJA TIDAK panggil logActivity() -- lihat catatan di atas fungsi ini.
+    saveData();
+    showToast('Pengaturan notifikasi per peran disimpan.');
+  };
 }
 // Kode unik Mobil & Perjalanan -- dipakai KHUSUS untuk menu "Hapus Data"
 // (lihat konsep di bawah). Format sengaja pendek & mudah dibaca/disalin,
@@ -2087,6 +2224,9 @@ function loadDataFromObject(parsed){
     serviceCodeSeq: Number(parsed.serviceCodeSeq)||0, destinationCodeSeq: Number(parsed.destinationCodeSeq)||0,
     driverCodeSeq: Number(parsed.driverCodeSeq)||0, documentCodeSeq: Number(parsed.documentCodeSeq)||0,
     bookingCodeSeq: Number(parsed.bookingCodeSeq)||0, etollCardCodeSeq: Number(parsed.etollCardCodeSeq)||0,
+    notifSettings: (parsed.notifSettings && typeof parsed.notifSettings==='object') ? parsed.notifSettings : def.notifSettings,
+    // BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin).
+    notifRolePrefs: (parsed.notifRolePrefs && typeof parsed.notifRolePrefs==='object') ? parsed.notifRolePrefs : {},
   };
 }
 
@@ -3963,7 +4103,7 @@ function renderSettings(){
       <div class="panel-head"><h2>⏰ Ambang Batas Notifikasi</h2></div>
       <div class="panel-body">
         <p style="color:var(--muted);margin:0 0 14px;line-height:1.6;">
-          Nilai di bawah ini dipakai bersama oleh lonceng notifikasi di aplikasi <b>dan</b> Notifikasi Telegram Otomatis (dijalankan lewat GitHub Actions dan/atau Cloudflare Worker Cron Trigger, tergantung mana yang aktif di akun Anda) -- ubah di sini, otomatis berlaku ke keduanya begitu tersinkron.
+          Nilai di bawah ini dipakai bersama oleh lonceng notifikasi di aplikasi <b>dan</b> Notifikasi Telegram Otomatis (dijalankan lewat Cloudflare Worker Cron Trigger) -- ubah di sini, otomatis berlaku ke keduanya begitu tersinkron.
         </p>
         <div id="notif-status-strip" style="margin:0 0 14px;"></div>
         <div class="grid-2">
@@ -4008,6 +4148,11 @@ function renderSettings(){
               <input type="text" inputmode="numeric" id="in-notif-speed-limit" value="${getNotifSettings().speedLimitKmh}">
               <div class="hint">Dipakai untuk mobil yang belum diisi "Batas Kecepatan" sendiri di Data Mobil.</div>
             </div>
+            <div class="field">
+              <label>Jeda antar-alert (menit)</label>
+              <input type="text" inputmode="numeric" id="in-notif-speed-cooldown" value="${getNotifSettings().speedAlertCooldownMinutes}">
+              <div class="hint">Supaya tidak kirim ulang tiap beberapa detik selama masih ngebut -- mis. 15 = paling cepat 1 alert per 15 menit untuk mobil yang sama.</div>
+            </div>
           </div>
         </div>
         <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
@@ -4035,7 +4180,7 @@ function renderSettings(){
               <option value="30" ${getNotifSettings().checkIntervalMinutes===30?'selected':''}>30 menit</option>
               <option value="60" ${getNotifSettings().checkIntervalMinutes===60?'selected':''}>60 menit (1 jam)</option>
             </select>
-            <div class="hint">Berlaku untuk notifikasi Dokumen/Servis/BBM/E-Toll/Booking. Makin kecil = makin cepat, tapi makin sering job pengecekan berkala jalan (GitHub Actions/Worker Cron). <b>Tidak berlaku</b> untuk 🧾 Resi Perjalanan -- itu selalu dicek maksimal tiap 5 menit, berapa pun angka ini.</div>
+            <div class="hint">Berlaku untuk notifikasi Dokumen/Servis/BBM/E-Toll/Booking. Makin kecil = makin cepat, tapi makin sering job pengecekan berkala jalan (Worker Cron Trigger). <b>Tidak berlaku</b> untuk 🧾 Resi Perjalanan -- itu selalu dicek maksimal tiap 5 menit, berapa pun angka ini.</div>
           </div>
         </div>
         <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
@@ -4180,7 +4325,7 @@ function renderSettings(){
   attachIntegerOnlyInput('in-toleransi-gap');
   if(insightUnlocked){
     renderNotifPermissionStatus();
-    ['in-notif-service-pct','in-notif-bbm-min','in-notif-budget-pct','in-notif-speed-limit','in-notif-trip-lama','in-notif-kalibrasi-interval'].forEach(id=>{
+    ['in-notif-service-pct','in-notif-bbm-min','in-notif-budget-pct','in-notif-speed-limit','in-notif-speed-cooldown','in-notif-trip-lama','in-notif-kalibrasi-interval'].forEach(id=>{
       attachIntegerOnlyInput(id);
     });
     attachRibuanInput('in-notif-etoll-min'); // BARU -- ini nilai Rupiah, sebelumnya ikut attachIntegerOnlyInput (tanpa titik ribuan)
@@ -4196,10 +4341,13 @@ function renderSettings(){
       const checkIntervalMinutes = Number(document.getElementById('in-notif-check-interval').value) || NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes;
       const speedAlertEnabled = document.getElementById('in-notif-speed-enabled').checked;
       const speedLimitKmh = Number(document.getElementById('in-notif-speed-limit').value || 0);
-      // BARU: elemen "in-notif-speed-cooldown" TIDAK ADA di HTML manapun (belum pernah dirender) --
-      // sebelumnya ini langsung .value pada null -> TypeError -> SELURUH tombol Simpan gagal total
-      // tiap diklik (tidak ada field lain yg tersimpan juga). Dibuat aman dgn optional chaining +
-      // fallback ke default, sampai field-nya benar-benar dibuatkan di UI.
+      // v3.176.0 -- field "in-notif-speed-cooldown" SEKARANG BENAR-BENAR ADA
+      // di HTML (lihat di atas) -- sebelumnya field ini dirujuk tapi tidak
+      // pernah dirender sama sekali, bikin baris .value di bawah lempar
+      // TypeError (null.value) yang membatalkan SELURUH proses simpan
+      // (termasuk Jam Sunyi & semua field lain di form ini) tanpa pesan
+      // error yang jelas ke pengguna. Optional chaining TETAP dipertahankan
+      // sbg pengaman tambahan, bukan lagi solusi utamanya.
       const speedCooldownEl = document.getElementById('in-notif-speed-cooldown');
       const speedAlertCooldownMinutes = Number((speedCooldownEl && speedCooldownEl.value) || 0);
       const kalibrasiGpsEnabled = document.getElementById('in-notif-kalibrasi-enabled').checked;
@@ -4410,6 +4558,13 @@ const ROUTES = {
   monthlyreport: {title:'Laporan Bulanan', sub:'Ringkasan biaya & pemakaian armada per bulan', render: renderMonthlyReport},
   hapusdata: {title:'Hapus Data', sub:'Hapus Data Mobil / Perjalanan pakai kode khusus', render: renderHapusData},
   settings:  {title:'Pengaturan', sub:'Kelola nama petugas/admin', render: renderSettings},
+  // BARU -- menu khusus Super Admin, SENGAJA TIDAK didaftarkan sbg
+  // .menu-item statis di sidebar HTML -- cuma bisa dibuka lewat titik "·"
+  // di "FleetOps — Stay in Control" (PIN 009900, sama dgn PIN Insight),
+  // lihat wireInsightPinTrigger() & refreshInsightPanels(). Route ini tetap
+  // perlu didaftarkan di sini supaya navigate('notiftelegram') & tombol
+  // Kembali browser bisa merender halamannya.
+  notiftelegram: {title:'Notifikasi Telegram per Peran', sub:'Khusus Super Admin -- atur kategori notifikasi Telegram apa saja yang diterima Sopir, Finance, dan Admin', render: renderNotifTelegramRoles},
 };
 
 // Stack menu yang PERNAH dikunjungi dalam sesi ini (bukan cuma "1 menu
@@ -4946,7 +5101,13 @@ try{ insightUnlocked = sessionStorage.getItem(INSIGHT_UNLOCK_SESSION_KEY) === '1
    langsung mengunci. */
 const MODE_SOPIR_PIN_HASH = 'a78b7c21dc8ed6694424e4afcd8ccc7e45f9b454f2deec3e84bbb1befe1baeb9'; // 001100
 const MODE_SOPIR_SESSION_KEY = 'fleetops_mode_sopir_unlocked';
-const MODE_SOPIR_ALLOWED_ROUTES = ['dashboard', 'usage', 'bookings', 'service'];
+const MODE_SOPIR_ALLOWED_ROUTES = ['dashboard', 'usage', 'bookings', 'service',
+  // BARU -- menu khusus "Notifikasi Telegram per Peran" SENGAJA tidak ikut
+  // diblok gerbang Mode Sopir (supaya bisa dibuka langsung dari titik "·"
+  // tanpa perlu tekan-lama logo dulu) -- gerbang AKSES sesungguhnya untuk
+  // menu ini tetap PIN 009900/insightUnlocked, dicek sendiri di dalam
+  // renderNotifTelegramRoles().
+  'notiftelegram'];
 let modeSopirUnlocked = false;
 try{ modeSopirUnlocked = sessionStorage.getItem(MODE_SOPIR_SESSION_KEY) === '1'; }catch(e){}
 
@@ -5059,6 +5220,30 @@ function refreshInsightPanels(){
   if(storageDetailEl){
     if(insightUnlocked) renderStorageDetail();
     else { storageDetailEl.style.display='none'; const dot=document.getElementById('storage-dot'); if(dot) dot.style.background='#C7CCD4'; }
+  }
+  if(currentRoute==='notiftelegram') renderNotifTelegramRoles();
+  // BARU -- menu khusus Super Admin "🔔 Notifikasi Telegram per Peran":
+  // TIDAK ada di sidebar HTML statis (lihat catatan di ROUTES) -- item-nya
+  // baru dimunculkan/disembunyikan di sini, mengikuti insightUnlocked,
+  // supaya begitu terbuka (lewat titik "·") Super Admin punya jalan balik
+  // ke menu ini tanpa perlu masukin PIN 009900 berulang tiap kali pindah
+  // halaman lain dalam sesi yang sama.
+  const navMenuEl = document.getElementById('nav-menu');
+  let notifTelegramNavItem = document.getElementById('nav-notiftelegram');
+  if(insightUnlocked){
+    if(!notifTelegramNavItem && navMenuEl){
+      notifTelegramNavItem = document.createElement('div');
+      notifTelegramNavItem.className = 'menu-item';
+      notifTelegramNavItem.id = 'nav-notiftelegram';
+      notifTelegramNavItem.dataset.route = 'notiftelegram';
+      notifTelegramNavItem.innerHTML = '<span class="ic" style="font-size:18px;line-height:1;">🔔</span>Notifikasi Telegram per Peran';
+      navMenuEl.appendChild(notifTelegramNavItem);
+      notifTelegramNavItem.addEventListener('click', ()=> navigate('notiftelegram'));
+      notifTelegramNavItem.classList.toggle('active', currentRoute==='notiftelegram');
+    }
+  } else if(notifTelegramNavItem){
+    notifTelegramNavItem.remove();
+    if(currentRoute==='notiftelegram') navigate('dashboard');
   }
 }
 // Modal konfirmasi custom (Iya/Tidak) -- dipakai khusus untuk aksi hapus
@@ -5253,7 +5438,8 @@ function openConfirmModal(message, onConfirm){
   document.getElementById('confirm-yes-btn').addEventListener('click', ()=>{ close(); onConfirm(); });
 }
 
-function openInsightPinModal(){
+function openInsightPinModal(opts){
+  opts = opts || {};
   const body = `
     <div class="field" id="f-insight-pin">
       <label>PIN</label>
@@ -5275,6 +5461,11 @@ function openInsightPinModal(){
       try{ sessionStorage.setItem(INSIGHT_UNLOCK_SESSION_KEY, '1'); }catch(e){}
       showToast('Insight terbuka untuk sesi ini.');
       refreshInsightPanels();
+      // BARU -- dipakai khusus klik titik "·" utk langsung membuka menu
+      // "Notifikasi Telegram per Peran" begitu PIN benar (lihat listener
+      // insight-pin-trigger di bawah). Caller lain (mis. titik storage)
+      // tidak mengirim opsi ini, jadi perilakunya tidak berubah.
+      if(typeof opts.onUnlocked === 'function') opts.onUnlocked();
       return true;
     }
   });
@@ -5286,7 +5477,10 @@ document.getElementById('insight-pin-trigger').addEventListener('click', ()=>{
     showToast('Insight dikunci kembali.');
     refreshInsightPanels();
   } else {
-    openInsightPinModal();
+    // BARU -- titik "·" ini sekarang JUGA jadi pintu masuk menu khusus
+    // Super Admin "Notifikasi Telegram per Peran": begitu PIN 009900 benar,
+    // langsung diarahkan ke menu itu (bukan cuma diam-diam unlock Insight).
+    openInsightPinModal({ onUnlocked: () => navigate('notiftelegram') });
   }
 });
 
@@ -8939,7 +9133,7 @@ async function sendInstantTripReceipt(u){
     showToast('🧾 Resi Telegram terkirim instan ke ' + (driver.nama||'sopir') + '.');
   }catch(e){
     showToast('Resi instan gagal terkirim (' + e.message + ') -- resi tetap akan terkirim via jadwal biasa.', true);
-    console.error('Resi instan gagal terkirim (tidak masalah -- cron GitHub Actions tetap jadi cadangan):', e);
+    console.error('Resi instan gagal terkirim (tidak masalah -- cron Worker tetap jadi cadangan):', e);
   }
 }
 
@@ -13940,42 +14134,30 @@ function openEmergencyCardModal(carId){
 /* ========================================================================
    TEST NOTIFIKASI TELEGRAM (v3.97.0) -- KHUSUS per sopir, dikunci PIN
    Insight (sama dengan field Telegram Chat ID itu sendiri).
-   CATATAN KEAMANAN: browser TIDAK PERNAH memegang Bot Token Telegram (itu
-   cuma ada sebagai Secret di GitHub Actions) -- jadi tombol ini TIDAK BISA
-   langsung "klik kirim" dari sini. Yang bisa dilakukan: siapkan semuanya
-   (salin Chat ID + link ke workflow yang tepat), pengguna tinggal klik
-   "Run workflow" di GitHub -- 2 langkah, tapi tetap aman (tidak ada token
-   yang perlu dibocorkan ke browser).
-   ======================================================================== */
+   v3.176.0 -- DISEDERHANAKAN TOTAL: sebelumnya harus buka GitHub Actions
+   manual (2 langkah) karena Bot Token cuma ada di GitHub Secrets. Sekarang
+   fokus SEPENUHNYA ke Cloudflare Worker -- Worker sudah punya endpoint GET
+   /run-notify-check?test_chat_id=...&secret=... (dilindungi NOTIFY_SECRET
+   yang SAMA persis dgn yang sudah tersimpan di ghConfig.notifySecret utk
+   fitur lain) -- jadi tes sekarang 1 KLIK LANGSUNG dari browser, tanpa
+   pernah keluar dari aplikasi ini sama sekali. */
 function openTestNotifModal(driverId){
   const driver = state.drivers.find(d=>d.id===driverId);
   if(!driver || !driver.telegramChatId) return;
-  const workflowUrl = isGhConnected()
-    ? `https://github.com/${ghConfig.owner}/${ghConfig.repo}/actions/workflows/telegram-notify.yml`
-    : null;
+  const workerReady = ghConfig && ghConfig.workerUrl && ghConfig.notifySecret;
 
   openModal({
     title: `🧪 Test Notifikasi — ${driver.nama}`,
     body: `
+      ${workerReady ? `
       <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.6;">
-        Browser ini TIDAK menyimpan Bot Token Telegram (sengaja, demi keamanan -- token cuma ada di GitHub Secrets). Jadi tes ini butuh 2 langkah manual di GitHub -- sudah saya siapkan semuanya, tinggal ikuti:
+        Kirim 1 pesan tes langsung ke Telegram sopir ini lewat Cloudflare Worker -- hasilnya langsung terlihat di bawah, tidak perlu buka halaman lain.
       </p>
-      <div class="field">
-        <label>1. Salin Chat ID sopir ini</label>
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="test-notif-chatid" readonly value="${escapeHtml(driver.telegramChatId)}" style="flex:1;font-family:'JetBrains Mono',monospace;">
-          <button type="button" class="btn btn-ghost" id="btn-copy-test-chatid">📋 Salin</button>
-        </div>
-      </div>
-      <div class="field">
-        <label>2. Buka halaman workflow &amp; jalankan</label>
-        ${workflowUrl ? `
-          <a href="${escapeHtml(workflowUrl)}" target="_blank" rel="noopener" class="btn btn-primary" style="width:100%;justify-content:center;display:flex;">🔗 Buka GitHub Actions</a>
-          <div class="hint">Di halaman itu: klik <b>"Run workflow"</b> → tempel Chat ID yang sudah disalin ke kolom <b>test_chat_id</b> → klik <b>"Run workflow"</b> lagi. Sopir ini akan menerima 1 pesan tes dalam beberapa detik.</div>
-        ` : `
-          <div class="hint" style="color:var(--red);">Sinkronisasi Cloud (GitHub) belum terhubung, jadi saya tidak tahu link repo Anda -- hubungkan dulu di menu Pengaturan, atau buka manual: repo Anda → tab Actions → "FleetOps - Notifikasi Telegram Otomatis" → Run workflow → tempel Chat ID ke kolom test_chat_id.</div>
-        `}
-      </div>
+      <button type="button" class="btn btn-primary" id="btn-run-test-notif" style="width:100%;justify-content:center;display:flex;">🚀 Kirim Tes Sekarang</button>
+      <div id="test-notif-result" style="margin-top:12px;"></div>
+      ` : `
+      <div class="hint" style="color:var(--red);">URL Worker dan/atau Notify Secret belum diatur -- buka menu Pengaturan → Sinkronisasi Cloud untuk melengkapinya dulu, baru bisa tes langsung dari sini.</div>
+      `}
     `,
     onSave: () => true
   });
@@ -13983,14 +14165,25 @@ function openTestNotifModal(driverId){
   if(saveBtn) saveBtn.style.display = 'none';
   const cancelBtn2 = document.getElementById('modal-cancel');
   if(cancelBtn2) cancelBtn2.textContent = 'Tutup';
-  const copyBtn = document.getElementById('btn-copy-test-chatid');
-  if(copyBtn) copyBtn.onclick = async () => {
+  const runBtn = document.getElementById('btn-run-test-notif');
+  if(runBtn) runBtn.onclick = async () => {
+    const resultEl = document.getElementById('test-notif-result');
+    runBtn.disabled = true;
+    runBtn.textContent = '⏳ Mengirim...';
     try{
-      await navigator.clipboard.writeText(driver.telegramChatId);
-      showToast('Chat ID disalin.');
+      const testUrl = `${ghConfig.workerUrl}/run-notify-check?test_chat_id=${encodeURIComponent(driver.telegramChatId)}`;
+      const res = await fetch(testUrl, { headers: { 'X-Notify-Secret': ghConfig.notifySecret } });
+      const data = await res.json().catch(()=>null);
+      if(res.ok){
+        resultEl.innerHTML = `<div class="hint" style="color:var(--green);">✅ Berhasil dikirim ke ${escapeHtml(driver.nama)}. Cek Telegram sopir ini dalam beberapa detik.</div>`;
+      } else {
+        resultEl.innerHTML = `<div class="hint" style="color:var(--red);">❌ Gagal (HTTP ${res.status}): ${escapeHtml((data && data.error) || 'Tidak ada detail error.')}</div>`;
+      }
     }catch(e){
-      document.getElementById('test-notif-chatid').select();
-      showToast('Gagal menyalin otomatis -- teksnya sudah disorot, salin manual (Ctrl+C).', true);
+      resultEl.innerHTML = `<div class="hint" style="color:var(--red);">❌ Gagal terhubung ke Worker: ${escapeHtml(e.message)}</div>`;
+    } finally {
+      runBtn.disabled = false;
+      runBtn.textContent = '🚀 Kirim Tes Sekarang';
     }
   };
 }
@@ -14403,7 +14596,7 @@ function renderNotifStatusStrip(parsed){
   const el = document.getElementById('notif-status-strip');
   if(!el) return;
   if(!parsed){
-    el.innerHTML = `<span class="badge danger">🔴 Belum pernah jalan</span> <span style="font-size:11.5px;color:var(--muted);">notif-state.json belum pernah ditulis -- Cron Trigger Cloudflare belum ditambahkan, atau GitHub Actions belum pernah sukses jalan.</span>`;
+    el.innerHTML = `<span class="badge danger">🔴 Belum pernah jalan</span> <span style="font-size:11.5px;color:var(--muted);">notif-state.json belum pernah ditulis -- Cron Trigger di Cloudflare Worker belum ditambahkan/diaktifkan, atau belum pernah sukses jalan.</span>`;
     return;
   }
   const lastAlertCheckAt = Number(parsed.lastAlertCheckAt) || 0;
@@ -14418,7 +14611,7 @@ function renderNotifStatusStrip(parsed){
   if(ageMin <= intervalMin*1.5 + 5){ cls='ok'; icon='🟢'; label='Aktif'; }
   else if(ageMin <= intervalMin*4 + 30){ cls='warn'; icon='🟡'; label='Terlambat'; }
   else { cls='danger'; icon='🔴'; label='Berhenti/sangat terlambat'; }
-  el.innerHTML = `<span class="badge ${cls}">${icon} ${label}</span> <span style="font-size:11.5px;color:var(--muted);">terakhir dicek ${fmtDurasiLalu(ageMs)} (target tiap ${intervalMin} menit)${cls!=='ok'?' -- cek Cron Trigger di Cloudflare & status workflow di GitHub Actions':''}</span>`;
+  el.innerHTML = `<span class="badge ${cls}">${icon} ${label}</span> <span style="font-size:11.5px;color:var(--muted);">terakhir dicek ${fmtDurasiLalu(ageMs)} (target tiap ${intervalMin} menit)${cls!=='ok'?' -- cek Cron Trigger di dashboard Cloudflare Worker Anda':''}</span>`;
 }
 async function renderNotifHistory(){
   const wrap = document.getElementById('notif-history-wrap');
@@ -14609,6 +14802,32 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.176.0',
+    date: '29 Jul 2026',
+    notes: [
+      'Sistem notifikasi disederhanakan supaya fokus SEPENUHNYA ke Cloudflare Worker (bukan lagi "GitHub Actions dan/atau Worker" yang ambigu) -- semua teks di Pengaturan diperbarui, dan "Test Notifikasi" per sopir (Data Sopir) TIDAK LAGI perlu buka GitHub Actions manual (2 langkah) -- sekarang 1 klik langsung dari aplikasi lewat Worker, hasilnya langsung terlihat di layar.',
+      'Field "Jeda antar-alert Kecepatan" (cooldown, mencegah Alert Kecepatan Berlebih kirim berkali-kali tiap beberapa detik) akhirnya punya kotak isian sungguhan di Pengaturan -- sebelumnya nilainya dipakai aktif oleh Worker tapi TIDAK PERNAH bisa diatur/dilihat dari mana pun, selalu diam-diam terkunci di nilai default.',
+    ]
+  },
+  {
+    v: '3.175.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🟢 BARU (menu khusus Super Admin): <b>🔔 Notifikasi Telegram per Peran</b> -- atur kategori notifikasi Telegram berkala apa saja (Dokumen, Servis, E-Toll, BBM, Booking, Trip Lama, Budget, Kalibrasi GPS.id, Kecepatan Berlebih) yang diterima Sopir/Finance/Admin. Super Admin tidak diatur di sini -- selalu menerima semua kategori. Dibuka lewat titik kecil "·" di tulisan "FleetOps — Stay in Control" (pojok kiri bawah sidebar), PIN sama dengan PIN Insight (009900). Perubahan di menu ini SENGAJA TIDAK tercatat di Riwayat Aktivitas.',
+      '🔧 Perbaikan bug lama: pengaturan <b>Ambang Batas Notifikasi</b> ternyata tidak pernah ikut ter-load ulang dari data tersimpan/sinkron (selalu balik ke default tiap reload) -- sekarang sudah benar.',
+      '⚠️ <b>Upload ulang worker.js terbaru ke Cloudflare Worker</b> supaya penyaringan penerima notifikasi ini aktif.',
+    ]
+  },
+  {
+    v: '3.174.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🟢 BARU (bot Telegram): sopir sekarang bisa <b>Mulai Trip</b> (Catat Perjalanan) langsung lewat chat -- ketik <b>berangkat</b>/<b>mulai</b>/<b>jalan</b>/<b>catat perjalanan</b>, lalu pilih mobil (yang belum dipakai), jenis perjalanan, dan tujuan. Tujuan yang diketik manual dicek dulu ke Data Tujuan -- kalau sudah ada/mirip ejaan/searah, direkomendasikan supaya data tetap akurat.',
+      '🟢 Odometer berangkat direkomendasikan otomatis dari GPS.id kalau mobilnya terhubung (tinggal konfirmasi ya/tidak), level BBM divalidasi sesuai indikator Bar/Persen mobil tsb, dan saldo E-Toll direkomendasikan dari data kartu yang dipilih -- semua tinggal konfirmasi atau isi manual kalau tidak sesuai. Ada tombol ❌ Batal di tiap langkah.',
+      '⚠️ <b>Upload ulang worker.js terbaru ke Cloudflare Worker</b> supaya fitur ini aktif -- perubahan murni di sisi Worker.',
+    ]
+  },
   {
     v: '3.173.0',
     date: '31 Jul 2026',
