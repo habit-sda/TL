@@ -2998,21 +2998,29 @@ function serviceOverdueAtInputWarning(carId, tanggal, odometer, excludeServiceId
 function serviceReminderInfo(car){
   if(!car.intervalKm && !car.intervalBulan) return null;
 
-  const lastService = state.services
-    .filter(s=>s.carId===car.id)
+  // v3.??? -- FIX: pengingat servis/ganti oli HARUS dihitung dari catatan
+  // servis TERAKHIR yang kategorinya "Ganti Oli" saja, bukan dari kunjungan
+  // servis apapun (Rem, Ban, AC, dll). Sebelumnya dipakai servis TERBARU
+  // apapun kategorinya, jadi kalau ada servis lain (mis. Ban & Balancing)
+  // yang tanggalnya lebih baru dari ganti oli terakhir, badge ganti oli
+  // ikut "kereset" ke odometer servis lain itu -- padahal olinya sendiri
+  // sudah lama lewat interval. Satu catatan servis bisa berisi banyak
+  // kategori sekaligus (lihat serviceItems()), makanya dicek via .some().
+  const lastOilChange = state.services
+    .filter(s=>s.carId===car.id && serviceItems(s).some(it=>(it.kategori||'').trim()==='Ganti Oli'))
     .sort((a,b)=> b.tanggal.localeCompare(a.tanggal))[0];
 
-  if(!lastService){
-    return {level:'warn', text:'Belum ada riwayat servis tercatat'};
+  if(!lastOilChange){
+    return {level:'warn', text:'Belum ada riwayat Ganti Oli tercatat'};
   }
 
   let pctKm = null, pctBulan = null;
-  if(car.intervalKm && lastService.odometer!=null && car.odometerSaatIni!=null){
-    const traveled = car.odometerSaatIni - lastService.odometer;
+  if(car.intervalKm && lastOilChange.odometer!=null && car.odometerSaatIni!=null){
+    const traveled = car.odometerSaatIni - lastOilChange.odometer;
     pctKm = traveled / car.intervalKm;
   }
   if(car.intervalBulan){
-    const months = monthsBetween(lastService.tanggal, today());
+    const months = monthsBetween(lastOilChange.tanggal, today());
     pctBulan = months / car.intervalBulan;
   }
   if(pctKm===null && pctBulan===null){
@@ -3026,13 +3034,13 @@ function serviceReminderInfo(car){
   // rata-rata keduanya -- prinsip yang sama dgn pengecekan pct di atas
   // (mana pun yang duluan tercapai, itu yang jadi patokan).
   let perkiraanTanggal = null;
-  if(car.intervalBulan && lastService.tanggal){
-    const d = new Date(lastService.tanggal);
+  if(car.intervalBulan && lastOilChange.tanggal){
+    const d = new Date(lastOilChange.tanggal);
     d.setMonth(d.getMonth() + car.intervalBulan);
     perkiraanTanggal = d;
   }
-  if(car.intervalKm && lastService.odometer!=null && car.odometerSaatIni!=null){
-    const sisaKm = car.intervalKm - (car.odometerSaatIni - lastService.odometer);
+  if(car.intervalKm && lastOilChange.odometer!=null && car.odometerSaatIni!=null){
+    const sisaKm = car.intervalKm - (car.odometerSaatIni - lastOilChange.odometer);
     const avgKmPerDay = computeAvgKmPerDay(car.id);
     if(avgKmPerDay && avgKmPerDay>0){
       const sisaHari = sisaKm / avgKmPerDay; // boleh negatif kalau sudah lewat -- artinya "harusnya sudah dari X hari lalu"
