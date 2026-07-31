@@ -4015,7 +4015,7 @@ function renderSettings(){
       <div class="panel-head"><h2>🧑‍💼 Admin Finance (Penerima Nota &amp; Tanda Terima)</h2></div>
       <div class="panel-body">
         <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
-          Daftar TERPISAH dari "Admin Penerima Notifikasi Telegram" di atas -- Admin Finance di sini <b>hanya</b> menerima foto nota &amp; tanda terima yang dikirim sopir lewat bot per trip (sopir kirim foto kapan saja lalu ketik <b>kirim</b> saat selesai, atau otomatis diingatkan lewat Telegram kalau lupa 5 jam setelah trip ditutup). Admin Finance tidak ikut menerima notifikasi berkala apa pun. Setelah baris disimpan, field dikunci -- tap ✏️ Edit untuk mengubah.
+          Daftar TERPISAH dari "Admin Penerima Notifikasi Telegram" di atas -- Admin Finance di sini <b>hanya</b> menerima foto nota &amp; tanda terima yang dikirim sopir lewat bot per trip <b>operasional</b> (bukan trip Pribadi), (sopir kirim foto kapan saja lalu ketik <b>kirim</b> saat selesai, atau otomatis diingatkan lewat Telegram kalau lupa 5 jam setelah trip ditutup). Admin Finance tidak ikut menerima notifikasi berkala apa pun. <b>Syarat baru:</b> Chat ID di sini HANYA akan benar-benar dikirimi pesan kalau nomor yang sama juga terdaftar sbg Sopir atau Admin Penerima Notifikasi Telegram di aplikasi ini -- kalau belum, orangnya tidak akan menerima apa pun walau sudah didaftarkan sbg Admin Finance. Setelah baris disimpan, field dikunci -- tap ✏️ Edit untuk mengubah.
         </p>
         <div id="finance-admins-list">${renderFinanceAdminsRows()}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
@@ -5943,6 +5943,70 @@ function renderCars(){
 
   let list = [...state.cars].sort((a,b)=> a.merk.localeCompare(b.merk));
 
+  // v3.??? -- BARU: badge kecil "selisih odometer manual vs GPS.id" langsung
+  // di halaman Data Mobil, supaya tidak perlu buka 🛰️ Insight GPS per trip
+  // satu-satu utk tahu odometer GPS.id sudah jauh melenceng/belum (lihat
+  // openGpsInsightModal() -- konsep "selisih" sama, cuma di sini dibandingkan
+  // dgn ODOMETER TOTAL mobil (car.odometerSaatIni), bukan jarak 1 trip.
+  // Diambil SEKALI per buka halaman (bukan per keystroke pencarian) lewat
+  // gpsOdoDiffCache, lalu badge di-update in-place lewat data-gps-diff="id".
+  const gpsOdoDiffCache = {};
+
+  function computeGpsOdoDiffInfo(manualOdo, gpsKm){
+    if(manualOdo==null) return { gpsKm, selisih:null, level:'neutral' };
+    const selisih = gpsKm - manualOdo;
+    // Ambang "jauh": 2% dari odometer manual, minimal 200 KM -- longgar
+    // supaya tidak salah tandai "danger" cuma krn beda pembulatan wajar.
+    const threshold = Math.max(200, manualOdo * 0.02);
+    const level = Math.abs(selisih) > threshold ? 'danger' : 'ok';
+    return { gpsKm, selisih, level };
+  }
+
+  function gpsOdoDiffBadgeHtml(info){
+    if(info.selisih==null){
+      return `<span class="badge neutral" style="font-size:10px;font-weight:600;" title="Odometer GPS.id: ${info.gpsKm.toLocaleString('id-ID')} KM">🛰️ GPS: ${info.gpsKm.toLocaleString('id-ID')} KM</span>`;
+    }
+    const tanda = info.selisih>0 ? '+' : '';
+    const peringatan = info.level==='danger' ? ' ⚠️' : '';
+    return `<span class="badge ${info.level}" style="font-size:10px;font-weight:600;" title="Odometer GPS.id saat ini: ${info.gpsKm.toLocaleString('id-ID')} KM. ${info.level==='danger' ? 'Selisihnya cukup jauh -- cek odometer manual atau kalibrasi ulang GPS.id (Reset Mileage).' : 'Selisihnya masih wajar.'}">🛰️ ${tanda}${info.selisih.toLocaleString('id-ID')} KM${peringatan}</span>`;
+  }
+
+  function odoCellHtml(c){
+    const manual = c.odometerSaatIni!=null ? Number(c.odometerSaatIni).toLocaleString('id-ID')+' KM' : '-';
+    if(!c.imeiGps) return manual;
+    const cached = gpsOdoDiffCache[c.id];
+    const badge = cached
+      ? gpsOdoDiffBadgeHtml(cached)
+      : `<span class="badge neutral" style="font-size:10px;">🛰️ memuat...</span>`;
+    return `${manual}<div data-gps-diff="${c.id}" style="margin-top:3px;">${badge}</div>`;
+  }
+
+  async function loadGpsOdoDiffBadges(){
+    const withGps = state.cars.filter(c=>c.imeiGps);
+    if(withGps.length===0 || !isGhConnected()) return;
+    try{
+      const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/gpsid/vehicles`, { headers: { 'accept':'application/json' } });
+      const data = await res.json().catch(()=>null);
+      if(!res.ok || !data) return;
+      let gpsList = null;
+      if(Array.isArray(data)) gpsList = data;
+      else if(Array.isArray(data?.message?.data)) gpsList = data.message.data;
+      else if(Array.isArray(data?.data)) gpsList = data.data;
+      else if(Array.isArray(data?.message)) gpsList = data.message;
+      if(!gpsList) return;
+      withGps.forEach(c=>{
+        const v = gpsList.find(x => String(x.imei ?? x.IMEI ?? '') === String(c.imeiGps));
+        if(!v || v.mileage==null) return;
+        const gpsKm = Math.round(Number(v.mileage)/1000);
+        if(isNaN(gpsKm)) return;
+        gpsOdoDiffCache[c.id] = computeGpsOdoDiffInfo(c.odometerSaatIni, gpsKm);
+        document.querySelectorAll(`[data-gps-diff="${c.id}"]`).forEach(el=>{
+          el.innerHTML = gpsOdoDiffBadgeHtml(gpsOdoDiffCache[c.id]);
+        });
+      });
+    } catch(e){ /* diam-diam gagal -- badge cukup tetap "memuat..."/tidak muncul */ }
+  }
+
   const html = `
     <div class="panel">
       <div class="panel-body">
@@ -5975,7 +6039,7 @@ function renderCars(){
               <td><span class="car-with-thumb-sm">${carPhotoHtml(c,'car-thumb-sm')}<span>${escapeHtml(c.merk)} ${escapeHtml(c.modelMobil)}</span></span></td>
               <td>${escapeHtml(c.tahun)}</td>
               <td>${escapeHtml(c.warna)}</td>
-              <td>${c.odometerSaatIni!=null ? Number(c.odometerSaatIni).toLocaleString('id-ID')+' KM' : '-'}</td>
+              <td>${odoCellHtml(c)}</td>
               <td>${activeUsage ? `<span class="badge warn">Dipakai — ${escapeHtml(driverLabel(activeUsage.driverId, activeUsage.driver))}</span>` : `<span class="badge ok">Tersedia</span>`}</td>
               <td>${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Pengingat nonaktif</span>`}</td>
               <td style="text-align:right;white-space:nowrap;">
@@ -6001,7 +6065,7 @@ function renderCars(){
             <div class="data-card-row"><span class="k">Kode</span><span class="v">${codeBadgeHtml(c.kode)}</span></div>
             <div class="data-card-row"><span class="k">Tahun</span><span class="v">${escapeHtml(c.tahun)}</span></div>
             <div class="data-card-row"><span class="k">Warna</span><span class="v">${escapeHtml(c.warna)}</span></div>
-            <div class="data-card-row"><span class="k">Odometer</span><span class="v">${c.odometerSaatIni!=null ? Number(c.odometerSaatIni).toLocaleString('id-ID')+' KM' : '-'}</span></div>
+            <div class="data-card-row"><span class="k">Odometer</span><span class="v">${odoCellHtml(c)}</span></div>
             <div class="data-card-row"><span class="k">Status</span><span class="v">${activeUsage ? `<span class="badge warn">Dipakai</span>` : `<span class="badge ok">Tersedia</span>`}</span></div>
             <div class="data-card-row"><span class="k">Servis Berikutnya</span><span class="v">${reminder ? `<span class="badge ${reminder.level}">${escapeHtml(reminder.text)}</span>` : `<span class="badge neutral">Nonaktif</span>`}</span></div>
             <div class="data-card-actions">
@@ -6021,6 +6085,7 @@ function renderCars(){
     wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteCar(b.dataset.del));
   }
   renderTable(list);
+  loadGpsOdoDiffBadges();
 
   document.getElementById('car-search').addEventListener('input', (e)=>{
     const q = e.target.value.trim().toLowerCase();
@@ -8153,8 +8218,18 @@ function markReturned(id){
           fetchGpsTripInsight(carForFuel.imeiGps, rangeSpeed.start, rangeSpeed.end).then(data=>{
             if(data && !data.error && data.avgSpeedKmh != null){
               u.avgSpeedKmh = data.avgSpeedKmh;
+              u.avgSpeedError = null;
               touch(u);
               saveData();
+            } else if(data && data.error){
+              // BARU (poin 3): sebelumnya gagal diam-diam total -- sekarang
+              // alasannya disimpan di trip (kelihatan lewat bot Telegram utk
+              // Super Admin, lihat buildDriverStatsText) DAN ditoast singkat
+              // di app supaya langsung ketahuan tanpa perlu buka Telegram.
+              u.avgSpeedError = data.error;
+              touch(u);
+              saveData();
+              showToast('Rata-rata kecepatan trip ini gagal dihitung: ' + data.error, true);
             }
           }).catch(()=>{});
         }
@@ -8164,6 +8239,7 @@ function markReturned(id){
       // diatur/offline -- resi tetap terjamin lewat cron GitHub Actions.
       sendInstantTripReceipt(u);
       sendInstantAdminTripNotif(u);
+      sendInstantNotaConfirmAsk(u);
       logActivity('penggunaan', 'Mobil kembali', `${carLabel(u.carId)} — ${u.tujuan||''}`);
       // Audit trail KHUSUS kalau ini EDIT ULANG data yang sudah pernah
       // selesai sebelumnya (bukan penyelesaian pertama kali) -- itu kasus
@@ -8755,6 +8831,57 @@ async function sendInstantTripReceipt(u){
   }catch(e){
     showToast('Resi instan gagal terkirim (' + e.message + ') -- resi tetap akan terkirim via jadwal biasa.', true);
     console.error('Resi instan gagal terkirim (tidak masalah -- cron GitHub Actions tetap jadi cadangan):', e);
+  }
+}
+
+// BARU -- Poin 1 otomatisasi kirim nota ke Admin Finance: begitu trip
+// OPERASIONAL (bukan Pribadi) ditandai selesai, deteksi apakah sopir SUDAH
+// punya lampiran nota/tanda terima tertampung (u.buktiPending, dikirim lewat
+// bot selama/segera setelah trip) ATAU sudah ada biaya operasional tercatat.
+// Kalau ya, kirim 1 pesan konfirmasi ke sopir lewat Telegram, lengkap dgn
+// tombol "✅ Nota Sudah Lengkap, Kirim Sekarang" (tap = sama persis dgn ketik
+// "kirim" di bot, tapi discope ke trip ini saja -- lihat callback
+// "kirimnota:<tripId>" di worker.js). Kalau belum ada lampiran/biaya sama
+// sekali, TIDAK dikirim pesan apa pun di sini -- sopir tetap kebagian
+// pengingat biasa 5 jam kemudian kalau lupa (lihat runNotifyCheck di
+// worker.js). Fire-and-forget & diam-diam gagal seperti resi instan, TIDAK
+// PERNAH memblokir penutupan trip. Ditandai lewat u.telegramNotaConfirmAsked
+// supaya tidak dikirim dobel kalau data trip ini disimpan ulang.
+async function sendInstantNotaConfirmAsk(u){
+  try{
+    if(!isGhConnected() || !ghConfig.notifySecret) return;
+    if(u.jenisPenggunaan === 'pribadi') return; // trip Pribadi tidak pernah ditanyakan/dilaporkan ke Finance
+    if(u.buktiTerkirimAt || u.telegramNotaConfirmAsked) return; // sudah terkirim / sudah pernah ditanya
+    const driver = state.drivers.find(d=>d.id===u.driverId);
+    const chatId = driver && (driver.telegramChatId||'').toString().trim();
+    if(!chatId) return;
+    const jumlahBukti = Array.isArray(u.buktiPending) ? u.buktiPending.length : 0;
+    const adaBiayaOp = usageBiayaOpItems(u).length > 0;
+    if(jumlahBukti===0 && !adaBiayaOp) return; // belum ada apa pun yg bisa dilaporkan -- jangan tanya dulu
+
+    const text = [
+      '🔔 <b>Perjalanan terdeteksi telah selesai</b>',
+      '',
+      `${escapeHtml(carLabel(u.carId))} — ${escapeHtml(u.tujuan||'-')}`,
+      jumlahBukti>0 ? `📎 ${jumlahBukti} lampiran nota/tanda terima sudah tertampung.` : '📎 Belum ada foto nota/tanda terima yang terlampir.',
+      '',
+      'Apakah nota perjalanan sudah terkirim semua di sini? Kalau masih ada, kirim dulu fotonya ke chat ini ya.',
+      'Kalau sudah lengkap semua, tap tombol di bawah supaya bisa dilaporkan ke Dept. Finance.',
+    ].join('\n');
+    const buttons = [{ text: '✅ Nota Sudah Lengkap, Kirim Sekarang', callback_data: `kirimnota:${u.id}` }];
+    const bodyStr = JSON.stringify({ chatId, text, buttons });
+    const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+      body: bodyStr,
+      ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
+    });
+    if(!res.ok) return; // diam -- sopir tetap kebagian pengingat 5 jam biasa lewat cron
+    u.telegramNotaConfirmAsked = true;
+    touch(u);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }catch(e){
+    console.error('Konfirmasi kirim nota otomatis gagal terkirim (tidak masalah -- pengingat 5 jam tetap jadi cadangan):', e);
   }
 }
 
@@ -9492,6 +9619,13 @@ function openUsageModal(editId, presetCarId){
   openModal({
     title: editing ? 'Edit Perjalanan' : 'Catat Perjalanan',
     body,
+    // v3.??? -- BARU: tombol Simpan diganti "Berangkat" khusus di form catat
+    // perjalanan BARU (bukan mode Edit) supaya lebih jelas maksud tombolnya
+    // (menandai mobil mulai dipakai), lengkap dengan keterangan kecil di
+    // bawah footer supaya tidak ambigu ini tetap SATU tindakan yang sama
+    // dgn "menyimpan data" (bukan tombol terpisah/lanjutan).
+    saveLabel: editing ? 'Simpan' : 'Berangkat',
+    footerNote: editing ? null : 'Berangkat = menyimpan data perjalanan ini & menandai mobil sedang digunakan.',
     onSave: () => {
       const carId = document.getElementById('in-car').value;
       const driverId = document.getElementById('in-driver').value;
@@ -14324,7 +14458,7 @@ function toggleFieldError(fieldId, hasError){
   if(el) el.classList.toggle('error', !!hasError);
 }
 
-function openModal({title, body, onSave}){
+function openModal({title, body, onSave, saveLabel, footerNote}){
   const root = document.getElementById('modal-root');
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay">
@@ -14336,8 +14470,9 @@ function openModal({title, body, onSave}){
         <div class="modal-body">${body}</div>
         <div class="modal-foot">
           <button class="btn btn-danger" id="modal-cancel">Batal</button>
-          <button class="btn btn-primary" id="modal-save">Simpan</button>
+          <button class="btn btn-primary" id="modal-save">${escapeHtml(saveLabel || 'Simpan')}</button>
         </div>
+        ${footerNote ? `<div style="padding:0 20px 14px;margin-top:-8px;font-size:11px;color:var(--muted);text-align:right;">${escapeHtml(footerNote)}</div>` : ''}
       </div>
     </div>
   `;
