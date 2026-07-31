@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.176.0">
+<meta name="app-version" content="3.179.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -276,6 +276,32 @@
   }
   .panel-head h2{font-size:15px;margin:0;font-weight:700;}
   .panel-body{padding:16px 18px;}
+
+  /* ---------- v3.178.0: Pengaturan -- Kartu Kategori + Kunci/Edit ---------- */
+  .settings-search{margin-bottom:16px;}
+  .settings-search input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 14px;font-size:13px;font-family:inherit;background:var(--card);color:var(--text);}
+  .settings-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  @media(max-width:640px){.settings-card-grid{grid-template-columns:1fr;}}
+  .settings-card{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;
+    cursor:pointer;transition:border-color .12s ease;text-align:left;
+  }
+  .settings-card:hover{border-color:var(--blue);}
+  .settings-card-icon{font-size:22px;margin-bottom:8px;}
+  .settings-card-title{font-weight:700;font-size:13.5px;margin-bottom:3px;}
+  .settings-card-desc{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px;}
+  .settings-card-status{font-size:10.5px;font-weight:700;color:var(--blue-dark);}
+  .settings-detail-back{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--blue);cursor:pointer;margin-bottom:14px;}
+  /* Field terkunci: dibuat jelas SECARA VISUAL (bukan cuma disabled bawaan
+     browser yang kadang kurang kontras) -- latar abu, kursor "not-allowed",
+     supaya jelas kelihatan "baca saja" sebelum tekan Edit. */
+  .field-locked input:disabled,
+  .field-locked select:disabled,
+  .field-locked textarea:disabled{
+    background:var(--hover-bg) !important;color:var(--muted);cursor:not-allowed;
+    border-style:dashed;
+  }
+  .settings-edit-bar{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);}
 
   table{width:100%;border-collapse:collapse;font-size:13px;}
   th{
@@ -1360,7 +1386,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.176.0';
+const APP_VERSION = '3.179.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1873,11 +1899,36 @@ const NOTIF_ROLE_CATEGORIES = [
   { key:'budget', label:'Budget Bulanan' },
   { key:'kalibrasi', label:'Kalibrasi Odometer GPS.id' },
   { key:'speed', label:'Kecepatan Berlebih' },
+  // v3.179.0 -- 3 kategori BARU: sebelumnya 3 jenis pesan ini (Resi
+  // Perjalanan, Approval Booking, Laporan Bulanan) SAMA SEKALI tidak
+  // melewati sistem rolePrefs -- pengiriman ke Sopir/Finance/Admin
+  // hardcode langsung di titik kirimnya masing-masing. Sekarang jadi bisa
+  // diatur per peran juga, SAMA seperti kategori alert lainnya.
+  { key:'resi', label:'Resi Perjalanan' },
+  { key:'bookingApproval', label:'Approval Booking' },
+  { key:'laporanBulanan', label:'Laporan Bulanan' },
 ];
 const NOTIF_ROLE_PREFS_DEFAULT = {
-  sopir:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:false, kalibrasi:false, speed:false },
-  finance: { doc:true,  service:true,  etoll:false, bbm:false, booking:false, tripLama:false, budget:false, kalibrasi:false, speed:false },
-  admin:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:true,  kalibrasi:true,  speed:true  },
+  // Default SENGAJA meniru PERSIS perilaku SEBELUM 3 kategori ini ada,
+  // supaya menambahkannya TIDAK diam-diam mengubah siapa dapat apa sampai
+  // Super Admin sendiri yang membuka & mengubahnya:
+  // - resi: sopir SELALU dapat resi trip-nya sendiri (tidak pernah
+  //   opsional sebelumnya) -- admin sudah py pengaturan SENDIRI 3-pilihan
+  //   per admin (tidak usah/ringkas/lengkap) di panel Admin Notifikasi,
+  //   jadi di sini jadi GERBANG TAMBAHAN di atasnya (harus keduanya
+  //   mengizinkan) -- default admin:true supaya tidak mengubah apa pun
+  //   sampai sengaja dimatikan. finance TIDAK PERNAH dapat resi trip
+  //   sebelumnya -- default false.
+  // - bookingApproval: SELALU cuma ke admin sebelumnya (yang perlu
+  //   Setuju/Tolak) -- default admin:true, sopir/finance:false (matikan
+  //   admin:false BERISIKO tidak ada yang bisa approve booking -- Super
+  //   Admin tetap SELALU dapat approval ini apa pun rolePrefs, lihat
+  //   catatan penerapan di worker.js).
+  // - laporanBulanan: SELALU ke Admin & Admin Finance sebelumnya --
+  //   default admin:true, finance:true, sopir:false.
+  sopir:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:false, kalibrasi:false, speed:false, resi:true,  bookingApproval:false, laporanBulanan:false },
+  finance: { doc:true,  service:true,  etoll:false, bbm:false, booking:false, tripLama:false, budget:false, kalibrasi:false, speed:false, resi:false, bookingApproval:false, laporanBulanan:true  },
+  admin:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:true,  kalibrasi:true,  speed:true,  resi:true,  bookingApproval:true,  laporanBulanan:true  },
 };
 function getNotifRolePrefs(){
   const saved = (state.notifRolePrefs && typeof state.notifRolePrefs==='object') ? state.notifRolePrefs : {};
@@ -2095,7 +2146,34 @@ function ensureUniqueCodes(){
   return changed;
 }
 
+// v3.177.0 -- PERBAIKAN PERFORMA PENTING: durasiAnomaliBadgeHtml() dan
+// jarakAnomaliBadgeHtml() SEBELUMNYA masing-masing men-scan SELURUH
+// state.usage lewat .filter() SETIAP KALI dipanggil -- dan keduanya
+// dipanggil UNTUK TIAP BARIS trip yang dirender. Dengan N trip di riwayat,
+// ini artinya O(N²): 500 trip -> ~250.000 operasi scan CUMA untuk 1 badge,
+// dikali 2 (durasi+jarak) -- makin banyak riwayat, makin terasa berat,
+// khususnya di HP. Diverifikasi lewat simulasi: pertumbuhannya kuadratik
+// persis sesuai teori (200->500 trip = 2.5x data tapi 6.25x operasi).
+// Perbaikan: kelompokkan SEMUA trip berdasar tujuan SEKALI SAJA (Map),
+// bukan scan ulang tiap baris -- mengubah O(N²) jadi O(N). Cache ini
+// otomatis dianggap "basi" & dihitung ulang begitu ADA perubahan data
+// (lihat _destGroupsCache = null di bawah, dipanggil dari sini) -- supaya
+// tidak pernah menampilkan data lama/salah setelah ada trip baru/diedit.
+let _destGroupsCache = null;
+function getDestGroupsCache(){
+  if(_destGroupsCache) return _destGroupsCache;
+  const map = new Map();
+  state.usage.forEach(u=>{
+    const key = (u.tujuan||'').trim().toLowerCase();
+    if(!key) return;
+    if(!map.has(key)) map.set(key, []);
+    map.get(key).push(u);
+  });
+  _destGroupsCache = map;
+  return _destGroupsCache;
+}
 function saveData(){
+  _destGroupsCache = null; // data berubah -> cache tujuan basi, hitung ulang lain kali dibutuhkan
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }catch(e){
@@ -4025,7 +4103,172 @@ function renderHapusData(){
 // dan "dikunci" di sini artinya HILANG TOTAL dari halaman (bukan cuma
 // dikasih tombol "Buka PIN" di tempatnya) sampai PIN dibuka lewat titik "·"
 // kecil di footer. Panel lain tetap tampil bebas seperti biasa, tanpa PIN.
-function renderSettings(){
+// v3.178.0 -- Pengaturan dirombak jadi Kartu Kategori + Kunci/Edit per
+// permintaan eksplisit: sebelumnya 1 halaman scroll SANGAT panjang berisi
+// semua kategori sekaligus, field selalu bisa diketik bebas kapan saja
+// (rawan salah sentuh/tidak sengaja berubah). Sekarang: halaman awal jadi
+// GRID KARTU (klik 1 kartu -> masuk detail kategori itu SAJA), dan field di
+// tiap detail TERKUNCI (disabled, menampilkan nilai tersimpan) sampai
+// tombol "✏️ Edit" ditekan -- mencegah perubahan tidak sengaja.
+// settingsView: null = tampilkan grid kartu. String = kunci kategori yang
+// sedang dibuka (lihat SETTINGS_CATEGORIES di bawah).
+let settingsView = null;
+// settingsUnlockedPanels: Set berisi kunci kategori yang field-nya SEDANG
+// dalam mode Edit (terbuka). Direset tiap kali PINDAH kategori/keluar dari
+// Pengaturan -- supaya tidak "kebawa" ke sesi berikutnya.
+let settingsUnlockedPanels = new Set();
+
+// v3.178.0 -- Helper GENERIK: kunci/buka SEMUA input/select/textarea di
+// dalam 1 kontainer sekaligus, TANPA perlu menambah atribut disabled satu
+// per satu ke tiap field HTML (jauh lebih aman -- field yang sudah ada
+// tidak perlu diubah strukturnya sama sekali, cuma dibungkus 1 div).
+function applyFieldLock(containerId, panelKey){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const unlocked = settingsUnlockedPanels.has(panelKey);
+  container.classList.toggle('field-locked', !unlocked);
+  container.querySelectorAll('input, select, textarea, button.btn-remove-admin-row').forEach(el=>{
+    if(el.dataset.alwaysEnabled) return; // jaring pengaman kalau ada elemen yg SENGAJA harus tetap aktif
+    el.disabled = !unlocked;
+  });
+}
+// Pasang tombol "✏️ Edit" (buka kunci) + "🔒 Batal" (tutup kunci lagi TANPA
+// simpan, kembalikan tampilan ke nilai tersimpan dgn render ulang) untuk 1
+// kategori. editBtnId/cancelBtnId opsional -- kalau tidak ada di HTML
+// kategori itu (mis. kategori tanpa tombol Batal terpisah), dilewati aman.
+function wireSettingsLockButtons(panelKey, containerId, editBtnId, cancelBtnId){
+  applyFieldLock(containerId, panelKey);
+  const editBtn = document.getElementById(editBtnId);
+  if(editBtn) editBtn.onclick = () => {
+    settingsUnlockedPanels.add(panelKey);
+    renderSettings();
+  };
+  const cancelBtn = document.getElementById(cancelBtnId);
+  if(cancelBtn) cancelBtn.onclick = () => {
+    settingsUnlockedPanels.delete(panelKey);
+    renderSettings();
+  };
+}
+// Dipanggil di akhir tiap handler "Simpan" per kategori -- mengunci lagi
+// field-nya setelah berhasil tersimpan (bukan otomatis tetap terbuka).
+function lockSettingsPanelAfterSave(panelKey){
+  settingsUnlockedPanels.delete(panelKey);
+}
+
+const SETTINGS_CATEGORIES = [
+  { key:'tampilan', icon:'🎨', title:'Tampilan', desc:'Mode gelap/terang', hasLock:true,
+    status: () => localStorage.getItem('fleetops_theme')==='dark' ? 'Mode Gelap' : 'Mode Terang' },
+  { key:'backup', icon:'💾', title:'Backup & Pulihkan', desc:'Cadangan data mandiri (file JSON)', hasLock:false,
+    status: () => { try{ const raw = localStorage.getItem(BACKUP_TRACKING_KEY); return raw ? 'Terakhir '+new Date(raw).toLocaleDateString('id-ID') : 'Belum pernah backup'; }catch(e){ return '-'; } } },
+  ...(insightUnlocked ? [
+  { key:'izin-notif', icon:'🔔', title:'Izin Notifikasi Browser', desc:'Notifikasi HP saat app di background', hasLock:false,
+    status: () => (typeof Notification!=='undefined' && Notification.permission==='granted') ? '🟢 Diizinkan' : '⚪ Belum diizinkan' },
+  { key:'ambang-batas', icon:'⏰', title:'Ambang Batas Notifikasi', desc:'Servis, BBM, E-Toll, Budget, Trip Lama', hasLock:true,
+    status: () => `Servis ${getNotifSettings().serviceWarnPct}% · BBM ${getNotifSettings().bbmMinDefault}%` },
+  { key:'alert-kecepatan', icon:'🚨', title:'Alert Kecepatan Berlebih', desc:'Peringatan kecepatan dari GPS.id', hasLock:true,
+    status: () => getNotifSettings().speedAlertEnabled ? `🟢 Aktif · ${getNotifSettings().speedLimitKmh} km/jam` : '⚪ Nonaktif' },
+  { key:'kalibrasi-gps', icon:'🛰️', title:'Kalibrasi Odometer GPS.id', desc:'Pengingat reset berkala', hasLock:true,
+    status: () => getNotifSettings().kalibrasiGpsEnabled ? `🟢 Aktif · tiap ${getNotifSettings().kalibrasiGpsIntervalHari} hari` : '⚪ Nonaktif' },
+  { key:'jam-sunyi', icon:'🌙', title:'Jam Sunyi', desc:'Tunda notifikasi level "Perlu Diperhatikan"', hasLock:true,
+    status: () => getNotifSettings().quietHoursEnabled ? `🟢 ${getNotifSettings().quietHoursStart}–${getNotifSettings().quietHoursEnd}` : '⚪ Nonaktif' },
+  { key:'admin-notifikasi', icon:'👤', title:'Admin Penerima Notifikasi', desc:'Daftar admin & preferensi resi', hasLock:true,
+    status: () => `${(state.notifAdmins||[]).length} admin terdaftar` },
+  { key:'admin-finance', icon:'🧑\u200d💼', title:'Admin Finance', desc:'Penerima nota & tanda terima', hasLock:false,
+    status: () => `${(state.financeAdmins||[]).length} admin terdaftar` },
+  { key:'pemeriksaan-tanggal', icon:'🕐', title:'Pemeriksaan Tanggal', desc:'Cek trip rawan bug zona waktu', hasLock:false,
+    status: () => { const n = computeSuspiciousDateTrips().length; return n>0 ? `${n} perlu dicek` : 'Semua aman'; } },
+  // v3.178.0 -- "Notifikasi Telegram per Peran" SEBELUMNYA cuma bisa
+  // diakses lewat menu sidebar tersembunyi terpisah (muncul sendiri begitu
+  // insightUnlocked, tidak pernah tampil di Pengaturan sama sekali) --
+  // sekarang JUGA muncul sbg kartu di sini demi kelengkapan/penemuan yang
+  // lebih mudah, TANPA menghapus akses lewat sidebar (2 jalan ke tempat yang
+  // sama). externalRoute -> klik kartu ini NAVIGATE ke rute terpisah
+  // 'notiftelegram' (render function sendiri), BUKAN masuk settingsView.
+  { key:'notiftelegram-peran', icon:'🔔', title:'Notifikasi Telegram per Peran', desc:'Kategori default per Sopir/Finance/Admin', hasLock:false, externalRoute:'notiftelegram',
+    status: () => 'Khusus Super Admin' },
+  ] : []),
+  { key:'toleransi-gap', icon:'📏', title:'Toleransi Gap Odometer', desc:'Batas jarak antar-trip tak tercatat', hasLock:true,
+    status: () => `${state.toleransiGapKm} KM` },
+  { key:'nama-petugas', icon:'🧑\u200d🔧', title:'Nama Petugas / Admin', desc:'Kelola daftar petugas aplikasi', hasLock:false,
+    status: () => `${state.admins.length} petugas` },
+];
+
+function renderSettingsGrid(){
+  document.getElementById('header-actions').innerHTML =
+    `<button class="btn btn-primary" id="btn-add-admin">+ Tambah Petugas</button>${exportBtnHtml('btn-export-admin')}`;
+  document.getElementById('btn-add-admin').onclick = () => openAdminModal();
+  document.getElementById('btn-export-admin').onclick = () => {
+    exportToExcel('petugas', 'Petugas', state.admins.map(name=>({
+      Nama: name, Status: name===currentAdmin?'Sedang aktif':'-', Terlindungi: ADMIN_NAMES_DILINDUNGI.includes(name)?'Ya':'Tidak',
+    })));
+  };
+  const html = `
+    <div class="settings-search">
+      <input type="text" id="in-settings-search" placeholder="🔍 Cari pengaturan... (mis. 'jam sunyi', 'backup')" autocomplete="off">
+    </div>
+    <div class="settings-card-grid" id="settings-card-grid"></div>
+  `;
+  document.getElementById('content').innerHTML = html;
+  renderSettingsCards('');
+  document.getElementById('in-settings-search').addEventListener('input', function(){
+    renderSettingsCards(this.value);
+  });
+}
+function renderSettingsCards(query){
+  const q = (query||'').trim().toLowerCase();
+  const filtered = SETTINGS_CATEGORIES.filter(c=>
+    !q || c.title.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q)
+  );
+  const wrap = document.getElementById('settings-card-grid');
+  if(!wrap) return;
+  wrap.innerHTML = filtered.length ? filtered.map(c=>`
+    <div class="settings-card" data-goto-settings="${c.key}" ${c.externalRoute?`data-external-route="${c.externalRoute}"`:''}>
+      <div class="settings-card-icon">${c.icon}</div>
+      <div class="settings-card-title">${escapeHtml(c.title)}</div>
+      <div class="settings-card-desc">${escapeHtml(c.desc)}</div>
+      <div class="settings-card-status">${c.status()}</div>
+    </div>
+  `).join('') : emptyState('🔍', `Tidak ada pengaturan yang cocok dengan "${escapeHtml(query)}".`);
+  wrap.querySelectorAll('[data-goto-settings]').forEach(el=>{
+    el.addEventListener('click', function(){
+      if(this.dataset.externalRoute){
+        // Kartu "jalan pintas" ke rute TERPISAH (bukan settingsView di
+        // dalam Pengaturan) -- mis. Notifikasi Telegram per Peran, yang
+        // punya halaman/render function sendiri di luar sistem kartu ini.
+        navigate(this.dataset.externalRoute);
+        return;
+      }
+      settingsView = this.dataset.gotoSettings;
+      settingsUnlockedPanels.clear();
+      renderSettings();
+    });
+  });
+}
+function settingsDetailBackHtml(){
+  return `<div class="settings-detail-back" id="btn-settings-back">← Kembali ke Pengaturan</div>`;
+}
+function wireSettingsDetailBack(){
+  const btn = document.getElementById('btn-settings-back');
+  if(btn) btn.onclick = () => { settingsView = null; settingsUnlockedPanels.clear(); renderSettings(); };
+}
+function settingsEditBarHtml(panelKey, editBtnId, saveBtnId, cancelBtnId){
+  const unlocked = settingsUnlockedPanels.has(panelKey);
+  return `<div class="settings-edit-bar">
+    ${unlocked ? `
+      <button class="btn btn-ghost btn-sm" id="${cancelBtnId}">Batal</button>
+      <button class="btn btn-primary btn-sm" id="${saveBtnId}">💾 Simpan</button>
+    ` : `
+      <button class="btn btn-primary btn-sm" id="${editBtnId}">✏️ Edit</button>
+    `}
+  </div>`;
+}
+
+// v3.178.0 -- Fungsi ini SEMENTARA masih berisi SEMUA field kategori
+// notifikasi sekaligus (belum sempat dipecah 1-per-1 ke kartu terpisah) --
+// dipanggil sbg tampilan detail utk beberapa kategori terkait notifikasi
+// selama proses pemecahan bertahap. Lihat renderSettings() (router utama)
+// utk logika kartu -> kategori yang SUDAH dipecah sepenuhnya.
+function renderSettingsDetailNotifGabungan(){
   document.getElementById('header-actions').innerHTML =
     `<button class="btn btn-primary" id="btn-add-admin">+ Tambah Petugas</button>${exportBtnHtml('btn-export-admin')}`;
   document.getElementById('btn-add-admin').onclick = () => openAdminModal();
@@ -4043,19 +4286,26 @@ function renderSettings(){
   })();
 
   const html = `
+    ${settingsDetailBackHtml()}
+    ${settingsView==='tampilan' ? `
     <div class="panel">
       <div class="panel-head"><h2>🎨 Tampilan</h2></div>
       <div class="panel-body">
-        <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;">
-          <span>
-            <span style="font-weight:700;font-size:13px;">🌙 Mode Gelap</span>
-            <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">Cocok dipakai malam hari/kondisi minim cahaya. Tersimpan per-perangkat (tidak ikut sinkron ke HP lain).</div>
-          </span>
-          <input type="checkbox" id="in-dark-mode" ${localStorage.getItem('fleetops_theme')==='dark'?'checked':''} style="width:20px;height:20px;flex-shrink:0;">
-        </label>
-        <div class="hint" style="margin-top:10px;">⚠️ Cakupan jujur: sebagian besar tampilan (latar, kartu, teks, badge status) sudah otomatis ikut gelap. Beberapa elemen dengan warna khusus (mis. bubble "Mobil Jalan") sengaja TIDAK ikut berubah, supaya identitas visualnya tetap konsisten.</div>
+        <div class="field-locked" id="lock-tampilan">
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;">
+            <span>
+              <span style="font-weight:700;font-size:13px;">🌙 Mode Gelap</span>
+              <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">Cocok dipakai malam hari/kondisi minim cahaya. Tersimpan per-perangkat (tidak ikut sinkron ke HP lain).</div>
+            </span>
+            <input type="checkbox" id="in-dark-mode" ${localStorage.getItem('fleetops_theme')==='dark'?'checked':''} style="width:20px;height:20px;flex-shrink:0;">
+          </label>
+          <div class="hint" style="margin-top:10px;">⚠️ Cakupan jujur: sebagian besar tampilan (latar, kartu, teks, badge status) sudah otomatis ikut gelap. Beberapa elemen dengan warna khusus (mis. bubble "Mobil Jalan") sengaja TIDAK ikut berubah, supaya identitas visualnya tetap konsisten.</div>
+        </div>
+        ${settingsEditBarHtml('tampilan','btn-edit-tampilan','btn-save-tampilan','btn-cancel-tampilan')}
       </div>
     </div>
+    ` : ''}
+    ${settingsView==='backup' ? `
     <div class="panel">
       <div class="panel-head"><h2>💾 Backup &amp; Pulihkan Data</h2></div>
       <div class="panel-body">
@@ -4080,7 +4330,8 @@ function renderSettings(){
         </div>
       </div>
     </div>
-    ${insightUnlocked ? `
+    ` : ''}
+    ${settingsView==='izin-notif' && insightUnlocked ? `
     <div class="panel">
       <div class="panel-head"><h2>🔔 Notifikasi</h2></div>
       <div class="panel-body">
@@ -4099,6 +4350,8 @@ function renderSettings(){
         <div id="notif-permission-status"></div>
       </div>
     </div>
+    ` : ''}
+    ${settingsView==='ambang-batas' && insightUnlocked ? `
     <div class="panel">
       <div class="panel-head"><h2>⏰ Ambang Batas Notifikasi</h2></div>
       <div class="panel-body">
@@ -4106,6 +4359,7 @@ function renderSettings(){
           Nilai di bawah ini dipakai bersama oleh lonceng notifikasi di aplikasi <b>dan</b> Notifikasi Telegram Otomatis (dijalankan lewat Cloudflare Worker Cron Trigger) -- ubah di sini, otomatis berlaku ke keduanya begitu tersinkron.
         </p>
         <div id="notif-status-strip" style="margin:0 0 14px;"></div>
+        <div class="field-locked" id="lock-ambang-batas">
         <div class="grid-2">
           <div class="field">
             <label>📄 Dokumen (Mobil &amp; Sopir): jadwal pengingat</label>
@@ -4135,7 +4389,17 @@ function renderSettings(){
           </div>
         </div>
         <div class="hint" style="margin:-4px 0 12px;">Nilai "default" di sini cuma dipakai untuk mobil/kartu yang BELUM diisi batasnya sendiri-sendiri (di Data Mobil / Kartu E-Toll) -- mengisi batas di situ tetap didahulukan.</div>
-        <div style="border-top:1px solid var(--line);margin-top:4px;padding-top:14px;">
+        </div>
+        ${settingsEditBarHtml('ambang-batas','btn-edit-ambang-batas','btn-save-ambang-batas','btn-cancel-ambang-batas')}
+      </div>
+    </div>
+    ` : ''}
+    ${settingsView==='alert-kecepatan' && insightUnlocked ? `
+    <div class="panel">
+      <div class="panel-head"><h2>🚨 Alert Kecepatan Berlebih</h2></div>
+      <div class="panel-body">
+        <div class="field-locked" id="lock-alert-kecepatan">
+        <div style="padding-top:0;">
           <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
             <input type="checkbox" id="in-notif-speed-enabled" ${getNotifSettings().speedAlertEnabled?'checked':''} style="width:16px;height:16px;">
             🚨 Alert Kecepatan Berlebih
@@ -4155,7 +4419,17 @@ function renderSettings(){
             </div>
           </div>
         </div>
-        <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
+        </div>
+        ${settingsEditBarHtml('alert-kecepatan','btn-edit-alert-kecepatan','btn-save-alert-kecepatan','btn-cancel-alert-kecepatan')}
+      </div>
+    </div>
+    ` : ''}
+    ${settingsView==='kalibrasi-gps' && insightUnlocked ? `
+    <div class="panel">
+      <div class="panel-head"><h2>🛰️ Pengingat Kalibrasi Odometer GPS.id</h2></div>
+      <div class="panel-body">
+        <div class="field-locked" id="lock-kalibrasi-gps">
+        <div style="padding-top:0;">
           <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
             <input type="checkbox" id="in-notif-kalibrasi-enabled" ${getNotifSettings().kalibrasiGpsEnabled?'checked':''} style="width:16px;height:16px;">
             🛰️ Pengingat Kalibrasi Odometer GPS.id
@@ -4170,8 +4444,17 @@ function renderSettings(){
             </div>
           </div>
         </div>
-        <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
-          <div class="field" style="max-width:280px;">
+        </div>
+        ${settingsEditBarHtml('kalibrasi-gps','btn-edit-kalibrasi-gps','btn-save-kalibrasi-gps','btn-cancel-kalibrasi-gps')}
+      </div>
+    </div>
+    ` : ''}
+    ${settingsView==='jam-sunyi' && insightUnlocked ? `
+    <div class="panel">
+      <div class="panel-head"><h2>🌙 Jam Sunyi &amp; Jadwal Pengecekan</h2></div>
+      <div class="panel-body">
+        <div class="field-locked" id="lock-jam-sunyi">
+        <div class="field" style="max-width:280px;">
             <label>⏱️ Cek notifikasi berkala setiap</label>
             <select id="in-notif-check-interval">
               <option value="5" ${getNotifSettings().checkIntervalMinutes===5?'selected':''}>5 menit</option>
@@ -4181,7 +4464,6 @@ function renderSettings(){
               <option value="60" ${getNotifSettings().checkIntervalMinutes===60?'selected':''}>60 menit (1 jam)</option>
             </select>
             <div class="hint">Berlaku untuk notifikasi Dokumen/Servis/BBM/E-Toll/Booking. Makin kecil = makin cepat, tapi makin sering job pengecekan berkala jalan (Worker Cron Trigger). <b>Tidak berlaku</b> untuk 🧾 Resi Perjalanan -- itu selalu dicek maksimal tiap 5 menit, berapa pun angka ini.</div>
-          </div>
         </div>
         <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
           <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
@@ -4201,7 +4483,8 @@ function renderSettings(){
             </div>
           </div>
         </div>
-        <button class="btn btn-primary btn-sm" id="btn-save-notif-settings">Simpan Ambang Batas</button>
+        </div>
+        ${settingsEditBarHtml('jam-sunyi','btn-edit-jam-sunyi','btn-save-jam-sunyi','btn-cancel-jam-sunyi')}
         <div style="border-top:1px solid var(--line);margin:16px 0 0;padding-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
           <span style="font-size:12.5px;color:var(--muted);">
             📨 <b>${state.drivers.filter(d=>d.telegramChatId).length} dari ${state.drivers.length}</b> sopir sudah terdaftar Telegram Chat ID
@@ -4217,6 +4500,8 @@ function renderSettings(){
         </div>
       </div>
     </div>
+    ` : ''}
+    ${settingsView==='admin-notifikasi' && insightUnlocked ? `
     <div class="panel">
       <div class="panel-head"><h2>👤 Admin Penerima Notifikasi Telegram</h2></div>
       <div class="panel-body">
@@ -4230,11 +4515,13 @@ function renderSettings(){
         </div>
       </div>
     </div>
+    ` : ''}
+    ${settingsView==='admin-finance' && insightUnlocked ? `
     <div class="panel">
       <div class="panel-head"><h2>🧑‍💼 Admin Finance (Penerima Nota &amp; Tanda Terima)</h2></div>
       <div class="panel-body">
         <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
-          Daftar TERPISAH dari "Admin Penerima Notifikasi Telegram" di atas -- Admin Finance di sini <b>hanya</b> menerima foto nota &amp; tanda terima yang dikirim sopir lewat bot per trip <b>operasional</b> (bukan trip Pribadi), (sopir kirim foto kapan saja lalu ketik <b>kirim</b> saat selesai, atau otomatis diingatkan lewat Telegram kalau lupa 5 jam setelah trip ditutup). Admin Finance tidak ikut menerima notifikasi berkala apa pun. <b>Syarat baru:</b> Chat ID di sini HANYA akan benar-benar dikirimi pesan kalau nomor yang sama juga terdaftar sbg Sopir atau Admin Penerima Notifikasi Telegram di aplikasi ini -- kalau belum, orangnya tidak akan menerima apa pun walau sudah didaftarkan sbg Admin Finance. Setelah baris disimpan, field dikunci -- tap ✏️ Edit untuk mengubah.
+          Daftar TERPISAH dari "Admin Penerima Notifikasi Telegram" -- Admin Finance di sini <b>hanya</b> menerima foto nota &amp; tanda terima yang dikirim sopir lewat bot per trip <b>operasional</b> (bukan trip Pribadi), (sopir kirim foto kapan saja lalu ketik <b>kirim</b> saat selesai, atau otomatis diingatkan lewat Telegram kalau lupa 5 jam setelah trip ditutup). Admin Finance tidak ikut menerima notifikasi berkala apa pun. <b>Syarat baru:</b> Chat ID di sini HANYA akan benar-benar dikirimi pesan kalau nomor yang sama juga terdaftar sbg Sopir atau Admin Penerima Notifikasi Telegram di aplikasi ini -- kalau belum, orangnya tidak akan menerima apa pun walau sudah didaftarkan sbg Admin Finance. Setelah baris disimpan, field dikunci -- tap ✏️ Edit untuk mengubah.
         </p>
         <div id="finance-admins-list">${renderFinanceAdminsRows()}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
@@ -4243,7 +4530,7 @@ function renderSettings(){
       </div>
     </div>
     ` : ''}
-    ${(() => {
+    ${settingsView==='pemeriksaan-tanggal' ? (() => {
       if(!insightUnlocked) return '';
       const suspek = computeSuspiciousDateTrips();
       return `
@@ -4278,7 +4565,8 @@ function renderSettings(){
         </div>`}
       </div>
     </div>`;
-    })()}
+    })() : ''}
+    ${settingsView==='toleransi-gap' ? `
     <div class="panel">
       <div class="panel-head"><h2>Toleransi Gap Odometer Tak Tercatat</h2></div>
       <div class="panel-body">
@@ -4291,19 +4579,26 @@ function renderSettings(){
           ditandai merah untuk dicek manual (kemungkinan trip pengiriman
           yang lupa dicatat).
         </p>
+        <div class="field-locked" id="lock-toleransi-gap">
         <div class="field" style="max-width:220px;">
           <label>Toleransi Gap (KM)</label>
           <input type="text" id="in-toleransi-gap" value="${state.toleransiGapKm}">
         </div>
-        <button class="btn btn-primary" id="btn-save-toleransi-gap" style="margin-top:8px;">Simpan</button>
+        </div>
+        ${settingsEditBarHtml('toleransi-gap','btn-edit-toleransi-gap','btn-save-toleransi-gap','btn-cancel-toleransi-gap')}
       </div>
     </div>
+    ` : ''}
+    ${settingsView==='nama-petugas' ? `
     <div class="panel">
       <div class="panel-head"><h2>Nama Petugas / Admin</h2></div>
       <div class="panel-body" id="admin-list-wrap"></div>
     </div>
+    ` : ''}
   `;
   document.getElementById('content').innerHTML = html;
+  wireSettingsDetailBack();
+  if(settingsView==='tampilan'){
   document.getElementById('in-dark-mode').addEventListener('change', function(){
     try{
       if(this.checked){
@@ -4315,6 +4610,14 @@ function renderSettings(){
       }
     }catch(e){ console.error('Gagal menyimpan preferensi tema:', e); }
   });
+  wireSettingsLockButtons('tampilan','lock-tampilan','btn-edit-tampilan','btn-cancel-tampilan');
+  const btnSaveTampilan = document.getElementById('btn-save-tampilan');
+  if(btnSaveTampilan) btnSaveTampilan.onclick = () => {
+    lockSettingsPanelAfterSave('tampilan');
+    renderSettings();
+  };
+  }
+  if(settingsView==='backup'){
   document.getElementById('btn-download-backup').onclick = () => exportFullBackup(false);
   document.getElementById('in-restore-file').addEventListener('change', function(){
     const file = this.files && this.files[0];
@@ -4322,74 +4625,129 @@ function renderSettings(){
     importBackupFile(file);
     this.value = ''; // reset supaya bisa pilih file yang sama lagi kalau perlu
   });
-  attachIntegerOnlyInput('in-toleransi-gap');
-  if(insightUnlocked){
+  }
+  if(settingsView==='izin-notif' && insightUnlocked){
     renderNotifPermissionStatus();
-    ['in-notif-service-pct','in-notif-bbm-min','in-notif-budget-pct','in-notif-speed-limit','in-notif-speed-cooldown','in-notif-trip-lama','in-notif-kalibrasi-interval'].forEach(id=>{
-      attachIntegerOnlyInput(id);
-    });
-    attachRibuanInput('in-notif-etoll-min'); // BARU -- ini nilai Rupiah, sebelumnya ikut attachIntegerOnlyInput (tanpa titik ribuan)
-    document.getElementById('btn-save-notif-settings').onclick = () => {
+  }
+  if(settingsView==='ambang-batas' && insightUnlocked){
+    ['in-notif-service-pct','in-notif-bbm-min','in-notif-budget-pct','in-notif-trip-lama'].forEach(id=> attachIntegerOnlyInput(id));
+    attachRibuanInput('in-notif-etoll-min');
+    wireSettingsLockButtons('ambang-batas','lock-ambang-batas','btn-edit-ambang-batas','btn-cancel-ambang-batas');
+    const btnSaveAmbangBatas = document.getElementById('btn-save-ambang-batas');
+  if(btnSaveAmbangBatas) btnSaveAmbangBatas.onclick = () => {
       const svcPct = Number(document.getElementById('in-notif-service-pct').value || 0);
       const bbmMin = Number(document.getElementById('in-notif-bbm-min').value || 0);
       const etollMin = Number(getRibuanValue('in-notif-etoll-min') || 0);
       const budgetPct = Number(document.getElementById('in-notif-budget-pct').value || 0);
       const tripLamaJam = Number(document.getElementById('in-notif-trip-lama').value || 0);
-      const quietHoursEnabled = document.getElementById('in-notif-quiethours').checked;
-      const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
-      const quietHoursEnd = document.getElementById('in-notif-quiet-end').value || NOTIF_SETTINGS_DEFAULT.quietHoursEnd;
-      const checkIntervalMinutes = Number(document.getElementById('in-notif-check-interval').value) || NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes;
-      const speedAlertEnabled = document.getElementById('in-notif-speed-enabled').checked;
-      const speedLimitKmh = Number(document.getElementById('in-notif-speed-limit').value || 0);
-      // v3.176.0 -- field "in-notif-speed-cooldown" SEKARANG BENAR-BENAR ADA
-      // di HTML (lihat di atas) -- sebelumnya field ini dirujuk tapi tidak
-      // pernah dirender sama sekali, bikin baris .value di bawah lempar
-      // TypeError (null.value) yang membatalkan SELURUH proses simpan
-      // (termasuk Jam Sunyi & semua field lain di form ini) tanpa pesan
-      // error yang jelas ke pengguna. Optional chaining TETAP dipertahankan
-      // sbg pengaman tambahan, bukan lagi solusi utamanya.
-      const speedCooldownEl = document.getElementById('in-notif-speed-cooldown');
-      const speedAlertCooldownMinutes = Number((speedCooldownEl && speedCooldownEl.value) || 0);
-      const kalibrasiGpsEnabled = document.getElementById('in-notif-kalibrasi-enabled').checked;
-      const kalibrasiGpsIntervalHari = Number(document.getElementById('in-notif-kalibrasi-interval').value || 0);
+      // v3.178.0 -- pakai spread dari getNotifSettings() SAAT INI, cuma
+      // TIMPA field kategori ini -- karena field kategori LAIN (speed,
+      // kalibrasi, jam sunyi) TIDAK ADA lagi di halaman yang sama sejak
+      // dipecah per-kartu, jadi TIDAK BOLEH ditimpa nilai kosong/default.
       state.notifSettings = {
-        docExpiryDays: NOTIF_SETTINGS_DEFAULT.docExpiryDays, // v3.138.0 -- sudah tidak dipakai, jadwal dokumen sekarang tetap (lihat DOC_EXPIRY_MILESTONES_DAYS)
+        ...getNotifSettings(),
         serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
         bbmMinDefault: bbmMin>=0 ? bbmMin : NOTIF_SETTINGS_DEFAULT.bbmMinDefault,
         etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
         budgetWarnPct: (budgetPct>0 && budgetPct<=100) ? budgetPct : NOTIF_SETTINGS_DEFAULT.budgetWarnPct,
         tripDurationWarnHours: tripLamaJam>0 ? tripLamaJam : NOTIF_SETTINGS_DEFAULT.tripDurationWarnHours,
-        quietHoursEnabled, quietHoursStart, quietHoursEnd,
-        checkIntervalMinutes: [5,10,15,30,60].includes(checkIntervalMinutes) ? checkIntervalMinutes : NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes,
-        speedAlertEnabled,
-        speedLimitKmh: speedLimitKmh>0 ? speedLimitKmh : NOTIF_SETTINGS_DEFAULT.speedLimitKmh,
-        speedAlertCooldownMinutes: speedAlertCooldownMinutes>0 ? speedAlertCooldownMinutes : NOTIF_SETTINGS_DEFAULT.speedAlertCooldownMinutes,
-        kalibrasiGpsEnabled,
-        kalibrasiGpsIntervalHari: kalibrasiGpsIntervalHari>0 ? kalibrasiGpsIntervalHari : NOTIF_SETTINGS_DEFAULT.kalibrasiGpsIntervalHari,
       };
       saveData();
       showToast('Ambang batas notifikasi disimpan.');
       renderNotifBell();
+      lockSettingsPanelAfterSave('ambang-batas');
+      renderSettings();
     };
-    document.getElementById('in-notif-quiethours').addEventListener('change', function(){
-      const timesWrap = document.getElementById('notif-quiethours-times');
-      if(timesWrap) timesWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
-      updateToggleStatusBadge('notif-quiethours-status-badge', this.checked);
-    });
+  }
+  if(settingsView==='alert-kecepatan' && insightUnlocked){
+    ['in-notif-speed-limit','in-notif-speed-cooldown'].forEach(id=> attachIntegerOnlyInput(id));
+    wireSettingsLockButtons('alert-kecepatan','lock-alert-kecepatan','btn-edit-alert-kecepatan','btn-cancel-alert-kecepatan');
     document.getElementById('in-notif-speed-enabled').addEventListener('change', function(){
       const fieldsWrap = document.getElementById('notif-speed-fields');
       if(fieldsWrap) fieldsWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
       updateToggleStatusBadge('notif-speed-status-badge', this.checked);
     });
+    const btnSaveAlertKecepatan = document.getElementById('btn-save-alert-kecepatan');
+  if(btnSaveAlertKecepatan) btnSaveAlertKecepatan.onclick = () => {
+      const speedAlertEnabled = document.getElementById('in-notif-speed-enabled').checked;
+      const speedLimitKmh = Number(document.getElementById('in-notif-speed-limit').value || 0);
+      // v3.176.0 -- field "in-notif-speed-cooldown" SEKARANG BENAR-BENAR ADA
+      // di HTML -- sebelumnya field ini dirujuk tapi tidak pernah dirender
+      // sama sekali, bikin baris .value di bawah lempar TypeError
+      // (null.value) yang membatalkan SELURUH proses simpan tanpa pesan
+      // error yang jelas ke pengguna. Optional chaining tetap dipertahankan
+      // sbg pengaman tambahan, bukan lagi solusi utamanya.
+      const speedCooldownEl = document.getElementById('in-notif-speed-cooldown');
+      const speedAlertCooldownMinutes = Number((speedCooldownEl && speedCooldownEl.value) || 0);
+      state.notifSettings = {
+        ...getNotifSettings(),
+        speedAlertEnabled,
+        speedLimitKmh: speedLimitKmh>0 ? speedLimitKmh : NOTIF_SETTINGS_DEFAULT.speedLimitKmh,
+        speedAlertCooldownMinutes: speedAlertCooldownMinutes>0 ? speedAlertCooldownMinutes : NOTIF_SETTINGS_DEFAULT.speedAlertCooldownMinutes,
+      };
+      saveData();
+      showToast('Alert Kecepatan disimpan.');
+      renderNotifBell();
+      lockSettingsPanelAfterSave('alert-kecepatan');
+      renderSettings();
+    };
+  }
+  if(settingsView==='kalibrasi-gps' && insightUnlocked){
+    attachIntegerOnlyInput('in-notif-kalibrasi-interval');
+    wireSettingsLockButtons('kalibrasi-gps','lock-kalibrasi-gps','btn-edit-kalibrasi-gps','btn-cancel-kalibrasi-gps');
     document.getElementById('in-notif-kalibrasi-enabled').addEventListener('change', function(){
       const fieldsWrap = document.getElementById('notif-kalibrasi-fields');
       if(fieldsWrap) fieldsWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
       updateToggleStatusBadge('notif-kalibrasi-status-badge', this.checked);
     });
+    const btnSaveKalibrasiGps = document.getElementById('btn-save-kalibrasi-gps');
+  if(btnSaveKalibrasiGps) btnSaveKalibrasiGps.onclick = () => {
+      const kalibrasiGpsEnabled = document.getElementById('in-notif-kalibrasi-enabled').checked;
+      const kalibrasiGpsIntervalHari = Number(document.getElementById('in-notif-kalibrasi-interval').value || 0);
+      state.notifSettings = {
+        ...getNotifSettings(),
+        kalibrasiGpsEnabled,
+        kalibrasiGpsIntervalHari: kalibrasiGpsIntervalHari>0 ? kalibrasiGpsIntervalHari : NOTIF_SETTINGS_DEFAULT.kalibrasiGpsIntervalHari,
+      };
+      saveData();
+      showToast('Pengingat Kalibrasi GPS.id disimpan.');
+      renderNotifBell();
+      lockSettingsPanelAfterSave('kalibrasi-gps');
+      renderSettings();
+    };
+  }
+  if(settingsView==='jam-sunyi' && insightUnlocked){
+    wireSettingsLockButtons('jam-sunyi','lock-jam-sunyi','btn-edit-jam-sunyi','btn-cancel-jam-sunyi');
+    document.getElementById('in-notif-quiethours').addEventListener('change', function(){
+      const timesWrap = document.getElementById('notif-quiethours-times');
+      if(timesWrap) timesWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
+      updateToggleStatusBadge('notif-quiethours-status-badge', this.checked);
+    });
+    const btnSaveJamSunyi = document.getElementById('btn-save-jam-sunyi');
+  if(btnSaveJamSunyi) btnSaveJamSunyi.onclick = () => {
+      const quietHoursEnabled = document.getElementById('in-notif-quiethours').checked;
+      const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
+      const quietHoursEnd = document.getElementById('in-notif-quiet-end').value || NOTIF_SETTINGS_DEFAULT.quietHoursEnd;
+      const checkIntervalMinutes = Number(document.getElementById('in-notif-check-interval').value) || NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes;
+      state.notifSettings = {
+        ...getNotifSettings(),
+        quietHoursEnabled, quietHoursStart, quietHoursEnd,
+        checkIntervalMinutes: [5,10,15,30,60].includes(checkIntervalMinutes) ? checkIntervalMinutes : NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes,
+      };
+      saveData();
+      showToast('Jam Sunyi & jadwal pengecekan disimpan.');
+      renderNotifBell();
+      lockSettingsPanelAfterSave('jam-sunyi');
+      renderSettings();
+    };
     document.getElementById('btn-goto-drivers-telegram').onclick = () => navigate('drivers');
     document.getElementById('btn-refresh-notif-history').onclick = renderNotifHistory;
     renderNotifHistory();
+  }
+  if(settingsView==='admin-notifikasi' && insightUnlocked){
     wireNotifAdminsSection();
+  }
+  if(settingsView==='admin-finance' && insightUnlocked){
     wireFinanceAdminsSection();
   }
   document.querySelectorAll('[data-cek-tanggal]').forEach(btn=>{
@@ -4399,13 +4757,31 @@ function renderSettings(){
       setTimeout(()=> openUsageModal(usageId), 200); // ditunda dikit -- biar halaman Catat Perjalanan selesai render dulu (pola sama dgn handleQrQuickstart)
     });
   });
-  document.getElementById('btn-save-toleransi-gap').onclick = () => {
-    const val = Number(document.getElementById('in-toleransi-gap').value || 0);
-    state.toleransiGapKm = val >= 0 ? val : 0;
-    saveData();
-    showToast('Toleransi gap disimpan.');
-  };
-  renderAdminList();
+  if(settingsView==='toleransi-gap'){
+    attachIntegerOnlyInput('in-toleransi-gap');
+    wireSettingsLockButtons('toleransi-gap','lock-toleransi-gap','btn-edit-toleransi-gap','btn-cancel-toleransi-gap');
+    const btnSaveToleransiGap = document.getElementById('btn-save-toleransi-gap');
+  if(btnSaveToleransiGap) btnSaveToleransiGap.onclick = () => {
+      const val = Number(document.getElementById('in-toleransi-gap').value || 0);
+      state.toleransiGapKm = val >= 0 ? val : 0;
+      saveData();
+      showToast('Toleransi gap disimpan.');
+      lockSettingsPanelAfterSave('toleransi-gap');
+      renderSettings();
+    };
+  }
+  if(settingsView==='nama-petugas'){
+    renderAdminList();
+  }
+}
+// v3.178.0 -- Router utama Pengaturan: grid kartu (default) atau detail 1
+// kategori (begitu 1 kartu diklik). Lihat SETTINGS_CATEGORIES di atas utk
+// daftar lengkap kategori & renderSettingsDetailNotifGabungan() utk isi
+// tiap kategori (SATU fungsi, isinya difilter per-kategori via
+// settingsView -- lihat penjelasan di komentar fungsi itu).
+function renderSettings(){
+  if(settingsView===null){ renderSettingsGrid(); return; }
+  renderSettingsDetailNotifGabungan();
 }
 // Skor Kepatuhan Data (v3.84.0) -- BUKAN menilai sopir, tapi menilai
 // KELENGKAPAN pencatatan tiap petugas: dari trip yang SUDAH SELESAI yang
@@ -4610,6 +4986,12 @@ function navigate(route, opts){
     if(navHistory.length > NAV_HISTORY_MAX) navHistory.shift();
   }
   currentRoute = route;
+  // v3.178.0 -- kalau pindah ke MENU LAIN (bukan Pengaturan), reset
+  // settingsView balik ke grid kartu -- supaya lain kali buka Pengaturan
+  // selalu mulai dari grid, tidak "nyangkut" di kategori terakhir yang
+  // sempat dibuka (field yang sempat kebuka lewat Edit juga ikut terkunci
+  // lagi, bukan kebawa ke sesi berikutnya).
+  if(route !== 'settings'){ settingsView = null; settingsUnlockedPanels.clear(); }
   // PENTING: pakai sessionStorage (bukan localStorage). sessionStorage ikut
   // hilang begitu aplikasi BENAR-BENAR ditutup (proses/tab dimatikan), tapi
   // TETAP ada kalau HP cuma dikunci/layar dimatikan (proses tetap hidup di
@@ -7019,8 +7401,11 @@ function durasiAnomaliBadgeHtml(u){
   if(menit==null) return '';
   const needle = (u.tujuan||'').trim().toLowerCase();
   if(!needle) return '';
-  const sampelLain = state.usage
-    .filter(x=> x.id!==u.id && (x.tujuan||'').trim().toLowerCase()===needle)
+  // v3.177.0 -- pakai cache terkelompok (O(1)) -- lihat komentar lengkap di
+  // definisi getDestGroupsCache(), dekat saveData().
+  const grup = getDestGroupsCache().get(needle) || [];
+  const sampelLain = grup
+    .filter(x=> x.id!==u.id)
     .map(x=> getTripDurationMinutes(x))
     .filter(v=> v!=null);
   if(sampelLain.length < 2) return '';
@@ -7049,8 +7434,10 @@ function jarakAnomaliBadgeHtml(u, compact){
   const jarak = u.odoKembali - u.odoKeluar;
   const needle = (u.tujuan||'').trim().toLowerCase();
   if(!needle) return '';
-  const sampelLain = state.usage
-    .filter(x=> x.id!==u.id && (x.tujuan||'').trim().toLowerCase()===needle && x.odoKeluar!=null && x.odoKembali!=null && x.odoKembali>=x.odoKeluar)
+  // v3.177.0 -- pakai cache terkelompok (O(1)), sama seperti durasiAnomaliBadgeHtml()
+  const grup = getDestGroupsCache().get(needle) || [];
+  const sampelLain = grup
+    .filter(x=> x.id!==u.id && x.odoKeluar!=null && x.odoKembali!=null && x.odoKembali>=x.odoKeluar)
     .map(x=> x.odoKembali-x.odoKeluar);
   if(sampelLain.length < 2) return '';
   const rata2 = sampelLain.reduce((a,b)=>a+b,0)/sampelLain.length;
@@ -9101,6 +9488,11 @@ function buildTripReceiptTextTg(u){
 async function sendInstantTripReceipt(u){
   try{
     if(!isGhConnected() || !ghConfig.notifySecret) return; // belum diatur -> serahkan ke cron seperti biasa
+    // v3.179.0 -- gerbang izin peran: kalau Super Admin sudah matikan
+    // kategori "Resi Perjalanan" utk peran Sopir (menu Notifikasi Telegram
+    // per Peran), jangan kirim sama sekali -- default TETAP true (tidak
+    // mengubah perilaku lama) sampai sengaja dimatikan.
+    if(!getNotifRolePrefs().sopir.resi) return;
     const driver = state.drivers.find(d=>d.id===u.driverId);
     const chatId = driver && (driver.telegramChatId||'').toString().trim();
     if(!chatId) return; // sopir ini tidak terdaftar Telegram -- tidak ada yang perlu dikirim instan
@@ -9198,6 +9590,10 @@ async function sendInstantNotaConfirmAsk(u){
 async function sendInstantAdminTripNotif(u){
   try{
     if(!isGhConnected() || !ghConfig.notifySecret) return;
+    // v3.179.0 -- gerbang izin peran (rolePrefs.admin.resi), SAMA persis
+    // dgn jalur cadangan (cron) di worker.js -- gerbang TAMBAHAN di atas
+    // preferensi per-admin (tripNotif) yang sudah ada.
+    if(!getNotifRolePrefs().admin.resi) return;
     const admins = (state.notifAdmins||[]).filter(a=> a.chatId && a.tripNotif && a.tripNotif!=='off');
     if(!admins.length) return;
     if(!Array.isArray(u.telegramAdminNotifSentIds)) u.telegramAdminNotifSentIds = [];
@@ -9241,6 +9637,13 @@ async function sendInstantAdminTripNotif(u){
 async function sendBookingApprovalRequest(b){
   try{
     if(!isGhConnected() || !ghConfig.notifySecret) return;
+    // v3.179.0 -- gerbang izin peran (rolePrefs.admin.bookingApproval).
+    // ⚠️ CATATAN RISIKO (SENGAJA tetap disediakan, keputusan ada di tangan
+    // Super Admin): kalau ini dimatikan & TIDAK ADA admin lain yang
+    // menyetujui booking secara manual lewat aplikasi, booking bisa
+    // "menggantung" selamanya di status Menunggu Persetujuan. Default
+    // TETAP true (tidak mengubah perilaku lama) sampai sengaja dimatikan.
+    if(!getNotifRolePrefs().admin.bookingApproval) return;
     const admins = (state.notifAdmins||[]).filter(a=> a.chatId);
     if(!admins.length) return;
     if(!Array.isArray(b.telegramApprovalSentAdminIds)) b.telegramApprovalSentAdminIds = [];
@@ -14802,6 +15205,30 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.179.0',
+    date: '30 Jul 2026',
+    notes: [
+      '3 kategori baru ditambahkan ke "🔔 Notifikasi Telegram per Peran": Resi Perjalanan, Approval Booking, Laporan Bulanan -- sebelumnya ketiganya TIDAK melewati sistem izin per peran sama sekali (hardcode langsung di titik kirimnya). Sekarang bisa diatur per Sopir/Finance/Admin sama seperti kategori lain. Default SENGAJA meniru PERSIS perilaku sebelumnya (tidak diam-diam mengubah siapa dapat apa) -- diverifikasi lewat simulasi utk pengguna baru maupun yang sudah kustomisasi sebelumnya. ⚠️ <b>Upload ulang worker.js terbaru</b> supaya gerbang izin ini berlaku juga di jalur cadangan (cron) untuk Resi Sopir/Admin & Laporan Bulanan -- jalur instan sudah aktif dari index.html saja.',
+    ]
+  },
+  {
+    v: '3.178.0',
+    date: '30 Jul 2026',
+    notes: [
+      'Pengaturan dirombak total jadi grid kartu (per kategori) + kotak pencarian -- sebelumnya 1 halaman scroll sangat panjang berisi semua kategori sekaligus. Klik 1 kartu -> masuk halaman detail kategori itu SAJA.',
+      'SEMUA field yang tersimpan sekarang TERKUNCI (disable) secara default, menampilkan nilai tersimpan -- tidak bisa diketik/diubah sampai tombol "✏️ Edit" ditekan. Mencegah perubahan tidak sengaja. Setelah Simpan, field otomatis terkunci lagi.',
+      'Kartu "🔔 Notifikasi Telegram per Peran" ditambahkan ke grid Pengaturan -- sebelumnya cuma bisa diakses lewat menu sidebar tersembunyi terpisah, sekarang JUGA muncul di sini demi kelengkapan (akses lewat sidebar tetap ada, tidak dihapus).',
+      'Logika simpan Ambang Batas Notifikasi (sebelumnya 1 handler besar membaca semua field notifikasi sekaligus) dipecah jadi per-kategori -- tiap kategori cuma menyimpan field miliknya sendiri, tidak menimpa pengaturan kategori lain yang sedang tidak dibuka.',
+    ]
+  },
+  {
+    v: '3.177.0',
+    date: '29 Jul 2026',
+    notes: [
+      'Perbaikan performa PENTING: badge "Durasi/Jarak Tidak Wajar" (Riwayat Perjalanan) sebelumnya men-scan SELURUH riwayat trip untuk SETIAP baris yang ditampilkan -- makin banyak riwayat, makin berat aplikasi terasa (pertumbuhan kuadratik). Sekarang dikelompokkan sekali di awal, dipakai ulang untuk semua baris -- terverifikasi lewat simulasi ~14x lebih cepat pada riwayat 2.000 trip, dan tidak lagi memburuk drastis seiring riwayat bertambah.',
+    ]
+  },
   {
     v: '3.176.0',
     date: '29 Jul 2026',
