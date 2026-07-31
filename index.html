@@ -3981,7 +3981,7 @@ function renderSettings(){
           </div>
           <div class="field">
             <label>E-Toll: batas minimum saldo default (Rp) jika kartu belum diatur sendiri</label>
-            <input type="text" inputmode="numeric" id="in-notif-etoll-min" value="${getNotifSettings().etollMinDefault}">
+            <input type="text" inputmode="numeric" id="in-notif-etoll-min" value="${fmtRibuanInitial(getNotifSettings().etollMinDefault)}">
           </div>
           <div class="field">
             <label>💰 Budget Bulanan: mulai peringatan di berapa % dari limit</label>
@@ -4180,13 +4180,14 @@ function renderSettings(){
   attachIntegerOnlyInput('in-toleransi-gap');
   if(insightUnlocked){
     renderNotifPermissionStatus();
-    ['in-notif-service-pct','in-notif-bbm-min','in-notif-etoll-min','in-notif-budget-pct','in-notif-speed-limit','in-notif-speed-cooldown','in-notif-kalibrasi-interval'].forEach(id=>{
+    ['in-notif-service-pct','in-notif-bbm-min','in-notif-budget-pct','in-notif-speed-limit','in-notif-trip-lama','in-notif-kalibrasi-interval'].forEach(id=>{
       attachIntegerOnlyInput(id);
     });
+    attachRibuanInput('in-notif-etoll-min'); // BARU -- ini nilai Rupiah, sebelumnya ikut attachIntegerOnlyInput (tanpa titik ribuan)
     document.getElementById('btn-save-notif-settings').onclick = () => {
       const svcPct = Number(document.getElementById('in-notif-service-pct').value || 0);
       const bbmMin = Number(document.getElementById('in-notif-bbm-min').value || 0);
-      const etollMin = Number(document.getElementById('in-notif-etoll-min').value || 0);
+      const etollMin = Number(getRibuanValue('in-notif-etoll-min') || 0);
       const budgetPct = Number(document.getElementById('in-notif-budget-pct').value || 0);
       const tripLamaJam = Number(document.getElementById('in-notif-trip-lama').value || 0);
       const quietHoursEnabled = document.getElementById('in-notif-quiethours').checked;
@@ -4195,7 +4196,12 @@ function renderSettings(){
       const checkIntervalMinutes = Number(document.getElementById('in-notif-check-interval').value) || NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes;
       const speedAlertEnabled = document.getElementById('in-notif-speed-enabled').checked;
       const speedLimitKmh = Number(document.getElementById('in-notif-speed-limit').value || 0);
-      const speedAlertCooldownMinutes = Number(document.getElementById('in-notif-speed-cooldown').value || 0);
+      // BARU: elemen "in-notif-speed-cooldown" TIDAK ADA di HTML manapun (belum pernah dirender) --
+      // sebelumnya ini langsung .value pada null -> TypeError -> SELURUH tombol Simpan gagal total
+      // tiap diklik (tidak ada field lain yg tersimpan juga). Dibuat aman dgn optional chaining +
+      // fallback ke default, sampai field-nya benar-benar dibuatkan di UI.
+      const speedCooldownEl = document.getElementById('in-notif-speed-cooldown');
+      const speedAlertCooldownMinutes = Number((speedCooldownEl && speedCooldownEl.value) || 0);
       const kalibrasiGpsEnabled = document.getElementById('in-notif-kalibrasi-enabled').checked;
       const kalibrasiGpsIntervalHari = Number(document.getElementById('in-notif-kalibrasi-interval').value || 0);
       state.notifSettings = {
@@ -6484,6 +6490,9 @@ function openCarModal(editId){
   });
   attachRibuanInput('in-odo');
   attachRibuanInput('in-interval-km');
+  attachRibuanInput('in-interval-km-servis'); // BARU -- sebelumnya cuma diformat saat load (fmtRibuanInitial) & saat simpan (getRibuanValue), tapi TIDAK auto-format saat user mengetik
+  attachIntegerOnlyInput('in-interval-bulan-servis'); // BARU -- konsisten dgn in-interval-bulan di sebelahnya
+  attachIntegerOnlyInput('in-batas-kecepatan'); // BARU -- konsisten dgn in-notif-speed-limit (batas default global)
   attachIntegerOnlyInput('in-tahun');
   attachIntegerOnlyInput('in-interval-bulan');
   attachIntegerOnlyInput('in-batas-bensin');
@@ -13474,6 +13483,7 @@ function openEtollCardModal(editId){
     }
   });
   attachRibuanInput('in-saldo');
+  attachRibuanInput('in-batas-minimum'); // BARU -- sebelumnya cuma diformat saat load & simpan, tapi TIDAK auto-format saat mengetik
   document.getElementById('in-foto-url').addEventListener('input', function(){
     const preview = document.querySelector('#f-nomor + .field .etoll-thumb-lg');
     if(preview){ preview.src = this.value.trim() || DEFAULT_ETOLL_PHOTO; }
