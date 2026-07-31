@@ -1358,7 +1358,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.171.0';
+const APP_VERSION = '3.172.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1383,10 +1383,10 @@ const GPS_ODO_AUTOFILL_ENABLED = true;
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
-const SYNC_COLLECTIONS = ['cars','drivers','usage','services','documents','etollCards','etollTransactions','activityLog','bookings','destinations','notifAdmins','pendingTripReminders'];
+const SYNC_COLLECTIONS = ['cars','drivers','usage','services','documents','etollCards','etollTransactions','activityLog','bookings','destinations','notifAdmins','pendingTripReminders','financeAdmins'];
 
 function defaultTombstones(){
-  return { cars:[], drivers:[], usage:[], services:[], documents:[], etollCards:[], etollTransactions:[], activityLog:[], bookings:[], destinations:[], notifAdmins:[] };
+  return { cars:[], drivers:[], usage:[], services:[], documents:[], etollCards:[], etollTransactions:[], activityLog:[], bookings:[], destinations:[], notifAdmins:[], financeAdmins:[] };
 }
 function loadTombstones(){
   try{
@@ -1428,6 +1428,7 @@ function ensureDestinationsArray(){
   if(!Array.isArray(state.destinations)) state.destinations = [];
   if(!Array.isArray(state.notifAdmins)) state.notifAdmins = [];
   if(!Array.isArray(state.pendingTripReminders)) state.pendingTripReminders = [];
+  if(!Array.isArray(state.financeAdmins)) state.financeAdmins = [];
 }
 
 // Rata-rata Jarak & BBM dari riwayat Catat Perjalanan untuk 1 nama tujuan
@@ -1723,6 +1724,11 @@ function loadData(){
       // Booking Mobil (lihat attachAutocomplete di form masing-masing).
       destinations: Array.isArray(parsed.destinations) ? parsed.destinations : [],
       notifAdmins: Array.isArray(parsed.notifAdmins) ? parsed.notifAdmins : [],
+      // Admin Finance -- penerima nota/tanda terima trip dari sopir lewat bot,
+      // SENGAJA daftar terpisah dari notifAdmins (peran beda: bukan penerima
+      // notifikasi berkala, cuma penerima lampiran bukti trip). Lihat panel
+      // "Admin Finance" di menu Pengaturan.
+      financeAdmins: Array.isArray(parsed.financeAdmins) ? parsed.financeAdmins : [],
       admins: Array.isArray(parsed.admins) && parsed.admins.length ? parsed.admins : defaultData().admins,
       // Toleransi jarak "hilang" (gap odometer) antar-trip per HARI yang
       // dianggap wajar/tidak perlu ditandai (mis. bolak-balik ke masjid,
@@ -1737,7 +1743,7 @@ function loadData(){
   }
 }
 function defaultData(){
-  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], notifAdmins: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
+  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], notifAdmins: [], financeAdmins: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
     notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 } };
 }
 // v3.95.0 -- Pengaturan Notifikasi (nilai ambang batas dipakai computeAlerts()
@@ -2072,6 +2078,7 @@ function loadDataFromObject(parsed){
     bookings: Array.isArray(parsed.bookings) ? parsed.bookings : [],
     destinations: Array.isArray(parsed.destinations) ? parsed.destinations : [],
     notifAdmins: Array.isArray(parsed.notifAdmins) ? parsed.notifAdmins : [],
+    financeAdmins: Array.isArray(parsed.financeAdmins) ? parsed.financeAdmins : [],
     admins: Array.isArray(parsed.admins) && parsed.admins.length ? parsed.admins : def.admins,
     toleransiGapKm: (typeof parsed.toleransiGapKm === 'number' && parsed.toleransiGapKm >= 0) ? parsed.toleransiGapKm : 15,
     carCodeSeq: Number(parsed.carCodeSeq)||0, usageCodeSeq: Number(parsed.usageCodeSeq)||0,
@@ -3441,6 +3448,110 @@ function wireNotifAdminsSection(){
     renderNotifBell();
   };
 }
+/* ---------------- Admin Finance (penerima nota/tanda terima trip) ----------------
+   BARU -- daftar TERPISAH TOTAL dari state.notifAdmins (Admin Penerima
+   Notifikasi Telegram): peran Admin Finance cuma menerima foto nota &
+   tanda terima yang dikumpulkan bot dari sopir per trip (lihat "kirim" &
+   pengingat 5 jam di worker.js), TIDAK ikut menerima notifikasi berkala
+   apa pun. Sengaja tidak dicampur ke notifAdmins supaya daftar penerima
+   & isi pesannya tidak bercampur antara 2 peran yang beda ini.
+
+   UX: baris yang BELUM disimpan (baru ditambah / sedang di-Edit) tampil
+   sbg form isian; begitu disimpan, field DIKUNCI (tampil kartu ringkas)
+   dan cuma ada tombol ✏️ Edit / 🗑️ Hapus -- mencegah tersimpan setengah-
+   jalan / kepencet ubah tidak sengaja. financeAdminEditingIds transient
+   (tidak ikut disimpan/disinkron) -- reset ke terkunci semua tiap reload. */
+let financeAdminEditingIds = new Set();
+function renderFinanceAdminsRows(){
+  const list = state.financeAdmins||[];
+  if(!list.length) return `<p class="hint" style="margin:0 0 10px;">Belum ada Admin Finance yang didaftarkan.</p>`;
+  return list.map(a=>{
+    const editing = financeAdminEditingIds.has(a.id) || !a.chatId; // belum pernah disimpan (chatId kosong) -> otomatis mode edit
+    if(!editing){
+      return `
+      <div class="grid-2" data-financeadmin-row="${a.id}" style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;align-items:center;">
+        <div><b>${escapeHtml(a.nama||'(tanpa nama)')}</b><br><span class="hint">Chat ID: ${escapeHtml(a.chatId||'-')}</span></div>
+        <div style="text-align:right;">
+          <button class="btn btn-ghost btn-sm" data-edit-financeadmin="${a.id}">✏️ Edit</button>
+          <button class="btn btn-ghost btn-sm" data-del-financeadmin="${a.id}" style="color:var(--red);">🗑️ Hapus</button>
+        </div>
+      </div>`;
+    }
+    return `
+    <div class="grid-2" data-financeadmin-row="${a.id}" style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;">
+      <div class="field">
+        <label>Nama (label, bebas)</label>
+        <input type="text" class="in-fa-nama" value="${escapeHtml(a.nama||'')}" placeholder="mis. Bu Sinta (Finance)">
+      </div>
+      <div class="field">
+        <label>Chat ID Telegram</label>
+        <input type="text" inputmode="numeric" class="in-fa-chatid" value="${escapeHtml(a.chatId||'')}" placeholder="mis. 123456789">
+      </div>
+      <div style="grid-column:1/-1;text-align:right;margin-top:6px;display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-ghost btn-sm" data-cancel-financeadmin="${a.id}">Batal</button>
+        <button class="btn btn-primary btn-sm" data-save-financeadmin="${a.id}">💾 Simpan</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function wireFinanceAdminsSection(){
+  document.querySelectorAll('[data-edit-financeadmin]').forEach(btn=>{
+    btn.onclick = () => {
+      financeAdminEditingIds.add(btn.dataset.editFinanceadmin);
+      renderSettings();
+    };
+  });
+  document.querySelectorAll('[data-cancel-financeadmin]').forEach(btn=>{
+    btn.onclick = () => {
+      const id = btn.dataset.cancelFinanceadmin;
+      const a = (state.financeAdmins||[]).find(x=>x.id===id);
+      // Baris baru yang belum pernah disimpan (chatId masih kosong) -> batal berarti buang barisnya.
+      if(a && !a.chatId){
+        state.financeAdmins = (state.financeAdmins||[]).filter(x=>x.id!==id);
+      }
+      financeAdminEditingIds.delete(id);
+      renderSettings();
+    };
+  });
+  document.querySelectorAll('[data-del-financeadmin]').forEach(btn=>{
+    btn.onclick = () => {
+      const id = btn.dataset.delFinanceadmin;
+      if(!confirm('Hapus Admin Finance ini? Dia tidak akan lagi menerima nota/tanda terima trip.')) return;
+      markDeleted('financeAdmins', id);
+      state.financeAdmins = (state.financeAdmins||[]).filter(a=>a.id!==id);
+      financeAdminEditingIds.delete(id);
+      saveData();
+      showToast('Admin Finance dihapus.');
+      renderSettings();
+    };
+  });
+  document.querySelectorAll('[data-save-financeadmin]').forEach(btn=>{
+    btn.onclick = () => {
+      const id = btn.dataset.saveFinanceadmin;
+      const row = document.querySelector(`[data-financeadmin-row="${id}"]`);
+      const a = (state.financeAdmins||[]).find(x=>x.id===id);
+      if(!row || !a) return;
+      const nama = row.querySelector('.in-fa-nama').value.trim();
+      const chatId = row.querySelector('.in-fa-chatid').value.trim();
+      if(!chatId){ showToast('Chat ID wajib diisi supaya bisa menerima kiriman nota.', true); return; }
+      a.nama = nama;
+      a.chatId = chatId;
+      touch(a);
+      financeAdminEditingIds.delete(id);
+      saveData();
+      showToast('Admin Finance disimpan.');
+      renderSettings();
+    };
+  });
+  const btnAdd = document.getElementById('btn-add-finance-admin');
+  if(btnAdd) btnAdd.onclick = () => {
+    if(!Array.isArray(state.financeAdmins)) state.financeAdmins = [];
+    const id = uid();
+    state.financeAdmins.push({ id, nama:'', chatId:'' });
+    financeAdminEditingIds.add(id);
+    renderSettings();
+  };
+}
 function renderPetugasSelect(){
   const sel = document.getElementById('petugas-select');
   sel.innerHTML = state.admins.map(a=>`<option value="${escapeHtml(a)}" ${a===currentAdmin?'selected':''}>${escapeHtml(a)}</option>`).join('')
@@ -3856,6 +3967,18 @@ function renderSettings(){
         </div>
       </div>
     </div>
+    <div class="panel">
+      <div class="panel-head"><h2>🧑‍💼 Admin Finance (Penerima Nota &amp; Tanda Terima)</h2></div>
+      <div class="panel-body">
+        <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
+          Daftar TERPISAH dari "Admin Penerima Notifikasi Telegram" di atas -- Admin Finance di sini <b>hanya</b> menerima foto nota &amp; tanda terima yang dikirim sopir lewat bot per trip (sopir kirim foto kapan saja lalu ketik <b>kirim</b> saat selesai, atau otomatis diingatkan lewat Telegram kalau lupa 5 jam setelah trip ditutup). Admin Finance tidak ikut menerima notifikasi berkala apa pun. Setelah baris disimpan, field dikunci -- tap ✏️ Edit untuk mengubah.
+        </p>
+        <div id="finance-admins-list">${renderFinanceAdminsRows()}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+          <button class="btn btn-ghost btn-sm" id="btn-add-finance-admin">+ Tambah Admin Finance</button>
+        </div>
+      </div>
+    </div>
     ` : ''}
     ${(() => {
       if(!insightUnlocked) return '';
@@ -3995,6 +4118,7 @@ function renderSettings(){
     document.getElementById('btn-refresh-notif-history').onclick = renderNotifHistory;
     renderNotifHistory();
     wireNotifAdminsSection();
+    wireFinanceAdminsSection();
   }
   document.querySelectorAll('[data-cek-tanggal]').forEach(btn=>{
     btn.addEventListener('click', function(){
@@ -14171,6 +14295,15 @@ function openModal({title, body, onSave}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.172.0',
+    date: '31 Jul 2026',
+    notes: [
+      '🟢 BARU: Sopir sekarang bisa kirim foto nota &amp; tanda terima trip kapan saja lewat bot Telegram (langsung ditampung, tidak membebani storage -- yang disimpan cuma referensinya, filenya tetap di server Telegram). Ketik <b>kirim</b> setelah selesai untuk meneruskan semuanya sekaligus ke Admin Finance. Kalau lupa, ada pengingat otomatis ke sopir &amp; Admin Finance 5 jam setelah trip ditandai "Tiba".',
+      '🟢 BARU: menu Pengaturan &gt; <b>Admin Finance</b> -- daftar penerima nota/tanda terima, TERPISAH TOTAL dari "Admin Penerima Notifikasi Telegram" (peran beda: Admin Finance tidak menerima notifikasi berkala apa pun). Baris terkunci begitu disimpan, tap ✏️ Edit untuk mengubah.',
+      '⚠️ <b>Upload ulang worker.js terbaru ke Cloudflare Worker</b> supaya fitur ini aktif -- ada penanganan pesan foto/dokumen baru, perintah "kirim", dan pengingat 5 jam di file itu.',
+    ]
+  },
   {
     v: '3.171.0',
     date: '31 Jul 2026',
