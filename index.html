@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.179.0">
+<meta name="app-version" content="3.180.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1386,7 +1386,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.179.0';
+const APP_VERSION = '3.180.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -4155,7 +4155,24 @@ function lockSettingsPanelAfterSave(panelKey){
   settingsUnlockedPanels.delete(panelKey);
 }
 
-const SETTINGS_CATEGORIES = [
+// v3.180.0 -- PERBAIKAN BUG PARAH: sebelumnya ini const ARRAY biasa yang
+// langsung dievaluasi SAAT SCRIPT DIMUAT (bukan lazy) -- tapi isinya
+// memakai `insightUnlocked` LANGSUNG di badan array (...(insightUnlocked
+// ? [...] : [])), padahal `insightUnlocked` baru di-deklarasikan (let)
+// JAUH LEBIH BELAKANG di script ini. Akibatnya: SETIAP KALI aplikasi
+// dibuka, baris ini melempar "ReferenceError: Cannot access
+// 'insightUnlocked' before initialization" -- error ini terjadi SANGAT
+// AWAL (sebelum navigate()/ROUTES/listener menu didefinisikan sama
+// sekali), jadi SELURUH sisa script BERHENTI TOTAL. Sidebar tetap
+// terlihat (itu HTML statis dari server, tidak butuh JS), tapi konten
+// tengah SELALU kosong & klik menu SAMA SEKALI tidak berfungsi -- persis
+// gejala yang dilaporkan. Data pengguna TIDAK PERNAH hilang (aman di
+// localStorage), aplikasinya saja yang gagal jalan sejak awal. Perbaikan:
+// diubah jadi FUNGSI (dipanggil belakangan, saat benar-benar dibutuhkan
+// -- titik itu `insightUnlocked` sudah pasti terisi), bukan lagi const
+// yang dievaluasi langsung di urutan baca script dari atas ke bawah.
+function getSettingsCategories(){
+  return [
   { key:'tampilan', icon:'🎨', title:'Tampilan', desc:'Mode gelap/terang', hasLock:true,
     status: () => localStorage.getItem('fleetops_theme')==='dark' ? 'Mode Gelap' : 'Mode Terang' },
   { key:'backup', icon:'💾', title:'Backup & Pulihkan', desc:'Cadangan data mandiri (file JSON)', hasLock:false,
@@ -4191,7 +4208,8 @@ const SETTINGS_CATEGORIES = [
     status: () => `${state.toleransiGapKm} KM` },
   { key:'nama-petugas', icon:'🧑\u200d🔧', title:'Nama Petugas / Admin', desc:'Kelola daftar petugas aplikasi', hasLock:false,
     status: () => `${state.admins.length} petugas` },
-];
+  ];
+}
 
 function renderSettingsGrid(){
   document.getElementById('header-actions').innerHTML =
@@ -4216,7 +4234,7 @@ function renderSettingsGrid(){
 }
 function renderSettingsCards(query){
   const q = (query||'').trim().toLowerCase();
-  const filtered = SETTINGS_CATEGORIES.filter(c=>
+  const filtered = getSettingsCategories().filter(c=>
     !q || c.title.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q)
   );
   const wrap = document.getElementById('settings-card-grid');
@@ -15205,6 +15223,13 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.180.0',
+    date: '31 Jul 2026',
+    notes: [
+      '🔴 PERBAIKAN DARURAT: aplikasi sempat GAGAL TOTAL DIMUAT sejak v3.178.0 -- halaman kosong, semua menu tidak berfungsi. Penyebab: kode Pengaturan (kartu kategori) sempat memakai variabel yang belum sempat siap saat dibaca, membuat SELURUH skrip berhenti sangat di awal, sebelum sempat menampilkan apa pun. Data TIDAK PERNAH hilang (aman di penyimpanan perangkat) -- murni aplikasinya gagal jalan. Sudah diperbaiki & diverifikasi dengan menjalankan ulang seluruh skrip secara langsung (bukan cuma cek sintaks) untuk memastikan tidak berhenti lagi di titik mana pun.',
+    ]
+  },
   {
     v: '3.179.0',
     date: '30 Jul 2026',
