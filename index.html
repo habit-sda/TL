@@ -4504,7 +4504,7 @@ function showToast(msg, isErr){
 // disinkron) -- reset ke terkunci semua tiap reload.
 let notifAdminEditingIds = new Set();
 function tripNotifLabel(v){
-  return v==='off' ? 'Tidak dikirim apa-apa' : v==='resi' ? 'Resi lengkap' : 'Notifikasi ringkas';
+  return v==='off' ? 'Tidak dikirim apa-apa' : v==='resi' ? 'Resi lengkap (teks)' : v==='gambar' ? 'Resi lengkap (gambar)' : 'Notifikasi ringkas';
 }
 function renderNotifAdminsRows(){
   const list = state.notifAdmins||[];
@@ -4536,7 +4536,8 @@ function renderNotifAdminsRows(){
         <select class="in-na-tripnotif">
           <option value="off" ${a.tripNotif==='off'?'selected':''}>Tidak usah dikirim apa-apa</option>
           <option value="ringkas" ${(a.tripNotif||'ringkas')==='ringkas'?'selected':''}>Notifikasi ringkas saja</option>
-          <option value="resi" ${a.tripNotif==='resi'?'selected':''}>Kirim resi lengkap juga</option>
+          <option value="resi" ${a.tripNotif==='resi'?'selected':''}>Kirim resi lengkap (teks)</option>
+          <option value="gambar" ${a.tripNotif==='gambar'?'selected':''}>Kirim resi sebagai gambar (seperti sopir)</option>
         </select>
       </div>
       <div style="grid-column:1/-1;text-align:right;margin-top:6px;display:flex;gap:8px;justify-content:flex-end;">
@@ -4590,7 +4591,7 @@ function wireNotifAdminsSection(){
       if(!chatId){ showToast('Chat ID wajib diisi supaya bisa menerima notifikasi.', true); return; }
       a.nama = nama;
       a.chatId = chatId;
-      a.tripNotif = ['off','ringkas','resi'].includes(tripNotif) ? tripNotif : 'ringkas';
+      a.tripNotif = ['off','ringkas','resi','gambar'].includes(tripNotif) ? tripNotif : 'ringkas';
       touch(a);
       notifAdminEditingIds.delete(id);
       saveData();
@@ -4632,6 +4633,7 @@ function renderFinanceAdminsRows(){
       <div class="grid-2" data-financeadmin-row="${a.id}" style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;align-items:center;">
         <div><b>${escapeHtml(a.nama||'(tanpa nama)')}</b><br><span class="hint">Chat ID: ${escapeHtml(a.chatId||'-')}</span></div>
         <div style="text-align:right;">
+          ${(insightUnlocked && a.chatId) ? `<button class="btn btn-ghost btn-sm" data-test-financeadmin="${a.id}" title="Test kirim contoh nota + Tanda Terima ke admin ini">🔬 Test</button>` : ''}
           <button class="btn btn-ghost btn-sm" data-edit-financeadmin="${a.id}">✏️ Edit</button>
           <button class="btn btn-ghost btn-sm" data-del-financeadmin="${a.id}" style="color:var(--red);">🗑️ Hapus</button>
         </div>
@@ -4655,6 +4657,9 @@ function renderFinanceAdminsRows(){
   }).join('');
 }
 function wireFinanceAdminsSection(){
+  document.querySelectorAll('[data-test-financeadmin]').forEach(btn=>{
+    btn.onclick = () => openTestFinanceModal(btn.dataset.testFinanceadmin);
+  });
   document.querySelectorAll('[data-edit-financeadmin]').forEach(btn=>{
     btn.onclick = () => {
       financeAdminEditingIds.add(btn.dataset.editFinanceadmin);
@@ -6410,13 +6415,16 @@ try{ insightUnlocked = localStorage.getItem(INSIGHT_UNLOCK_SESSION_KEY) === '1';
 // keduanya diverifikasi lewat POST /verify-pin ke worker.js, bukan
 // dibandingkan di browser lagi.
 const MODE_SOPIR_SESSION_KEY = 'fleetops_mode_sopir_unlocked';
-const MODE_SOPIR_ALLOWED_ROUTES = ['dashboard', 'usage', 'bookings', 'service',
-  // BARU -- menu khusus "Notifikasi Telegram per Peran" SENGAJA tidak ikut
-  // diblok gerbang Mode Sopir (supaya bisa dibuka langsung dari titik "·"
-  // tanpa perlu tekan-lama logo dulu) -- gerbang AKSES sesungguhnya untuk
-  // menu ini tetap PIN Super Akses/insightUnlocked, dicek sendiri di dalam
-  // renderNotifTelegramRoles().
-  'notiftelegram'];
+// v3.202.0 -- 'notiftelegram' SEBELUMNYA sengaja dikecualikan dari gerbang
+// Mode Sopir (supaya bisa dibuka langsung dari titik "·" tanpa tekan-lama
+// logo dulu) -- SEKARANG DIHAPUS dari daftar ini atas permintaan: menu
+// "🔔 Notifikasi Telegram per Peran" tidak lagi ikut nongol di sidebar
+// tampilan Operator default/terkunci. Jalur titik "·" TETAP berfungsi normal
+// tanpa perubahan apa pun -- lihat openInsightPinModal(): begitu PIN Super
+// Akses benar, modeSopirUnlocked di-set true SEBELUM navigate('notiftelegram')
+// dipanggil, jadi gerbang navigate() di bawah tetap meloloskannya walau
+// 'notiftelegram' sudah tidak ada lagi di daftar ini.
+const MODE_SOPIR_ALLOWED_ROUTES = ['dashboard', 'usage', 'bookings', 'service'];
 let modeSopirUnlocked = false;
 try{ modeSopirUnlocked = localStorage.getItem(MODE_SOPIR_SESSION_KEY) === '1'; }catch(e){}
 
@@ -10612,10 +10620,14 @@ async function sendInstantNotaConfirmAsk(u){
 // v3.137.0 -- Notifikasi instan ke ADMIN (state.notifAdmins) saat trip
 // ditandai selesai, paralel dengan resi ke sopir di atas. Tiap admin diberi
 // pesan sesuai PREFERENSI MASING-MASING: 'off' dilewati, 'ringkas' dapat 1
-// baris ringkasan, 'resi' dapat resi lengkap sama seperti sopir. Dicatat di
-// u.telegramAdminNotifSentIds (per-admin, bukan boolean tunggal, karena bisa
-// lebih dari 1 admin) supaya tidak dobel terkirim kalau data disimpan ulang.
-// Diam-diam gagal seperti resi sopir -- cron Worker tetap jadi cadangan.
+// baris ringkasan, 'resi' dapat resi lengkap TEKS, 'gambar' (BARU) dapat
+// resi lengkap sbg GAMBAR -- sama persis seperti yang diterima sopir
+// (render html2canvas di browser ini, upload ke /notify-trip-selesai-photo).
+// Dicatat di u.telegramAdminNotifSentIds (per-admin, bukan boolean tunggal,
+// karena bisa lebih dari 1 admin) supaya tidak dobel terkirim kalau data
+// disimpan ulang. Diam-diam gagal seperti resi sopir -- cron Worker (yang
+// SELALU jatuh ke versi teks utk 'gambar', krn Worker tidak punya browser/
+// canvas -- lihat catatan di worker.js) tetap jadi cadangan.
 async function sendInstantAdminTripNotif(u){
   try{
     if(!isGhConnected() || !ghConfig.notifySecret) return;
@@ -10633,22 +10645,59 @@ async function sendInstantAdminTripNotif(u){
     const driverUntukTripIni = (state.drivers||[]).find(d=> d.id===u.driverId);
     const driverChatIdUntukTripIni = driverUntukTripIni ? (driverUntukTripIni.telegramChatId||'').toString().trim() : '';
     let adaPerubahan = false;
+
+    // BARU -- kalau ada >1 admin memilih 'gambar', render gambar resi SEKALI
+    // saja di sini (dipakai ulang lewat FormData baru per admin), bukan
+    // html2canvas berkali-kali utk data yang sama persis.
+    let resiBlob = null, resiBlobDicoba = false;
+    async function ambilResiBlobSekali(){
+      if(resiBlobDicoba) return resiBlob;
+      resiBlobDicoba = true;
+      try{ resiBlob = await generateTripReceiptBlob(u); }
+      catch(e){ console.error('Gagal render gambar resi utk admin, fallback ke teks:', e); }
+      return resiBlob;
+    }
+
     for(const a of admins){
       if(u.telegramAdminNotifSentIds.includes(a.id)) continue; // sudah pernah ke admin ini
       if(driverChatIdUntukTripIni && (a.chatId||'').toString().trim()===driverChatIdUntukTripIni) continue;
-      const text = a.tripNotif==='resi'
-        ? buildTripReceiptTextTg(u)
-        : `✅ <b>Trip Selesai</b>\n\n${escapeHtml(carLabel(u.carId))} — ${escapeHtml(u.tujuan||'-')}\nSopir: ${escapeHtml(driverLabel(u.driverId,u.driver))}\nTiba: ${u.tglKembali?escapeHtml(fmtDate(u.tglKembali)):'-'}${u.jamKembali?', '+u.jamKembali:''}`;
-      const bodyStr = JSON.stringify({ chatId: a.chatId, text });
-      try{
-        const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai`, {
-          method: 'POST',
-          headers: { 'Content-Type':'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
-          body: bodyStr,
-          ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
-        });
-        if(res.ok){ u.telegramAdminNotifSentIds.push(a.id); adaPerubahan = true; }
-      }catch(e){ /* diam -- cron Worker jadi cadangan */ }
+
+      let terkirim = false;
+      if(a.tripNotif==='gambar'){
+        const blob = await ambilResiBlobSekali();
+        if(blob){
+          try{
+            const fd = new FormData();
+            fd.append('chatId', a.chatId);
+            fd.append('photo', blob, 'resi.png');
+            const resImg = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai-photo`, {
+              method: 'POST',
+              headers: { 'X-Notify-Secret': ghConfig.notifySecret },
+              body: fd,
+            });
+            terkirim = resImg.ok;
+          }catch(eImg){ console.error('Resi gambar ke admin gagal terkirim, fallback ke teks:', eImg); }
+        }
+      }
+      if(!terkirim){
+        // Fallback -- baik 'gambar' yg gagal render/kirim MAUPUN 'resi' biasa
+        // sama-sama dapat resi lengkap TEKS di sini (bukan diturunkan ke
+        // ringkas), supaya admin tidak kehilangan detail cuma krn kendala teknis.
+        const text = (a.tripNotif==='resi' || a.tripNotif==='gambar')
+          ? buildTripReceiptTextTg(u)
+          : `✅ <b>Trip Selesai</b>\n\n${escapeHtml(carLabel(u.carId))} — ${escapeHtml(u.tujuan||'-')}\nSopir: ${escapeHtml(driverLabel(u.driverId,u.driver))}\nTiba: ${u.tglKembali?escapeHtml(fmtDate(u.tglKembali)):'-'}${u.jamKembali?', '+u.jamKembali:''}`;
+        const bodyStr = JSON.stringify({ chatId: a.chatId, text });
+        try{
+          const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai`, {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+            body: bodyStr,
+            ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
+          });
+          terkirim = res.ok;
+        }catch(e){ /* diam -- cron Worker jadi cadangan */ }
+      }
+      if(terkirim){ u.telegramAdminNotifSentIds.push(a.id); adaPerubahan = true; }
     }
     if(adaPerubahan){
       touch(u);
@@ -15792,6 +15841,79 @@ function openTestNotifModal(driverId){
       const data = await res.json().catch(()=>null);
       if(res.ok){
         resultEl.innerHTML = `<div class="hint" style="color:var(--green);">✅ Berhasil dikirim ke ${escapeHtml(driver.nama)}. Cek Telegram sopir ini dalam beberapa detik.</div>`;
+      } else {
+        resultEl.innerHTML = `<div class="hint" style="color:var(--red);">❌ Gagal (HTTP ${res.status}): ${escapeHtml((data && data.error) || 'Tidak ada detail error.')}</div>`;
+      }
+    }catch(e){
+      resultEl.innerHTML = `<div class="hint" style="color:var(--red);">❌ Gagal terhubung ke Worker: ${escapeHtml(e.message)}</div>`;
+    } finally {
+      runBtn.disabled = false;
+      runBtn.textContent = '🚀 Kirim Tes Sekarang';
+    }
+  };
+}
+
+/* ========================================================================
+   TEST NOTIFIKASI TELEGRAM UTK ADMIN FINANCE (BARU) -- kirim contoh nota +
+   gambar Tanda Terima Perjalanan ke Chat ID Admin Finance TERTENTU, dikunci
+   PIN Insight (sama seperti Test Notifikasi per sopir di atas). Contoh
+   diambil dari 1 trip Operasional NYATA yang sudah selesai & sudah pernah
+   punya resi/nota (bukan data karangan) -- lewat endpoint /kirim-nota-finance
+   yang SAMA dgn tombol "📨 Kirim ke Finance" sungguhan, TAPI dengan
+   `testChatId` diisi supaya Worker: (1) kirim HANYA ke Chat ID tes ini,
+   TIDAK ke daftar Admin Finance asli, dan (2) TIDAK menandai trip contoh
+   itu sbg "sudah terkirim" -- trip aslinya tetap utuh apa adanya. */
+function financeTestSampleTrip(){
+  // Prioritaskan trip yang PUNYA KEDUANYA (resi + nota) supaya tes paling
+  // representatif; fallback ke yang cuma punya salah satu kalau tidak ada.
+  const kandidat = [...state.usage].reverse().filter(u=>
+    u.status==='selesai' && u.jenisPenggunaan!=='pribadi' &&
+    (u.resiImageFileId || (Array.isArray(u.buktiPending) && u.buktiPending.length>0))
+  );
+  return kandidat.find(u=> u.resiImageFileId && Array.isArray(u.buktiPending) && u.buktiPending.length>0) || kandidat[0] || null;
+}
+function openTestFinanceModal(financeAdminId){
+  const fa = (state.financeAdmins||[]).find(x=>x.id===financeAdminId);
+  if(!fa || !fa.chatId) return;
+  const workerReady = ghConfig && ghConfig.workerUrl && ghConfig.notifySecret;
+  const tripContoh = financeTestSampleTrip();
+
+  openModal({
+    title: `🔬 Test Notifikasi Finance — ${fa.nama||fa.chatId}`,
+    body: `
+      ${!workerReady ? `
+      <div class="hint" style="color:var(--red);">URL Worker dan/atau Notify Secret belum diatur -- buka menu Pengaturan → Sinkronisasi Cloud untuk melengkapinya dulu.</div>
+      ` : !tripContoh ? `
+      <div class="hint">ℹ️ Belum ada trip Operasional selesai yang punya nota/Tanda Terima di data -- belum ada contoh nyata untuk dites. Coba lagi setelah ada minimal 1 trip Operasional selesai dengan resi/nota.</div>
+      ` : `
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 6px;line-height:1.6;">
+        Kirim contoh nota${(Array.isArray(tripContoh.buktiPending)&&tripContoh.buktiPending.length>0)?` (${tripContoh.buktiPending.length} lampiran)`:''} ${tripContoh.resiImageFileId?'+ gambar Tanda Terima Perjalanan ':''}dari trip <b>${escapeHtml(carLabel(tripContoh.carId))} — ${escapeHtml(tripContoh.tujuan||'-')}</b> ke Chat ID Admin Finance ini.
+      </p>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 14px;">Trip contoh TIDAK diubah/ditandai apa pun -- ini murni pengujian, aman diulang kapan saja.</p>
+      <button type="button" class="btn btn-primary" id="btn-run-test-finance" style="width:100%;justify-content:center;display:flex;">🚀 Kirim Tes Sekarang</button>
+      <div id="test-finance-result" style="margin-top:12px;"></div>
+      `}
+    `,
+    onSave: () => true
+  });
+  const saveBtn = document.getElementById('modal-save');
+  if(saveBtn) saveBtn.style.display = 'none';
+  const cancelBtn2 = document.getElementById('modal-cancel');
+  if(cancelBtn2) cancelBtn2.textContent = 'Tutup';
+  const runBtn = document.getElementById('btn-run-test-finance');
+  if(runBtn) runBtn.onclick = async () => {
+    const resultEl = document.getElementById('test-finance-result');
+    runBtn.disabled = true;
+    runBtn.textContent = '⏳ Mengirim...';
+    try{
+      const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/kirim-nota-finance`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+        body: JSON.stringify({ tripId: tripContoh.id, testChatId: fa.chatId }),
+      });
+      const data = await res.json().catch(()=>null);
+      if(res.ok && data && data.ok){
+        resultEl.innerHTML = `<div class="hint" style="color:var(--green);">✅ Berhasil dikirim ke ${escapeHtml(fa.nama||fa.chatId)}. Cek Telegram-nya dalam beberapa detik.</div>`;
       } else {
         resultEl.innerHTML = `<div class="hint" style="color:var(--red);">❌ Gagal (HTTP ${res.status}): ${escapeHtml((data && data.error) || 'Tidak ada detail error.')}</div>`;
       }
