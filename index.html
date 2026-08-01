@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.208.2">
+<meta name="app-version" content="3.211.2">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -123,7 +123,7 @@
   }
   .brand-logo{
     width:36px;height:36px;flex-shrink:0;
-    background:#fff;border:1px solid var(--line);border-radius:10px;
+    background:var(--card);border:1px solid var(--line);border-radius:10px;
     display:flex;align-items:center;justify-content:center;
   }
   .brand-logo img{width:22px;height:22px;display:block;}
@@ -149,7 +149,7 @@
     border-radius:8px;
     font-size:13.5px;
     font-weight:500;
-    color:#4B5563;
+    color:var(--muted);
     cursor:pointer;
     margin-bottom:2px;
     user-select:none;
@@ -390,7 +390,7 @@
   .etoll-merged-divider{border-top:1px dashed var(--line);margin:11px 0;}
   .etoll-saldo-label-row{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
   .etoll-saldo-label-row .tag{font-size:9.5px;font-weight:700;color:var(--blue);background:var(--blue-bg);padding:1px 6px;border-radius:10px;text-transform:none;letter-spacing:0;}
-  .etoll-input-row{display:flex;align-items:center;background:#fff;border:1.5px solid var(--blue);border-radius:8px;padding:0 12px;}
+  .etoll-input-row{display:flex;align-items:center;background:var(--card);border:1.5px solid var(--blue);border-radius:8px;padding:0 12px;}
   .etoll-input-row .prefix{font-size:16px;font-weight:700;color:var(--muted);margin-right:2px;}
   .etoll-input-row input{border:none;outline:none;flex:1;font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace;padding:9px 0;color:var(--text);background:transparent;width:100%;min-width:0;}
   .etoll-input-row input:focus{box-shadow:none;}
@@ -410,7 +410,7 @@
   .trip-page-left{flex:1 1 60%;min-width:0;}
   .trip-page-right{flex:1 1 38%;min-width:300px;max-width:400px;position:sticky;top:12px;}
 
-  .vehicle-card{border:1px solid var(--line);border-radius:14px;background:#fff;margin-bottom:12px;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-shadow:0 1px 2px rgba(16,24,40,.04);}
+  .vehicle-card{border:1px solid var(--line);border-radius:14px;background:var(--card);margin-bottom:12px;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-shadow:0 1px 2px rgba(16,24,40,.04);}
   .vehicle-card:hover{border-color:var(--blue);}
   .vehicle-card-expanded{padding:18px;cursor:default;border-color:var(--blue);box-shadow:0 0 0 1px var(--blue);}
   .vehicle-card-top{display:flex;gap:14px;}
@@ -441,7 +441,7 @@
   .fuel-bar-meta{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:6px;font-weight:600;}
   .fuel-bar-empty{font-size:11px;color:var(--muted);}
 
-  .trip-detail-panel{border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden;box-shadow:0 1px 3px rgba(16,24,40,.06);}
+  .trip-detail-panel{border:1px solid var(--line);border-radius:14px;background:var(--card);overflow:hidden;box-shadow:0 1px 3px rgba(16,24,40,.06);}
   .trip-detail-header{display:flex;gap:12px;align-items:flex-start;padding:18px 16px 0 16px;position:relative;}
   .trip-detail-header-info{flex:1;min-width:0;}
   .trip-detail-name{font-weight:800;font-size:14.5px;}
@@ -499,6 +499,7 @@
     font-weight:700;
     font-size:12.5px;
     background:#F4F2EA;
+    color:#1A2130;
     border:2px solid #1A2130;
     border-radius:5px;
     padding:2px 8px;
@@ -595,7 +596,7 @@
   }
   .notif-dropdown{
     position:absolute;top:calc(100% + 8px);right:0;width:320px;max-width:85vw;
-    background:#fff;border:1px solid var(--line);border-radius:12px;
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
     box-shadow:0 12px 32px rgba(0,0,0,0.15);z-index:120;max-height:400px;overflow-y:auto;overflow-x:hidden;
   }
   .notif-dropdown-head{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px;}
@@ -620,7 +621,7 @@
     padding:16px;
   }
   .bar-picker-title{font-size:13.5px;font-weight:800;color:var(--text);margin-bottom:2px;}
-  .bar-picker-subtitle{font-size:12px;font-weight:600;color:#4B5563;margin-bottom:14px;}
+  .bar-picker-subtitle{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:14px;}
   /* v3.73.3 -- diganti dari flex 1-baris + overflow-x:auto (bikin tombol
      7-8 "ngumpet" & harus digeser di HP sempit -- keluhan nyata pengguna)
      jadi CSS GRID auto-wrap: tombol otomatis melipat ke baris ke-2 kalau
@@ -721,7 +722,7 @@
      kecil (Bensin/E-Toll/Saldo/Tol/Biaya Op) yang boleh melipat ke bawah
      (flex-wrap) -- TIDAK PERNAH perlu scroll horizontal lagi, di layar
      manapun, karena tidak ada kolom tetap yang harus sejajar. */
-  .triprow{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;background:#fff;}
+  .triprow{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;background:var(--card);}
   .triprow:hover{border-color:var(--blue);}
   .triprow-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
   .triprow-dest{font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
@@ -732,11 +733,11 @@
   .triprow-mid .stat-v{font-weight:700;font-size:13.5px;}
   .triprow-sub{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted);display:flex;gap:20px;flex-wrap:wrap;}
   .triprow-sub b{color:var(--text);font-weight:600;}
-  .btn-triprow-act{border:1px solid var(--blue);background:#fff;color:var(--blue-dark);border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
-  .usage-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fff;}
+  .btn-triprow-act{border:1px solid var(--blue);background:var(--card);color:var(--blue-dark);border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+  .usage-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--card);}
   .usage-card-row1{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;}
   .usage-card-mobil{font-weight:800;font-size:13.5px;}
-  .usage-card-tujuan{font-size:12.5px;color:#374151;margin-bottom:4px;}
+  .usage-card-tujuan{font-size:12.5px;color:var(--text);margin-bottom:4px;}
   .usage-card-meta{font-size:11px;color:var(--muted);}
   .usage-card-detail-toggle{font-size:11px;color:var(--blue);font-weight:700;margin-top:8px;cursor:pointer;}
   .usage-card-detail{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);}
@@ -749,7 +750,7 @@
 
   /* ---------------- Kartu data GENERIK (dipakai semua menu di HP) ---------------- */
   .data-card-list{display:none;}
-  .data-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fff;}
+  .data-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--card);}
   .etoll-history-cards{max-height:60vh;overflow-y:auto;overflow-x:hidden;}
   .data-card-title{font-weight:800;font-size:13.5px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   .data-card-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;}
@@ -763,7 +764,7 @@
      (desktop maupun HP), tidak disembunyikan lewat breakpoint mobile, karena
      halaman ini belum ada versi tabel desktopnya. */
   .gps-card-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px;}
-  .gps-card{border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,0.04);transition:box-shadow .15s ease;}
+  .gps-card{border:1px solid var(--line);border-radius:14px;padding:16px;background:var(--card);box-shadow:0 1px 2px rgba(16,24,40,0.04);transition:box-shadow .15s ease;}
   .gps-card:hover{box-shadow:0 4px 14px rgba(16,24,40,0.08);}
   .gps-card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;}
   .gps-card-thumb{width:44px;height:44px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--hover-bg);}
@@ -814,13 +815,13 @@
   }
   .trip-bubble-panel{
     position:fixed;z-index:151;
-    background:#FBF8F5;border:1px solid #E8DFD5;border-radius:14px;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
     box-shadow:0 18px 44px rgba(0,0,0,0.22);overflow-y:auto;overflow-x:hidden;
   }
   .trip-bubble-head{padding:16px 18px;font-weight:800;font-size:15px;background:#231F1C;color:#fff;}
-  .trip-card{padding:16px 18px;border-bottom:1px solid #E8DFD5;cursor:pointer;}
+  .trip-card{padding:16px 18px;border-bottom:1px solid var(--line);cursor:pointer;}
   .trip-card:last-child{border-bottom:none;}
-  .trip-card:hover{background:#F5EFE8;}
+  .trip-card:hover{background:var(--hover-bg);}
   .trip-card b{display:block;font-size:15px;}
   .trip-card .desc{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5;}
   .trip-action-menu{
@@ -954,7 +955,7 @@
 
   .quick-action-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
   .quick-action-btn{
-    background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 8px;
+    background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 8px;
     display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text);
     transition:border-color .12s ease, transform .05s ease;
   }
@@ -963,7 +964,7 @@
   .quick-action-btn .ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;}
 
   .field{margin-bottom:13px;}
-  .field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:5px;color:#374151;}
+  .field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:5px;color:var(--text);}
   .field .hint{font-size:11px;color:var(--muted);margin-top:4px;}
   /* v3.60.0 -- reset tampilan bawaan OS/browser utk SEMUA <select> (panah
      kotak dropdown-nya SELALU beda tiap OS/browser & sering terlihat kasar/
@@ -1116,7 +1117,7 @@
   .ac-wrap{position:relative;}
   .autocomplete-box{
     display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;
-    background:#fff;border:1px solid var(--line);border-radius:8px;
+    background:var(--card);border:1px solid var(--line);border-radius:8px;
     box-shadow:0 8px 20px rgba(0,0,0,0.12);z-index:50;max-height:180px;overflow-y:auto;overflow-x:hidden;
   }
   .ac-item{padding:8px 12px;font-size:13px;cursor:pointer;}
@@ -1226,26 +1227,26 @@
   </div>
   <nav class="menu" id="nav-menu">
     <div class="menu-section-label">Ringkasan</div>
-    <div class="menu-item" data-route="dashboard"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="2" y="2" width="22" height="22" rx="3" stroke="#161C27" stroke-width="2.2"/><line x1="12" y1="2" x2="12" y2="22" stroke="#161C27" stroke-width="1.7"/><line x1="2" y1="12" x2="22" y2="12" stroke="#161C27" stroke-width="1.7"/><path d="M7 4.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z" fill="#2F6FED"/><path d="M7 4.5v4.5H2.5" fill="#EAF0FF"/><line x1="15.5" y1="19.5" x2="15.5" y2="15" stroke="#2F6FED" stroke-width="2.2" stroke-linecap="round"/><line x1="19" y1="19.5" x2="19" y2="13.5" stroke="#2F6FED" stroke-width="2.2" stroke-linecap="round"/></svg></span>Dashboard</div>
+    <div class="menu-item" data-route="dashboard"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="2" y="2" width="22" height="22" rx="3" stroke="currentColor" stroke-width="2.2"/><line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-width="1.7"/><line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="1.7"/><path d="M7 4.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z" fill="#2F6FED"/><path d="M7 4.5v4.5H2.5" fill="#EAF0FF"/><line x1="15.5" y1="19.5" x2="15.5" y2="15" stroke="#2F6FED" stroke-width="2.2" stroke-linecap="round"/><line x1="19" y1="19.5" x2="19" y2="13.5" stroke="#2F6FED" stroke-width="2.2" stroke-linecap="round"/></svg></span>Dashboard</div>
     <div class="menu-section-label">Data</div>
     <div class="menu-item" data-route="usage"><span class="ic"><img src="data:image/png;base64,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" style="width:22px;height:22px;object-fit:contain;display:block;"></span>Catat Perjalanan</div>
-    <div class="menu-item" data-route="cars"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="10" y="1.5" width="9.5" height="11.5" rx="1.2" stroke="#4F46E5" stroke-width="1.8"/><line x1="12.3" y1="4.3" x2="17.2" y2="4.3" stroke="#4F46E5" stroke-width="1.5" stroke-linecap="round"/><line x1="12.3" y1="6.6" x2="17.2" y2="6.6" stroke="#4F46E5" stroke-width="1.5" stroke-linecap="round"/><line x1="12.3" y1="8.9" x2="15.5" y2="8.9" stroke="#4F46E5" stroke-width="1.5" stroke-linecap="round"/><path d="M2 16l1.3-3.8a1.6 1.6 0 0 1 1.5-1.1h9.4a1.6 1.6 0 0 1 1.5 1.1L17 16" stroke="#161C27" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><rect x="1.3" y="16" width="16.4" height="3.8" rx="1.3" stroke="#161C27" stroke-width="1.9"/><circle cx="5" cy="19.8" r="1.4" fill="#161C27"/><circle cx="14.3" cy="19.8" r="1.4" fill="#161C27"/></svg></span>Data Mobil</div>
+    <div class="menu-item" data-route="cars"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="10" y="1.5" width="9.5" height="11.5" rx="1.2" stroke="#4F46E5" stroke-width="1.8"/><line x1="12.3" y1="4.3" x2="17.2" y2="4.3" stroke="#4F46E5" stroke-width="1.5" stroke-linecap="round"/><line x1="12.3" y1="6.6" x2="17.2" y2="6.6" stroke="#4F46E5" stroke-width="1.5" stroke-linecap="round"/><line x1="12.3" y1="8.9" x2="15.5" y2="8.9" stroke="#4F46E5" stroke-width="1.5" stroke-linecap="round"/><path d="M2 16l1.3-3.8a1.6 1.6 0 0 1 1.5-1.1h9.4a1.6 1.6 0 0 1 1.5 1.1L17 16" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><rect x="1.3" y="16" width="16.4" height="3.8" rx="1.3" stroke="currentColor" stroke-width="1.9"/><circle cx="5" cy="19.8" r="1.4" fill="currentColor"/><circle cx="14.3" cy="19.8" r="1.4" fill="currentColor"/></svg></span>Data Mobil</div>
     <div class="menu-item" data-route="gps"><span class="ic"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAA1oklEQVR42u2953dc15UvuPc+59xQVciJBJhzFCmSClSOlt32a79+cc18mDVrzX81n2fWzEvd743bz3a3k2RZWZRIihIpiplEjpVuOGHPh1NVKIAACICkyAn1QQKBqlv3np1/OyEzQ9uLmYEBsPUvtpYdMzOzA4DWnwAaH/T/bv6MS64FAIDtv3rAa41PMPB9X7D4tyU3ttb1GQBw2Re0Pn7/dXjpc/FKj9l+ZUBEBAQiFIREiIDc/CsR3X9Lctm/EcGTAJhd4+CX0ej/f62L0s4CMyCBJwmuwiB4/+k6x67xYn4Qc7Xz/6rvQWzxyIY+uNY1l3ycsfk7ftQHuVEhbpcqRERCLw3+9WAJcI6tc842mR9wfcL9aF54n2J4fCy6vpPFjR88Lt4/Mzuv1ZGIhFjhgvcTwFlrm+r+wTfI63/aTXxwvceDj51g62d7WGommJnBOmYBROL+A12RAIyrH/4mVAdv8J24ljZb8ndcZqV53eZ4DdZqFw7ckMSs+lfHjF6fPJAA3LoUwlP4co4XBWol/YhP220/iGHv94IQG87UBph3XaZ4gzLRumbLhjOztY7ZMTd4snlNQgREICJEWtHmb+TIcGMSs067sApPy6ffn7PWeuEVQgRKNg8Zsan6mdmHKrbpvDWJgfDUv+RGFTev+5fLxII3zjeezx2z96gJUSlJhCt8lQBmBg3WeRFBRF4nAVYU34f0kpdfy3lOWUEI5P1vxkeq8XBN8qxIG0S0zhlrAUBJWYjj9qOs1ZN6kmZZbq1lAEEUBiqOokKxEAQyCBpPlGU614aZhSAhxOMOJtsefN2OwONWQbxZWvonEERCiEBKADDWpmm+UK6OT01PTk/Pzi1Ua3WtNTMoKUrFQldnR39f39BgX19PVzGOSZBSChCtMfwge8AbUQCPXQXxQxzc/ffNq3MKrxIzG2uNsVKIUjHyv7xx+963V364dvPOndGJsfHJ+YWFWi3JtbbOATMJDIMwisKujo7Bgf7tI0N7d247dGDvwb27w0BCIL24CCmUlGtSYmOcu1YIsJqAPP1G2DpHRHEkg0DmWs/Nl7+/duvzry6eu3Dp6vVbk9Oz5XJFa83MCMgICC33HKUQhUJhoK9nz85tJ48devHMycMH9gz09cZRpKQ11lrnEJ46w7wcC8q1McYCIj0eYVzNuCGicy7XOg7DMFQA8OX5b//4l0/+8vEXP9y4XavVMq0R0MNb1PCA/GGyN9JN7ISVlMU42rl924tnTrz9+tnnTz0TR6G1rlqrSylXgiQfivcfAAE0fWJBpAJJiE+pBFhjAaFYiJUUM7PzF7698ut//uCDjz6/duNWkmZxFEVREEehFJIELUIQbVaPHRtr0jRL03x2bmFienZsYmpiemZ2buGFU88Mbx3sKBVzrbW2Uor/V0rACny0TmeOma2xUoo4Dqv15Fe//fPf/+PvPvnyfLVaKxXiIAgbh/0gVwYBEJAR2bFlU6nUwzA4fnj/L3/69r/6xbtbtwxqY5MklVKuBXRtGgFd8wE3JgG49qk9olv0WsRa65wLwyAI5OT0zAcfn/uP//U3f/3sXD2plwqFOIqUUs4566y1tnHKRERtgZhj55xPJJEQJIgQnRNam1ot+fzcRZ1pKeVP3npl944RiKM8046dUmrTvumajLXIiMveho/ZDcXNvJuZARAhCKQx5sNPzv1v//G/ffTZV7nWWwb6ozBMsyxJ02UfY+cco9dA2OZlMoCxFqzxb+zu7OgslaamZ89fugJIDvjf//JnvT1d1lhn3Kqn/+Oa6U0RYN23yGtfxDltrVJKkKwn6YVL3//qn97/6LNzaZb39XSRIONsKyFHREpJRLTGJGme57mxjsFJkkGgwigIlAJGY4x1DMCAaK0DxO6uzoVK5euL30ZxODw48OrZ091dnUSYaiOIBOFyQqxDvnktacA1nPL7L0pPEucBcM6FgVJK3rx97x//6c+ffPF1PUl7uju6OkvW2iRJHDsiIiIATrOsUqlWanWtDRGFoYqiUEphra3VkkqllqYpMzffD1mu89wUi4Xenm7H7sKlK7/63Z8ufnsFAIJAwdORa/2xvSBsO3pElEoiQprpz7/+5vfv/3Vycqq7q0NKmWR5w9lnQEJCNM4mSeo9oqGBvsH+3o5SSUhRqydT0zNjE9PVWj1QsqOjqIRgdsZ6SA7zPHfOdXd1VGv1Dz76fPu2rYcO7Bsa6FNKMoNz90FGG1RB/HDY0RNzQ621UslASq3N1Ru3vvz6m2s3bzNzd1dnlussyxFRCOE1QpJmaZ5FYXhg7+79e3ft3bVjy2BfqViUUtSSZHJq5ubte1ev375+885CpRJIEYUhIQIRM2R5TkSdnR25NqMTE+fOX7r47dWO5wphFDrLaZZJKX0pwv9zJGCDgUs7dzTwfWZrXRCSFGJyevajz7/65vI1Y5yUsq0UAIiImbUx2uhiofDs8cN/+9M3Xzzz7NahwShUrRvQWs/NV76++N3/9bs//+WTL+bnF0jYIJBEwhjjr+WcIyIhxM079z789IuRrQOHDuwlAlu3UghAWsa+G+XodfjHj90L2oBT7N1wKQgRp6Znzp2/dOfuaKSUDKS1lh0jNLxM61y1Vuvt6nz79Zd//u7rZ549unVocNkFozDsKJV6ujs7OjoG+3r/++/fvzM2DlSIQ4kAPmyz1ikli4XC7Nz8VxcuvXjqxOEDewEAkRjgMfH/eqgoN3/hzQoOMyOAkkIQMfO98clrN27PLSyU4pgE+ZwXESJinufamDiKnj1+5H/8N//itbOnASDLc22ccw6b4QojBlJ2lIpvvvLc8FB/NUl+88f3a7UkA5BCEKJjttYKojiKFsqVm3dGb98dTdM8igIflDnHy9IMj5YgvPoFfwwvaNnXs2N2rJQCgPmFyu17ExNTM1meSyWlFNY5ZiaBUlI9SbQxx48c/MV7b508dsgLRJY3wLh2fsi1znINAAf27frbn7756vOnJYlyueLzaADgrBNEgZLW2pnZ+dv3xiemZthxGChEbFb9PeYHf1IEWFEFSSmcc5PTs2PjU0mSIIBPNAIAUiPRmGtdiKMXT5947aXnS8VCmuXVWuIcSyECJZUSSslASSUlANSTNEkzADxz8ugbLz3f29OVa+2cY+TGwyMiIhHkWk9Oz45OTGhjpCREfIL+KD0aQVrN8jC3qdeGHXKegRGMtdOz81MzM1maA0ML4RRCWOvSNFdCjmwZOHxw7/aRISLMcy1I+OP2xREtHFQIoaQ0xvoA+MDeXbu2jxSKxVxbbQwSAmIj5ga0xszNL0xNz2V57r+RXVvN6Doec4lFXfKMj5UAj/rlnKtUq9Vqzbsoi/dE5IzL87wQR9uGt2wZ7BeCHLOxzqfJYCn8AACCSAphrfNpyN7e7p07Rnp7urUxea6bkVnj4gCQpGmlUs1z3biTJ3cItEGW3qDA+HKR+5UhNwiQZlmaZl7pIwIwIiMCOmeNtXEc9/X2FgsxAHj9xCsxJy4CCMDAiFgoxIP9fZ0dJWut0ZaaPhVww+3JdF5PU5929kDrhh6z/XlWK/p8rBLwICldn7JiBm2MMfZ+cNhDQEEYlEpFHxys3w33whEoqQT5ehVshyYRAMBYq7Vp1pQ/Fgd0nZf9ceIAXO0XCN7jR2ih/bhYWOyc0zr38M4D8d8mQxEisnNJkqRpCgD3lbHw/ZADPoQNfkjzLTf1hQibKpLE1qH7w0KKoyiOIyLyZtCbM2YQQkgp60kyPTNTrdW8qw5tJXv3nTtCq7MBQBuzUK7Uk1SQECScL1BuwzrDICjEkTcnzer2RxlecUvGm9L3FEXCrZcQVCoWioUYAayzXtFbAOecFAICqNZqt+6MTk7NMAMRCiF81fz9eSXnHAMIQVISAMzNl++OTS5UakopJaW1ztsGQHSOAaAQhh3FQtB0qJ5gIezG3dClpFyfsmvYBF58WvYE6OoodpaKRMjMvpsBGJxzQmAYqjw398amf7h+Z2p6BgCkIGNMrrUHlBCAEAgBEbWxeZ5LQQCwUK5evnrjxq07tVotUEop6VtOmvlxR4ilUtzd1REEytuMZjlpw0bgpgrUVvgIYvvzPy2BmL8t55iI+nt7+nt7wzBsvz/HzisopVQtST89d+Evn3xZS9JCHBULERE657S1xlptrDbWOoeIcRQVChEifHXx8gcffzYxNSMIhfAVotz019k5JwT1dHcNDvQrJR0zuCdZCS43AHvipk1Qm6OISEQIoI0JAzXQ37dj25a+3p7p2TljDJPXLmgdA7hSIdbGfvHVhShU24a3vnD6uBQikFJb67Egf0liDpTwxSzXb9379e/f/+DjL7Is6ygWmRsOFCI6Z7VhQursKI1s3bJ1y6CUMss1Q9PIAzcrjdZS9xuqmn1CXtAi4VYqlUBEAK11oFQYqm0jW7ZuGbx9dzTPcymEUso1u0qCICAy8+XyF19/8x/+4b9Xa7Xjh/cPDvRFK31npVq/+N33f3j/kz9/+On0zFwUBmEUWmuds75t0VhrciuVGhoc2D6ytaujBAB5boSglQp+Hz0augkjjI9c8zT+z2CMs9ZJSVuH+g/u2/XD9Ztj4xNOySiKfJea185E1FEqlSvVX/32D/fGxv/2p2+9cObk1sH+OA5bsHaa5rML5a8vXv7Vb//4wSdfzM3NF+JISgmIDODYEZIQIsvzJMm6ujoO7Nuzc/uwkgIAjLFCEBKtiCbwk1ZBD+/346pMgeCcA6D+3p6Txw5d/Pb7u6NjrI0QwjpmYGRw1gFCoKRzdr5c/vTL83PzCx9/cX7X9uGhwb5CoSCFTNJ0Ymrq9p2x76/f+v7ajdnZBSmFB5mtdS3bJ4WwxmVpNrB757PHDu/cNtx4w+J98WNSBC0tsGJS/km4oex9UOGYneNCHB8/fODQ/j1fXfy2nqTOOQCHbTEtAMZRFCpVqyeff3Xx4rffD/T1Dgz0dXZ2KCmq1fr49NTExHS1loSh6uwoCkHOsXUWGBDR63fn2BhLiDu3bX32+OG+nm7n2FgrxJNEw1YkwGLq8FHYgFWFWhCxc0maFQvRnl3bTxw9+NfPvrpx806aZoDgczUNQfEdboBBGCCRNWZiamZ6bk4IgQjOsrHGOhdHgQoUIDjrGnePDAAkyDnOshwRhoYGjh7af/jg3igK62kGDFKKxwhHt7z21bGZJ0Z/ImKAXGtmjsLg6KF9p5850tlRnC+XjTG+ur9V9GkdA0Achd1dHd1dnVEUMHOWpvUkMVYrJbs7O3q7u4pxjAC22UXmXx6+ni+XpZQnjh06deJoX08XAGhtvCv8tEkA3u84roCiLf99S89tLGGPiMY6JcWendtef+nMlR+uj45PeMMIGlu4qS9/09oCWmCQUvqCCWgLHTKtYUn5KDaLH8lal6bZzpHh11963mfWnOMlACCvABBtEpPg5af40JEwP4QA8gMeQEmhtUmzvKuz47lTx48fOdDd1eUc55lGANHA4Lh1yt6r91VyQRAEKlBKSSEB0DG7pZlFbCSWdZ7ncRTt37vzxTMntwwOaG2yPJdE9BQ0C9CDHMdVejaX33rznSsnAFbEohkQBQnnXJZrRNw+svXsc88++8wRpdRCucIeEWprXfbIu++b1MbkWudaa22MdX6mArYhX8wgiIiwUq1aaw/u3332+VP7du+QUmhjtTY+SOaWNK/wUJtisA2CGA+SANwU9P8APGUpNILoAXpB9OKZk++8/lJvT1e1VnPOiZaCvu9oGsnIxoXar9bSDOxLK2r1JAyDV1488/ZrZ7u7Oqx1DVzo6WiVofWqusfmkRKiFCLPTZ6b7cNDL79w6sjBfcViIct1lmtq5iCXUbdB35UY1/tOUpLWJklSpeTeXTtfffHMkQP7mDnPNSEKIZifhvESDybAGm5UG3i4jDNbv11LSltZARRE1lhjDQDs37P9rVdffOboYQao1utSCCkEO7fGaS27BV/PGyhVT7MkSXbv2PbGyy8cP3JASjLG5dogkXiE4EMrKb9Cdp4fhQT8WC/nOM91qVB45cXTr7/8fLFYqNUT02iTX5/G4EWsyTlOkgSJzpw8/pM3Xx4a6Mu1NsbgUzYIg9bWz20QPi7//bLijGbtzRKNsO4ENwlBRFmuBYkDe3e+/vJzRw/tKxULaZZpraUUhLSoM3jlbIOvd5FCWmPrSRootX/v7tdffu7MyaNxFGaZZgAPAa1Vmb7B6pvFR17ZN3kYCfgRdSQJRERnndZWCnH04L6fvfP6wf27a/V6LUkCpXzSZgVomJd6VgBBoDKdz87NDw0MvPfmqy+cPhEEyjVb730AuNEne3xCI9fUz0upiGuR9iHvz39cCGGsRQO93V3vvfnK2PjkrTujC+WKNoaZBRIvayTnJYxCghjYWJNrHQTq9ImjP3/3jd07tjnntLFLnNon5HRsNA5Yhxv6aMS4CRAJ4ZjrSYoIu3cMv/HScy+cPlEqFmbnFowxURQCwPISlWavMAOHYYCIc3PziHDq+JF3Xn/p2OF9QlC9nvrue8RN1j+s8jz88FriaTHCjWmZhIhgHWtjnXNHD+3/25++eWDvriTLkiT1LhMR3Z/jQGqgnrnW1WqydXDw5z954+xzJ6MosNZax37cCjx9rwfB0Yz3oR5rDvJjXlWKlyBIK6OtvnZBKam10QgD/T1vv3r2h+u37twbm51bqNdTKYQSwmukViknM0shASHNMp3nfX09z58+8d5br+7cMayN1bn2kOdj4BpcXWWtFxN7ypiimTxxzuW5Zoahwb63Xzv79mtnO0rFufmytW6FPnds9NLMzS0ww9nnTv7ivTf2790lhUjTzFgrhHiyJdAPIQErGF5cacJsy2bgui61Jmv4TKRgzrUJA/Xcs8ez3Nwdm/zo03PGGGslImGzyRGRBIFz1mjtnNuxbfiXf/P2u6+9pKTIco3eedrQ0a+/DR0fgSmnR8q9vAE+X/PvCCiEyHNdS9IgUGdOHv2bd14/evhAPU1n5xeUJCUb1T5CYBiE1Vp9fr68c9vIz95+7ZUXThcKsTYmTXNCXCvntaFb5k28gR9aAtZJXdzoxx6ccaMm9ukcd5QK77318kKlMj4xMTo2YTpKjakdzMBsrU3TLC7Eb7764t/9/N2RLUPMYIxFbMxV4Y0GVk8XGLciudfzTKtyDa4PTEUhiBBrScIAu3eMvPPai6+dfa6/t3e+XPUphL6eLmvt9MxMHEcvPX/qZ++8duzwfilFtZawYynlUwE5rOGYbJIA/PDRIq7jtpkIichYl2W5te7g3l2//NnbZ58/RSQWKlUfJC9UqmmaHTm4/1/9i5+cOXlUSJFrY4xBROGDXn4UAe4D37nyG/AxqKCHtVGrVtshgp/X3vYbBABJZK2r67Sjo/jq2dOVWn1scurri9/dvH0P2AVBuGvnjp+8+cq7r7800NdbS1J2LKRw3Bj/3n4130vB/DB+40Z4FJsPtjr2/bQMbPLlzSuOTPYNGrnRxtquzo6XXzg1MzsXBer8pcvamIP79rz92kvvvH52sL/XWpfnWkmplFzS9gXg22N9N+RD9rQ82tdy71g3Bzatj7gbUDe8kgD5//k+XueYBMlW+qU93GV27EgIJQQDT8/O//nDTz/94rw25tnjR9585YWR4SEppNbaOUZCbHS+t5t6dM5a63wT4GYJsEkxYcdCoFLq/jTEwxJg/UOLVyMAO3bAYRjIjdRIOevujU8557YO9fsq83VrUE7SnIEJ6WEJ0P4sa2rmNQiwibGVuN6zXtFm39cLBgiCRKN5MUmTNPMTTFpAQ/PKjWtbBwgYR8HwlkHfTT+3UPFWd6lctd2TA8ccKVUsxUTkJ9w0wrhNjZl6CMD3qbEBvtTHOhdFoRQ0NTN34dKV899cvjc2oY1VSgG7Rlnc0gDCGucYCnFUKMSImKZpPak760hKwmYfSJsNR0SjtXU82N978tihk88c2T6yRUqRJBk054E8DrWzwuE/jrmhm4ZX/LwgIhKCKtX6R5+e+z//4TdffP1NuVplQCWlc7ZZvNI+Db2xJsDP6YZGSrmRm1828t1jhohotHHMhULhmSMHf/k3b//ivTe2DPQREQD629jsseLDh28PLQFN3bdszdCat40MbKwNlJKCavXk86+/+U+/+t1v/vABIe7bszOOIl/849ghNqqnWl18hN6iNnYMYYsATd3JiyOcGQCaf8Vbd8ff/+jzNE07itHbr53t7u5CoHqSSaUI15ADfKjDeaqa9Nof0jmWUkpJ98Yn//iXTz74+Att9HtvvPLeW68UCwUPOPv6hqVV3q3WVu9b+zTCMoi7QQBfroXAUkoA/OzcN//5V7/9/KsL24cH9uza/nx/HwA4yyCAW6XAP7p7uvHp6cvMPS6dz4gPOH3fge2xNg+TXb1+66+fnltYKL/0/LP/0//wL998+QUhSGvzCMarMgCCMUZJyQCHD+xdKJd//U9/+uzLC6+cff75UycAQAgJzM66ZrvykglmuCFNe7/039ek94T6A7ixYgERidBaxwBSELObnat8dfG7S99f6+7qePf1l1978XRXZ+kx3cWpZ4789J1XL125+v0PN7688O279yaGh/qkJGC2loUkYHDsEPHHjNQ27obiZmbjIqIkavQsskGiKFRpln39zZVPvrhQqdZOvvDsC6ef6ewoOefSTGdprpTEhovCD/LssN1hbd2UhwC0NkrJOAqJ8NTxI6eeOfr99dvnLnz30afn3nvrpZ7uLmudy3LVmNzkfEy+LsZfxvK4GX9JrkPPbL5Zo9HFiBgEizFIS7c45z776sL5S991lYpnThw7dmi/lLJSqzvrAMA614wS3X3hD/q5G4szpFvuZ5tGbLUdGWOr9aSrVNi1Y+SF08/85dMvr1679ucPP3rh1NGe7i4hqBBHzWsJAEgz3VCVj18OHrsbigBCiFzrWi0pV2pJkmpjSsW4v6/76vVbn577enpm9tSxw88eP9zX2+3X9CghRCB47fhzqSyuUd+PAVprs1wzQCGOjh3ef/Lood/+4U+ff3Xx628u9/X1VmvJ1PScVCIMVVepVCyVlBTOsW3MUnk8YdkDCIBtvLYOLliuiFrNXYhSCCHo9ujY7//88fnvruRpZrWJo3DnzpGJqZmvLnwXhsHJZw7v27PTMVtjtTENX59X+pKWRmoNV1pi/1sd74sf8gtRPA0CJYe3DJ559tj5by7fvDP+X3/7p+u37o6OTc7OL6ggIEF7d25/942Xjh7aL4Swrj1afpB6WQ5FrFcdPTYjzOyYAyWlpFybq9dv/Zd//KePP/lCBCpSSkkxNNifZFm9Vj918thP33nt2KF9hEhK9vd0P1a537V95KdvvXr12u1f//MHf/3sq8tXfpicnknS3AHUKtUD+3YP9Hbt3jHS2dkhHFnjfGf947sfWiu/sJ6SWG4w65IGc2rUc/ldUmmWTU7N3Lk7Wp2aTtNUCKEt3xkdHxuf7OwonTx2+Nnjh/0MP3jcCUEGADh2+MCpE0eGBnpnZuZu3hmtp5kQMs91fWb29t2798Ymq9U6AjRxWV50Ttb2TRA3ket5XBLgl4X4eDVQsqerY3Cgd2Kgr9TT09vTk+l8fmGBrCkWonpS/+SL88U4rlbrfqr8ypoW7/Ns28fmrOKxt9rMWuhFZ0cRACcmp8JAKEGI2NnREcVRXA8xy4YGBnp7un0Jnu8iftxmWK6LZ9baZ7sCGOsBHAForAPEOIoO7tv9zusvDfT1OMO1JB2fnomiMFDCGHPu/KWr128hkM5zQKA15R2XEWCt41ncF9SQUgYAVIECgFq1Wq1Wi8UCIAVB0NvduW/XCBzev2vH9hPHjnR3d1rntPYIKz1WwVx5gwZu1JisgoY35vwQpll+++69mbmFsbHJP/31sw8+/ryeZqVCbIzO8jxJG6O62xzL9RSvtC/xgfvDgKZvviQv6fVlqFQYqjCMkixH5jMnj/383dd3bB/pLJW2b9vqwxFr3YPaOB54OE146rHvkFlt9SoCM6epjuPo6KH9OtcffPxlmqULC2VtXRyGubHGWN9NRySaBsW12SdeBRdo87xWJgAvIWQDmgZ2zrcRa+OEdPUk0VmWJElXR+eZE0eLxZgZKtW6EOIxTfDYKAE2vw2wLeWCQhIAXP7h5j/85g+fnfvGWscMtXoiiKIgIBJe82jjrDXMuBIu1nauiyEXLjnrtdgUhRBSkM9D+CGYSZpZbQDw0uUf/tOvftPRWXjzlRf8AnLPOriR/bVNLfDUbNJDX0qOGATSOZ6emfvjh5/+5p/fv3H77tBAXyhFrjU7hwBCSr91QUqhlGrsoG5DmJef5/oJ0DZdkp3LssxY5xNBXukpqYjo9uj4wh8+GN4yuGPb8M7tw0Egmf0kCfHEJWANvbf8p/t5wzkmhCCSxtjbd0avXr9ZrlTCMBga7O/r6czyfHp6bmaunNQS55wUVCoVotA3ATCgW90JaiE/uMaRt7Swx9Zyndeq9UxbIYSQ1FkqDfX3FIvFLDdJliVpcuP2vRu37m4Z7C/EUZ4ZZ1kKgHVX9eIKafInFIh5j8M5yI3zM+qttZMzs6Pjk1mutw1veeOV548d3AsAo+PTt+6NTc3Mzc3Oz80vLJQr1VpdKeXXW/iDxsXExirswEtQIG51aDYDeWNMpjUw9/f1dHd39/X29PZ0j2wd3LltSxRGd0YntDHffHdlbGJqdGIqy/JiIWYAbR1aIHpAzfGjloCGu7bqE68xC2j5lXwsQo01ALnW5WotzfORrUM/eePl1156Lg7D+XLl7tjE2PjkvdHxq9dufX3xu+u37yZp6qfNI5HPO27o+bEtHgQAa621Ng7D4S2DJ48dOrR/z45tI1uGBka2DAz29zrm85euXPnhxvlLl+cWKrV6YowBACQAZNj8NpMfxQa0NLBz4BpLlRERBEEgMZLESggSAOAYnGNrLDtbKsRDA32lQgwAfT1dcRxuHx6qHNhz4tihwwf2vv/R5x99dm5mfr6jWFRCaNfkiDX0AC/JhbVUAQnBztXqSRwGzxw9+OYrL5565vDw0EBXV2cYBKVSwb9xsL+vu7MTEawxLTQ6lMQRhQEZB7lmYxvt9QSIBKK5LLrlEuByVcwNHsSNEsDDD+tjueY8PCAC8n0SiIQgBCAhIGSamZ0QzasCAHOe55VKPcu1b16UJHq7u3q7u3ZuGz5++EB/b8/d0fHxqWljbKgWn2j5XBluq39AbMvMLRY3IoB1Ls3zrUP9P33r1X/7y/f6errbwx0piBlqtSTLc+DWxEAAAMvgGIBAEUggx2AduIZi4/Znf0h0dDMLnb17Yh0bx45REIQSA0VIovVpbcxkWU+V00iKXVtDSYDoEBFJlqv1qZlZ/0WCSASLJxuGwQtnTuz9/c6Ll68aY3NjWsi/UoEQBIujgBiX1T+gd3U41zk7BwjWGK2NknJkeOtzzx5vnT4ABEq2nmV2YWFuvuyYkQi4Mep4tmZmyiaORV+BSjEJkKKBa7g8d5lm6xgRhMDWYEy+XxHi41FBftIaEcSSpCASDWmoJLaSmErdTtf4h4ns2ni9kuSHRwo9PV19CsA5JBkGwdT07KdfXujv69m5fdiP3ENE66xvBp6ans1zHQSBzrV1TggiImNMmlWddYt1F8iL4a6Pt9BPSBFCkJLk2Z+ZwyAA4LujY91dHcycZloKco7DMCTimbmFjz//6tbde0KQUoFxjWlpd2fNB99WJ6rVoQ5xdCQc7g06i6IUUiHAIKAgBHCsDVhm6wDcJmatbIQASycxgLHMAKHCICAvM9XE3J7Rl8fSb+/Wb0zp0QV3dSwfm0m6S/B3z9M7GfcrsNYKIeMonJ2d++NfPr4zOjY42KeUctYiIBCJRp/X/KXLPzhnpZLUFClrbVJPsjz3y6l8SLuCSrROKlksxEqSdz+lFGD43t2x//2//Grr0KAQkp1jYHZMQjh2c/Pl6zfu3Ll7L1QqCEJjDDvHALM198F3td9dqgWSTu6Mdw2GO/rk/qHg4JZg72DY06GASAXM2uaGgVnQsrKkx2CE2atFgGIkpCQArqX27py+PpF/cyf5bjS7NpmNzuX1zCIKx7i1J9w9IPYOhKUAjAPrQAgSglLnJian58plKZUQAoEbq0UYnHNJkjpn/aDJ1hqrKAq3DPZ3dXQQkWsU1fHydZmIgqhWT2bn5utJAsCCiBClFPPl8ieffx2GoZSKGn2VwMCOwRhjtMnyXAihhAAE6xwAdBfljj453C2mq3x1Ql+dzAPBAyXaNRAc21Y8tiPaNxRs61XdBREoYufS3FrHtPFk/nqT8h6gYQSJKCUC89icPnez/uGV6qfX69+PZtNVIxB7S2JnX7BnINi9Jd43VBjpgp0DarCEtRpbBkHoGIIwKBZjY22lUmvVi7fsKgkRKOnbTtmxdVYbM7x16Cevv3Ts0H4kMsaCxwnaCOCn30ZhcOfu2G//+OGFS1ecs6QUNLbBgdamUqk2CoUWoSMMw6BQiHKt81wjsiByDAiwZ0D9uxc6n91dvDljb82YH8brN6fSC7ezr26m71/O9g6pM7vCs/uLp3YV9g5FRCiJnGuDJHm9Mdm64gDXtDClkIBouqq/uF7/y+XaR9/Xvrtbr2WuuyhP7yrsGwoODce7B9RIjxzsCQa7ghBtIBpFVOBL2AAQUUiJREpbZlqE7ZkRgYTwCh4BrLXaaAAeHux/69UXTxw9iERGGyFoGZdYZ4UQUoixiakr125dunw1yzNBJKRsuKQkELFRaYqLiQQlRauLGJFb8EZnhEe2RYd2qLkaT5T1nan45lR2ZTy7PqlvT9tvbtW/v1f/5Gry/L7iqweLz+8t7BwIVcD11Da8VVxXnfN6VRAzCAFKgAMen8v/+G31P38+//HV+kzZ9MT4/J7C2QMdp/cUDm1VO/vCQixbspSmbB2KNue2laXx9qBZt0ftwKWxFn1JIloAkEKUioXB/p7urg7Py0otv21jG6Mg+nq7i4VYSumH1XvnlQj8MnNcMkUV2DEK4bstF9ej+7t3LAi7irKniHsG1dm9UZrx3Xl9dTw/d6P+ydXq+dvJuZvJlfH84u3k3lzXz0927R5SoURjWVvgVrEkPGBs5cpxALcbFAYACCSR4O/H0r//vPLfzpW/uZewwxf3F985UnrpQGHflqi/Q3bGuCh1jo11xjJRa3OC99AZF9sfnWdOSUiNAc7IzEJI3+AoiHxHRprld8cm+/t6jTVZpqUggPb2R2bHQpCS8s7oeLlSFYLiOAqV8hd1jY2ghE21Zq0PG1ksViQiMzIvRhjWsdZOCCQCQIgi2jcUDfcER7eFrxwqfv5D7fffVD67nn5yLZmuunuz+t++0Pnc7kIYkE4aKgMR8SE36TkHhOCXbY3Pmz9cqv2HT+a+vpH0dam3jnf8yzPdbxwuDvcoD31ay1lutAHHDZY3htszjNzmVDlrrbMI6PeFOef7hzxu5nMzzI6dY+vclWs3/4+///WnX563zvldVT74Xay+AEDEQImxyalzF75dKFcBwGjTMBWAgOhDKL+wzOMczIDogFeAPB2ANlxLracGESiBgaRCSDvCaEd/dHx7fGBrtOOr8j9dqn1zp17NdDGEnqLaPRQoic6xcSBps15Qa06ZdUwCAoW1jN+/nP7qXPXKaFqM6M3DHf/LG31n95c6Y2BnnQXt8V1AKduSWg4Il+EWLS7zokDsWGuT5dr5jeVES1aPITDgrTujt+6MCkIiQiRurXlezLY0oiRjbXPXSRMPB/CbIRwzMBNiEARRGFLLGjcq3v36W2r5MUQYSGquXvSLz1hbKwQogb0l+fbx7q09Sir8+8/06Lz+zcVaX2f4r+OurV3Sas60k4RL9M9KJkGuASwxACH42b5TC/kX12vnbiTa4sv7C393uvPVg4VCKIw1lbpt6nckQkKgJpt7KLH5PEIppZSCxjxD6bEuISBQsrtLSiG4MXGbERuVb145ZFlerVbTLPMVFwzLCND4wVmnlCoVi1EUYjP72IKviRr0dr7w2jkGFkJISUIIYJZycVW9lxUi8PR23ISzmFkDM5RiLobquT2FubqdKtvfXax8ey/55IfK83ui4S4pRKOs/oFItlwbUpYCJSEwTy1k92aT2ZoOlNi3JT64NQglWGcy7RAxlEgIrq1MCnlF9BTb+EswO53nhUK4Y2Trrh3bent7GCBL88a5t6M7XlwAV0HllrQxMbADwMbGeUYAB+Cs9VPV60l6b2zyxq27M7NzSBgohQ2nCNkt75NtDePzHEYCFSIzZNqlmSPUQuDugfDg1sJfryZjs8noXDoxnxlbkAKlxGbJ+2Y7ZBA8xAbAkGlXz4wDFyplGMsZMJIkJHC5ZgIQ1NLfKyRHHHO9Xl9YKJfLFWtNIY7iCKv1+sL8wpah/t27tr/z2tn9e3Yyos41ISLholvEgIRSNPrI1oBFvW031lrnHZGGLnUA1hjvCE1Oz374yVc3bt2bnJ7xQ9m14Xo9yXVeLlertXpjshmuMKeEGazz44w4CkhKAcALdVPLTCAAERMNiW4YqHaO3IwE+K+0DJZBIhYj2RHLYiSs4ytj2YdXky09av9QEEcCmvaQmvHa/QAGIUShCpTw08OsY8uc53mSpkEQ7N2149njR/bs2vYjJMGnZ+fHJqYLUZimmZ8earT1XoAKVBzHK6YhF5NzCFKgFFQIhXM0Op99eLV2/mY1SU0ciFIUlGLp94Bby6vs3FonAQiYwRgmBKnEYHe4c6Aw3K3H5vWNyfSDbyEg+9bRjud2F+M4ALBGW20gN+wYENi3bnlz4JwLlNq3d+ezzxy+Nz45O1/u6+0JlETgUiE+tH/Pvj27+np7mn4X42OY6WwtC4EAUIzj7cNb9u/dMToxSSR6uruMzpldGAYnjx8+fmR/Z2eJHVvLgH6VDVhfR8GgJAaKAuX1gvvubvLBldqfv02uTujMcH9J7uwLtnYrJOGs1ZZDiSuDVut3Q9lPg3fc1ylf3Fe6Pa1//83C2FzunMu0raZcS/nA1qAjplhhHFPM7IUU/JQwIAeca4dIu3bseOvVl+I4np1fiKMCIWqdIdLe3TsO7N1FRNVaYq0z1lLT9j6Qfdb/co5JkiBiB9tHtrz7xksjw1uMsUEQOGvq9bRQiE+dOHbowN5ABZl21rEQJKlhhwlBIACiA6jlrpLYmxPZ+5drf/qufuluNjrvOmM6vj1+9WBhe6/yPuh69xutVpjlFbDfX0dIYUjlxP7ufPl//ePMF9cTy1iKxHCP3NMvjmwLT+8pHt0Wb+8NQoWtSNIaNo61BWsdEQkpnNX1pJ5rA4wEQAIEURgGURQhkJ/t1lq8sP55SLx6dQwu9SmajibkeZamubaWG+uGWQgKwzhQyvpAnUAKVAKEQBINa2i0HV3Q341m527WL9xOr42lo/O6nLBDPDgS/8+vdP+b5zqHumSW+/4GaBX5bb4wy4/ksc5ZC90FevlAoZLYgQ751a309oyZLOvvR/nKWHZt0h7blu0dCnb0q76S6i6IUohxQBIp8laQEZAAoo7iCiuQtOU8M61lhYuJrqUjYB9IkVYZ6CKwwUscAXZADEEgO0qqY7VWKDZNKAwBIDeuWnPztXyuZu/MmOuT2Td36ufvpNfGdTkxgcAt3erYjviNI6W3j5W29ihulNSRpHXJwANKE5umuNHvGYWimri/Xqn+wxfzH31fv7dgcs2BpFBRZ8gDnbRrMN49GO4bCnYOqO09QX9JFCNqlnczsAMmvybMOG7iAeBX9qyY0ViSbXwQtMVtFSs+hOOVpu02v65RNtlwtbFFZAZgazjNeTZx42V7cyq/Mlq/PpnfnLaTC/lcRSeGrSMiGOpSZ/YUfnGi9PbRQn9noA37mrNlIMQaErAuAjhgn3kvREIIqibm4t3k3I3069vphdvpzalsumyctjKg3pIa6lbDPTTcE2zrCYe6RF8H9pZkd0F2F6moMJYQBxQpQtFasYLNKsTFzF4z1mqgR62G1OWgFq+Q/sPmfsOWH9pwjpckEGzTyUdnOTMuy13dcE1jNeWFlKcrZqaiJxb0+LwdnTO3Z5LxOT1b4yx3iNDTIXcNhIeHwxM74tN7i8dHwoFOAoZq6gBAIC6rbt08AZbZMQ/ylGIBSAt1e/FO+tcrta9v125OZtMVW005yTm3jpEDSR2h7CpgbwkHO8XW7mB7fzzUqQZK1FMSPbEoxRQHGAdCUmNcKDaRoOY58ZIFzrySOW6rDcPlpMBF2BOAoRlAe+o6No5T7ZKMy6lbSMx81UxV9GTFjs/biYobXbDTZT1fySqJyw07YEkQK1EKaaBLbe8Pjm2PXtgTn9geb+0NACBNrbZMBCumZB4NARqtzwCBQqUIAFPNEwt6bE5fm8i+n8i/H8uvjiV35/LZmtOawTkkCBUWQ+osyO5C0Fmgrpg6I+wqiM6C6IhEZ0GUQiyGVAhFIaBCQGGAkSQlWEkMJAYCBaFogRwE1F6Ty+02lhvVDA6NZeOctmwsawe55UxDmrtaxvXc1jJbT10143JqK6kr120lNQt1W66bcmLLiatmWEkh0c5qDdYphT2d4dZutWdA7d8SHBmJ92yJRnrVYIcoBQiE2rDW7JgJYcWBIY+GAI2okkFbdsyhxDgWrZzwrVnzw3j2w3j99owenbczFTNbySuJqWVQzyG3oK3HwlgShIrikOJAdMZUiqgjxM5YdsSiFFExxEJAoYQwEFFAsRJKoBQgBSoCKXy1VVthaHNuv2N2ANaBsZwZl2uXGpdrzjWkhmu5raWunLhqast1U01dJeVq5mrapZnLjdPWJ4NBEgRCxKEohqIzxq4I+0pipD/a1h/u7pd7B4M9A0FPR+CVQpba1DADBIII72+VfWQEWOIXNt0MRkKJKAUCgXWQGk5yW67bsXlzby6/M53dm9Nj83Z8wU1XzFzN1FKT5tZYdtAwupJIks/2YCApEKAIpERJqJRQkpQgQSCRpUBBIKk1AmURK2DXaL+wgH5eonbOGNYOjAVj2TjOfZxonbZsTEMyPNm8mVASw4AKoeiKRG+RtnTJrT1qW18w0iNHeoKRHtVdklFAkURFzIzWsXW+AR0ZYO1S9kdMAP9H69hYYAdEECoMFDYyFwDAdr7uZqpmpmpnqm6mamcrerqi52pmvmYqiSunrpzYWubqOaeaU21zw8ayMc3qJ6CmI9jS4YgE1AjRGgRogmXc7NZAZmbnYHGDNrTaNAiRBCrCUGKoKAqwGFIhoI5IlLySLMmeouwrip4i9XXIvpLo71R9JdkdCxKLTbK5tplmY9lDxR7AXhv1fEQ24AHVuOxziwJR+uoAQn8ixnKe23JqF+p2rm7na262ZqarZq5m52q2krhyYmqZq2euntlcs7ZsHBhmY8BY50fvOWhHd7F90Zlvim/VR3k8nIgEohAgCZSEUGEgKQ4oVlQKqRSJzqLoLlJXQfQXZU9B9BRld0l1F6kzpCggIZEWkwpsbIPfG9+Na57F/dWsTQLgoyWA97Y8Rti8PSZCRSgEStECNRfLmI3lVENdu3pmk5zr2qY5p5lNc060q+cuzTkznBtOjctylxurLVgH2oJ17Bx4aL7ZQs/YUGXov42IpUAlMBCkBAYSQkWhwiigUFIhwEhRHGDDwAQYBVQMMFYUSQwkNbtGcXFSnWNt2VjwuBChn+C+pDPhiRFgVeCFuVlE1IiKCLGhxP053d91wcDM2oKxkBvWxmXG5bZNlftKSMuWwbrWDitGACKUiILAl6UKwkBQIFAKUAKVpECiFKQEBMKXPbcj9M0FKJad89/VgN78IRIAEjwkPPj4e8SWvqitZrClM/zycAYg9koDm5OUmkoFKSAIFBQAAETjaJzfCQz+v8DcKk/kxXJory4YmgmM9jLblUCM1vIxdn7PeTPuc665JQvbKpXXDL2XTqz6ETpk1lW2jtjmGHCzuMg6nzr2BQmLVeWNjCY0Bk4K9KgZIoIHVAgBfJ3iyvuJ29wzhuZMswbrWb+fmxmauquV9MI2n8LXnXtbQksLPR/r1Pu1EjIPs0RyBbFAYATBvrAWV8TSFltbGBrDM1vIGtpVgTlGXu3Om2ftc73ErXTv8laSRgYNN3ToCA/dPPOjjixbbDxYpeOrwcFu8ee20h9e6ewWjwuXto1AqxylmV9qY/aViy+fyIIHuSEuhlUqHjd657ziqP0WC+IDlzg91IuX3zGu9xvWPzd71SDqiUrAalRcZ+Ll4dXg8rNYfjSPcID34+yS5PUJygYFC1cGOTd9LI92GvoS7bZxXttAbeimbn81dl6rg371zOIKs4c3LWJr/xIfgbyt8ozrnfb2NK7W+v/U6/8GH8+Gq64xwqAAAAAASUVORK5CYII=" style="width:22px;height:22px;object-fit:contain;display:block;"></span>Lacak Kendaraan</div>
     <div class="menu-item" data-route="drivers"><span class="ic"><img src="data:image/png;base64,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" style="width:22px;height:22px;object-fit:contain;display:block;"></span>Data Sopir</div>
-    <div class="menu-item" data-route="destinations"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M4 6l5-2 6 2 5-2v14l-5 2-6-2-5 2z" stroke="#161C27" stroke-width="1.8" stroke-linejoin="round"/><path d="M6.5 8.5c2 1.5 3 3 3 5" stroke="#161C27" stroke-width="1.4" stroke-dasharray="1.6 1.6" stroke-linecap="round"/><path d="M13 3c-2.8 0-5 2.2-5 5 0 3.5 5 9 5 9s5-5.5 5-9c0-2.8-2.2-5-5-5z" fill="#fff" stroke="#E0507A" stroke-width="2" stroke-linejoin="round"/><circle cx="13" cy="8" r="1.9" fill="#E0507A"/></svg></span>Data Tujuan</div>
-    <div class="menu-item" data-route="bookings"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="2" y="4" width="17" height="16" rx="2" stroke="#161C27" stroke-width="1.9"/><line x1="2" y1="9" x2="19" y2="9" stroke="#161C27" stroke-width="1.9"/><line x1="6.5" y1="2" x2="6.5" y2="6" stroke="#161C27" stroke-width="1.9" stroke-linecap="round"/><line x1="14.5" y1="2" x2="14.5" y2="6" stroke="#161C27" stroke-width="1.9" stroke-linecap="round"/><circle cx="6" cy="13" r="0.9" fill="#161C27"/><circle cx="10.5" cy="13" r="0.9" fill="#161C27"/><circle cx="6" cy="16.5" r="0.9" fill="#161C27"/><circle cx="10.5" cy="16.5" r="0.9" fill="#161C27"/><circle cx="18.5" cy="17.5" r="4.5" fill="#1F8A5A"/><path d="M16.5 17.5l1.3 1.3 2.2-2.6" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Booking Mobil</div>
-    <div class="menu-item" data-route="service"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M13.2 5.2a3.6 3.6 0 0 0-4.9 4.4L2.5 15.4l2.3 2.3 5.8-5.8a3.6 3.6 0 0 0 4.4-4.9l-2.2 2.2-1.8-1.8 2.2-2.2z" stroke="#161C27" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><circle cx="17.3" cy="17.3" r="2.1" stroke="#B7791F" stroke-width="1.8"/><path d="M17.3 13.9v1.1M17.3 19.6v1.1M20.7 17.3h-1.1M14.9 17.3h-1.1M20 14.6l-.8.8M14.6 20l.8-.8M20 20l-.8-.8M14.6 14.6l.8.8" stroke="#B7791F" stroke-width="1.7" stroke-linecap="round"/></svg></span>Servis &amp; Maintenance</div>
-    <div class="menu-item" data-route="docs"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M12.5 2.5H6a1.5 1.5 0 0 0-1.5 1.5v16A1.5 1.5 0 0 0 6 21.5h10A1.5 1.5 0 0 0 17.5 20V7.5z" stroke="#161C27" stroke-width="1.9" stroke-linejoin="round"/><path d="M12.5 2.5V7.5H17.5" stroke="#161C27" stroke-width="1.9" stroke-linejoin="round"/><line x1="7.5" y1="12" x2="14" y2="12" stroke="#161C27" stroke-width="1.6" stroke-linecap="round"/><line x1="7.5" y1="15" x2="14" y2="15" stroke="#161C27" stroke-width="1.6" stroke-linecap="round"/><line x1="7.5" y1="18" x2="11" y2="18" stroke="#161C27" stroke-width="1.6" stroke-linecap="round"/><path d="M20.5 9.5v6.2a3 3 0 0 1-6 0V8.5a1.8 1.8 0 0 1 3.6 0v6.7a0.7 0.7 0 0 1-1.4 0V9.5" stroke="#7C4FE0" stroke-width="1.8" stroke-linecap="round"/></svg></span>Dokumen</div>
-    <div class="menu-item" data-route="etoll"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="1.5" y="4" width="21" height="15" rx="2.2" stroke="#161C27" stroke-width="1.9"/><rect x="1.5" y="7" width="21" height="3.2" fill="#161C27"/><path d="M9 16.5l3-5 3 5" stroke="#0E9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="11.5" x2="12" y2="16.5" stroke="#0E9488" stroke-width="2" stroke-linecap="round"/></svg></span>Kartu E-Toll</div>
+    <div class="menu-item" data-route="destinations"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M4 6l5-2 6 2 5-2v14l-5 2-6-2-5 2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6.5 8.5c2 1.5 3 3 3 5" stroke="currentColor" stroke-width="1.4" stroke-dasharray="1.6 1.6" stroke-linecap="round"/><path d="M13 3c-2.8 0-5 2.2-5 5 0 3.5 5 9 5 9s5-5.5 5-9c0-2.8-2.2-5-5-5z" fill="#fff" stroke="#E0507A" stroke-width="2" stroke-linejoin="round"/><circle cx="13" cy="8" r="1.9" fill="#E0507A"/></svg></span>Data Tujuan</div>
+    <div class="menu-item" data-route="bookings"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="2" y="4" width="17" height="16" rx="2" stroke="currentColor" stroke-width="1.9"/><line x1="2" y1="9" x2="19" y2="9" stroke="currentColor" stroke-width="1.9"/><line x1="6.5" y1="2" x2="6.5" y2="6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><line x1="14.5" y1="2" x2="14.5" y2="6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="6" cy="13" r="0.9" fill="currentColor"/><circle cx="10.5" cy="13" r="0.9" fill="currentColor"/><circle cx="6" cy="16.5" r="0.9" fill="currentColor"/><circle cx="10.5" cy="16.5" r="0.9" fill="currentColor"/><circle cx="18.5" cy="17.5" r="4.5" fill="#1F8A5A"/><path d="M16.5 17.5l1.3 1.3 2.2-2.6" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Booking Mobil</div>
+    <div class="menu-item" data-route="service"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M13.2 5.2a3.6 3.6 0 0 0-4.9 4.4L2.5 15.4l2.3 2.3 5.8-5.8a3.6 3.6 0 0 0 4.4-4.9l-2.2 2.2-1.8-1.8 2.2-2.2z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/><circle cx="17.3" cy="17.3" r="2.1" stroke="#B7791F" stroke-width="1.8"/><path d="M17.3 13.9v1.1M17.3 19.6v1.1M20.7 17.3h-1.1M14.9 17.3h-1.1M20 14.6l-.8.8M14.6 20l.8-.8M20 20l-.8-.8M14.6 14.6l.8.8" stroke="#B7791F" stroke-width="1.7" stroke-linecap="round"/></svg></span>Servis &amp; Maintenance</div>
+    <div class="menu-item" data-route="docs"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M12.5 2.5H6a1.5 1.5 0 0 0-1.5 1.5v16A1.5 1.5 0 0 0 6 21.5h10A1.5 1.5 0 0 0 17.5 20V7.5z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12.5 2.5V7.5H17.5" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><line x1="7.5" y1="12" x2="14" y2="12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="7.5" y1="15" x2="14" y2="15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="7.5" y1="18" x2="11" y2="18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M20.5 9.5v6.2a3 3 0 0 1-6 0V8.5a1.8 1.8 0 0 1 3.6 0v6.7a0.7 0.7 0 0 1-1.4 0V9.5" stroke="#7C4FE0" stroke-width="1.8" stroke-linecap="round"/></svg></span>Dokumen</div>
+    <div class="menu-item" data-route="etoll"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="1.5" y="4" width="21" height="15" rx="2.2" stroke="currentColor" stroke-width="1.9"/><rect x="1.5" y="7" width="21" height="3.2" fill="currentColor"/><path d="M9 16.5l3-5 3 5" stroke="#0E9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="11.5" x2="12" y2="16.5" stroke="#0E9488" stroke-width="2" stroke-linecap="round"/></svg></span>Kartu E-Toll</div>
     <div class="menu-section-label">Lainnya</div>
-    <div class="menu-item" data-route="bbm"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="3" y="2" width="9" height="20" rx="1.5" stroke="#161C27" stroke-width="1.9"/><rect x="5.5" y="4.5" width="4" height="4" rx="0.5" stroke="#161C27" stroke-width="1.7"/><line x1="5" y1="12.5" x2="10" y2="12.5" stroke="#161C27" stroke-width="1.7" stroke-linecap="round"/><line x1="5" y1="15.5" x2="10" y2="15.5" stroke="#161C27" stroke-width="1.7" stroke-linecap="round"/><path d="M12.5 8h4a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 0 3 0v-9L19 6.5" stroke="#161C27" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 5.3c1 1.1 1.5 1.9 1.5 2.6a1.5 1.5 0 0 1-3 0c0-.7.5-1.5 1.5-2.6z" fill="#E0762A"/></svg></span>BBM</div>
-    <div class="menu-item" data-route="monthlyreport"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#161C27" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2.5H6.5A1.5 1.5 0 0 0 5 4v16a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 20V7.5z"/><path d="M14 2.5V7.5H19"/><line x1="8" y1="18" x2="8" y2="15" stroke="#0891B2" stroke-width="1.9"/><line x1="11.3" y1="18" x2="11.3" y2="12.5" stroke="#0891B2" stroke-width="1.9"/><line x1="14.6" y1="18" x2="14.6" y2="14.3" stroke="#0891B2" stroke-width="1.9"/></svg></span>Laporan Bulanan</div>
-    <div class="menu-item" data-route="hapusdata"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#161C27" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><polyline points="3 6 5 6 21 6" stroke="#C4302B"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke="#C4302B"/></svg></span>Hapus Data</div>
-    <div class="menu-item" data-route="settings"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#161C27" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="#2F6FED" stroke="#2F6FED"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Pengaturan</div>
+    <div class="menu-item" data-route="bbm"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="3" y="2" width="9" height="20" rx="1.5" stroke="currentColor" stroke-width="1.9"/><rect x="5.5" y="4.5" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.7"/><line x1="5" y1="12.5" x2="10" y2="12.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><line x1="5" y1="15.5" x2="10" y2="15.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M12.5 8h4a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 0 3 0v-9L19 6.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 5.3c1 1.1 1.5 1.9 1.5 2.6a1.5 1.5 0 0 1-3 0c0-.7.5-1.5 1.5-2.6z" fill="#E0762A"/></svg></span>BBM</div>
+    <div class="menu-item" data-route="monthlyreport"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2.5H6.5A1.5 1.5 0 0 0 5 4v16a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 20V7.5z"/><path d="M14 2.5V7.5H19"/><line x1="8" y1="18" x2="8" y2="15" stroke="#0891B2" stroke-width="1.9"/><line x1="11.3" y1="18" x2="11.3" y2="12.5" stroke="#0891B2" stroke-width="1.9"/><line x1="14.6" y1="18" x2="14.6" y2="14.3" stroke="#0891B2" stroke-width="1.9"/></svg></span>Laporan Bulanan</div>
+    <div class="menu-item" data-route="hapusdata"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><polyline points="3 6 5 6 21 6" stroke="#C4302B"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke="#C4302B"/></svg></span>Hapus Data</div>
+    <div class="menu-item" data-route="settings"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="#2F6FED" stroke="#2F6FED"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Pengaturan</div>
     <!-- BARU (v3.206.0) -- "Panduan Pengguna": SELALU tampil (lihat gerbang
          khusus route==='panduan' di applyModeOperatorVisibility()), tidak
          diatur lewat "Menu Mode Sopir dan Operator" sama sekali. -->
-    <div class="menu-item" data-route="panduan"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#161C27" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 17.5v-12z"/><path d="M4 17.5A2.5 2.5 0 0 1 6.5 15H20" stroke="#2F6FED"/><line x1="7.5" y1="7" x2="15.5" y2="7" stroke-width="1.5"/><line x1="7.5" y1="10" x2="15.5" y2="10" stroke-width="1.5"/></svg></span>Panduan Pengguna</div>
+    <div class="menu-item" data-route="panduan"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 17.5v-12z"/><path d="M4 17.5A2.5 2.5 0 0 1 6.5 15H20" stroke="#2F6FED"/><line x1="7.5" y1="7" x2="15.5" y2="7" stroke-width="1.5"/><line x1="7.5" y1="10" x2="15.5" y2="10" stroke-width="1.5"/></svg></span>Panduan Pengguna</div>
   </nav>
   <div id="petugas-box">
     <label for="petugas-select">Petugas aktif</label>
@@ -1410,15 +1411,15 @@ const STORAGE_KEY = 'fleetops_data_v1';
       di worker.js; (b) kalau kata-kunci pemicunya masuk akal dikustomisasi
       user, bungkus dengan withAliases(defaults,'kategoriBaru') di worker.js
       lalu tambahkan entrinya ke ALIAS_KATEGORI_CATALOG di index.html supaya
-      Super Admin bisa isi alias sendiri tanpa coding; (c) kalau perintah
+      Administrator bisa isi alias sendiri tanpa coding; (c) kalau perintah
       itu SENGAJA rahasia/tersembunyi, pertimbangkan juga menambahkannya ke
       HIDDEN_FEATURE_CATALOG supaya bisa dinyala/matikan manual dari UI.
       Jangan sampai ada perintah bot yang "yatim" -- tidak muncul & tidak
       bisa diatur dari menu ini sama sekali.
    7. WAJIB & KONSISTEN kalau entri CHANGELOG baru menyentuh/membahas PIN
-      Kelola Super Admin atau PIN Super Akses (Super Akses/Insight/
+      Kelola Administrator atau PIN Super Akses (Super Akses/Insight/
       Mode Sopir) -- ATAU topik apa pun yang berkaitan dengan keduanya (cara
-      daftar Super Admin, keberadaan menu rahasia, dst): angka PIN-nya
+      daftar Administrator, keberadaan menu rahasia, dst): angka PIN-nya
       SENDIRI SENGAJA TIDAK PERNAH ditulis eksplisit di teks catatan, pakai
       istilah generik ("menu rahasia di Telegram", "PIN Super Akses", dst).
       Ini berlaku SELALU, bukan cuma sekali ini -- termasuk kalau CHANGELOG
@@ -1428,7 +1429,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.208.2';
+const APP_VERSION = '3.211.2';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1800,13 +1801,13 @@ function loadData(){
       // notifikasi berkala, cuma penerima lampiran bukti trip). Lihat panel
       // "Admin Finance" di menu Pengaturan.
       financeAdmins: Array.isArray(parsed.financeAdmins) ? parsed.financeAdmins : [],
-      // Super Admin -- didaftarkan lewat PIN Kelola Super Admin di Telegram (server-side,
+      // Administrator -- didaftarkan lewat PIN Kelola Administrator di Telegram (server-side,
       // worker.js), field ini di sisi app cuma DIBACA (read-only) untuk
       // ditampilkan di panel & dipakai target tes/approval. Sebelum v3.200.0
       // field ini TIDAK terdaftar di SYNC_COLLECTIONS sama sekali -- akibatnya
-      // walau registrasi Super Admin via Telegram sukses tersimpan di cloud,
+      // walau registrasi Administrator via Telegram sukses tersimpan di cloud,
       // aplikasi tidak pernah menariknya masuk (tetap tampil kosong/"Belum
-      // ada Super Admin" selamanya, di semua device manapun).
+      // ada Administrator" selamanya, di semua device manapun).
       superAdmins: Array.isArray(parsed.superAdmins) ? parsed.superAdmins : [],
       admins: Array.isArray(parsed.admins) && parsed.admins.length ? parsed.admins : defaultData().admins,
       // Toleransi jarak "hilang" (gap odometer) antar-trip per HARI yang
@@ -1819,7 +1820,7 @@ function loadData(){
       // disimpan selalu balik ke default tiap reload/sinkron -- baru ketahuan
       // & diperbaiki bersamaan dgn penambahan notifRolePrefs di bawah.
       notifSettings: (parsed.notifSettings && typeof parsed.notifSettings==='object') ? parsed.notifSettings : defaultData().notifSettings,
-      // BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin).
+      // BARU -- Notifikasi Telegram per Peran (menu khusus Administrator).
       notifRolePrefs: (parsed.notifRolePrefs && typeof parsed.notifRolePrefs==='object') ? parsed.notifRolePrefs : {},
       // v3.204.0 -- BARU: Menu Mode Sopir dan Operator (menu khusus Super
       // Admin) -- lihat getModeOperatorMenuPrefs(). Kosong di sini SENGAJA, sama
@@ -1845,7 +1846,7 @@ function loadData(){
 function defaultData(){
   return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], notifAdmins: [], financeAdmins: [], superAdmins: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
     notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 },
-    // BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin, lihat
+    // BARU -- Notifikasi Telegram per Peran (menu khusus Administrator, lihat
     // getNotifRolePrefs() & renderNotifTelegramRoles()). Kosong di sini
     // SENGAJA -- nilai default sesungguhnya (yang meniru perilaku LAMA
     // sebelum fitur ini ada) diisi oleh getNotifRolePrefs(), bukan di sini,
@@ -1944,7 +1945,7 @@ function getNotifSettings(){
   return { ...NOTIF_SETTINGS_DEFAULT, ...(state.notifSettings||{}) };
 }
 // ============================================================================
-// BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin, PIN Super Akses
+// BARU -- Notifikasi Telegram per Peran (menu khusus Administrator, PIN Super Akses
 // -- SAMA dgn PIN Insight, lihat titik "·" di "FleetOps — Stay in Control").
 // TERPISAH TOTAL dari notifKategori per-SOPIR INDIVIDUAL yang sudah ada
 // (Data Sopir, dikunci PIN Insight juga) -- ini pengaturan level PERAN
@@ -1953,23 +1954,23 @@ function getNotifSettings(){
 // TAMBAHAN di atas izin peran ini (harus keduanya mengizinkan), bukan
 // pengganti.
 //
-// v3.184.0 -- Super Admin (state.superAdmins, didaftarkan via PIN Kelola Super Admin di
-// Telegram) SEKARANG JUGA ikut diatur di sini (kolom "👑 Super Admin"),
+// v3.184.0 -- Administrator (state.superAdmins, didaftarkan via PIN Kelola Administrator di
+// Telegram) SEKARANG JUGA ikut diatur di sini (kolom "👑 Administrator"),
 // SEBELUMNYA sengaja dikecualikan & selalu menerima semua kategori. Default
 // di bawah SENGAJA meniru PERSIS perilaku lama supaya menambahkan kolom ini
-// TIDAK diam-diam mengubah apa yang sudah diterima Super Admin: 9 kategori
+// TIDAK diam-diam mengubah apa yang sudah diterima Administrator: 9 kategori
 // alert lama (doc..speed) tetap default TERCENTANG (dulu memang selalu
-// dikirim semua), sedangkan 3 kategori BARU utk Super Admin -- Resi
+// dikirim semua), sedangkan 3 kategori BARU utk Administrator -- Resi
 // Perjalanan, Approval Booking, Laporan Bulanan -- default TIDAK tercentang
-// (dulu Super Admin memang tidak pernah menerima ketiganya sama sekali).
-// Resi Perjalanan Super Admin juga py aturan tambahan: kalau sopir pemilik
-// trip itu SENDIRI terdaftar sbg Super Admin (Chat ID sama), salinan resi
+// (dulu Administrator memang tidak pernah menerima ketiganya sama sekali).
+// Resi Perjalanan Administrator juga py aturan tambahan: kalau sopir pemilik
+// trip itu SENDIRI terdaftar sbg Administrator (Chat ID sama), salinan resi
 // itu TIDAK dikirim ke dia -- dia sudah dapat resi-nya sendiri lewat jalur
 // Sopir, tidak perlu laporan balik ke pembuatnya sendiri (lihat worker.js).
 //
 // Default di bawah SENGAJA meniru PERSIS perilaku pengiriman yang sudah
 // berjalan SEBELUM menu ini dibuat, supaya menu ini tidak diam-diam
-// mengubah siapa dapat notifikasi apa sampai Super Admin benar-benar
+// mengubah siapa dapat notifikasi apa sampai Administrator benar-benar
 // membuka & mengubahnya sendiri:
 // - Admin (notifAdmins/TELEGRAM_CHAT_ID): SEMUA kategori (sudah dapat semua).
 // - Finance (financeAdmins): cuma Servis & Dokumen Mobil (sesuai blok
@@ -2006,7 +2007,7 @@ const NOTIF_ROLE_CATEGORIES = [
 const NOTIF_ROLE_PREFS_DEFAULT = {
   // Default SENGAJA meniru PERSIS perilaku SEBELUM 3 kategori ini ada,
   // supaya menambahkannya TIDAK diam-diam mengubah siapa dapat apa sampai
-  // Super Admin sendiri yang membuka & mengubahnya:
+  // Administrator sendiri yang membuka & mengubahnya:
   // - resi: sopir SELALU dapat resi trip-nya sendiri (tidak pernah
   //   opsional sebelumnya) -- admin sudah py pengaturan SENDIRI 3-pilihan
   //   per admin (tidak usah/ringkas/lengkap) di panel Admin Notifikasi,
@@ -2023,7 +2024,7 @@ const NOTIF_ROLE_PREFS_DEFAULT = {
   //   default admin:true, finance:true, sopir:false.
   // - simGps & gpsAlert: kategori BENAR-BENAR baru (belum pernah ada
   //   pengiriman sebelumnya sama sekali) -- default meniru pola
-  //   kalibrasi/budget (Operator & Super Admin true, Sopir/Finance false).
+  //   kalibrasi/budget (Operator & Administrator true, Sopir/Finance false).
   //   gpsAlert TETAP tidak akan pernah terkirim ke siapa pun sampai
   //   watchlist kode alert-nya diisi (lihat panel di bawah), apa pun
   //   togel di sini.
@@ -2042,10 +2043,10 @@ function getNotifRolePrefs(){
 }
 // ============================================================================
 // BARU -- Katalog alias perintah bot Telegram yang bisa diisi SENDIRI oleh
-// Super Admin (tanpa coding/deploy ulang) lewat panel "✏️ Kelola Alias
+// Administrator (tanpa coding/deploy ulang) lewat panel "✏️ Kelola Alias
 // Perintah" di renderNotifTelegramRoles() di bawah. `defaults` = kata kunci
 // bawaan (TIDAK bisa dihapus dari sini, sudah tertanam di worker.js) --
-// kalau Super Admin nambah alias baru, itu TAMBAHAN yang disimpan di
+// kalau Administrator nambah alias baru, itu TAMBAHAN yang disimpan di
 // state.commandAliases[key] lalu dibaca worker.js lewat withAliases().
 //
 // WAJIB DEV: kalau nanti menambah PERINTAH/kata-kunci ketik-bebas BARU di
@@ -2062,14 +2063,15 @@ function getNotifRolePrefs(){
 // baru yang belum pernah ada logikanya) tetap perlu developer menambahkan
 // logika pemicunya dulu di worker.js -- begitu logikanya ada & didaftarkan
 // ke NOTIF_ROLE_CATEGORIES (togel centang per peran) + di sini (alias),
-// Super Admin baru bisa atur & beri nama alias sendiri selanjutnya TANPA
+// Administrator baru bisa atur & beri nama alias sendiri selanjutnya TANPA
 // coding lagi.
 const ALIAS_KATEGORI_CATALOG = [
   { key:'oli', label:'🔧 /oli — status servis ringkas (Sopir)', defaults:['oli','ganti oli','cek oli','oli mobil'] },
   { key:'cek', label:'🚘 /cek — ringkasan trip berjalan (Operator)', defaults:['cek','cek mobil','mobil','sopir'] },
-  { key:'lokasi', label:'📍 /lokasi — lokasi terkini mobil (Operator & Super Admin)', defaults:['lokasi','lokasi mobil','posisi','posisi mobil','lacak','lacak mobil'] },
-  { key:'service', label:'🔧 /service — 3 data servis terbaru (Operator/Super Admin/Finance)', defaults:['service','servis','maintenance'] },
-  { key:'kecepatan', label:'⚡ /kecepatan 🔒 — ranking kecepatan (Super Admin, tersembunyi)', defaults:['kecepatan','speed','laju'] },
+  { key:'lokasi', label:'📍 /lokasi — lokasi terkini mobil (Operator & Administrator)', defaults:['lokasi','lokasi mobil','posisi','posisi mobil','lacak','lacak mobil'] },
+  { key:'service', label:'🔧 /service — 3 data servis terbaru (Operator/Administrator/Finance)', defaults:['service','servis','maintenance'] },
+  { key:'kecepatan', label:'⚡ /kecepatan 🔒 — ranking kecepatan (Administrator, tersembunyi)', defaults:['kecepatan','speed','laju'] },
+  { key:'notiflog', label:'📋 log/notifikasi/cek notif 🔒 — 7 Log Notifikasi terakhir (Administrator, tersembunyi)', defaults:['log','notifikasi','cek notif'] },
   { key:'saldo:et', label:'💳 Pintasan Saldo — E-Toll', defaults:['etoll'] },
   { key:'saldo:tk', label:'⛽ Pintasan Saldo — Sisa BBM (Tangki)', defaults:['bbm','tangki'] },
   { key:'saldo:od', label:'🛣️ Pintasan Saldo — Odometer', defaults:['odo'] },
@@ -2092,11 +2094,12 @@ function getCommandAliases(){
   return (state.commandAliases && typeof state.commandAliases==='object') ? state.commandAliases : {};
 }
 // BARU -- togel manual utk fitur/perintah TERSEMBUNYI (rahasia), supaya bisa
-// dimatikan/dinyalakan Super Admin sendiri tanpa coding. Default SEMUA
+// dimatikan/dinyalakan Administrator sendiri tanpa coding. Default SEMUA
 // tetap AKTIF (perilaku lama) sampai sengaja dimatikan di sini.
 const HIDDEN_FEATURE_CATALOG = [
   { key:'kecepatanCommand', label:'⚡ Perintah /kecepatan (ranking kecepatan sopir lewat chat)' },
   { key:'namaSopirLookup', label:'👤 Ketik nama sopir persis (lihat detail statistik/kecepatan 1 sopir)' },
+  { key:'notifLogCommand', label:'📋 Perintah log/notifikasi/cek notif (7 Log Notifikasi terakhir lewat chat)' },
 ];
 function getHiddenFeatures(){
   const saved = (state.hiddenFeatures && typeof state.hiddenFeatures==='object') ? state.hiddenFeatures : {};
@@ -2105,11 +2108,11 @@ function getHiddenFeatures(){
   return out;
 }
 // ============================================================================
-// BARU -- Halaman menu khusus Super Admin: "🔔 Notifikasi Telegram per
+// BARU -- Halaman menu khusus Administrator: "🔔 Notifikasi Telegram per
 // Peran". Cuma bisa dibuka via titik "·" di "FleetOps — Stay in Control"
 // (PIN Super Akses, sama dgn PIN Insight) -- lihat wireInsightPinTrigger &
 // refreshInsightPanels(). SENGAJA TIDAK mencatat activityLog sama sekali
-// (baik saat dibuka maupun saat Simpan) -- ini menu Super Admin, bukan
+// (baik saat dibuka maupun saat Simpan) -- ini menu Administrator, bukan
 // aktivitas operasional biasa yang perlu terlihat di riwayat aplikasi.
 // ============================================================================
 // BARU -- katalog gabungan: setiap item mewakili 1 kategori notifikasi
@@ -2126,23 +2129,24 @@ function getHiddenFeatures(){
 const SETTINGS_ITEM_CATALOG = [
   { id:'doc', icon:'📄', label:'Dokumen Kadaluarsa', desc:'Notifikasi berkala dokumen mobil yang mendekati/sudah kadaluarsa.', notifKey:'doc', aliasKey:'saldo:dk', akses:'Semua peran (notif berkala)' },
   { id:'service', icon:'🔧', label:'Servis / Ganti Oli', desc:'Notifikasi berkala servis mendatang, dan perintah /service.', notifKey:'service', aliasKey:'service', akses:'Semua peran + Sopir/Operator/Finance (/service)' },
-  { id:'etoll', icon:'💳', label:'Saldo E-Toll Rendah', desc:'Notifikasi saldo kartu E-Toll menipis, dan pintasan Saldo.', notifKey:'etoll', aliasKey:'saldo:et', akses:'Sopir, Admin, Super Admin' },
-  { id:'bbm', icon:'⛽', label:'BBM Menipis', desc:'Notifikasi sisa BBM tangki menipis, dan pintasan Saldo.', notifKey:'bbm', aliasKey:'saldo:tk', akses:'Sopir, Admin, Super Admin' },
+  { id:'etoll', icon:'💳', label:'Saldo E-Toll Rendah', desc:'Notifikasi saldo kartu E-Toll menipis, dan pintasan Saldo.', notifKey:'etoll', aliasKey:'saldo:et', akses:'Sopir, Admin, Administrator' },
+  { id:'bbm', icon:'⛽', label:'BBM Menipis', desc:'Notifikasi sisa BBM tangki menipis, dan pintasan Saldo.', notifKey:'bbm', aliasKey:'saldo:tk', akses:'Sopir, Admin, Administrator' },
   { id:'booking', icon:'📅', label:'Booking Mobil', desc:'Reminder booking mendatang, dan perintah booking/pesan/keep.', notifKey:'booking', aliasKey:'booking', akses:'Sopir & Operator' },
-  { id:'tripLama', icon:'⏰', label:'Trip Kelamaan Belum Tiba', desc:'Notifikasi trip yang sudah lama belum ditutup.', notifKey:'tripLama', akses:'Sopir, Admin, Super Admin' },
-  { id:'budget', icon:'💰', label:'Budget Bulanan', desc:'Notifikasi budget bulanan mendekati/lewat batas, dan pintasan Saldo.', notifKey:'budget', aliasKey:'saldo:bg', akses:'Operator & Super Admin' },
-  { id:'kalibrasi', icon:'🛰️', label:'Kalibrasi Odometer GPS.id', desc:'Notifikasi selisih odometer GPS.id vs dashboard.', notifKey:'kalibrasi', akses:'Operator & Super Admin' },
-  { id:'speed', icon:'⚡', label:'Kecepatan Berlebih', desc:'Notifikasi & ranking kecepatan sopir -- perintah tersembunyi, khusus Super Admin.', notifKey:'speed', aliasKey:'kecepatan', hiddenKey:'kecepatanCommand', akses:'Super Admin (tersembunyi)' },
-  { id:'resi', icon:'🧾', label:'Resi Perjalanan', desc:'Kartu Tanda Terima trip yang dikirim ke sopir/admin.', notifKey:'resi', akses:'Sopir, Admin, Super Admin (opsional)' },
-  { id:'bookingApproval', icon:'✅', label:'Approval Booking', desc:'Notifikasi booking yang perlu disetujui/ditolak.', notifKey:'bookingApproval', akses:'Admin (Super Admin selalu dapat)' },
+  { id:'tripLama', icon:'⏰', label:'Trip Kelamaan Belum Tiba', desc:'Notifikasi trip yang sudah lama belum ditutup.', notifKey:'tripLama', akses:'Sopir, Admin, Administrator' },
+  { id:'budget', icon:'💰', label:'Budget Bulanan', desc:'Notifikasi budget bulanan mendekati/lewat batas, dan pintasan Saldo.', notifKey:'budget', aliasKey:'saldo:bg', akses:'Operator & Administrator' },
+  { id:'kalibrasi', icon:'🛰️', label:'Kalibrasi Odometer GPS.id', desc:'Notifikasi selisih odometer GPS.id vs dashboard.', notifKey:'kalibrasi', akses:'Operator & Administrator' },
+  { id:'speed', icon:'⚡', label:'Kecepatan Berlebih', desc:'Notifikasi & ranking kecepatan sopir -- perintah tersembunyi, khusus Administrator.', notifKey:'speed', aliasKey:'kecepatan', hiddenKey:'kecepatanCommand', akses:'Administrator (tersembunyi)' },
+  { id:'notifLog', icon:'📋', label:'Log Notifikasi (chat)', desc:'7 pengiriman notifikasi Telegram terakhir langsung lewat chat, dikelompokkan gagal/berhasil -- perintah tersembunyi, khusus Administrator.', aliasKey:'notiflog', hiddenKey:'notifLogCommand', akses:'Administrator (tersembunyi)' },
+  { id:'resi', icon:'🧾', label:'Resi Perjalanan', desc:'Kartu Tanda Terima trip yang dikirim ke sopir/admin.', notifKey:'resi', akses:'Sopir, Admin, Administrator (opsional)' },
+  { id:'bookingApproval', icon:'✅', label:'Approval Booking', desc:'Notifikasi booking yang perlu disetujui/ditolak.', notifKey:'bookingApproval', akses:'Admin (Administrator selalu dapat)' },
   { id:'laporanBulanan', icon:'📊', label:'Laporan Bulanan', desc:'Rekap bulanan berkala ke Operator/Finance.', notifKey:'laporanBulanan', akses:'Operator & Finance' },
   { id:'oli', icon:'🔧', label:'/oli', desc:'Status servis ringkas khusus Sopir.', aliasKey:'oli', akses:'Sopir' },
   { id:'cek', icon:'🚘', label:'/cek', desc:'Ringkasan trip yang sedang berjalan, khusus Operator.', aliasKey:'cek', akses:'Operator (penerima notifikasi)' },
-  { id:'lokasi', icon:'📍', label:'/lokasi', desc:'Lokasi terkini 1 mobil, Operator & Super Admin.', aliasKey:'lokasi', akses:'Operator & Super Admin' },
-  { id:'saldo_od', icon:'🛣️', label:'Pintasan Saldo — Odometer', desc:'Ketik langsung ke kategori Odometer di menu Saldo.', aliasKey:'saldo:od', akses:'Pengguna Saldo (umumnya Operator/Super Admin)' },
-  { id:'saldo_ef', icon:'📊', label:'Pintasan Saldo — Efisiensi BBM', desc:'Ketik langsung ke kategori Efisiensi BBM.', aliasKey:'saldo:ef', akses:'Pengguna Saldo (umumnya Operator/Super Admin)' },
+  { id:'lokasi', icon:'📍', label:'/lokasi', desc:'Lokasi terkini 1 mobil, Operator & Administrator.', aliasKey:'lokasi', akses:'Operator & Administrator' },
+  { id:'saldo_od', icon:'🛣️', label:'Pintasan Saldo — Odometer', desc:'Ketik langsung ke kategori Odometer di menu Saldo.', aliasKey:'saldo:od', akses:'Pengguna Saldo (umumnya Operator/Administrator)' },
+  { id:'saldo_ef', icon:'📊', label:'Pintasan Saldo — Efisiensi BBM', desc:'Ketik langsung ke kategori Efisiensi BBM.', aliasKey:'saldo:ef', akses:'Pengguna Saldo (umumnya Operator/Administrator)' },
   { id:'saldo_bb', icon:'💵', label:'Pintasan Saldo — Biaya BBM Bulan Ini', desc:'Ketik langsung ke kategori Biaya BBM.', aliasKey:'saldo:bb', akses:'Finance' },
-  { id:'saldo_sv', icon:'🔧', label:'Pintasan Saldo — Servis', desc:'Ketik langsung ke kategori Servis Berikutnya.', aliasKey:'saldo:sv', akses:'Admin, Super Admin & Finance' },
+  { id:'saldo_sv', icon:'🔧', label:'Pintasan Saldo — Servis', desc:'Ketik langsung ke kategori Servis Berikutnya.', aliasKey:'saldo:sv', akses:'Admin, Administrator & Finance' },
   { id:'menu', icon:'🏠', label:'menu', desc:'Kembali ke Menu Utama bot.', aliasKey:'menu', akses:'Semua pengguna terdaftar' },
   { id:'rekomendasi', icon:'📋', label:'rekomendasi', desc:'Daftar perintah lengkap sesuai peran.', aliasKey:'rekomendasi', akses:'Semua pengguna terdaftar' },
   { id:'batal', icon:'🚫', label:'batal', desc:'Batalkan alur/percakapan yang sedang berjalan.', aliasKey:'batal', akses:'Semua pengguna terdaftar' },
@@ -2151,19 +2155,19 @@ const SETTINGS_ITEM_CATALOG = [
   { id:'mulaitrip', icon:'🚗', label:'mulai trip', desc:'Mulai trip baru, khusus Sopir.', aliasKey:'mulaitrip', akses:'Sopir' },
   { id:'ya', icon:'✅', label:'ya', desc:'Jawaban konfirmasi Ya.', aliasKey:'ya', akses:'Semua pengguna terdaftar' },
   { id:'tidak', icon:'❌', label:'tidak', desc:'Jawaban konfirmasi Tidak.', aliasKey:'tidak', akses:'Semua pengguna terdaftar' },
-  { id:'namaSopirLookup', icon:'👤', label:'Ketik nama sopir persis', desc:'Detail statistik 1 sopir -- perintah tersembunyi, khusus Super Admin.', hiddenKey:'namaSopirLookup', akses:'Super Admin (tersembunyi)' },
-  { id:'simGps', icon:'📶', label:'Masa Aktif SIM GPS Tracker', desc:'Notifikasi berkala kalau pulsa/masa aktif kartu SIM di alat GPS mendekati/sudah habis -- beda dari Dokumen Kadaluarsa (itu dokumen fisik kendaraan).', notifKey:'simGps', akses:'Operator & Super Admin' },
-  { id:'gpsAlert', icon:'🚨', label:'Alert Bawaan GPS.id', desc:'Teruskan alert tingkat perangkat GPS.id (SOS/rem mendadak/dst) ke Telegram -- pilih kode yang relevan di panel di bawah, default tidak ada yang diteruskan.', notifKey:'gpsAlert', akses:'Operator & Super Admin' },
+  { id:'namaSopirLookup', icon:'👤', label:'Ketik nama sopir persis', desc:'Detail statistik 1 sopir -- perintah tersembunyi, khusus Administrator.', hiddenKey:'namaSopirLookup', akses:'Administrator (tersembunyi)' },
+  { id:'simGps', icon:'📶', label:'Masa Aktif SIM GPS Tracker', desc:'Notifikasi berkala kalau pulsa/masa aktif kartu SIM di alat GPS mendekati/sudah habis -- beda dari Dokumen Kadaluarsa (itu dokumen fisik kendaraan).', notifKey:'simGps', akses:'Operator & Administrator' },
+  { id:'gpsAlert', icon:'🚨', label:'Alert Bawaan GPS.id', desc:'Teruskan alert tingkat perangkat GPS.id (SOS/rem mendadak/dst) ke Telegram -- pilih kode yang relevan di panel di bawah, default tidak ada yang diteruskan.', notifKey:'gpsAlert', akses:'Operator & Administrator' },
 ];
 const NTR_ROLE_COLS = [
   { key:'sopir', label:'Sopir' },
   { key:'finance', label:'Finance' },
   { key:'admin', label:'Operator' },
-  { key:'superadmin', label:'Super Admin' },
+  { key:'superadmin', label:'Administrator' },
 ];
 let ntrSelectedId = null; // diingat lintas re-render selama panel ini tetap dibuka
 let ntrSearchQuery = ''; // BARU -- filter pencarian daftar kiri, diingat lintas re-render
-let ntrTestCooldownUntil = {}; // BARU -- { itemId: timestampMs } -- cooldown 10 detik/tombol tes stlh terkirim, cegah spam ke Telegram Super Admin
+let ntrTestCooldownUntil = {}; // BARU -- { itemId: timestampMs } -- cooldown 10 detik/tombol tes stlh terkirim, cegah spam ke Telegram Administrator
 const NTR_LAST_TESTED_KEY = 'fleetops_ntr_last_tested'; // BARU -- localStorage LOKAL per device (SENGAJA bukan state), supaya "sudah pernah dites" tidak ikut sinkron & bikin bingung anggota tim lain
 function getNtrLastTested(){
   try{ return JSON.parse(localStorage.getItem(NTR_LAST_TESTED_KEY) || '{}'); }catch(e){ return {}; }
@@ -2190,11 +2194,11 @@ function ntrToggleHtml(on, dataAttrs){
   </span>`;
 }
 // ============================================================================
-// BARU -- Halaman menu khusus Super Admin: "🔔 Notifikasi Telegram per
+// BARU -- Halaman menu khusus Administrator: "🔔 Notifikasi Telegram per
 // Peran". Cuma bisa dibuka via titik "·" di "FleetOps — Stay in Control"
 // (PIN Super Akses, sama dgn PIN Insight) -- lihat wireInsightPinTrigger &
 // refreshInsightPanels(). SENGAJA TIDAK mencatat activityLog sama sekali
-// -- ini menu Super Admin, bukan aktivitas operasional biasa yang perlu
+// -- ini menu Administrator, bukan aktivitas operasional biasa yang perlu
 // terlihat di riwayat aplikasi.
 //
 // v3.189.0 -- Layout diganti total dari tabel grid 12 baris x 4 kolom +
@@ -2220,7 +2224,7 @@ const NTR_PERAN_WARNA = {
   finance: { bg:'var(--amber-bg)', text:'var(--amber)' },
   superadmin: { bg:'#FAECE7', text:'#712B13' },
 };
-const NTR_PERAN_LABEL = { sopir:'Sopir', admin:'Operator', finance:'Finance', superadmin:'Super Admin' };
+const NTR_PERAN_LABEL = { sopir:'Sopir', admin:'Operator', finance:'Finance', superadmin:'Administrator' };
 function ntrPeranBadgeHtml(peran){
   const w = NTR_PERAN_WARNA[peran] || { bg:'var(--neutral-bg)', text:'var(--muted)' };
   const label = NTR_PERAN_LABEL[peran] || peran || '-';
@@ -2294,7 +2298,7 @@ function renderNotifTelegramRoles(){
     content.innerHTML = `
       <div class="panel">
         <div class="panel-body">
-          <p class="hint">🔒 Menu ini khusus Super Admin. Buka lewat titik kecil "·" di tulisan "FleetOps — Stay in Control" (pojok kiri bawah sidebar).</p>
+          <p class="hint">🔒 Menu ini khusus Administrator. Buka lewat titik kecil "·" di tulisan "FleetOps — Stay in Control" (pojok kiri bawah sidebar).</p>
         </div>
       </div>`;
     return;
@@ -2306,15 +2310,15 @@ function renderNotifTelegramRoles(){
       <div class="panel-head"><h2>🔔 Notifikasi Telegram per Peran</h2></div>
       <div class="panel-body">
         <p class="hint" style="margin:0 0 12px;line-height:1.6;">
-          Menu khusus Super Admin -- pilih 1 kategori/perintah di daftar kiri, semua pengaturannya (siapa yang
+          Menu khusus Administrator -- pilih 1 kategori/perintah di daftar kiri, semua pengaturannya (siapa yang
           menerima, alias kata kunci, dan togel fitur tersembunyi) muncul digabung di kanan. Setiap perubahan
           tersimpan otomatis, tidak perlu tombol Simpan lagi. Untuk Sopir, togel di sini jadi batas level-PERAN --
           kalau sopir tertentu di Data Sopir sudah punya langganan kategori sendiri yang lebih sempit, itu tetap
           berlaku sebagai pembatas tambahan di atas izin peran ini.
         </p>
         <p class="hint" style="margin:0 0 12px;line-height:1.6;">
-          🧾 Khusus <b>Resi Perjalanan</b> untuk Super Admin: kalau sopir pemilik trip itu SENDIRI kebetulan juga
-          terdaftar sebagai Super Admin (Chat ID sama), salinan resi itu tidak akan dikirim ke dia.
+          🧾 Khusus <b>Resi Perjalanan</b> untuk Administrator: kalau sopir pemilik trip itu SENDIRI kebetulan juga
+          terdaftar sebagai Administrator (Chat ID sama), salinan resi itu tidak akan dikirim ke dia.
         </p>
         <details style="margin:0 0 16px;border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;">
           <summary style="cursor:pointer;font-weight:700;font-size:15px;">📋 Daftar Perintah &amp; Kategori (referensi)</summary>
@@ -2416,7 +2420,7 @@ function renderNotifTelegramRoles(){
     // dibuka (bukan hardcode), karena dokumentasi GPS.id tidak menjabarkan
     // daftar kode yang pasti/lengkap -- device berbeda bisa punya kode
     // berbeda. Default watchlist KOSONG -- tidak ada yang diteruskan ke
-    // Telegram sampai Super Admin sengaja pilih kodenya sendiri.
+    // Telegram sampai Administrator sengaja pilih kodenya sendiri.
     if(it.id === 'gpsAlert'){
       html += `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
         <div style="font-size:14.5px;font-weight:600;color:var(--muted);margin-bottom:10px;">Kode alert yang diteruskan ke Telegram</div>
@@ -2449,9 +2453,9 @@ function renderNotifTelegramRoles(){
     }
 
     // BARU -- tombol "Tes" per item: kirim 1 pesan contoh (data asli kalau
-    // tersedia) ke Chat ID Super Admin yang dipilih, lewat worker.js
+    // tersedia) ke Chat ID Administrator yang dipilih, lewat worker.js
     // (/run-notify-check?test_category=...). Tidak pernah kirim ke daftar
-    // penerima ASLI -- selalu ke 1 Chat ID Super Admin saja, supaya aman
+    // penerima ASLI -- selalu ke 1 Chat ID Administrator saja, supaya aman
     // dites berkali-kali tanpa mengganggu siapa pun.
     const superAdminsWithChat = (state.superAdmins || []).filter(a => a.chatId);
     const workerReadyForTest = ghConfig && ghConfig.workerUrl && ghConfig.notifySecret;
@@ -2459,13 +2463,13 @@ function renderNotifTelegramRoles(){
     if(!workerReadyForTest){
       html += `<div class="hint">🔬 Tes kategori butuh URL Worker & Notify Secret -- lengkapi dulu di Pengaturan → Sinkronisasi Cloud.</div>`;
     } else if(superAdminsWithChat.length === 0){
-      html += `<div class="hint">🔬 Belum ada Super Admin dengan Chat ID terdaftar -- daftarkan dulu lewat PIN Kelola Super Admin di Telegram supaya ada tujuan tes.</div>`;
+      html += `<div class="hint">🔬 Belum ada Administrator dengan Chat ID terdaftar -- daftarkan dulu lewat PIN Kelola Administrator di Telegram supaya ada tujuan tes.</div>`;
     } else {
       html += `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <select id="ntr-test-chat" style="flex:1;min-width:180px;border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:15px;font-family:inherit;background:var(--card);color:var(--text);">
           ${superAdminsWithChat.map(a=>`<option value="${escapeHtml(a.chatId)}">Chat ID ${escapeHtml(a.chatId)}</option>`).join('')}
         </select>
-        <button type="button" class="btn btn-ghost" id="ntr-test-btn" style="font-size:15px;">🔬 Tes kirim ke Super Admin</button>
+        <button type="button" class="btn btn-ghost" id="ntr-test-btn" style="font-size:15px;">🔬 Tes kirim ke Administrator</button>
       </div>
       <div id="ntr-test-result" style="margin-top:8px;"></div>`;
     }
@@ -2571,12 +2575,12 @@ function renderNotifTelegramRoles(){
       if(Date.now() < cooldownUntil){
         // BARU -- proteksi klik-berulang: kalau baru saja kirim tes utk item
         // ini, tombol tetap nonaktif dgn hitung mundur sampai cooldown
-        // selesai (10 detik), supaya tidak banjiri Telegram Super Admin
+        // selesai (10 detik), supaya tidak banjiri Telegram Administrator
         // kalau ada yang iseng klik cepat berkali-kali.
         testBtn.disabled = true;
         const tick = () => {
           const sisa = Math.ceil((cooldownUntil - Date.now())/1000);
-          if(sisa <= 0){ testBtn.disabled = false; testBtn.textContent = '🔬 Tes kirim ke Super Admin'; return; }
+          if(sisa <= 0){ testBtn.disabled = false; testBtn.textContent = '🔬 Tes kirim ke Administrator'; return; }
           testBtn.textContent = `⏳ Tunggu ${sisa}d...`;
           setTimeout(tick, 500);
         };
@@ -2599,7 +2603,7 @@ function renderNotifTelegramRoles(){
             // gambar Tanda Terima ASLI (fungsi generateTripReceiptBlob()
             // yang SAMA dgn yang dipakai kirim resi sungguhan) dari 1 trip
             // Operasional nyata yang sudah selesai, lalu kirim gambarnya
-            // LANGSUNG ke Chat ID Super Admin yang dipilih di atas --
+            // LANGSUNG ke Chat ID Administrator yang dipilih di atas --
             // TIDAK PERNAH ke chat sopir pemilik trip itu, walau datanya
             // dipinjam dari trip sopir tsb, supaya tidak ada salah paham
             // di tim ("kenapa saya tiba-tiba dapat resi trip lama").
@@ -2614,7 +2618,7 @@ function renderNotifTelegramRoles(){
             const fd = new FormData();
             fd.append('chatId', chatId);
             fd.append('photo', blob, 'resi-tes.png');
-            fd.append('caption', `🔬 [TES] Contoh gambar Tanda Terima (render html2canvas asli) -- trip: ${carLabel(tripContoh.carId)}. Dikirim ke Anda sebagai Super Admin, BUKAN ke sopir aslinya.`);
+            fd.append('caption', `🔬 [TES] Contoh gambar Tanda Terima (render html2canvas asli) -- trip: ${carLabel(tripContoh.carId)}. Dikirim ke Anda sebagai Administrator, BUKAN ke sopir aslinya.`);
             const resImg = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai-photo`, {
               method: 'POST', headers: { 'X-Notify-Secret': ghConfig.notifySecret }, body: fd,
             });
@@ -3087,9 +3091,9 @@ function loadDataFromObject(parsed){
     driverCodeSeq: Number(parsed.driverCodeSeq)||0, documentCodeSeq: Number(parsed.documentCodeSeq)||0,
     bookingCodeSeq: Number(parsed.bookingCodeSeq)||0, etollCardCodeSeq: Number(parsed.etollCardCodeSeq)||0,
     notifSettings: (parsed.notifSettings && typeof parsed.notifSettings==='object') ? parsed.notifSettings : def.notifSettings,
-    // BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin).
+    // BARU -- Notifikasi Telegram per Peran (menu khusus Administrator).
     notifRolePrefs: (parsed.notifRolePrefs && typeof parsed.notifRolePrefs==='object') ? parsed.notifRolePrefs : {},
-    // v3.204.0 -- BARU: Menu Mode Sopir dan Operator (menu khusus Super Admin).
+    // v3.204.0 -- BARU: Menu Mode Sopir dan Operator (menu khusus Administrator).
     modeOperatorMenuPrefs: (parsed.modeOperatorMenuPrefs && typeof parsed.modeOperatorMenuPrefs==='object') ? parsed.modeOperatorMenuPrefs : {},
     // v3.205.0 -- BARU: sub-item per menu, pola sama dgn modeOperatorMenuPrefs.
     modeOperatorSubmenuPrefs: (parsed.modeOperatorSubmenuPrefs && typeof parsed.modeOperatorSubmenuPrefs==='object') ? parsed.modeOperatorSubmenuPrefs : {},
@@ -4869,12 +4873,12 @@ function wireStorageIndicator(){
 // (PIN Super Akses SAJA, sama seperti gerbang panel Insight lainnya).
 // "?_swbypass=1" di URL SENGAJA ditambahkan -- itu parameter yang sudah
 // dikenali sw.js utk MELEWATI cache sama sekali (lihat blok fetch di sw.js),
-// supaya PDF yang baru diupload Super Admin langsung ke-reflect ke semua
+// supaya PDF yang baru diupload Administrator langsung ke-reflect ke semua
 // user tanpa nyangkut di cache lama, TANPA perlu naikkan CACHE_VERSION.
 const PANDUAN_CATALOG = [
   { key:'sopir-finance', icon:'🚗', title:'Panduan Sopir & Admin Finance', desc:'Cara pakai bot Telegram: berangkat/tiba, catat biaya, isi BBM/E-Toll, kirim nota ke Finance, booking, dan cek saldo/info.', file:'panduan/panduan-sopir-finance.pdf', minLevel:0 },
   { key:'admin', icon:'🧭', title:'Panduan Admin (Operator)', desc:'Cara pakai aplikasi web sehari-hari: semua menu operasional armada & cara masuk tampilan Operator.', file:'panduan/panduan-admin-operator.pdf', minLevel:1 },
-  { key:'superadmin', icon:'👑', title:'Panduan Super Admin', desc:'Akses penuh + panel pengaturan sistem, cara kelola Super Admin/Admin Finance/Admin Notifikasi lewat bot.', file:'panduan/panduan-super-admin.pdf', minLevel:2 },
+  { key:'superadmin', icon:'👑', title:'Panduan Administrator', desc:'Akses penuh + panel pengaturan sistem, cara kelola Administrator/Admin Finance/Admin Notifikasi lewat bot.', file:'panduan/panduan-super-admin.pdf', minLevel:2 },
 ];
 function renderPanduanPengguna(){
   document.getElementById('header-actions').innerHTML = '';
@@ -5134,12 +5138,12 @@ function getSettingsCategories(){
   // lebih mudah, TANPA menghapus akses lewat sidebar (2 jalan ke tempat yang
   // sama). externalRoute -> klik kartu ini NAVIGATE ke rute terpisah
   // 'notiftelegram' (render function sendiri), BUKAN masuk settingsView.
-  { key:'notiftelegram-peran', icon:'🔔', title:'Notifikasi Telegram per Peran', desc:'Kategori default per Sopir/Finance/Operator/Super Admin', hasLock:false, externalRoute:'notiftelegram',
-    status: () => 'Khusus Super Admin' },
+  { key:'notiftelegram-peran', icon:'🔔', title:'Notifikasi Telegram per Peran', desc:'Kategori default per Sopir/Finance/Operator/Administrator', hasLock:false, externalRoute:'notiftelegram',
+    status: () => 'Khusus Administrator' },
   // v3.204.0 -- BARU: atur menu apa saja yang tampil di tampilan Mode
   // Operator (default/terkunci, sebelum PIN dibuka) -- SEBELUMNYA daftar ini
   // hardcode di kode (MODE_OPERATOR_ALLOWED_ROUTES), cuma developer yang
-  // bisa mengubahnya. Super Akses/Super Admin OTOMATIS tetap melihat SEMUA
+  // bisa mengubahnya. Super Akses/Administrator OTOMATIS tetap melihat SEMUA
   // menu apa pun isi pengaturan ini (lihat applyModeOperatorVisibility() --
   // modeOperatorUnlocked jadi true begitu PIN Super Akses benar, tidak
   // bergantung ke daftar ini sama sekali).
@@ -5480,8 +5484,8 @@ function renderSettingsDetailNotifGabungan(){
 
             <b style="color:var(--text);">🔕 Anti-Spam — Cegah 1 Orang Dapat Notifikasi Dobel</b>
             <ul style="margin:6px 0 12px;padding-left:18px;">
-              <li>Kalau 1 <b>Chat ID Telegram yang SAMA</b> kebetulan terdaftar lebih dari sekali untuk 1 kejadian yang sama — baik dobel di daftar yang sama, maupun tersebar di beberapa daftar berbeda (Secret <code>ADMIN_CHAT_IDS</code> di Cloudflare, Admin Penerima Notifikasi Telegram di menu ini, atau Super Admin) — sistem <b>hanya mengirim SATU pesan</b> ke Chat ID itu, tidak berkali-kali. Kemunculan pertama (urutan prioritas: Secret <code>ADMIN_CHAT_IDS</code> → Admin di menu ini → Super Admin) yang menentukan versi pesan yang sampai.</li>
-              <li>Kalau 1 orang terdaftar sekaligus sbg <b>Sopir</b> (Data Sopir) <b>dan</b> sbg Admin/Super Admin di sini dengan Chat ID yang sama, untuk Resi Perjalanan & notifikasi "trip selesai" dia <b>hanya dapat 1x</b> sebagai Sopir (versi lengkap) — salinan sbg Admin/Super Admin sengaja TIDAK dikirim.</li>
+              <li>Kalau 1 <b>Chat ID Telegram yang SAMA</b> kebetulan terdaftar lebih dari sekali untuk 1 kejadian yang sama — baik dobel di daftar yang sama, maupun tersebar di beberapa daftar berbeda (Secret <code>ADMIN_CHAT_IDS</code> di Cloudflare, Admin Penerima Notifikasi Telegram di menu ini, atau Administrator) — sistem <b>hanya mengirim SATU pesan</b> ke Chat ID itu, tidak berkali-kali. Kemunculan pertama (urutan prioritas: Secret <code>ADMIN_CHAT_IDS</code> → Admin di menu ini → Administrator) yang menentukan versi pesan yang sampai.</li>
+              <li>Kalau 1 orang terdaftar sekaligus sbg <b>Sopir</b> (Data Sopir) <b>dan</b> sbg Admin/Administrator di sini dengan Chat ID yang sama, untuk Resi Perjalanan & notifikasi "trip selesai" dia <b>hanya dapat 1x</b> sebagai Sopir (versi lengkap) — salinan sbg Admin/Administrator sengaja TIDAK dikirim.</li>
               <li>Aturan dedup ini berlaku di <b>SEMUA jalur</b> pengiriman: jalur instan (langsung dari aplikasi) maupun jalur cadangan (Cloudflare Worker Cron, jalan otomatis tiap ~5 menit kalau jalur instan gagal terkirim, mis. karena offline).</li>
             </ul>
 
@@ -5490,12 +5494,12 @@ function renderSettingsDetailNotifGabungan(){
               <li><b>Secret <code>ADMIN_CHAT_IDS</code></b> — diatur di dasbor Cloudflare Worker (BUKAN di aplikasi ini), bisa lebih dari 1 nomor dipisah koma. Selalu dapat SEMUA kategori, tidak melewati gerbang izin peran apa pun.</li>
               <li><b>Admin Penerima Notifikasi Telegram</b> (menu ini) — dapat notifikasi berkala (dokumen/servis/BBM/E-Toll/booking dll) + bisa atur preferensi sendiri utk notifikasi trip selesai: <i>off</i> / <i>ringkas</i> / <i>resi lengkap</i>.</li>
               <li><b>Admin Finance</b> (menu "Admin Finance", terpisah total) — HANYA menerima foto nota/tanda terima trip operasional + kategori Dokumen/Servis/Laporan Bulanan. Tidak perlu & tidak boleh dianggap sama dengan daftar Admin di atas.</li>
-              <li><b>Super Admin</b> — level akses tertinggi. Kategori yang diterima diatur lewat menu "🔔 Notifikasi Telegram per Peran": 9 kategori alert biasa (Dokumen/Servis/E-Toll/BBM/Booking/Trip Lama/Budget/Kalibrasi/Kecepatan) default AKTIF (meniru perilaku lama), sedangkan Resi Perjalanan/Approval Booking/Laporan Bulanan bersifat opt-in & default MATI.</li>
+              <li><b>Administrator</b> — level akses tertinggi. Kategori yang diterima diatur lewat menu "🔔 Notifikasi Telegram per Peran": 9 kategori alert biasa (Dokumen/Servis/E-Toll/BBM/Booking/Trip Lama/Budget/Kalibrasi/Kecepatan) default AKTIF (meniru perilaku lama), sedangkan Resi Perjalanan/Approval Booking/Laporan Bulanan bersifat opt-in & default MATI.</li>
             </ul>
 
             <b style="color:var(--text);">🚦 2 Lapis Izin (Peran + Individu)</b>
             <ul style="margin:6px 0 12px;padding-left:18px;">
-              <li>Lapis 1 — izin level PERAN (Sopir/Finance/Operator/Super Admin), diatur Super Admin lewat menu "Notifikasi Telegram per Peran".</li>
+              <li>Lapis 1 — izin level PERAN (Sopir/Finance/Operator/Administrator), diatur Administrator lewat menu "Notifikasi Telegram per Peran".</li>
               <li>Lapis 2 — preferensi INDIVIDUAL tiap admin (tripNotif: off/ringkas/resi) atau tiap sopir (kategori langganan pribadi di Data Sopir).</li>
               <li>Kedua lapis harus SAMA-SAMA mengizinkan. Kalau lapis peran mematikan 1 kategori, preferensi individu di bawahnya tidak berpengaruh — tetap tidak dikirim.</li>
             </ul>
@@ -5505,7 +5509,7 @@ function renderSettingsDetailNotifGabungan(){
               <li>Kalau pengaju booking (lewat chat Telegram) kebetulan Chat ID-nya sama dengan salah satu Admin Penerima Notifikasi Telegram, dia <b>dikecualikan</b> dari daftar admin yang dikirimi tombol "✅ Setuju"/"❌ Tolak" untuk booking miliknya sendiri (tidak boleh approve booking sendiri).</li>
               <li>Kalau ternyata dia satu-satunya admin terdaftar, permintaan approval TETAP dikirim ke dia sbg jalan darurat (supaya booking tidak menggantung selamanya di status "Menunggu"), disertai catatan tegas bahwa ini kondisi darurat.</li>
               <li>Begitu salah satu admin tap tombol, tombol di pesan admin-admin lain otomatis dinonaktifkan — mencegah 2 admin memproses booking yang sama secara bersamaan.</li>
-              <li>Super Admin bisa ikut dikirimi tombol approval juga, tapi ini opt-in (default MATI) & TAMBAHAN dari daftar Admin, bukan pengganti.</li>
+              <li>Administrator bisa ikut dikirimi tombol approval juga, tapi ini opt-in (default MATI) & TAMBAHAN dari daftar Admin, bukan pengganti.</li>
             </ul>
 
             <b style="color:var(--text);">⏱️ Waktu Pengecekan Booking</b>
@@ -5516,9 +5520,9 @@ function renderSettingsDetailNotifGabungan(){
 
             <b style="color:var(--text);">🧾 Resi Perjalanan (Trip Selesai)</b>
             <ul style="margin:6px 0 12px;padding-left:18px;">
-              <li>Sopir: dapat resi lengkap otomatis kalau Chat ID terdaftar di Data Sopir (bisa dimatikan Super Admin lewat gerbang peran Sopir &gt; Resi Perjalanan).</li>
+              <li>Sopir: dapat resi lengkap otomatis kalau Chat ID terdaftar di Data Sopir (bisa dimatikan Administrator lewat gerbang peran Sopir &gt; Resi Perjalanan).</li>
               <li>Admin (menu ini): sesuai preferensi per-admin — off / ringkas / resi lengkap.</li>
-              <li>Super Admin: opt-in (default MATI). Kalau diaktifkan & dia BUKAN sopir pemilik trip itu sendiri, dia ikut dapat salinan resi lengkap.</li>
+              <li>Administrator: opt-in (default MATI). Kalau diaktifkan & dia BUKAN sopir pemilik trip itu sendiri, dia ikut dapat salinan resi lengkap.</li>
             </ul>
 
             <b style="color:var(--text);">📄 Notifikasi Dokumen</b>
@@ -5536,7 +5540,7 @@ function renderSettingsDetailNotifGabungan(){
 
             <b style="color:var(--text);">👤 Nama di Kolom "Nama"</b>
             <ul style="margin:6px 0 0;padding-left:18px;">
-              <li>Kolom Nama di setiap daftar (Admin, Admin Finance, Super Admin) hanya label bebas untuk memudahkan Anda mengenali Chat ID ini milik siapa — TIDAK dipakai sistem untuk mencocokkan apa pun, kecuali di alur "pengaju booking dikenali sbg admin" (dicocokkan by Chat ID, bukan nama).</li>
+              <li>Kolom Nama di setiap daftar (Admin, Admin Finance, Administrator) hanya label bebas untuk memudahkan Anda mengenali Chat ID ini milik siapa — TIDAK dipakai sistem untuk mencocokkan apa pun, kecuali di alur "pengaju booking dikenali sbg admin" (dicocokkan by Chat ID, bukan nama).</li>
             </ul>
 
           </div>
@@ -5682,7 +5686,7 @@ function renderSettingsDetailNotifGabungan(){
       // dipecah per-kartu, jadi TIDAK BOLEH ditimpa nilai kosong/default.
       // v3.184.0 -- bookingApprovalBlockSelfApprove TIDAK LAGI diatur di
       // sini -- pindah ke panel "Notifikasi Telegram per Peran" (menu
-      // khusus Super Admin). Spread getNotifSettings() di atas otomatis
+      // khusus Administrator). Spread getNotifSettings() di atas otomatis
       // mempertahankan nilainya apa adanya karena field ini tidak ditimpa
       // di sini lagi.
       state.notifSettings = {
@@ -6026,20 +6030,20 @@ const ROUTES = {
   hapusdata: {title:'Hapus Data', sub:'Hapus Data Mobil / Perjalanan pakai kode khusus', render: renderHapusData},
   settings:  {title:'Pengaturan', sub:'Kelola nama petugas/admin', render: renderSettings},
   // BARU (v3.206.0) -- menu "Panduan Pengguna": download PDF panduan pemakaian
-  // (Sopir & Finance / Admin / Super Admin), isinya menyesuaikan level akses
+  // (Sopir & Finance / Admin / Administrator), isinya menyesuaikan level akses
   // saat ini. SENGAJA TIDAK dimasukkan ke MODE_OPERATOR_MENU_CATALOG --
   // menu ini SELALU tampil ke semua orang tanpa terkecuali (lihat gerbang
   // khusus di applyModeOperatorVisibility()), karena isinya sendiri sudah
   // otomatis menyaring per level akses, jadi tidak perlu lapisan
-  // pengaturan visibility tambahan dari Super Admin.
+  // pengaturan visibility tambahan dari Administrator.
   panduan:   {title:'📖 Panduan Pengguna', sub:'Download panduan pemakaian aplikasi sesuai level akses kamu', render: renderPanduanPengguna},
-  // BARU -- menu khusus Super Admin, SENGAJA TIDAK didaftarkan sbg
+  // BARU -- menu khusus Administrator, SENGAJA TIDAK didaftarkan sbg
   // .menu-item statis di sidebar HTML -- cuma bisa dibuka lewat titik "·"
   // di "FleetOps — Stay in Control" (PIN Super Akses, sama dgn PIN Insight),
   // lihat wireInsightPinTrigger() & refreshInsightPanels(). Route ini tetap
   // perlu didaftarkan di sini supaya navigate('notiftelegram') & tombol
   // Kembali browser bisa merender halamannya.
-  notiftelegram: {title:'Notifikasi Telegram per Peran', sub:'Khusus Super Admin -- atur kategori notifikasi Telegram apa saja yang diterima Sopir, Finance, Admin, dan Super Admin', render: renderNotifTelegramRoles},
+  notiftelegram: {title:'Notifikasi Telegram per Peran', sub:'Khusus Administrator -- atur kategori notifikasi Telegram apa saja yang diterima Sopir, Finance, Admin, dan Administrator', render: renderNotifTelegramRoles},
 };
 
 // Stack menu yang PERNAH dikunjungi dalam sesi ini (bukan cuma "1 menu
@@ -6615,7 +6619,7 @@ try{ insightUnlocked = localStorage.getItem(INSIGHT_UNLOCK_SESSION_KEY) === '1';
 const MODE_OPERATOR_SESSION_KEY = 'fleetops_mode_sopir_unlocked';
 // v3.204.0 -- SEBELUMNYA daftar ini konstanta statis (hardcode di kode,
 // cuma developer yang bisa mengubahnya). SEKARANG bisa diatur langsung oleh
-// Super Admin lewat menu Pengaturan → "🧭 Menu Mode Sopir dan Operator" (lihat
+// Administrator lewat menu Pengaturan → "🧭 Menu Mode Sopir dan Operator" (lihat
 // getSettingsCategories() & renderSettingsDetailNotifGabungan()), tanpa
 // perlu minta developer ubah kode. MODE_OPERATOR_MENU_CATALOG = daftar
 // SEMUA menu yang bisa diatur (label utk ditampilkan di panel pengaturan);
@@ -6730,7 +6734,7 @@ const MODE_OPERATOR_SUBMENU_CATALOG = {
   ],
 };
 // Default SENGAJA semua true (tampil) -- fitur ini baru ditambahkan, jadi
-// tidak boleh diam-diam menyembunyikan apa pun sampai Super Admin sendiri
+// tidak boleh diam-diam menyembunyikan apa pun sampai Administrator sendiri
 // yang membuka panel pengaturan & mematikannya.
 const MODE_OPERATOR_SUBMENU_DEFAULT = {
   cars:{tambah:true}, drivers:{tambah:true}, destinations:{tambah:true}, usage:{tambah:true},
@@ -7065,10 +7069,10 @@ function refreshInsightPanels(){
     else { storageDetailEl.style.display='none'; const dot=document.getElementById('storage-dot'); if(dot) dot.style.background='#C7CCD4'; }
   }
   if(currentRoute==='notiftelegram') renderNotifTelegramRoles();
-  // BARU -- menu khusus Super Admin "🔔 Notifikasi Telegram per Peran":
+  // BARU -- menu khusus Administrator "🔔 Notifikasi Telegram per Peran":
   // TIDAK ada di sidebar HTML statis (lihat catatan di ROUTES) -- item-nya
   // baru dimunculkan/disembunyikan di sini, mengikuti insightUnlocked,
-  // supaya begitu terbuka (lewat titik "·") Super Admin punya jalan balik
+  // supaya begitu terbuka (lewat titik "·") Administrator punya jalan balik
   // ke menu ini tanpa perlu masukin PIN Super Akses berulang tiap kali pindah
   // halaman lain dalam sesi yang sama.
   const navMenuEl = document.getElementById('nav-menu');
@@ -7353,7 +7357,7 @@ document.getElementById('insight-pin-trigger').addEventListener('click', ()=>{
     if(currentRoute === 'notiftelegram') navigate('dashboard');
   } else {
     // BARU -- titik "·" ini sekarang JUGA jadi pintu masuk menu khusus
-    // Super Admin "Notifikasi Telegram per Peran": begitu PIN Super Akses benar,
+    // Administrator "Notifikasi Telegram per Peran": begitu PIN Super Akses benar,
     // langsung diarahkan ke menu itu (bukan cuma diam-diam unlock Insight).
     openInsightPinModal({ onUnlocked: () => navigate('notiftelegram') });
   }
@@ -10389,7 +10393,7 @@ function markReturned(id){
       saveData();
       // Rata-rata kecepatan trip ini (histori GPS.id), dihitung SEKALI saat trip
       // ditutup -- PORTING PERSIS dari finalizeTutupTrip()/computeTripAvgSpeedKmh()
-      // di worker.js (fitur "kecepatan"/nama sopir khusus Super Admin Telegram),
+      // di worker.js (fitur "kecepatan"/nama sopir khusus Administrator Telegram),
       // supaya trip yang ditutup lewat aplikasi web ini juga punya avgSpeedKmh,
       // bukan cuma trip yang ditutup lewat bot. Best-effort & async SETELAH
       // saveData() di atas -- tidak pernah memblokir/menunda penutupan trip kalau
@@ -10407,7 +10411,7 @@ function markReturned(id){
             } else if(data && data.error){
               // BARU (poin 3): sebelumnya gagal diam-diam total -- sekarang
               // alasannya disimpan di trip (kelihatan lewat bot Telegram utk
-              // Super Admin, lihat buildDriverStatsText) DAN ditoast singkat
+              // Administrator, lihat buildDriverStatsText) DAN ditoast singkat
               // di app supaya langsung ketahuan tanpa perlu buka Telegram.
               u.avgSpeedError = data.error;
               touch(u);
@@ -10991,7 +10995,7 @@ function buildTripReceiptTextTg(u){
 async function sendInstantTripReceipt(u){
   try{
     if(!isGhConnected() || !ghConfig.notifySecret) return; // belum diatur -> serahkan ke cron seperti biasa
-    // v3.179.0 -- gerbang izin peran: kalau Super Admin sudah matikan
+    // v3.179.0 -- gerbang izin peran: kalau Administrator sudah matikan
     // kategori "Resi Perjalanan" utk peran Sopir (menu Notifikasi Telegram
     // per Peran), jangan kirim sama sekali -- default TETAP true (tidak
     // mengubah perilaku lama) sampai sengaja dimatikan.
@@ -11248,13 +11252,13 @@ async function sendBookingApprovalRequest(b){
     if(!isGhConnected() || !ghConfig.notifySecret) return;
     // v3.179.0 -- gerbang izin peran (rolePrefs.admin.bookingApproval).
     // ⚠️ CATATAN RISIKO (SENGAJA tetap disediakan, keputusan ada di tangan
-    // Super Admin): kalau ini dimatikan & TIDAK ADA admin lain yang
+    // Administrator): kalau ini dimatikan & TIDAK ADA admin lain yang
     // menyetujui booking secara manual lewat aplikasi, booking bisa
     // "menggantung" selamanya di status Menunggu Persetujuan. Default
     // TETAP true (tidak mengubah perilaku lama) sampai sengaja dimatikan.
     const rolePrefsSBA = getNotifRolePrefs();
     const adminBookingApprovalOn = !!rolePrefsSBA.admin.bookingApproval;
-    // v3.184.0 -- Super Admin (opt-in lewat rolePrefs.superadmin.bookingApproval,
+    // v3.184.0 -- Administrator (opt-in lewat rolePrefs.superadmin.bookingApproval,
     // default OFF) ikut dikirimi juga, TAMBAHAN dari Admin biasa di atas.
     const superAdminBookingApprovalOn = !!(rolePrefsSBA.superadmin && rolePrefsSBA.superadmin.bookingApproval);
     if(!adminBookingApprovalOn && !superAdminBookingApprovalOn) return;
@@ -11310,7 +11314,7 @@ async function sendBookingApprovalRequest(b){
           ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
         });
         if(res.ok){ b.telegramApprovalSentSuperAdminIds.push(sa.id); chatIdSudahDikirim.add(cidSa); adaPerubahan = true; }
-      }catch(e){ /* diam -- Super Admin masih bisa cek & approve manual dari aplikasi/data */ }
+      }catch(e){ /* diam -- Administrator masih bisa cek & approve manual dari aplikasi/data */ }
     }
     if(adaPerubahan){
       touch(b);
@@ -17083,6 +17087,55 @@ function wirePinEnterKey(inputId){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '3.211.2',
+    date: '01 Agu 2026',
+    notes: [
+      '🔧 Nama Cloudflare Secret PIN Kelola Admin dirapikan jadi <code>FLEETOPS_TELEGRAM_ADMINISTRATOR_PIN</code> (sebelumnya <code>FLEETOPS_KELOLA_ADMIN_PIN</code> di rilis kemarin) -- lebih jelas menyebut "administrator" & "bot Telegram". <b>Kalau Anda sudah sempat mengisi secret dengan nama LAMA</b>, tinggal ganti namanya di Cloudflare (isi PIN yang sama), tidak perlu bikin ulang dari nol.',
+    ]
+  },
+  {
+    v: '3.211.1',
+    date: '01 Agu 2026',
+    notes: [
+      '🔐 PIN rahasia "Kelola Admin" di bot Telegram (menu daftar/hapus Administrator, Admin Finance, Admin Notifikasi) SEBELUMNYA ditulis langsung di kode -- sekarang jadi Cloudflare Secret <code>FLEETOPS_TELEGRAM_ADMINISTRATOR_PIN</code>, pola SAMA seperti FLEETOPS_OPERATOR_PIN/FLEETOPS_INSIGHT_PIN. Mulai sekarang PIN ini bisa diganti kapan saja lewat dashboard Cloudflare TANPA perlu edit kode/deploy ulang.',
+      '⚠️ <b>WAJIB dilakukan setelah upload worker.js ini</b>: isi Secret baru <code>FLEETOPS_TELEGRAM_ADMINISTRATOR_PIN</code> di Cloudflare Variables/Secrets dengan angka PIN yang mau dipakai. Kalau belum diisi, menu PIN Kelola Admin di bot TIDAK AKAN merespons sama sekali (aman/gagal-senyap, bukan error) sampai secret ini diisi.',
+    ]
+  },
+  {
+    v: '3.211.0',
+    date: '01 Agu 2026',
+    notes: [
+      '📋 Perintah bot BARU khusus Administrator: ketik <code>log</code>, <code>notifikasi</code>, atau <code>cek notif</code> untuk lihat 7 Log Notifikasi terbaru langsung lewat chat (data sama dengan modal "📋 Cek log notifikasi" di web) -- tanpa perlu buka aplikasi. Ditampilkan dikelompokkan ⚠️ gagal dulu (kalau ada), baru ✅ berhasil, dengan ikon status di tiap baris. Perintah rahasia (tersembunyi dari daftar bantuan umum), bisa dimatikan lewat menu "🔔 Notifikasi Telegram per Peran" kalau tidak dibutuhkan.',
+      '🐛 Sekalian diperbaiki: bug kecil peninggalan dari penggantian nama "Super Admin"→"Administrator" (v3.209.0) -- nama Administrator di entri Log Notifikasi kategori Laporan Bulanan sempat muncul dengan sisa tanda ":" di depan karena panjang teks berubah tapi 1 angka potong-teks belum ikut disesuaikan.',
+      '🔧 Perubahan di index.html DAN worker.js -- WAJIB upload ulang KEDUANYA supaya perintah barunya aktif.',
+    ]
+  },
+  {
+    v: '3.210.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🌙 PERBAIKAN BESAR mode gelap: banyak tulisan/tampilan yang tidak terbaca sudah diperbaiki, penyebabnya ternyata beberapa komponen di-hardcode warnanya (tidak ikut tema) alih-alih pakai variabel warna. Yang diperbaiki: 12 komponen kartu di seluruh app (Data Mobil, Catat Perjalanan, Lacak Kendaraan, dropdown notifikasi, Aksi Cepat, dll) yang sebelumnya memaksa latar putih; 11 dari 15 ikon menu sidebar yang warnanya nyaris tak terlihat di latar gelap; label SEMUA form Tambah/Edit di seluruh app (dipakai 147 kali); teks menu sidebar; panel trip aktif yang mengambang; dan beberapa teks sekunder lain.',
+      '✅ Kartu Info Darurat, Resi Perjalanan/Laporan Biaya Operasional (gambar yang dibagikan), dan plat nomor kendaraan SENGAJA tetap terang permanen (bukan bug) -- supaya tetap terbaca jelas saat dicetak/dibagikan di luar aplikasi, terlepas dari tema yang sedang dipakai.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.209.0',
+    date: '01 Agu 2026',
+    notes: [
+      '👑 Penamaan peran <b>"Super Admin"</b> di seluruh tampilan (web, pesan bot Telegram, panduan PDF) diganti jadi <b>"Administrator"</b> -- MURNI ganti nama yang tampil ke pengguna, TIDAK ada satu pun perilaku/izin/logika yang berubah: kunci internal (<code>superadmin</code>), PIN Super Akses, dan cara masuknya tetap persis sama seperti sebelumnya. Istilah "PIN Super Akses" sendiri SENGAJA tidak ikut diganti (beda istilah dari nama perannya).',
+      '🔧 Perubahan di index.html DAN worker.js -- WAJIB upload ulang KEDUANYA. 3 file panduan PDF juga sudah diperbarui (timpa ulang di folder panduan/).',
+    ]
+  },
+  {
+    v: '3.208.3',
+    date: '01 Agu 2026',
+    notes: [
+      '🛣️ Bot Telegram: kalau ketik <code>odo</code> untuk mobil yang sudah terhubung GPS.id, sekarang langsung ditampilkan <b>Selisih</b> antara Odometer (aplikasi) vs Odometer GPS.id -- sebelumnya cuma tampil 2 angkanya, harus dihitung manual sendiri. Kalau selisihnya cukup jauh (ambang batas SENGAJA disamakan dengan badge "🛰️ GPS: ±X KM" di halaman Data Mobil: 2% dari odometer aplikasi, minimal 200 KM), muncul tanda ⚠️ menyarankan kalibrasi ulang.',
+      '🔧 Perubahan cuma di worker.js -- WAJIB upload ulang ke Cloudflare Worker supaya fitur ini aktif. index.html tidak berubah secara fungsional, cuma entri changelog ini.',
+    ]
+  },
+  {
     v: '3.208.2',
     date: '01 Agu 2026',
     notes: [
@@ -17113,7 +17166,7 @@ const CHANGELOG = [
     v: '3.207.0',
     date: '01 Agu 2026',
     notes: [
-      '🧭 Panel Pengaturan → "🧭 Menu Mode Sopir dan Operator" sekarang punya <b>2 kolom centang berdampingan (Sopir &amp; Operator)</b>, bukan cuma 1 kolom Sopir seperti sebelumnya. Sebelumnya, begitu PIN Operator level normal dibuka, SEMUA menu langsung terlihat tanpa bisa disaring -- sekarang level Operator normal juga bisa diatur menu & sub-itemnya sendiri, terpisah dari Mode Sopir. Default kolom Operator SENGAJA semua tercentang (meniru persis perilaku lama) supaya Operator yang sudah ada tidak kehilangan menu apa pun sampai Super Admin sendiri yang membuka panel ini &amp; mematikan sebagian. PIN Super Akses TETAP OTOMATIS melihat semua menu &amp; sub-item, tidak terpengaruh sama sekali oleh pengaturan ini.',
+      '🧭 Panel Pengaturan → "🧭 Menu Mode Sopir dan Operator" sekarang punya <b>2 kolom centang berdampingan (Sopir &amp; Operator)</b>, bukan cuma 1 kolom Sopir seperti sebelumnya. Sebelumnya, begitu PIN Operator level normal dibuka, SEMUA menu langsung terlihat tanpa bisa disaring -- sekarang level Operator normal juga bisa diatur menu & sub-itemnya sendiri, terpisah dari Mode Sopir. Default kolom Operator SENGAJA semua tercentang (meniru persis perilaku lama) supaya Operator yang sudah ada tidak kehilangan menu apa pun sampai Administrator sendiri yang membuka panel ini &amp; mematikan sebagian. PIN Super Akses TETAP OTOMATIS melihat semua menu &amp; sub-item, tidak terpengaruh sama sekali oleh pengaturan ini.',
       '🧭 Menu <b>"Pengaturan" sendiri sekarang punya sub-item</b> yang bisa diatur satu per satu (14 kartu, sama persis dengan isi menu Pengaturan) -- sebelumnya Pengaturan cuma bisa disembunyikan/ditampilkan sebagai satu menu utuh. Catatan: 9 dari 14 kartu itu sudah digerbang PIN Super Akses di tempat lain, jadi centang di sini untuk kartu-kartu tersebut tidak akan pernah berpengaruh buat Sopir/Operator biasa -- katalognya tetap dibuat lengkap demi konsistensi.',
       '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
     ]
@@ -17122,22 +17175,22 @@ const CHANGELOG = [
     v: '3.206.0',
     date: '01 Agu 2026',
     notes: [
-      '📖 Menu baru <b>"Panduan Pengguna"</b> di sidebar (paling bawah) -- download/preview PDF panduan pemakaian aplikasi, menyesuaikan level akses: Mode Sopir cuma bisa panduan Sopir &amp; Admin Finance, Operator dapat tambahan panduan Admin, Super Akses dapat semua (termasuk panduan Super Admin). Menu ini SENGAJA SELALU tampil ke siapa pun (tidak ikut sistem "Menu Mode Sopir dan Operator") -- kontennya sendiri yang menyaring per level akses. File PDF-nya disimpan terpisah di folder <code>panduan/</code> pada hosting yang sama dengan index.html -- update isi panduan cukup timpa file PDF-nya, TIDAK perlu naikkan versi/deploy ulang aplikasi.',
+      '📖 Menu baru <b>"Panduan Pengguna"</b> di sidebar (paling bawah) -- download/preview PDF panduan pemakaian aplikasi, menyesuaikan level akses: Mode Sopir cuma bisa panduan Sopir &amp; Admin Finance, Operator dapat tambahan panduan Admin, Super Akses dapat semua (termasuk panduan Administrator). Menu ini SENGAJA SELALU tampil ke siapa pun (tidak ikut sistem "Menu Mode Sopir dan Operator") -- kontennya sendiri yang menyaring per level akses. File PDF-nya disimpan terpisah di folder <code>panduan/</code> pada hosting yang sama dengan index.html -- update isi panduan cukup timpa file PDF-nya, TIDAK perlu naikkan versi/deploy ulang aplikasi.',
     ]
   },
   {
     v: '3.205.0',
     date: '01 Agu 2026',
     notes: [
-      '🧭 Penamaan mode akses dirapikan: tampilan default/terkunci (yang dipegang sopir sehari-hari) SEKARANG disebut <b>Mode Sopir</b> (sebelumnya "Mode Operator"), dan level akses yang dibuka lewat PIN Operator (peran "Admin" di sistem izin/notifikasi per peran) SEKARANG disebut <b>Operator</b> (sebelumnya "Admin"). "Super Admin" TIDAK berubah. Ini murni penyesuaian nama yang tampil ke pengguna -- nama variabel/fungsi internal, kunci penyimpanan, dan seluruh perilaku/logika TIDAK berubah sama sekali.',
-      '🧭 Panel Pengaturan → "🧭 Menu Mode Operator" berganti nama jadi <b>"🧭 Menu Mode Sopir dan Operator"</b>, dan sekarang beberapa menu punya sub-item (fitur/tombol tertentu di dalamnya, mis. tombol "+ Tambah Mobil" di Data Mobil, "+ Buat Booking" di Booking Mobil, Export PDF/Excel di Laporan Bulanan, dst.) yang bisa dicentang & disembunyikan sendiri dari tampilan Mode Sopir, terpisah dari menunya. Default SENGAJA semua tercentang (tampil) supaya tidak ada perubahan tampilan diam-diam sampai Super Admin sendiri yang membuka & mengubahnya. PIN Operator/Super Akses tetap OTOMATIS melihat semua sub-item apa pun isi pengaturan ini. Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+      '🧭 Penamaan mode akses dirapikan: tampilan default/terkunci (yang dipegang sopir sehari-hari) SEKARANG disebut <b>Mode Sopir</b> (sebelumnya "Mode Operator"), dan level akses yang dibuka lewat PIN Operator (peran "Admin" di sistem izin/notifikasi per peran) SEKARANG disebut <b>Operator</b> (sebelumnya "Admin"). "Administrator" TIDAK berubah. Ini murni penyesuaian nama yang tampil ke pengguna -- nama variabel/fungsi internal, kunci penyimpanan, dan seluruh perilaku/logika TIDAK berubah sama sekali.',
+      '🧭 Panel Pengaturan → "🧭 Menu Mode Operator" berganti nama jadi <b>"🧭 Menu Mode Sopir dan Operator"</b>, dan sekarang beberapa menu punya sub-item (fitur/tombol tertentu di dalamnya, mis. tombol "+ Tambah Mobil" di Data Mobil, "+ Buat Booking" di Booking Mobil, Export PDF/Excel di Laporan Bulanan, dst.) yang bisa dicentang & disembunyikan sendiri dari tampilan Mode Sopir, terpisah dari menunya. Default SENGAJA semua tercentang (tampil) supaya tidak ada perubahan tampilan diam-diam sampai Administrator sendiri yang membuka & mengubahnya. PIN Operator/Super Akses tetap OTOMATIS melihat semua sub-item apa pun isi pengaturan ini. Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
     ]
   },
   {
     v: '3.204.0',
     date: '01 Agu 2026',
     notes: [
-      '🧭 BARU (menu khusus Super Admin, Pengaturan → "🧭 Menu Mode Operator"): menu apa saja yang tampil di sidebar saat tampilan Mode Operator masih terkunci (belum PIN) sekarang bisa diatur langsung dari UI, mirip pola panel "🔔 Notifikasi Telegram per Peran" -- sebelumnya daftar ini hardcode di kode (perlu developer ubah kode utk menambah/mengurangi). Default SENGAJA meniru PERSIS daftar lama (Dashboard, Catat Perjalanan, Booking Mobil, Servis & Maintenance) supaya tidak ada perubahan tampilan diam-diam sampai Super Admin sendiri yang membuka & mengubahnya. PIN Super Akses tetap OTOMATIS melihat semua menu apa pun isi pengaturan ini. Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+      '🧭 BARU (menu khusus Administrator, Pengaturan → "🧭 Menu Mode Operator"): menu apa saja yang tampil di sidebar saat tampilan Mode Operator masih terkunci (belum PIN) sekarang bisa diatur langsung dari UI, mirip pola panel "🔔 Notifikasi Telegram per Peran" -- sebelumnya daftar ini hardcode di kode (perlu developer ubah kode utk menambah/mengurangi). Default SENGAJA meniru PERSIS daftar lama (Dashboard, Catat Perjalanan, Booking Mobil, Servis & Maintenance) supaya tidak ada perubahan tampilan diam-diam sampai Administrator sendiri yang membuka & mengubahnya. PIN Super Akses tetap OTOMATIS melihat semua menu apa pun isi pengaturan ini. Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
     ]
   },
   {
@@ -17158,7 +17211,7 @@ const CHANGELOG = [
     v: '3.201.1',
     date: '01 Agu 2026',
     notes: [
-      '🐛 PERBAIKAN BUG: tombol "Tes kirim ke Super Admin" per kategori (panel Notifikasi Telegram per Peran) menampilkan "Tidak ada detail error" saat Worker gagal -- padahal pesan error aslinya sudah ada, cuma dikirim di field JSON berbeda (`error`, bukan `reason`) sejak pengaman try/catch global ditambahkan di worker.js. Sekarang kedua field dibaca, jadi pesan error asli langsung terlihat.',
+      '🐛 PERBAIKAN BUG: tombol "Tes kirim ke Administrator" per kategori (panel Notifikasi Telegram per Peran) menampilkan "Tidak ada detail error" saat Worker gagal -- padahal pesan error aslinya sudah ada, cuma dikirim di field JSON berbeda (`error`, bukan `reason`) sejak pengaman try/catch global ditambahkan di worker.js. Sekarang kedua field dibaca, jadi pesan error asli langsung terlihat.',
     ]
   },
   {
@@ -17172,8 +17225,8 @@ const CHANGELOG = [
     v: '3.200.1',
     date: '01 Agu 2026',
     notes: [
-      '🐛 PERBAIKAN BUG: Super Admin yang didaftarkan lewat menu rahasia di Telegram tersimpan dengan benar di data cloud, TAPI field ini ternyata tidak pernah terdaftar di daftar koleksi yang disinkronkan ke aplikasi web (SYNC_COLLECTIONS) -- akibatnya aplikasi (di device manapun) tidak pernah menariknya masuk, panel "Notifikasi Telegram per Peran" & tujuan tes tetap menampilkan "Belum ada Super Admin" walau registrasinya sudah sukses. Sekarang sudah didaftarkan dengan benar, akan tertarik otomatis begitu aplikasi sinkron ke cloud.',
-      '🔒 Aturan baku baru (lihat checklist rilis di kode): mulai sekarang, catatan CHANGELOG apa pun yang menyentuh PIN Kelola Super Admin atau PIN Super Akses TIDAK PERNAH menuliskan angka PIN-nya secara eksplisit -- selalu pakai istilah generik, konsisten di setiap rilis ke depan, terlepas dari apakah changelog ini sendiri sudah tersembunyi dari petugas umum atau tidak.',
+      '🐛 PERBAIKAN BUG: Administrator yang didaftarkan lewat menu rahasia di Telegram tersimpan dengan benar di data cloud, TAPI field ini ternyata tidak pernah terdaftar di daftar koleksi yang disinkronkan ke aplikasi web (SYNC_COLLECTIONS) -- akibatnya aplikasi (di device manapun) tidak pernah menariknya masuk, panel "Notifikasi Telegram per Peran" & tujuan tes tetap menampilkan "Belum ada Administrator" walau registrasinya sudah sukses. Sekarang sudah didaftarkan dengan benar, akan tertarik otomatis begitu aplikasi sinkron ke cloud.',
+      '🔒 Aturan baku baru (lihat checklist rilis di kode): mulai sekarang, catatan CHANGELOG apa pun yang menyentuh PIN Kelola Administrator atau PIN Super Akses TIDAK PERNAH menuliskan angka PIN-nya secara eksplisit -- selalu pakai istilah generik, konsisten di setiap rilis ke depan, terlepas dari apakah changelog ini sendiri sudah tersembunyi dari petugas umum atau tidak.',
     ]
   },
   {
@@ -17218,7 +17271,7 @@ const CHANGELOG = [
     notes: [
       '📋 BARU: tombol "Cek log notifikasi" di panel "🔔 Notifikasi Telegram per Peran" -- modal berisi 50 pengiriman notifikasi Telegram terbaru: jam, nama & ID Telegram penerima, peran, kategori pesan, dan status (Berhasil/Gagal).',
       'ℹ️ Status cuma 2 nilai (Berhasil/Gagal) -- Telegram Bot API tidak punya cara resmi memberi tahu bot apakah pesan sudah DIBACA penerima (beda dari WhatsApp Business API), jadi status "dibaca" sengaja tidak ditampilkan supaya tidak menyesatkan.',
-      '⚠️ <b>CATATAN CAKUPAN</b>: log ini mencatat pengiriman lewat jalur cron/berkala (alert biasa, Laporan Bulanan, Resi cadangan, notif Finance/Super Admin). Resi Perjalanan yang terkirim lewat jalur INSTAN (langsung dari aplikasi saat trip ditutup, jalur tercepat & paling sering dipakai) BELUM tercatat di log ini -- kemungkinan jumlah Resi yang terlihat di log lebih sedikit dari yang sebenarnya terkirim.',
+      '⚠️ <b>CATATAN CAKUPAN</b>: log ini mencatat pengiriman lewat jalur cron/berkala (alert biasa, Laporan Bulanan, Resi cadangan, notif Finance/Administrator). Resi Perjalanan yang terkirim lewat jalur INSTAN (langsung dari aplikasi saat trip ditutup, jalur tercepat & paling sering dipakai) BELUM tercatat di log ini -- kemungkinan jumlah Resi yang terlihat di log lebih sedikit dari yang sebenarnya terkirim.',
       '⚠️ <b>Upload ulang worker.js terbaru</b> supaya endpoint /notif-log & pencatatan log di setiap jalur kirim notifikasi ini aktif.',
     ]
   },
@@ -17239,7 +17292,7 @@ const CHANGELOG = [
     date: '01 Agu 2026',
     notes: [
       '📶 BARU: kategori notifikasi "Masa Aktif SIM GPS Tracker" -- peringatan berkala (60/30/7 hari + lewat, sama seperti Dokumen Kadaluarsa) kalau pulsa/masa aktif kartu SIM di alat GPS mendekati/sudah habis. Beda dari Dokumen Kadaluarsa yang sudah ada (itu dokumen fisik kendaraan) -- field ini (expired_gsm) sebelumnya diambil dari GPS.id tapi tidak pernah dipakai.',
-      '🚨 BARU: kategori "Alert Bawaan GPS.id" -- teruskan alert tingkat perangkat (SOS/rem mendadak/power cut/dst, TERGANTUNG tipe device) ke Telegram. Super Admin pilih sendiri kode mana yang relevan lewat panel watchlist baru (diambil live dari API GPS.id, bukan hardcode) -- default KOSONG, tidak ada yang diteruskan sampai sengaja diisi.',
+      '🚨 BARU: kategori "Alert Bawaan GPS.id" -- teruskan alert tingkat perangkat (SOS/rem mendadak/power cut/dst, TERGANTUNG tipe device) ke Telegram. Administrator pilih sendiri kode mana yang relevan lewat panel watchlist baru (diambil live dari API GPS.id, bukan hardcode) -- default KOSONG, tidak ada yang diteruskan sampai sengaja diisi.',
       '🎥 BARU: "Replay Rute" di modal "🛰️ Insight GPS.id" (Riwayat Trip) -- peta interaktif menampilkan jalur perjalanan lengkap + tombol Putar/Jeda & slider utk menggeser waktu, berguna verifikasi rute yang meleset jauh dari tujuan atau audit klaim BBM.',
       '🧭 BARU: marker mobil di peta (Lacak Kendaraan & popup Lacak per mobil) sekarang menampilkan panah arah gerak (compass heading dari field "angle" GPS.id) -- cuma muncul kalau mobil memang sedang bergerak, supaya tidak menyesatkan saat diam.',
       '⚠️ <b>CATATAN JUJUR soal Alert Bawaan GPS.id</b>: dokumentasi resmi GPS.id tidak menjabarkan bentuk pasti respons endpoint kode alert & data alert -- parsing di kode ini menduga bentuk yang lazim (sama pola dgn endpoint GPS.id lain) & sudah dibuat defensif (fallback tampilkan data mentah kalau bentuknya meleset), tapi BELUM PERNAH diuji dengan akun GPS.id sungguhan. Cek langsung panel watchlist setelah upload -- kalau daftar kode tidak muncul dgn benar, laporkan bentuk data mentah yang ditampilkan supaya bisa disesuaikan.',
@@ -17253,7 +17306,7 @@ const CHANGELOG = [
       '✅ BARU: badge "sudah pernah dites" di daftar kiri panel "🔔 Notifikasi Telegram per Peran" -- muncul begitu 1 kategori berhasil dites, disimpan LOKAL per HP (localStorage, TIDAK ikut sinkron ke tim lain) supaya tidak bikin salah paham antar anggota tim.',
       '🔎 BARU: kotak cari di atas daftar kiri -- ketik nama kategori/perintah langsung filter, tidak perlu scroll manual lagi di antara 28 item.',
       '↺ BARU: tombol "Reset ke Default" per item -- kembalikan togel peran, alias custom, & togel fitur tersembunyi ke bawaan pabrik dalam 1 klik (dgn konfirmasi), jaring pengaman kalau salah pencet/iseng.',
-      '⏳ BARU: cooldown 10 detik pada tombol Tes setelah setiap percobaan kirim (berhasil maupun gagal) -- mencegah banjir pesan ke Telegram Super Admin kalau tombol diklik cepat berkali-kali.',
+      '⏳ BARU: cooldown 10 detik pada tombol Tes setelah setiap percobaan kirim (berhasil maupun gagal) -- mencegah banjir pesan ke Telegram Administrator kalau tombol diklik cepat berkali-kali.',
       '⬇️⬆️ BARU: tombol "Unduh Alias (JSON)" & "Impor Alias" -- backup/pindahkan seluruh alias custom sekaligus. Impor bersifat GABUNG (bukan menimpa total) supaya tidak diam-diam menghapus alias baru yang ditambahkan setelah backup dibuat.',
       '⚠️ BARU: tanda peringatan di daftar kiri untuk kategori yang togelnya OFF di SEMUA peran sekaligus (tidak pernah terkirim ke siapa pun) -- biasanya tanda lupa dinyalakan lagi, bukan disengaja.',
     ]
@@ -17270,14 +17323,14 @@ const CHANGELOG = [
     date: '01 Agu 2026',
     notes: [
       '🖼️ Tombol tes kategori "Resi Perjalanan" sekarang BENAR-BENAR me-render gambar Tanda Terima (html2canvas asli, dari 1 trip Operasional nyata yang sudah selesai) lalu mengirimkannya sbg gambar -- sebelumnya tes ini cuma kirim ringkasan teks, jadi tidak menguji bagian yang justru paling rawan gagal (proses render gambar di browser).',
-      '🔒 Dikonfirmasi ulang: SEMUA tombol tes di panel "🔔 Notifikasi Telegram per Peran" (termasuk tes gambar Resi yang baru) hanya bisa dikirim ke Chat ID Super Admin yang terdaftar & dipilih sendiri -- tidak pernah ke chat sopir/admin lain, walau datanya (mis. nama mobil di tes Resi) dipinjam dari trip sopir asli, supaya tidak ada salah paham di tim.',
+      '🔒 Dikonfirmasi ulang: SEMUA tombol tes di panel "🔔 Notifikasi Telegram per Peran" (termasuk tes gambar Resi yang baru) hanya bisa dikirim ke Chat ID Administrator yang terdaftar & dipilih sendiri -- tidak pernah ke chat sopir/admin lain, walau datanya (mis. nama mobil di tes Resi) dipinjam dari trip sopir asli, supaya tidak ada salah paham di tim.',
     ]
   },
   {
     v: '3.190.0',
     date: '01 Agu 2026',
     notes: [
-      '🔬 BARU: tombol "Tes kirim ke Super Admin" di setiap item panel "🔔 Notifikasi Telegram per Peran" (khusus Super Admin, PIN Super Akses) -- kirim 1 pesan contoh langsung ke Chat ID Super Admin pilihan (tidak pernah ke penerima asli), supaya bisa lihat format & isi notifikasi tanpa menunggu kondisinya benar-benar terjadi.',
+      '🔬 BARU: tombol "Tes kirim ke Administrator" di setiap item panel "🔔 Notifikasi Telegram per Peran" (khusus Administrator, PIN Super Akses) -- kirim 1 pesan contoh langsung ke Chat ID Administrator pilihan (tidak pernah ke penerima asli), supaya bisa lihat format & isi notifikasi tanpa menunggu kondisinya benar-benar terjadi.',
       '📊 Untuk 9 kategori alert berkala (Dokumen, Servis, E-Toll, BBM, Booking, Trip Lama, Budget, Kalibrasi, Kecepatan), pesan tes memakai DATA ASLI -- kalau saat ini memang ada yang memenuhi syarat (mis. dokumen yang mendekati kadaluarsa), itu yang dikirim persis seperti aslinya. Kalau tidak ada, dikasih tahu jujur "sedang tidak ada yang memicu" bukan pesan palsu.',
       'ℹ️ Untuk perintah on-demand (oli, cek, lokasi, menu, dst -- yang dipicu pengguna ketik ke bot, bukan notifikasi push), tombol tes memberi penjelasan singkat + saran cara tes paling akurat (ketik langsung ke bot), karena secara alami tidak ada "data yang menunggu dikirim" untuk perintah jenis ini.',
       '⚠️ <b>Upload ulang worker.js terbaru</b> supaya endpoint <code>/run-notify-check</code> menerima parameter baru <code>test_category</code>.',
@@ -17287,14 +17340,14 @@ const CHANGELOG = [
     v: '3.189.1',
     date: '01 Agu 2026',
     notes: [
-      '📋 Tabel referensi "Daftar Perintah &amp; Kategori" ditambahkan kembali ke menu "🔔 Notifikasi Telegram per Peran" (khusus Super Admin) -- kali ini dalam bentuk daftar simpel & tercollapse (bukan tabel grid banyak kolom seperti sebelumnya), dibangun otomatis dari katalog yang sama dengan daftar kiri jadi selalu sinkron tanpa perlu diperbarui manual 2 tempat.',
+      '📋 Tabel referensi "Daftar Perintah &amp; Kategori" ditambahkan kembali ke menu "🔔 Notifikasi Telegram per Peran" (khusus Administrator) -- kali ini dalam bentuk daftar simpel & tercollapse (bukan tabel grid banyak kolom seperti sebelumnya), dibangun otomatis dari katalog yang sama dengan daftar kiri jadi selalu sinkron tanpa perlu diperbarui manual 2 tempat.',
     ]
   },
   {
     v: '3.189.0',
     date: '01 Agu 2026',
     notes: [
-      '🎨 Layout menu "🔔 Notifikasi Telegram per Peran" dirombak total (khusus Super Admin, PIN Super Akses) -- sebelumnya tabel grid padat 12 baris x 4 kolom checkbox + 3 panel terpisah (alias, fitur tersembunyi), sekarang jadi tampilan daftar+detail: pilih 1 perintah/kategori di kiri, semua pengaturannya (togel per peran, alias kata kunci, togel fitur tersembunyi) digabung jadi 1 layar di kanan.',
+      '🎨 Layout menu "🔔 Notifikasi Telegram per Peran" dirombak total (khusus Administrator, PIN Super Akses) -- sebelumnya tabel grid padat 12 baris x 4 kolom checkbox + 3 panel terpisah (alias, fitur tersembunyi), sekarang jadi tampilan daftar+detail: pilih 1 perintah/kategori di kiri, semua pengaturannya (togel per peran, alias kata kunci, togel fitur tersembunyi) digabung jadi 1 layar di kanan.',
       '⚡ Setiap perubahan (togel peran, tambah/hapus alias, nyala/mati fitur tersembunyi, Cegah Approve Booking Sendiri) SEKARANG tersimpan LANGSUNG -- tombol "Simpan" terpisah dihapus, tidak ada lagi risiko lupa tap Simpan setelah mengubah banyak hal.',
       '🔗 Kategori yang sebelumnya tersebar di 3 sistem berbeda (mis. "Kecepatan Berlebih") sekarang digabung jadi 1 item -- klik sekali langsung lihat & atur togel peran, alias (kecepatan/speed/laju), DAN togel aktif/mati fitur tersembunyinya sekaligus, tidak perlu buka 3 panel berbeda lagi.',
       'ℹ️ Tabel referensi statis "Daftar Perintah Chat Bot Telegram per Peran" (rincian predikat akses per perintah) untuk sementara dilepas dari panel ini seiring perombakan -- deskripsi singkat tiap perintah sekarang ada langsung di panel detail kanan.',
@@ -17306,7 +17359,7 @@ const CHANGELOG = [
     notes: [
       '✏️ Panel "Kelola Alias Perintah" diperluas -- sekarang juga bisa diisi utk perintah <code>menu</code>, <code>rekomendasi</code>, <code>batal</code>, <code>tiba</code>, <code>biaya</code>/operasional/pribadi, <code>booking</code>/pesan/boking/keep, <code>mulai trip</code>/mulai/jalan/berangkat, & jawaban <code>ya</code>/<code>tidak</code> -- sebelumnya cuma /oli, /cek, /lokasi, /service, /kecepatan, & pintasan Saldo.',
       '⚠️ BARU: peringatan tabrakan alias -- kalau kata yang mau ditambahkan sudah dipakai kategori LAIN (default bawaan atau alias custom), sistem kasih tahu dulu (boleh tetap lanjut) supaya tidak bikin bot bingung perintah mana yang dimaksud.',
-      '🔒 Panel "Fitur Tersembunyi" bertambah 1 togel: "Ketik nama sopir persis" (lihat detail statistik 1 sopir, Super Admin) -- sekarang bisa dimatikan manual juga, sama seperti /kecepatan.',
+      '🔒 Panel "Fitur Tersembunyi" bertambah 1 togel: "Ketik nama sopir persis" (lihat detail statistik 1 sopir, Administrator) -- sekarang bisa dimatikan manual juga, sama seperti /kecepatan.',
       '⚠️ <b>Upload ulang worker.js terbaru</b> supaya seluruh alias & togel fitur tersembunyi baru ini aktif di jalur bot Telegram (termasuk di jalur cron/notifikasi berkala, bukan cuma chat langsung).',
     ]
   },
@@ -17314,9 +17367,9 @@ const CHANGELOG = [
     v: '3.187.0',
     date: '01 Agu 2026',
     notes: [
-      '✏️ BARU (menu khusus Super Admin, PIN Super Akses): panel "Kelola Alias Perintah" di dalam "🔔 Notifikasi Telegram per Peran" -- sekarang Super Admin bisa menambah/menghapus kata kunci TAMBAHAN untuk perintah bot (/oli, /cek, /lokasi, /service, /kecepatan, & semua pintasan Saldo) langsung dari UI, TANPA perlu minta developer ubah kode. Kata kunci bawaan tetap ada & tidak bisa dihapus dari sini.',
+      '✏️ BARU (menu khusus Administrator, PIN Super Akses): panel "Kelola Alias Perintah" di dalam "🔔 Notifikasi Telegram per Peran" -- sekarang Administrator bisa menambah/menghapus kata kunci TAMBAHAN untuk perintah bot (/oli, /cek, /lokasi, /service, /kecepatan, & semua pintasan Saldo) langsung dari UI, TANPA perlu minta developer ubah kode. Kata kunci bawaan tetap ada & tidak bisa dihapus dari sini.',
       '🔒 BARU: panel "Fitur Tersembunyi" -- perintah rahasia (saat ini: /kecepatan) sekarang bisa dinyalakan/dimatikan manual dari UI, tidak perlu ubah kode kalau suatu saat tidak dibutuhkan lagi.',
-      '🙈 Changelog & rincian popup "Versi Baru Tersedia" SEKARANG disembunyikan dari petugas umum -- keduanya sering menyebut detail rahasia (PIN Super Admin, dsb). Tombol "Lihat Changelog" & isi rinci popup update cuma tampil kalau sesi ini sudah buka PIN Super Akses; petugas umum tetap diberi tahu ADA pembaruan, tanpa rinciannya.',
+      '🙈 Changelog & rincian popup "Versi Baru Tersedia" SEKARANG disembunyikan dari petugas umum -- keduanya sering menyebut detail rahasia (PIN Administrator, dsb). Tombol "Lihat Changelog" & isi rinci popup update cuma tampil kalau sesi ini sudah buka PIN Super Akses; petugas umum tetap diberi tahu ADA pembaruan, tanpa rinciannya.',
       '📋 Checklist rilis developer ditambah aturan baru: setiap perintah bot Telegram baru WAJIB disinkronkan ke menu Notifikasi Telegram per Peran (togel izin peran, katalog alias, dan/atau katalog fitur tersembunyi) supaya tidak ada perintah yang "yatim".',
       '⚠️ <b>Upload ulang worker.js terbaru</b> supaya sistem alias (state.commandAliases) & togel fitur tersembunyi (state.hiddenFeatures) ini dibaca di jalur bot Telegram.',
     ]
@@ -17335,7 +17388,7 @@ const CHANGELOG = [
     v: '3.185.0',
     date: '01 Agu 2026',
     notes: [
-      '🔕 Aturan anti-spam BARU: kalau 1 Chat ID Telegram yang SAMA kebetulan terdaftar lebih dari sekali untuk 1 kejadian yang sama -- baik dobel di daftar yang sama maupun tersebar di beberapa daftar berbeda (Secret ADMIN_CHAT_IDS, Admin Penerima Notifikasi Telegram, Super Admin), atau orang yang sama terdaftar sbg Sopir SEKALIGUS Admin/Super Admin -- sistem sekarang HANYA mengirim SATU pesan ke Chat ID itu (bukan berkali-kali), utk notifikasi mulai/tutup trip, approval booking, konfirmasi booking H-1, dan resi trip selesai. Berlaku di jalur instan maupun jalur cadangan (cron). ⚠️ <b>Upload ulang worker.js terbaru ke Cloudflare Worker</b> supaya dedup ini aktif juga di jalur cron/webhook.',
+      '🔕 Aturan anti-spam BARU: kalau 1 Chat ID Telegram yang SAMA kebetulan terdaftar lebih dari sekali untuk 1 kejadian yang sama -- baik dobel di daftar yang sama maupun tersebar di beberapa daftar berbeda (Secret ADMIN_CHAT_IDS, Admin Penerima Notifikasi Telegram, Administrator), atau orang yang sama terdaftar sbg Sopir SEKALIGUS Admin/Administrator -- sistem sekarang HANYA mengirim SATU pesan ke Chat ID itu (bukan berkali-kali), utk notifikasi mulai/tutup trip, approval booking, konfirmasi booking H-1, dan resi trip selesai. Berlaku di jalur instan maupun jalur cadangan (cron). ⚠️ <b>Upload ulang worker.js terbaru ke Cloudflare Worker</b> supaya dedup ini aktif juga di jalur cron/webhook.',
       'ℹ️ Menu Pengaturan → Admin Penerima Notifikasi Telegram sekarang punya kotak "Aturan Lengkap Notifikasi Telegram" (bisa dibuka/tutup) yang mencatat SEMUA aturan pengiriman notifikasi -- termasuk aturan tersembunyi yang selama ini cuma ada di komentar kode (4 daftar penerima terpisah, 2 lapis izin peran+individu, aturan approval booking, waktu cek H-0/H-1, aturan resi per peran, aturan dokumen sopir vs mobil, jalur instan vs cadangan).',
     ]
   },
@@ -17343,15 +17396,15 @@ const CHANGELOG = [
     v: '3.184.0',
     date: '01 Agu 2026',
     notes: [
-      '🔔 Menu "Notifikasi Telegram per Peran" (khusus Super Admin) sekarang punya kolom "👑 Super Admin" -- SEBELUMNYA Super Admin sengaja dikecualikan & selalu menerima semua kategori. Untuk 9 kategori alert lama (Dokumen, Servis, E-Toll, BBM, Booking, Trip Lama, Budget, Kalibrasi, Kecepatan), default TETAP tercentang semua supaya perilaku lama tidak berubah. 3 kategori lain -- Resi Perjalanan, Approval Booking, Laporan Bulanan -- BARU tersedia utk Super Admin & default TIDAK tercentang (dulu memang tidak pernah dikirim ke Super Admin). Khusus Resi Perjalanan: kalau sopir pemilik trip itu sendiri kebetulan terdaftar sbg Super Admin, salinan resi tidak dikirim balik ke dia. Diverifikasi lewat simulasi beberapa skenario (default baru, opt-in resi/approval/laporan, self-exclusion resi). ⚠️ <b>Upload ulang worker.js terbaru</b> supaya seluruh gerbang & pengiriman baru ini aktif di jalur cron/Telegram.',
-      '🚫 "Cegah Approve Booking Sendiri" dipindah dari Pengaturan → Ambang Batas Notifikasi ke Pengaturan → Notifikasi Telegram per Peran (masih di panel khusus Super Admin, cuma pindah lokasi) -- nilai pengaturan yang sudah ada tetap tersimpan seperti biasa, tidak ada yang berubah.',
+      '🔔 Menu "Notifikasi Telegram per Peran" (khusus Administrator) sekarang punya kolom "👑 Administrator" -- SEBELUMNYA Administrator sengaja dikecualikan & selalu menerima semua kategori. Untuk 9 kategori alert lama (Dokumen, Servis, E-Toll, BBM, Booking, Trip Lama, Budget, Kalibrasi, Kecepatan), default TETAP tercentang semua supaya perilaku lama tidak berubah. 3 kategori lain -- Resi Perjalanan, Approval Booking, Laporan Bulanan -- BARU tersedia utk Administrator & default TIDAK tercentang (dulu memang tidak pernah dikirim ke Administrator). Khusus Resi Perjalanan: kalau sopir pemilik trip itu sendiri kebetulan terdaftar sbg Administrator, salinan resi tidak dikirim balik ke dia. Diverifikasi lewat simulasi beberapa skenario (default baru, opt-in resi/approval/laporan, self-exclusion resi). ⚠️ <b>Upload ulang worker.js terbaru</b> supaya seluruh gerbang & pengiriman baru ini aktif di jalur cron/Telegram.',
+      '🚫 "Cegah Approve Booking Sendiri" dipindah dari Pengaturan → Ambang Batas Notifikasi ke Pengaturan → Notifikasi Telegram per Peran (masih di panel khusus Administrator, cuma pindah lokasi) -- nilai pengaturan yang sudah ada tetap tersimpan seperti biasa, tidak ada yang berubah.',
     ]
   },
   {
     v: '3.183.0',
     date: '31 Jul 2026',
     notes: [
-      'Fitur baru: "🚫 Cegah Approve Booking Sendiri" (Pengaturan → Ambang Batas Notifikasi, Super Admin). Kalau pengaju booking JUGA salah satu admin penerima notifikasi Telegram, dia tidak bisa lagi menyetujui/menolak booking ajuannya sendiri lewat tombol Telegram -- harus admin lain, apapun perannya. KECUALI kalau tidak ada admin lain sama sekali (supaya booking tidak menggantung selamanya), baru diizinkan diproses sendiri sbg jalan keluar. Bisa dimatikan lewat toggle ini kalau tidak diperlukan. Diverifikasi lewat simulasi 4 skenario. ⚠️ <b>Upload ulang worker.js terbaru</b> supaya aturan ini aktif.',
+      'Fitur baru: "🚫 Cegah Approve Booking Sendiri" (Pengaturan → Ambang Batas Notifikasi, Administrator). Kalau pengaju booking JUGA salah satu admin penerima notifikasi Telegram, dia tidak bisa lagi menyetujui/menolak booking ajuannya sendiri lewat tombol Telegram -- harus admin lain, apapun perannya. KECUALI kalau tidak ada admin lain sama sekali (supaya booking tidak menggantung selamanya), baru diizinkan diproses sendiri sbg jalan keluar. Bisa dimatikan lewat toggle ini kalau tidak diperlukan. Diverifikasi lewat simulasi 4 skenario. ⚠️ <b>Upload ulang worker.js terbaru</b> supaya aturan ini aktif.',
     ]
   },
   {
@@ -17412,7 +17465,7 @@ const CHANGELOG = [
     v: '3.175.0',
     date: '01 Agu 2026',
     notes: [
-      '🟢 BARU (menu khusus Super Admin): <b>🔔 Notifikasi Telegram per Peran</b> -- atur kategori notifikasi Telegram berkala apa saja (Dokumen, Servis, E-Toll, BBM, Booking, Trip Lama, Budget, Kalibrasi GPS.id, Kecepatan Berlebih) yang diterima Sopir/Finance/Admin. Super Admin tidak diatur di sini -- selalu menerima semua kategori. Dibuka lewat titik kecil "·" di tulisan "FleetOps — Stay in Control" (pojok kiri bawah sidebar), PIN sama dengan PIN Insight. Perubahan di menu ini SENGAJA TIDAK tercatat di Riwayat Aktivitas.',
+      '🟢 BARU (menu khusus Administrator): <b>🔔 Notifikasi Telegram per Peran</b> -- atur kategori notifikasi Telegram berkala apa saja (Dokumen, Servis, E-Toll, BBM, Booking, Trip Lama, Budget, Kalibrasi GPS.id, Kecepatan Berlebih) yang diterima Sopir/Finance/Admin. Administrator tidak diatur di sini -- selalu menerima semua kategori. Dibuka lewat titik kecil "·" di tulisan "FleetOps — Stay in Control" (pojok kiri bawah sidebar), PIN sama dengan PIN Insight. Perubahan di menu ini SENGAJA TIDAK tercatat di Riwayat Aktivitas.',
       '🔧 Perbaikan bug lama: pengaturan <b>Ambang Batas Notifikasi</b> ternyata tidak pernah ikut ter-load ulang dari data tersimpan/sinkron (selalu balik ke default tiap reload) -- sekarang sudah benar.',
       '⚠️ <b>Upload ulang worker.js terbaru ke Cloudflare Worker</b> supaya penyaringan penerima notifikasi ini aktif.',
     ]
@@ -19512,8 +19565,8 @@ document.getElementById('btn-changelog').onclick = () => {
 };
 
 // BARU -- Changelog lengkap SENGAJA disembunyikan dari petugas umum, karena
-// isinya kadang menyebut detail rahasia (mis. keberadaan PIN Super Admin
-// PIN Super Akses/Kelola Super Admin & fitur tersembunyi). Tombol "Lihat Changelog" & rincian
+// isinya kadang menyebut detail rahasia (mis. keberadaan PIN Administrator
+// PIN Super Akses/Kelola Administrator & fitur tersembunyi). Tombol "Lihat Changelog" & rincian
 // fitur di popup "Versi Baru Tersedia" cuma tampil kalau sesi ini sudah
 // buka PIN Super Akses (insightUnlocked) -- petugas umum tetap tahu ADA
 // pembaruan (lewat nomor versi), cuma tidak lihat rinciannya. Dipanggil
@@ -19775,12 +19828,12 @@ if ('serviceWorker' in navigator) {
   document.getElementById('btn-force-update').addEventListener('click', forceCheckUpdate);
 
   // BARU -- rincian fitur (items) BISA memuat detail rahasia (mis. PIN
-  // Super Admin), jadi hanya ditampilkan kalau sesi ini sudah Super Akses
+  // Administrator), jadi hanya ditampilkan kalau sesi ini sudah Super Akses
   // (insightUnlocked). Petugas umum tetap diberi tahu ADA pembaruan, cuma
   // isinya generik tanpa detail.
   function featureListHtml(items){
     if(insightUnlocked && items && items.length) return items.map(t=>`<li>${escapeHtml(t)}</li>`).join('');
-    return `<li>Perbaikan &amp; peningkatan umum. Hubungi Super Admin untuk rincian lengkap.</li>`;
+    return `<li>Perbaikan &amp; peningkatan umum. Hubungi Administrator untuk rincian lengkap.</li>`;
   }
   function openPopupPending(newWorker, versionKey, items){
     pendingWorker = newWorker;
