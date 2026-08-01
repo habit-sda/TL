@@ -1413,7 +1413,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.204.0';
+const APP_VERSION = '3.205.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1806,12 +1806,15 @@ function loadData(){
       notifSettings: (parsed.notifSettings && typeof parsed.notifSettings==='object') ? parsed.notifSettings : defaultData().notifSettings,
       // BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin).
       notifRolePrefs: (parsed.notifRolePrefs && typeof parsed.notifRolePrefs==='object') ? parsed.notifRolePrefs : {},
-      // v3.204.0 -- BARU: Menu Mode Operator (menu khusus Super Admin) --
-      // lihat getModeOperatorMenuPrefs(). Kosong di sini SENGAJA, sama
+      // v3.204.0 -- BARU: Menu Mode Sopir dan Operator (menu khusus Super
+      // Admin) -- lihat getModeOperatorMenuPrefs(). Kosong di sini SENGAJA, sama
       // seperti notifRolePrefs -- nilai default sesungguhnya diisi oleh
       // getModeOperatorMenuPrefs() (MODE_OPERATOR_MENU_DEFAULT), bukan di
       // sini, supaya satu-satunya sumber kebenaran default cuma di 1 tempat.
       modeOperatorMenuPrefs: (parsed.modeOperatorMenuPrefs && typeof parsed.modeOperatorMenuPrefs==='object') ? parsed.modeOperatorMenuPrefs : {},
+      // v3.205.0 -- BARU: sub-item per menu (lihat getModeOperatorSubmenuPrefs()),
+      // pola sama persis dgn modeOperatorMenuPrefs di atas.
+      modeOperatorSubmenuPrefs: (parsed.modeOperatorSubmenuPrefs && typeof parsed.modeOperatorSubmenuPrefs==='object') ? parsed.modeOperatorSubmenuPrefs : {},
     };
   }catch(e){
     console.error('Gagal membaca data tersimpan, memakai data kosong.', e);
@@ -1828,8 +1831,10 @@ function defaultData(){
     // sebelum fitur ini ada) diisi oleh getNotifRolePrefs(), bukan di sini,
     // supaya satu-satunya sumber kebenaran default cuma di 1 tempat.
     notifRolePrefs: {},
-    // v3.204.0 -- BARU: Menu Mode Operator, lihat getModeOperatorMenuPrefs().
-    modeOperatorMenuPrefs: {} };
+    // v3.204.0 -- BARU: Menu Mode Sopir dan Operator, lihat getModeOperatorMenuPrefs().
+    modeOperatorMenuPrefs: {},
+    // v3.205.0 -- BARU: sub-item per menu, lihat getModeOperatorSubmenuPrefs().
+    modeOperatorSubmenuPrefs: {} };
 }
 // v3.95.0 -- Pengaturan Notifikasi (nilai ambang batas dipakai computeAlerts()
 // & telegram-notify.mjs). PENTING: dibaca lewat fungsi ini SAJA (bukan baca
@@ -1962,7 +1967,7 @@ const NOTIF_ROLE_CATEGORIES = [
   { key:'speed', label:'Kecepatan Berlebih' },
   // v3.179.0 -- 3 kategori BARU: sebelumnya 3 jenis pesan ini (Resi
   // Perjalanan, Approval Booking, Laporan Bulanan) SAMA SEKALI tidak
-  // melewati sistem rolePrefs -- pengiriman ke Sopir/Finance/Admin
+  // melewati sistem rolePrefs -- pengiriman ke Sopir/Finance/Operator
   // hardcode langsung di titik kirimnya masing-masing. Sekarang jadi bisa
   // diatur per peran juga, SAMA seperti kategori alert lainnya.
   { key:'resi', label:'Resi Perjalanan' },
@@ -1995,7 +2000,7 @@ const NOTIF_ROLE_PREFS_DEFAULT = {
   //   default admin:true, finance:true, sopir:false.
   // - simGps & gpsAlert: kategori BENAR-BENAR baru (belum pernah ada
   //   pengiriman sebelumnya sama sekali) -- default meniru pola
-  //   kalibrasi/budget (Admin & Super Admin true, Sopir/Finance false).
+  //   kalibrasi/budget (Operator & Super Admin true, Sopir/Finance false).
   //   gpsAlert TETAP tidak akan pernah terkirim ke siapa pun sampai
   //   watchlist kode alert-nya diisi (lihat panel di bawah), apa pun
   //   togel di sini.
@@ -2038,9 +2043,9 @@ function getNotifRolePrefs(){
 // coding lagi.
 const ALIAS_KATEGORI_CATALOG = [
   { key:'oli', label:'🔧 /oli — status servis ringkas (Sopir)', defaults:['oli','ganti oli','cek oli','oli mobil'] },
-  { key:'cek', label:'🚘 /cek — ringkasan trip berjalan (Admin)', defaults:['cek','cek mobil','mobil','sopir'] },
-  { key:'lokasi', label:'📍 /lokasi — lokasi terkini mobil (Admin & Super Admin)', defaults:['lokasi','lokasi mobil','posisi','posisi mobil','lacak','lacak mobil'] },
-  { key:'service', label:'🔧 /service — 3 data servis terbaru (Admin/Super Admin/Finance)', defaults:['service','servis','maintenance'] },
+  { key:'cek', label:'🚘 /cek — ringkasan trip berjalan (Operator)', defaults:['cek','cek mobil','mobil','sopir'] },
+  { key:'lokasi', label:'📍 /lokasi — lokasi terkini mobil (Operator & Super Admin)', defaults:['lokasi','lokasi mobil','posisi','posisi mobil','lacak','lacak mobil'] },
+  { key:'service', label:'🔧 /service — 3 data servis terbaru (Operator/Super Admin/Finance)', defaults:['service','servis','maintenance'] },
   { key:'kecepatan', label:'⚡ /kecepatan 🔒 — ranking kecepatan (Super Admin, tersembunyi)', defaults:['kecepatan','speed','laju'] },
   { key:'saldo:et', label:'💳 Pintasan Saldo — E-Toll', defaults:['etoll'] },
   { key:'saldo:tk', label:'⛽ Pintasan Saldo — Sisa BBM (Tangki)', defaults:['bbm','tangki'] },
@@ -2055,7 +2060,7 @@ const ALIAS_KATEGORI_CATALOG = [
   { key:'batal', label:'🚫 batal — batalkan alur/percakapan berjalan', defaults:['batal'] },
   { key:'tiba', label:'🏁 tiba — tutup trip yang sedang jalan (Sopir)', defaults:['tiba'] },
   { key:'biaya', label:'🧾 biaya — catat biaya operasional/pribadi (Sopir)', defaults:['biaya','operasional','pribadi'] },
-  { key:'booking', label:'📅 booking — ajukan booking/pesan mobil (Sopir & Admin)', defaults:['booking','pesan','boking','keep'] },
+  { key:'booking', label:'📅 booking — ajukan booking/pesan mobil (Sopir & Operator)', defaults:['booking','pesan','boking','keep'] },
   { key:'mulaitrip', label:'🚗 mulai trip — mulai trip baru (Sopir)', defaults:['mulai trip','mulai','jalan','berangkat','catat perjalanan'] },
   { key:'ya', label:'✅ ya — jawaban konfirmasi Ya', defaults:['ya','iya','y','benar','betul','yes','ok','oke'] },
   { key:'tidak', label:'❌ tidak — jawaban konfirmasi Tidak', defaults:['tidak','gak','ga','enggak','nggak','no','salah'] },
@@ -2097,22 +2102,22 @@ function getHiddenFeatures(){
 // supaya tidak "yatim" -- tidak muncul di daftar kiri sama sekali.
 const SETTINGS_ITEM_CATALOG = [
   { id:'doc', icon:'📄', label:'Dokumen Kadaluarsa', desc:'Notifikasi berkala dokumen mobil yang mendekati/sudah kadaluarsa.', notifKey:'doc', aliasKey:'saldo:dk', akses:'Semua peran (notif berkala)' },
-  { id:'service', icon:'🔧', label:'Servis / Ganti Oli', desc:'Notifikasi berkala servis mendatang, dan perintah /service.', notifKey:'service', aliasKey:'service', akses:'Semua peran + Sopir/Admin/Finance (/service)' },
+  { id:'service', icon:'🔧', label:'Servis / Ganti Oli', desc:'Notifikasi berkala servis mendatang, dan perintah /service.', notifKey:'service', aliasKey:'service', akses:'Semua peran + Sopir/Operator/Finance (/service)' },
   { id:'etoll', icon:'💳', label:'Saldo E-Toll Rendah', desc:'Notifikasi saldo kartu E-Toll menipis, dan pintasan Saldo.', notifKey:'etoll', aliasKey:'saldo:et', akses:'Sopir, Admin, Super Admin' },
   { id:'bbm', icon:'⛽', label:'BBM Menipis', desc:'Notifikasi sisa BBM tangki menipis, dan pintasan Saldo.', notifKey:'bbm', aliasKey:'saldo:tk', akses:'Sopir, Admin, Super Admin' },
-  { id:'booking', icon:'📅', label:'Booking Mobil', desc:'Reminder booking mendatang, dan perintah booking/pesan/keep.', notifKey:'booking', aliasKey:'booking', akses:'Sopir & Admin' },
+  { id:'booking', icon:'📅', label:'Booking Mobil', desc:'Reminder booking mendatang, dan perintah booking/pesan/keep.', notifKey:'booking', aliasKey:'booking', akses:'Sopir & Operator' },
   { id:'tripLama', icon:'⏰', label:'Trip Kelamaan Belum Tiba', desc:'Notifikasi trip yang sudah lama belum ditutup.', notifKey:'tripLama', akses:'Sopir, Admin, Super Admin' },
-  { id:'budget', icon:'💰', label:'Budget Bulanan', desc:'Notifikasi budget bulanan mendekati/lewat batas, dan pintasan Saldo.', notifKey:'budget', aliasKey:'saldo:bg', akses:'Admin & Super Admin' },
-  { id:'kalibrasi', icon:'🛰️', label:'Kalibrasi Odometer GPS.id', desc:'Notifikasi selisih odometer GPS.id vs dashboard.', notifKey:'kalibrasi', akses:'Admin & Super Admin' },
+  { id:'budget', icon:'💰', label:'Budget Bulanan', desc:'Notifikasi budget bulanan mendekati/lewat batas, dan pintasan Saldo.', notifKey:'budget', aliasKey:'saldo:bg', akses:'Operator & Super Admin' },
+  { id:'kalibrasi', icon:'🛰️', label:'Kalibrasi Odometer GPS.id', desc:'Notifikasi selisih odometer GPS.id vs dashboard.', notifKey:'kalibrasi', akses:'Operator & Super Admin' },
   { id:'speed', icon:'⚡', label:'Kecepatan Berlebih', desc:'Notifikasi & ranking kecepatan sopir -- perintah tersembunyi, khusus Super Admin.', notifKey:'speed', aliasKey:'kecepatan', hiddenKey:'kecepatanCommand', akses:'Super Admin (tersembunyi)' },
   { id:'resi', icon:'🧾', label:'Resi Perjalanan', desc:'Kartu Tanda Terima trip yang dikirim ke sopir/admin.', notifKey:'resi', akses:'Sopir, Admin, Super Admin (opsional)' },
   { id:'bookingApproval', icon:'✅', label:'Approval Booking', desc:'Notifikasi booking yang perlu disetujui/ditolak.', notifKey:'bookingApproval', akses:'Admin (Super Admin selalu dapat)' },
-  { id:'laporanBulanan', icon:'📊', label:'Laporan Bulanan', desc:'Rekap bulanan berkala ke Admin/Finance.', notifKey:'laporanBulanan', akses:'Admin & Finance' },
+  { id:'laporanBulanan', icon:'📊', label:'Laporan Bulanan', desc:'Rekap bulanan berkala ke Operator/Finance.', notifKey:'laporanBulanan', akses:'Operator & Finance' },
   { id:'oli', icon:'🔧', label:'/oli', desc:'Status servis ringkas khusus Sopir.', aliasKey:'oli', akses:'Sopir' },
-  { id:'cek', icon:'🚘', label:'/cek', desc:'Ringkasan trip yang sedang berjalan, khusus Admin.', aliasKey:'cek', akses:'Admin (penerima notifikasi)' },
-  { id:'lokasi', icon:'📍', label:'/lokasi', desc:'Lokasi terkini 1 mobil, Admin & Super Admin.', aliasKey:'lokasi', akses:'Admin & Super Admin' },
-  { id:'saldo_od', icon:'🛣️', label:'Pintasan Saldo — Odometer', desc:'Ketik langsung ke kategori Odometer di menu Saldo.', aliasKey:'saldo:od', akses:'Pengguna Saldo (umumnya Admin/Super Admin)' },
-  { id:'saldo_ef', icon:'📊', label:'Pintasan Saldo — Efisiensi BBM', desc:'Ketik langsung ke kategori Efisiensi BBM.', aliasKey:'saldo:ef', akses:'Pengguna Saldo (umumnya Admin/Super Admin)' },
+  { id:'cek', icon:'🚘', label:'/cek', desc:'Ringkasan trip yang sedang berjalan, khusus Operator.', aliasKey:'cek', akses:'Operator (penerima notifikasi)' },
+  { id:'lokasi', icon:'📍', label:'/lokasi', desc:'Lokasi terkini 1 mobil, Operator & Super Admin.', aliasKey:'lokasi', akses:'Operator & Super Admin' },
+  { id:'saldo_od', icon:'🛣️', label:'Pintasan Saldo — Odometer', desc:'Ketik langsung ke kategori Odometer di menu Saldo.', aliasKey:'saldo:od', akses:'Pengguna Saldo (umumnya Operator/Super Admin)' },
+  { id:'saldo_ef', icon:'📊', label:'Pintasan Saldo — Efisiensi BBM', desc:'Ketik langsung ke kategori Efisiensi BBM.', aliasKey:'saldo:ef', akses:'Pengguna Saldo (umumnya Operator/Super Admin)' },
   { id:'saldo_bb', icon:'💵', label:'Pintasan Saldo — Biaya BBM Bulan Ini', desc:'Ketik langsung ke kategori Biaya BBM.', aliasKey:'saldo:bb', akses:'Finance' },
   { id:'saldo_sv', icon:'🔧', label:'Pintasan Saldo — Servis', desc:'Ketik langsung ke kategori Servis Berikutnya.', aliasKey:'saldo:sv', akses:'Admin, Super Admin & Finance' },
   { id:'menu', icon:'🏠', label:'menu', desc:'Kembali ke Menu Utama bot.', aliasKey:'menu', akses:'Semua pengguna terdaftar' },
@@ -2124,13 +2129,13 @@ const SETTINGS_ITEM_CATALOG = [
   { id:'ya', icon:'✅', label:'ya', desc:'Jawaban konfirmasi Ya.', aliasKey:'ya', akses:'Semua pengguna terdaftar' },
   { id:'tidak', icon:'❌', label:'tidak', desc:'Jawaban konfirmasi Tidak.', aliasKey:'tidak', akses:'Semua pengguna terdaftar' },
   { id:'namaSopirLookup', icon:'👤', label:'Ketik nama sopir persis', desc:'Detail statistik 1 sopir -- perintah tersembunyi, khusus Super Admin.', hiddenKey:'namaSopirLookup', akses:'Super Admin (tersembunyi)' },
-  { id:'simGps', icon:'📶', label:'Masa Aktif SIM GPS Tracker', desc:'Notifikasi berkala kalau pulsa/masa aktif kartu SIM di alat GPS mendekati/sudah habis -- beda dari Dokumen Kadaluarsa (itu dokumen fisik kendaraan).', notifKey:'simGps', akses:'Admin & Super Admin' },
-  { id:'gpsAlert', icon:'🚨', label:'Alert Bawaan GPS.id', desc:'Teruskan alert tingkat perangkat GPS.id (SOS/rem mendadak/dst) ke Telegram -- pilih kode yang relevan di panel di bawah, default tidak ada yang diteruskan.', notifKey:'gpsAlert', akses:'Admin & Super Admin' },
+  { id:'simGps', icon:'📶', label:'Masa Aktif SIM GPS Tracker', desc:'Notifikasi berkala kalau pulsa/masa aktif kartu SIM di alat GPS mendekati/sudah habis -- beda dari Dokumen Kadaluarsa (itu dokumen fisik kendaraan).', notifKey:'simGps', akses:'Operator & Super Admin' },
+  { id:'gpsAlert', icon:'🚨', label:'Alert Bawaan GPS.id', desc:'Teruskan alert tingkat perangkat GPS.id (SOS/rem mendadak/dst) ke Telegram -- pilih kode yang relevan di panel di bawah, default tidak ada yang diteruskan.', notifKey:'gpsAlert', akses:'Operator & Super Admin' },
 ];
 const NTR_ROLE_COLS = [
   { key:'sopir', label:'Sopir' },
   { key:'finance', label:'Finance' },
-  { key:'admin', label:'Admin' },
+  { key:'admin', label:'Operator' },
   { key:'superadmin', label:'Super Admin' },
 ];
 let ntrSelectedId = null; // diingat lintas re-render selama panel ini tetap dibuka
@@ -2192,7 +2197,7 @@ const NTR_PERAN_WARNA = {
   finance: { bg:'var(--amber-bg)', text:'var(--amber)' },
   superadmin: { bg:'#FAECE7', text:'#712B13' },
 };
-const NTR_PERAN_LABEL = { sopir:'Sopir', admin:'Admin', finance:'Finance', superadmin:'Super Admin' };
+const NTR_PERAN_LABEL = { sopir:'Sopir', admin:'Operator', finance:'Finance', superadmin:'Super Admin' };
 function ntrPeranBadgeHtml(peran){
   const w = NTR_PERAN_WARNA[peran] || { bg:'var(--neutral-bg)', text:'var(--muted)' };
   const label = NTR_PERAN_LABEL[peran] || peran || '-';
@@ -3061,8 +3066,10 @@ function loadDataFromObject(parsed){
     notifSettings: (parsed.notifSettings && typeof parsed.notifSettings==='object') ? parsed.notifSettings : def.notifSettings,
     // BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin).
     notifRolePrefs: (parsed.notifRolePrefs && typeof parsed.notifRolePrefs==='object') ? parsed.notifRolePrefs : {},
-    // v3.204.0 -- BARU: Menu Mode Operator (menu khusus Super Admin).
+    // v3.204.0 -- BARU: Menu Mode Sopir dan Operator (menu khusus Super Admin).
     modeOperatorMenuPrefs: (parsed.modeOperatorMenuPrefs && typeof parsed.modeOperatorMenuPrefs==='object') ? parsed.modeOperatorMenuPrefs : {},
+    // v3.205.0 -- BARU: sub-item per menu, pola sama dgn modeOperatorMenuPrefs.
+    modeOperatorSubmenuPrefs: (parsed.modeOperatorSubmenuPrefs && typeof parsed.modeOperatorSubmenuPrefs==='object') ? parsed.modeOperatorSubmenuPrefs : {},
   };
 }
 
@@ -5046,7 +5053,7 @@ function getSettingsCategories(){
   // lebih mudah, TANPA menghapus akses lewat sidebar (2 jalan ke tempat yang
   // sama). externalRoute -> klik kartu ini NAVIGATE ke rute terpisah
   // 'notiftelegram' (render function sendiri), BUKAN masuk settingsView.
-  { key:'notiftelegram-peran', icon:'🔔', title:'Notifikasi Telegram per Peran', desc:'Kategori default per Sopir/Finance/Admin/Super Admin', hasLock:false, externalRoute:'notiftelegram',
+  { key:'notiftelegram-peran', icon:'🔔', title:'Notifikasi Telegram per Peran', desc:'Kategori default per Sopir/Finance/Operator/Super Admin', hasLock:false, externalRoute:'notiftelegram',
     status: () => 'Khusus Super Admin' },
   // v3.204.0 -- BARU: atur menu apa saja yang tampil di tampilan Mode
   // Operator (default/terkunci, sebelum PIN dibuka) -- SEBELUMNYA daftar ini
@@ -5055,7 +5062,7 @@ function getSettingsCategories(){
   // menu apa pun isi pengaturan ini (lihat applyModeOperatorVisibility() --
   // modeOperatorUnlocked jadi true begitu PIN Super Akses benar, tidak
   // bergantung ke daftar ini sama sekali).
-  { key:'menu-mode-operator', icon:'🧭', title:'Menu Mode Operator', desc:'Menu apa saja yang tampil sebelum PIN dibuka', hasLock:false,
+  { key:'menu-mode-operator', icon:'🧭', title:'Menu Mode Sopir dan Operator', desc:'Menu & fitur apa saja yang tampil sebelum PIN dibuka', hasLock:false,
     status: () => `${getModeOperatorAllowedRoutes().length}/${MODE_OPERATOR_MENU_CATALOG.length} menu aktif` },
   ] : []),
   { key:'toleransi-gap', icon:'📏', title:'Toleransi Gap Odometer', desc:'Batas jarak antar-trip tak tercatat', hasLock:true,
@@ -5253,7 +5260,7 @@ function renderSettingsDetailNotifGabungan(){
           <div class="field">
             <label>💰 Budget Bulanan: mulai peringatan di berapa % dari limit</label>
             <input type="text" inputmode="numeric" id="in-notif-budget-pct" value="${getNotifSettings().budgetWarnPct}">
-            <div class="hint">Hanya berlaku untuk mobil yang sudah diisi "Budget Bulanan" di Data Mobil. Notifikasi Telegram-nya <b>khusus Admin</b>, tidak dikirim ke sopir.</div>
+            <div class="hint">Hanya berlaku untuk mobil yang sudah diisi "Budget Bulanan" di Data Mobil. Notifikasi Telegram-nya <b>khusus Operator</b>, tidak dikirim ke sopir.</div>
           </div>
           <div class="field">
             <label>⏳ Trip dianggap "kelamaan" belum Tiba setelah (jam)</label>
@@ -5278,7 +5285,7 @@ function renderSettingsDetailNotifGabungan(){
             🚨 Alert Kecepatan Berlebih
             ${toggleStatusBadgeHtml('notif-speed-status-badge', getNotifSettings().speedAlertEnabled)}
           </label>
-          <div class="hint" style="margin:4px 0 10px;">Begitu kecepatan kendaraan (dari GPS.id) melebihi batas, Admin langsung dapat notifikasi Telegram -- <b>khusus Admin</b>, tidak dikirim ke sopir. Sumber kecepatan sama dengan menu 🛰️ Lacak Kendaraan.</div>
+          <div class="hint" style="margin:4px 0 10px;">Begitu kecepatan kendaraan (dari GPS.id) melebihi batas, Operator langsung dapat notifikasi Telegram -- <b>khusus Operator</b>, tidak dikirim ke sopir. Sumber kecepatan sama dengan menu 🛰️ Lacak Kendaraan.</div>
           <div class="grid-2" id="notif-speed-fields" style="${getNotifSettings().speedAlertEnabled?'':'opacity:0.5;pointer-events:none;'}">
             <div class="field">
               <label>Batas kecepatan default (km/jam)</label>
@@ -5308,7 +5315,7 @@ function renderSettingsDetailNotifGabungan(){
             🛰️ Pengingat Kalibrasi Odometer GPS.id
             ${toggleStatusBadgeHtml('notif-kalibrasi-status-badge', getNotifSettings().kalibrasiGpsEnabled)}
           </label>
-          <div class="hint" style="margin:4px 0 10px;">Odometer GPS.id dihitung dari akumulasi sinyal GPS (bukan sensor odometer fisik mobil), jadi bisa meleset jauh kalau tidak dikalibrasi ulang -- Admin diingatkan berkala lewat Telegram untuk cek & reset. <b>Khusus Admin</b>, tidak dikirim ke sopir. Cuma untuk mobil yang sudah diisi IMEI GPS.id.<br>Cara kalibrasi: buka gps.id/v3/vehicle → Vehicle Management → klik ikon Mileage di baris mobil → sesuaikan "New Mileage" (odometer asli KM × 1000, dalam meter) → klik Reset Mileage.</div>
+          <div class="hint" style="margin:4px 0 10px;">Odometer GPS.id dihitung dari akumulasi sinyal GPS (bukan sensor odometer fisik mobil), jadi bisa meleset jauh kalau tidak dikalibrasi ulang -- Operator diingatkan berkala lewat Telegram untuk cek & reset. <b>Khusus Operator</b>, tidak dikirim ke sopir. Cuma untuk mobil yang sudah diisi IMEI GPS.id.<br>Cara kalibrasi: buka gps.id/v3/vehicle → Vehicle Management → klik ikon Mileage di baris mobil → sesuaikan "New Mileage" (odometer asli KM × 1000, dalam meter) → klik Reset Mileage.</div>
           <div class="grid-2" id="notif-kalibrasi-fields" style="${getNotifSettings().kalibrasiGpsEnabled?'':'opacity:0.5;pointer-events:none;'}">
             <div class="field">
               <label>Ulangi pengingat tiap (hari)</label>
@@ -5406,7 +5413,7 @@ function renderSettingsDetailNotifGabungan(){
 
             <b style="color:var(--text);">🚦 2 Lapis Izin (Peran + Individu)</b>
             <ul style="margin:6px 0 12px;padding-left:18px;">
-              <li>Lapis 1 — izin level PERAN (Sopir/Finance/Admin/Super Admin), diatur Super Admin lewat menu "Notifikasi Telegram per Peran".</li>
+              <li>Lapis 1 — izin level PERAN (Sopir/Finance/Operator/Super Admin), diatur Super Admin lewat menu "Notifikasi Telegram per Peran".</li>
               <li>Lapis 2 — preferensi INDIVIDUAL tiap admin (tripNotif: off/ringkas/resi) atau tiap sopir (kategori langganan pribadi di Data Sopir).</li>
               <li>Kedua lapis harus SAMA-SAMA mengizinkan. Kalau lapis peran mematikan 1 kategori, preferensi individu di bawahnya tidak berpengaruh — tetap tidak dikirim.</li>
             </ul>
@@ -5471,20 +5478,36 @@ function renderSettingsDetailNotifGabungan(){
     ` : ''}
     ${settingsView==='menu-mode-operator' && insightUnlocked ? `
     <div class="panel">
-      <div class="panel-head"><h2>🧭 Menu Mode Operator</h2></div>
+      <div class="panel-head"><h2>🧭 Menu Mode Sopir dan Operator</h2></div>
       <div class="panel-body">
         <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
-          Atur menu apa saja yang tampil di sidebar saat aplikasi masih dalam tampilan <b>Mode Operator</b> (default/terkunci, sebelum tekan-lama logo + PIN dibuka) -- biasanya HP yang dipegang sopir sehari-hari. Menu yang <b>tidak</b> dicentang di sini tetap ada di aplikasi, cuma disembunyikan sampai PIN Operator/Super Akses dibuka.
+          Atur menu apa saja yang tampil di sidebar saat aplikasi masih dalam tampilan <b>Mode Sopir</b> (default/terkunci, sebelum tekan-lama logo + PIN dibuka) -- biasanya HP yang dipegang sopir sehari-hari. Menu yang <b>tidak</b> dicentang di sini tetap ada di aplikasi, cuma disembunyikan sampai PIN Operator/Super Akses dibuka. Kalau sebuah menu punya sub-item (fitur/tombol tertentu di dalamnya), sub-item itu juga bisa disembunyikan sendiri walau menunya tetap tampil.
         </p>
         <p style="font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.6;">
-          🔓 <b>PIN Super Akses OTOMATIS melihat semua menu</b>, apa pun isi centang di bawah ini -- pengaturan ini cuma berlaku untuk tampilan Operator yang BELUM dibuka PIN sama sekali.
+          🔓 <b>PIN Super Akses OTOMATIS melihat semua menu & sub-item</b>, apa pun isi centang di bawah ini -- pengaturan ini cuma berlaku untuk tampilan Sopir yang BELUM dibuka PIN sama sekali.
         </p>
-        <div id="mode-operator-menu-list">${MODE_OPERATOR_MENU_CATALOG.map(m=>`
-          <label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer;">
-            <input type="checkbox" class="mode-operator-menu-check" data-key="${m.key}" ${getModeOperatorMenuPrefs()[m.key]?'checked':''} style="width:18px;height:18px;flex-shrink:0;">
-            <span style="font-size:13px;">${escapeHtml(m.label)}</span>
-          </label>
-        `).join('')}</div>
+        <div id="mode-operator-menu-list">${MODE_OPERATOR_MENU_CATALOG.map(m=>{
+          const subs = MODE_OPERATOR_SUBMENU_CATALOG[m.key];
+          const subPrefs = subs ? getModeOperatorSubmenuPrefs(m.key) : null;
+          return `
+          <div style="border-bottom:1px solid var(--line);padding:9px 0;">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="checkbox" class="mode-operator-menu-check" data-key="${m.key}" ${getModeOperatorMenuPrefs()[m.key]?'checked':''} style="width:18px;height:18px;flex-shrink:0;">
+              <span style="font-size:13px;">${escapeHtml(m.label)}</span>
+            </label>
+            ${subs ? `
+            <div style="margin:6px 0 0 28px;display:flex;flex-direction:column;gap:6px;">
+              ${subs.map(s=>`
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="checkbox" class="mode-operator-submenu-check" data-menu="${m.key}" data-sub="${s.key}" ${subPrefs[s.key]?'checked':''} style="width:15px;height:15px;flex-shrink:0;">
+                <span style="font-size:12px;color:var(--muted);">${escapeHtml(s.label)}</span>
+              </label>
+              `).join('')}
+            </div>
+            ` : ''}
+          </div>
+          `;
+        }).join('')}</div>
       </div>
     </div>
     ` : ''}
@@ -5720,7 +5743,21 @@ function renderSettingsDetailNotifGabungan(){
         state.modeOperatorMenuPrefs = prefs;
         saveData();
         applyModeOperatorVisibility();
-        showToast(this.checked ? `Menu "${MODE_OPERATOR_MENU_CATALOG.find(m=>m.key===this.dataset.key)?.label||this.dataset.key}" ditampilkan di Mode Operator.` : `Menu "${MODE_OPERATOR_MENU_CATALOG.find(m=>m.key===this.dataset.key)?.label||this.dataset.key}" disembunyikan dari Mode Operator.`);
+        showToast(this.checked ? `Menu "${MODE_OPERATOR_MENU_CATALOG.find(m=>m.key===this.dataset.key)?.label||this.dataset.key}" ditampilkan di Mode Sopir.` : `Menu "${MODE_OPERATOR_MENU_CATALOG.find(m=>m.key===this.dataset.key)?.label||this.dataset.key}" disembunyikan dari Mode Sopir.`);
+      });
+    });
+    // v3.205.0 -- BARU: sub-item (fitur/tombol spesifik) di dalam tiap menu.
+    // Hasilnya cuma kepakai lagi lain kali menu itu dirender (bukan live
+    // langsung di halaman lain), sama seperti pola menu utama di atas.
+    document.querySelectorAll('.mode-operator-submenu-check').forEach(cb=>{
+      cb.addEventListener('change', function(){
+        const menuKey = this.dataset.menu, subKey = this.dataset.sub;
+        const allSubPrefs = { ...(state.modeOperatorSubmenuPrefs && typeof state.modeOperatorSubmenuPrefs==='object' ? state.modeOperatorSubmenuPrefs : {}) };
+        allSubPrefs[menuKey] = { ...getModeOperatorSubmenuPrefs(menuKey), [subKey]: this.checked };
+        state.modeOperatorSubmenuPrefs = allSubPrefs;
+        saveData();
+        const subLabel = (MODE_OPERATOR_SUBMENU_CATALOG[menuKey]||[]).find(s=>s.key===subKey)?.label || subKey;
+        showToast(this.checked ? `"${subLabel}" ditampilkan di Mode Sopir.` : `"${subLabel}" disembunyikan dari Mode Sopir.`);
       });
     });
   }
@@ -6473,7 +6510,7 @@ try{ insightUnlocked = localStorage.getItem(INSIGHT_UNLOCK_SESSION_KEY) === '1';
 const MODE_OPERATOR_SESSION_KEY = 'fleetops_mode_sopir_unlocked';
 // v3.204.0 -- SEBELUMNYA daftar ini konstanta statis (hardcode di kode,
 // cuma developer yang bisa mengubahnya). SEKARANG bisa diatur langsung oleh
-// Super Admin lewat menu Pengaturan → "🧭 Menu Mode Operator" (lihat
+// Super Admin lewat menu Pengaturan → "🧭 Menu Mode Sopir dan Operator" (lihat
 // getSettingsCategories() & renderSettingsDetailNotifGabungan()), tanpa
 // perlu minta developer ubah kode. MODE_OPERATOR_MENU_CATALOG = daftar
 // SEMUA menu yang bisa diatur (label utk ditampilkan di panel pengaturan);
@@ -6482,7 +6519,7 @@ const MODE_OPERATOR_SESSION_KEY = 'fleetops_mode_sopir_unlocked';
 // pengaturan ini sama sekali TIDAK MENGALAMI PERUBAHAN PERILAKU apa pun.
 // 'notiftelegram' SENGAJA TIDAK dimasukkan ke katalog ini -- menu itu
 // digerbang insightUnlocked secara terpisah (lihat applyModeOperatorVisibility()),
-// bukan bagian dari sistem izin Mode Operator sama sekali.
+// bukan bagian dari sistem izin Mode Sopir sama sekali.
 const MODE_OPERATOR_MENU_CATALOG = [
   { key:'dashboard', label:'Dashboard' },
   { key:'usage', label:'Catat Perjalanan' },
@@ -6516,6 +6553,44 @@ function getModeOperatorMenuPrefs(){
 function getModeOperatorAllowedRoutes(){
   const prefs = getModeOperatorMenuPrefs();
   return MODE_OPERATOR_MENU_CATALOG.map(m=>m.key).filter(key=>prefs[key]);
+}
+// v3.205.0 -- BARU: submenu (fitur/tombol spesifik) di dalam tiap menu, di
+// bawah level menu utama di atas. Contoh: menu "Data Mobil" dibiarkan
+// tampil, tapi tombol "+ Tambah Mobil" di dalamnya bisa disembunyikan sendiri
+// dari tampilan Mode Sopir. Cuma menu yang PUNYA entri di katalog ini yang
+// akan disaring -- menu lain (mis. Dashboard, Lacak Kendaraan, Hapus Data,
+// Pengaturan) belum punya submenu yang bisa diatur, jadi tidak difilter sama
+// sekali (selalu dianggap boleh tampil) supaya tidak diam-diam hilang.
+// PIN Operator/Super Akses (modeOperatorUnlocked) SELALU melihat semua
+// submenu, persis seperti aturan menu utama.
+const MODE_OPERATOR_SUBMENU_CATALOG = {
+  cars:          [{ key:'tambah', label:'+ Tambah Mobil' }],
+  drivers:       [{ key:'tambah', label:'+ Tambah Sopir' }],
+  destinations:  [{ key:'tambah', label:'+ Tambah Tujuan Baru' }],
+  usage:         [{ key:'tambah', label:'+ Catat Perjalanan' }],
+  bookings:      [{ key:'tambah', label:'+ Buat Booking' }],
+  service:       [{ key:'tambah', label:'+ Catat Servis' }],
+  docs:          [{ key:'tambah', label:'+ Tambah Dokumen' }],
+  etoll:         [{ key:'tambah', label:'+ Tambah Kartu' }],
+  monthlyreport: [{ key:'exportpdf', label:'📄 Export PDF' }, { key:'exportexcel', label:'📊 Export Excel' }],
+};
+// Default SENGAJA semua true (tampil) -- fitur ini baru ditambahkan, jadi
+// tidak boleh diam-diam menyembunyikan apa pun sampai Super Admin sendiri
+// yang membuka panel pengaturan & mematikannya.
+const MODE_OPERATOR_SUBMENU_DEFAULT = {
+  cars:{tambah:true}, drivers:{tambah:true}, destinations:{tambah:true}, usage:{tambah:true},
+  bookings:{tambah:true}, service:{tambah:true}, docs:{tambah:true}, etoll:{tambah:true},
+  monthlyreport:{exportpdf:true, exportexcel:true},
+};
+function getModeOperatorSubmenuPrefs(menuKey){
+  const stored = (state.modeOperatorSubmenuPrefs && typeof state.modeOperatorSubmenuPrefs==='object') ? state.modeOperatorSubmenuPrefs[menuKey] : null;
+  return { ...(MODE_OPERATOR_SUBMENU_DEFAULT[menuKey]||{}), ...(stored && typeof stored==='object' ? stored : {}) };
+}
+function isModeOperatorSubmenuVisible(menuKey, subKey){
+  if(modeOperatorUnlocked) return true; // PIN Operator/Super Akses -> selalu semua
+  const subs = MODE_OPERATOR_SUBMENU_CATALOG[menuKey];
+  if(!subs || !subs.some(s=>s.key===subKey)) return true; // belum ada submenu terdaftar -> tidak difilter
+  return !!getModeOperatorSubmenuPrefs(menuKey)[subKey];
 }
 let modeOperatorUnlocked = false;
 try{ modeOperatorUnlocked = localStorage.getItem(MODE_OPERATOR_SESSION_KEY) === '1'; }catch(e){}
@@ -6660,7 +6735,7 @@ document.getElementById('brand-logo-longpress').addEventListener('contextmenu', 
           try{ localStorage.removeItem(INSIGHT_UNLOCK_SESSION_KEY); }catch(e){}
           refreshInsightPanels();
         }
-        showToast('Kembali ke Operator.');
+        showToast('Kembali ke Sopir.');
         applyModeOperatorVisibility();
         // 'notiftelegram' SENGAJA tidak ada di menu yang diizinkan (getModeOperatorAllowedRoutes()),
         // jadi kondisi di bawah ini SUDAH otomatis mencakup kasus "sedang
@@ -7727,8 +7802,8 @@ function emptyState(icon, text){
    ======================================================================== */
 function renderCars(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-car">+ Tambah Mobil</button>${exportBtnHtml('btn-export-car')}`;
-  document.getElementById('btn-add-car').onclick = () => openCarModal();
+    `${isModeOperatorSubmenuVisible('cars','tambah') ? '<button class="btn btn-primary" id="btn-add-car">+ Tambah Mobil</button>' : ''}${exportBtnHtml('btn-export-car')}`;
+  document.getElementById('btn-add-car')?.addEventListener('click', () => openCarModal());
   document.getElementById('btn-export-car').onclick = () => {
     exportToExcel('data-mobil', 'Data Mobil', state.cars.map(c=>({
       Kode: c.kode||'', Plat: c.plat, Merk: c.merk, Model: c.modelMobil, Tahun: c.tahun, Warna: c.warna,
@@ -7998,7 +8073,7 @@ function openCarModal(editId){
     <div class="field">
       <label>🚨 Batas Kecepatan Alert (km/jam, opsional)</label>
       <input type="text" inputmode="numeric" id="in-batas-kecepatan" placeholder="Contoh: 120" value="${editing&&editing.batasKecepatanKmh!=null?escapeHtml(String(editing.batasKecepatanKmh)):''}">
-      <div class="hint">Kalau diisi, mobil ini dipantau lewat GPS.id -- begitu kecepatan melebihi angka ini, Admin dapat notifikasi Telegram. Kosongkan untuk pakai batas default (diatur di menu ⏰ Ambang Batas Notifikasi). Butuh IMEI GPS.id terisi di atas.</div>
+      <div class="hint">Kalau diisi, mobil ini dipantau lewat GPS.id -- begitu kecepatan melebihi angka ini, Operator dapat notifikasi Telegram. Kosongkan untuk pakai batas default (diatur di menu ⏰ Ambang Batas Notifikasi). Butuh IMEI GPS.id terisi di atas.</div>
     </div>
     <div class="field">
       <label>Odometer Saat Ini (KM)</label>
@@ -8105,7 +8180,7 @@ function openCarModal(editId){
     <div class="field">
       <label>Limit biaya bulanan (Rp) — BBM + Tol + Servis + Operasional lain</label>
       <input type="text" inputmode="numeric" id="in-budget-bulanan" placeholder="Contoh: 3.000.000" value="${editing&&editing.budgetBulanan!=null?fmtRibuanInitial(editing.budgetBulanan):''}">
-      <div class="hint">Kalau diisi, mobil ini dipantau tiap bulan berjalan -- begitu total biaya mendekati/melewati angka ini, Admin dapat notifikasi Telegram (ambang batas % diatur di menu ⏰ Ambang Batas Notifikasi). Kosongkan kalau tidak perlu dibatasi.</div>
+      <div class="hint">Kalau diisi, mobil ini dipantau tiap bulan berjalan -- begitu total biaya mendekati/melewati angka ini, Operator dapat notifikasi Telegram (ambang batas % diatur di menu ⏰ Ambang Batas Notifikasi). Kosongkan kalau tidak perlu dibatasi.</div>
     </div>
   `;
   openModal({
@@ -8274,8 +8349,8 @@ function computeTotalKmJamForDriver(driverId){
 
 function renderDrivers(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-driver">+ Tambah Sopir</button>${exportBtnHtml('btn-export-driver')}`;
-  document.getElementById('btn-add-driver').onclick = () => openDriverModal();
+    `${isModeOperatorSubmenuVisible('drivers','tambah') ? '<button class="btn btn-primary" id="btn-add-driver">+ Tambah Sopir</button>' : ''}${exportBtnHtml('btn-export-driver')}`;
+  document.getElementById('btn-add-driver')?.addEventListener('click', () => openDriverModal());
   document.getElementById('btn-export-driver').onclick = () => {
     exportToExcel('data-sopir', 'Data Sopir', state.drivers.map(d=>{
       const t = computeTotalKmJamForDriver(d.id);
@@ -8648,8 +8723,8 @@ function renderDestinations(){
   ensureUniqueCodes(); // perbaiki tabrakan kode antar-perangkat kalau ada -- lihat catatan di fungsinya
   backfillDestinationEstimates(); // isi celah Jarak/BBM yang masih kosong, kalau riwayatnya sudah tersedia sekarang
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-destination">+ Tambah Tujuan Baru</button>${exportBtnHtml('btn-export-destination')}`;
-  document.getElementById('btn-add-destination').onclick = () => openDestinationModal();
+    `${isModeOperatorSubmenuVisible('destinations','tambah') ? '<button class="btn btn-primary" id="btn-add-destination">+ Tambah Tujuan Baru</button>' : ''}${exportBtnHtml('btn-export-destination')}`;
+  document.getElementById('btn-add-destination')?.addEventListener('click', () => openDestinationModal());
   document.getElementById('btn-export-destination').onclick = () => {
     exportToExcel('data-tujuan', 'Data Tujuan', state.destinations.map(d=>({
       Kode: d.kode||'', Nama: d.nama, 'Jarak (KM)': d.jarakKm!=null?d.jarakKm:'', 'Perkiraan BBM (L)': d.bbmLiter!=null?d.bbmLiter:'',
@@ -9000,8 +9075,8 @@ function wireDestinationRefHint(tujuanInputId, hintElId){
    ======================================================================== */
 function renderUsage(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-usage">+ Catat Perjalanan</button>${exportBtnHtml('btn-export-usage')}`;
-  document.getElementById('btn-add-usage').onclick = () => openUsageModal();
+    `${isModeOperatorSubmenuVisible('usage','tambah') ? '<button class="btn btn-primary" id="btn-add-usage">+ Catat Perjalanan</button>' : ''}${exportBtnHtml('btn-export-usage')}`;
+  document.getElementById('btn-add-usage')?.addEventListener('click', () => openUsageModal());
   document.getElementById('btn-export-usage').onclick = () => {
     exportToExcel('catat-perjalanan', 'Catat Perjalanan', state.usage.map(u=>{
       const jarak = (u.odoKeluar!=null && u.odoKembali!=null && u.odoKembali>=u.odoKeluar) ? (u.odoKembali-u.odoKeluar) : '';
@@ -11881,8 +11956,8 @@ function bookingStatusBadge(b){
 
 function renderBookings(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-booking">+ Buat Booking</button>${exportBtnHtml('btn-export-booking')}`;
-  document.getElementById('btn-add-booking').onclick = () => openBookingModal();
+    `${isModeOperatorSubmenuVisible('bookings','tambah') ? '<button class="btn btn-primary" id="btn-add-booking">+ Buat Booking</button>' : ''}${exportBtnHtml('btn-export-booking')}`;
+  document.getElementById('btn-add-booking')?.addEventListener('click', () => openBookingModal());
   document.getElementById('btn-export-booking').onclick = () => {
     exportToExcel('booking-mobil', 'Booking Mobil', state.bookings.map(b=>({
       Mobil: carLabel(b.carId), Sopir: b.driverId?driverLabel(b.driverId):'',
@@ -12484,8 +12559,8 @@ function computeServiceAnomalies(){
    ======================================================================== */
 function renderService(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-service">+ Catat Servis</button>${exportBtnHtml('btn-export-service')}`;
-  document.getElementById('btn-add-service').onclick = () => openServiceModal();
+    `${isModeOperatorSubmenuVisible('service','tambah') ? '<button class="btn btn-primary" id="btn-add-service">+ Catat Servis</button>' : ''}${exportBtnHtml('btn-export-service')}`;
+  document.getElementById('btn-add-service')?.addEventListener('click', () => openServiceModal());
 
   // Ditampilkan per-ITEM (bukan per-kunjungan), diurutkan terbaru dulu, supaya
   // "kapan mobil ini terakhir ganti oli" tinggal filter kategori + lihat baris
@@ -12940,8 +13015,8 @@ function docStatusBadge(d){
 }
 function renderDocs(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-doc">+ Tambah Dokumen</button>${exportBtnHtml('btn-export-doc')}`;
-  document.getElementById('btn-add-doc').onclick = () => openDocModal();
+    `${isModeOperatorSubmenuVisible('docs','tambah') ? '<button class="btn btn-primary" id="btn-add-doc">+ Tambah Dokumen</button>' : ''}${exportBtnHtml('btn-export-doc')}`;
+  document.getElementById('btn-add-doc')?.addEventListener('click', () => openDocModal());
   document.getElementById('btn-export-doc').onclick = () => {
     exportToExcel('dokumen', 'Dokumen', state.documents.map(d=>({
       Untuk: d.subjek==='sopir' ? 'Sopir' : 'Mobil', 'Pemilik': subjectLabel(d), Jenis: d.jenis||'', Nomor: d.nomor||'',
@@ -14197,8 +14272,8 @@ function renderBBM(){
 
 function renderEtollCards(){
   document.getElementById('header-actions').innerHTML =
-    `<button class="btn btn-primary" id="btn-add-etoll">+ Tambah Kartu</button>${exportBtnHtml('btn-export-etoll')}`;
-  document.getElementById('btn-add-etoll').onclick = () => openEtollCardModal();
+    `${isModeOperatorSubmenuVisible('etoll','tambah') ? '<button class="btn btn-primary" id="btn-add-etoll">+ Tambah Kartu</button>' : ''}${exportBtnHtml('btn-export-etoll')}`;
+  document.getElementById('btn-add-etoll')?.addEventListener('click', () => openEtollCardModal());
   document.getElementById('btn-export-etoll').onclick = () => {
     exportToExcel('kartu-etoll', 'Kartu E-Toll', state.etollCards.map(card=>({
       'Nomor Kartu': card.nomorKartu||'', Mobil: card.mobilId?carLabel(card.mobilId):'',
@@ -15645,8 +15720,8 @@ function renderMonthlyReport(){
   const defaultYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 
   document.getElementById('header-actions').innerHTML = `
-    <button class="btn btn-ghost hide-mobile" id="btn-export-report-excel">📊 Export Excel</button>
-    <button class="btn btn-primary" id="btn-export-report-pdf">📄 Export PDF</button>
+    ${isModeOperatorSubmenuVisible('monthlyreport','exportexcel') ? '<button class="btn btn-ghost hide-mobile" id="btn-export-report-excel">📊 Export Excel</button>' : ''}
+    ${isModeOperatorSubmenuVisible('monthlyreport','exportpdf') ? '<button class="btn btn-primary" id="btn-export-report-pdf">📄 Export PDF</button>' : ''}
   `;
 
   document.getElementById('content').innerHTML = `
@@ -15822,7 +15897,7 @@ function renderMonthlyReport(){
   draw();
   document.getElementById('in-report-month').addEventListener('change', draw);
 
-  document.getElementById('btn-export-report-excel').onclick = () => {
+  document.getElementById('btn-export-report-excel')?.addEventListener('click', () => {
     const yearMonth = document.getElementById('in-report-month').value || defaultYM;
     const r = computeMonthlyReport(yearMonth);
     if(r.perMobil.length===0){ showToast('Tidak ada data untuk di-export.', true); return; }
@@ -15830,11 +15905,11 @@ function renderMonthlyReport(){
       Mobil: carLabel(x.car.id), 'Jumlah Trip': x.jumlahTrip, 'Jarak (KM)': x.jarak, 'Efisiensi (KM/L)': x.efisiensi!=null?x.efisiensi.toFixed(1):'',
       'Biaya BBM': x.biayaBbm, 'Biaya Tol': x.biayaTol, 'Biaya Servis': x.biayaServis, 'Biaya Operasional Lain': x.biayaOperasional, 'Total': x.grandTotal,
     })));
-  };
-  document.getElementById('btn-export-report-pdf').onclick = () => {
+  });
+  document.getElementById('btn-export-report-pdf')?.addEventListener('click', () => {
     const yearMonth = document.getElementById('in-report-month').value || defaultYM;
     exportMonthlyReportPdf(computeMonthlyReport(yearMonth));
-  };
+  });
 }
 
 // Lazy-load jsPDF dari CDN -- pola SAMA PERSIS dengan loadXLSX() (dimuat
@@ -16726,6 +16801,14 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.205.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🧭 Penamaan mode akses dirapikan: tampilan default/terkunci (yang dipegang sopir sehari-hari) SEKARANG disebut <b>Mode Sopir</b> (sebelumnya "Mode Operator"), dan level akses yang dibuka lewat PIN Operator (peran "Admin" di sistem izin/notifikasi per peran) SEKARANG disebut <b>Operator</b> (sebelumnya "Admin"). "Super Admin" TIDAK berubah. Ini murni penyesuaian nama yang tampil ke pengguna -- nama variabel/fungsi internal, kunci penyimpanan, dan seluruh perilaku/logika TIDAK berubah sama sekali.',
+      '🧭 Panel Pengaturan → "🧭 Menu Mode Operator" berganti nama jadi <b>"🧭 Menu Mode Sopir dan Operator"</b>, dan sekarang beberapa menu punya sub-item (fitur/tombol tertentu di dalamnya, mis. tombol "+ Tambah Mobil" di Data Mobil, "+ Buat Booking" di Booking Mobil, Export PDF/Excel di Laporan Bulanan, dst.) yang bisa dicentang & disembunyikan sendiri dari tampilan Mode Sopir, terpisah dari menunya. Default SENGAJA semua tercentang (tampil) supaya tidak ada perubahan tampilan diam-diam sampai Super Admin sendiri yang membuka & mengubahnya. PIN Operator/Super Akses tetap OTOMATIS melihat semua sub-item apa pun isi pengaturan ini. Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.204.0',
     date: '01 Agu 2026',
