@@ -6437,7 +6437,7 @@ function openModeSopirPinModal(){
     </div>
   `;
   openModal({
-    title: '🔒 Buka Mode Sopir',
+    title: '🔒 Buka Operator',
     body,
     onSave: async () => {
       const pin = document.getElementById('in-modesopir-pin').value.trim();
@@ -6497,7 +6497,7 @@ document.getElementById('brand-logo-longpress').addEventListener('contextmenu', 
       if(modeSopirUnlocked){
         modeSopirUnlocked = false;
         try{ localStorage.removeItem(MODE_SOPIR_SESSION_KEY); }catch(e){}
-        showToast('Kembali ke Mode Sopir.');
+        showToast('Kembali ke Operator.');
         applyModeSopirVisibility();
         if(!MODE_SOPIR_ALLOWED_ROUTES.includes(currentRoute)) navigate('dashboard');
       } else {
@@ -6800,7 +6800,7 @@ function openInsightPinModal(opts){
         localStorage.setItem(INSIGHT_UNLOCK_SESSION_KEY, '1');
         localStorage.setItem(MODE_SOPIR_SESSION_KEY, '1');
       }catch(e){}
-      showToast('Insight & Mode Sopir terbuka.');
+      showToast('Insight & Operator terbuka.');
       refreshChangelogButtonVisibility();
       applyModeSopirVisibility();
       refreshInsightPanels();
