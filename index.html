@@ -10582,10 +10582,18 @@ async function sendInstantNotaConfirmAsk(u){
       jumlahBukti>0 ? `📎 ${jumlahBukti} lampiran nota sudah tertampung.` : '📎 Belum ada foto nota yang terlampir.',
       '',
       'Kalau ada foto nota/tanda terima pembayaran (BBM, tol, parkir, dll) yang belum dikirim, kirim dulu fotonya ke chat ini ya.',
-      'Tanda Terima Perjalanan (ringkasan trip) akan ikut diteruskan ke Admin Finance begitu tombol di bawah ditekan.',
+      '',
+      // BARU -- tombol inline Telegram DIHAPUS (SENGAJA), diganti arahan ke
+      // tombol yang SUDAH ADA di aplikasi: popup "Tanda Terima Perjalanan"
+      // otomatis terbuka begitu trip ditandai Tiba (lihat openTripReceiptModal
+      // di pemanggil "Tandai Tiba"), dan di popup itu ada tombol
+      // "📨 Kirim ke Finance" (lihat tripFinanceStatusHtml/kirimTripReceiptKeFinance
+      // di atas) yang melakukan hal PERSIS sama (mengirim Tanda Terima +
+      // nota yang sudah dilampirkan ke Admin Finance) -- cukup 1 jalur kirim,
+      // tidak perlu tombol Telegram duplikat.
+      'Untuk meneruskan Tanda Terima Perjalanan ini ke Admin Finance, buka aplikasi FleetOps -- di popup "Tanda Terima Perjalanan" yang otomatis muncul setelah Tandai Tiba, tekan tombol 📨 Kirim ke Finance.',
     ].join('\n');
-    const buttons = [{ text: '✅ Kirim ke Finance Sekarang', callback_data: `kirimnota:${u.id}` }];
-    const bodyStr = JSON.stringify({ chatId, text, buttons });
+    const bodyStr = JSON.stringify({ chatId, text });
     const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai`, {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
