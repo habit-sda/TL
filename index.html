@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.186.0">
+<meta name="app-version" content="3.194.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1387,8 +1387,21 @@ const STORAGE_KEY = 'fleetops_data_v1';
    4. Naikkan CACHE_VERSION di file sw.js (WAJIB, walau sw.js sendiri tidak
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
+   6. WAJIB kalau menambah/mengubah PERINTAH BOT TELEGRAM (kata kunci
+      ketik-bebas maupun /command baru di worker.js): sesuaikan JUGA dengan
+      menu "🔔 Notifikasi Telegram per Peran" (renderNotifTelegramRoles) --
+      (a) kalau perintah itu memicu notifikasi/kiriman berkala ke suatu
+      peran, tambahkan entrinya ke NOTIF_ROLE_CATEGORIES + gerbang izinnya
+      di worker.js; (b) kalau kata-kunci pemicunya masuk akal dikustomisasi
+      user, bungkus dengan withAliases(defaults,'kategoriBaru') di worker.js
+      lalu tambahkan entrinya ke ALIAS_KATEGORI_CATALOG di index.html supaya
+      Super Admin bisa isi alias sendiri tanpa coding; (c) kalau perintah
+      itu SENGAJA rahasia/tersembunyi, pertimbangkan juga menambahkannya ke
+      HIDDEN_FEATURE_CATALOG supaya bisa dinyala/matikan manual dari UI.
+      Jangan sampai ada perintah bot yang "yatim" -- tidak muncul & tidak
+      bisa diatur dari menu ini sama sekali.
    ============================================================================ */
-const APP_VERSION = '3.186.0';
+const APP_VERSION = '3.194.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1926,6 +1939,12 @@ const NOTIF_ROLE_CATEGORIES = [
   { key:'resi', label:'Resi Perjalanan' },
   { key:'bookingApproval', label:'Approval Booking' },
   { key:'laporanBulanan', label:'Laporan Bulanan' },
+  // BARU -- 2 kategori GPS.id tambahan: Reminder Masa Aktif SIM GPS
+  // Tracker (field expired_gsm, mirip pola Dokumen Kadaluarsa) & Alert
+  // Bawaan GPS.id (SOS/rem mendadak/dst, watchlist diatur terpisah --
+  // lihat panel "🚨 Alert Bawaan GPS.id" di bawah).
+  { key:'simGps', label:'Masa Aktif SIM GPS Tracker' },
+  { key:'gpsAlert', label:'Alert Bawaan GPS.id (SOS/Rem Mendadak/dst)' },
 ];
 const NOTIF_ROLE_PREFS_DEFAULT = {
   // Default SENGAJA meniru PERSIS perilaku SEBELUM 3 kategori ini ada,
@@ -1945,10 +1964,16 @@ const NOTIF_ROLE_PREFS_DEFAULT = {
   //   catatan penerapan di worker.js).
   // - laporanBulanan: SELALU ke Admin & Admin Finance sebelumnya --
   //   default admin:true, finance:true, sopir:false.
-  sopir:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:false, kalibrasi:false, speed:false, resi:true,  bookingApproval:false, laporanBulanan:false },
-  finance: { doc:true,  service:true,  etoll:false, bbm:false, booking:false, tripLama:false, budget:false, kalibrasi:false, speed:false, resi:false, bookingApproval:false, laporanBulanan:true  },
-  admin:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:true,  kalibrasi:true,  speed:true,  resi:true,  bookingApproval:true,  laporanBulanan:true  },
-  superadmin: { doc:true, service:true, etoll:true, bbm:true, booking:true, tripLama:true, budget:true, kalibrasi:true, speed:true, resi:false, bookingApproval:false, laporanBulanan:false },
+  // - simGps & gpsAlert: kategori BENAR-BENAR baru (belum pernah ada
+  //   pengiriman sebelumnya sama sekali) -- default meniru pola
+  //   kalibrasi/budget (Admin & Super Admin true, Sopir/Finance false).
+  //   gpsAlert TETAP tidak akan pernah terkirim ke siapa pun sampai
+  //   watchlist kode alert-nya diisi (lihat panel di bawah), apa pun
+  //   togel di sini.
+  sopir:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:false, kalibrasi:false, speed:false, resi:true,  bookingApproval:false, laporanBulanan:false, simGps:false, gpsAlert:false },
+  finance: { doc:true,  service:true,  etoll:false, bbm:false, booking:false, tripLama:false, budget:false, kalibrasi:false, speed:false, resi:false, bookingApproval:false, laporanBulanan:true,  simGps:false, gpsAlert:false },
+  admin:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:true,  kalibrasi:true,  speed:true,  resi:true,  bookingApproval:true,  laporanBulanan:true,  simGps:true,  gpsAlert:true  },
+  superadmin: { doc:true, service:true, etoll:true, bbm:true, booking:true, tripLama:true, budget:true, kalibrasi:true, speed:true, resi:false, bookingApproval:false, laporanBulanan:false, simGps:true, gpsAlert:true },
 };
 function getNotifRolePrefs(){
   const saved = (state.notifRolePrefs && typeof state.notifRolePrefs==='object') ? state.notifRolePrefs : {};
@@ -1959,6 +1984,70 @@ function getNotifRolePrefs(){
   return out;
 }
 // ============================================================================
+// BARU -- Katalog alias perintah bot Telegram yang bisa diisi SENDIRI oleh
+// Super Admin (tanpa coding/deploy ulang) lewat panel "✏️ Kelola Alias
+// Perintah" di renderNotifTelegramRoles() di bawah. `defaults` = kata kunci
+// bawaan (TIDAK bisa dihapus dari sini, sudah tertanam di worker.js) --
+// kalau Super Admin nambah alias baru, itu TAMBAHAN yang disimpan di
+// state.commandAliases[key] lalu dibaca worker.js lewat withAliases().
+//
+// WAJIB DEV: kalau nanti menambah PERINTAH/kata-kunci ketik-bebas BARU di
+// worker.js yang masuk akal dikustomisasi user, bungkus daftar keyword-nya
+// dgn withAliases(defaults,'kategoriBaru') di worker.js (lihat catatan di
+// sana), lalu tambahkan 1 baris entri di ALIAS_KATEGORI_CATALOG berikut
+// dengan `key` yang SAMA PERSIS -- supaya otomatis muncul & bisa diisi di
+// panel ini juga. Kategori 'saldo:<kode>' KHUSUS pintasan langsung menu
+// Saldo (lihat SALDO_KEYWORD_TO_CATEGORY di worker.js).
+//
+// CATATAN PENTING soal "menambah kategori notifikasi baru": panel ini HANYA
+// menambah ALIAS/kata-kunci untuk perintah yang PEMICUNYA sudah ada di
+// worker.js. Kategori notifikasi BENAR-BENAR baru (mis. jenis pengecekan
+// baru yang belum pernah ada logikanya) tetap perlu developer menambahkan
+// logika pemicunya dulu di worker.js -- begitu logikanya ada & didaftarkan
+// ke NOTIF_ROLE_CATEGORIES (togel centang per peran) + di sini (alias),
+// Super Admin baru bisa atur & beri nama alias sendiri selanjutnya TANPA
+// coding lagi.
+const ALIAS_KATEGORI_CATALOG = [
+  { key:'oli', label:'🔧 /oli — status servis ringkas (Sopir)', defaults:['oli','ganti oli','cek oli','oli mobil'] },
+  { key:'cek', label:'🚘 /cek — ringkasan trip berjalan (Admin)', defaults:['cek','cek mobil','mobil','sopir'] },
+  { key:'lokasi', label:'📍 /lokasi — lokasi terkini mobil (Admin & Super Admin)', defaults:['lokasi','lokasi mobil','posisi','posisi mobil','lacak','lacak mobil'] },
+  { key:'service', label:'🔧 /service — 3 data servis terbaru (Admin/Super Admin/Finance)', defaults:['service','servis','maintenance'] },
+  { key:'kecepatan', label:'⚡ /kecepatan 🔒 — ranking kecepatan (Super Admin, tersembunyi)', defaults:['kecepatan','speed','laju'] },
+  { key:'saldo:et', label:'💳 Pintasan Saldo — E-Toll', defaults:['etoll'] },
+  { key:'saldo:tk', label:'⛽ Pintasan Saldo — Sisa BBM (Tangki)', defaults:['bbm','tangki'] },
+  { key:'saldo:od', label:'🛣️ Pintasan Saldo — Odometer', defaults:['odo'] },
+  { key:'saldo:ef', label:'📊 Pintasan Saldo — Efisiensi BBM', defaults:['efisiensi','konsumsi bbm'] },
+  { key:'saldo:bb', label:'💵 Pintasan Saldo — Biaya BBM Bulan Ini', defaults:['biaya bbm'] },
+  { key:'saldo:dk', label:'📄 Pintasan Saldo — Dokumen', defaults:['dokumen'] },
+  { key:'saldo:sv', label:'🔧 Pintasan Saldo — Servis', defaults:['servis'] },
+  { key:'saldo:bg', label:'💰 Pintasan Saldo — Budget', defaults:['budget'] },
+  { key:'menu', label:'🏠 menu — kembali ke Menu Utama', defaults:['menu'] },
+  { key:'rekomendasi', label:'📋 rekomendasi — daftar perintah lengkap', defaults:['rekomendasi'] },
+  { key:'batal', label:'🚫 batal — batalkan alur/percakapan berjalan', defaults:['batal'] },
+  { key:'tiba', label:'🏁 tiba — tutup trip yang sedang jalan (Sopir)', defaults:['tiba'] },
+  { key:'biaya', label:'🧾 biaya — catat biaya operasional/pribadi (Sopir)', defaults:['biaya','operasional','pribadi'] },
+  { key:'booking', label:'📅 booking — ajukan booking/pesan mobil (Sopir & Admin)', defaults:['booking','pesan','boking','keep'] },
+  { key:'mulaitrip', label:'🚗 mulai trip — mulai trip baru (Sopir)', defaults:['mulai trip','mulai','jalan','berangkat','catat perjalanan'] },
+  { key:'ya', label:'✅ ya — jawaban konfirmasi Ya', defaults:['ya','iya','y','benar','betul','yes','ok','oke'] },
+  { key:'tidak', label:'❌ tidak — jawaban konfirmasi Tidak', defaults:['tidak','gak','ga','enggak','nggak','no','salah'] },
+];
+function getCommandAliases(){
+  return (state.commandAliases && typeof state.commandAliases==='object') ? state.commandAliases : {};
+}
+// BARU -- togel manual utk fitur/perintah TERSEMBUNYI (rahasia), supaya bisa
+// dimatikan/dinyalakan Super Admin sendiri tanpa coding. Default SEMUA
+// tetap AKTIF (perilaku lama) sampai sengaja dimatikan di sini.
+const HIDDEN_FEATURE_CATALOG = [
+  { key:'kecepatanCommand', label:'⚡ Perintah /kecepatan (ranking kecepatan sopir lewat chat)' },
+  { key:'namaSopirLookup', label:'👤 Ketik nama sopir persis (lihat detail statistik/kecepatan 1 sopir)' },
+];
+function getHiddenFeatures(){
+  const saved = (state.hiddenFeatures && typeof state.hiddenFeatures==='object') ? state.hiddenFeatures : {};
+  const out = {};
+  HIDDEN_FEATURE_CATALOG.forEach(f=>{ out[f.key] = saved[f.key] !== false; }); // default true
+  return out;
+}
+// ============================================================================
 // BARU -- Halaman menu khusus Super Admin: "🔔 Notifikasi Telegram per
 // Peran". Cuma bisa dibuka via titik "·" di "FleetOps — Stay in Control"
 // (PIN 009900, sama dgn PIN Insight) -- lihat wireInsightPinTrigger &
@@ -1966,14 +2055,184 @@ function getNotifRolePrefs(){
 // (baik saat dibuka maupun saat Simpan) -- ini menu Super Admin, bukan
 // aktivitas operasional biasa yang perlu terlihat di riwayat aplikasi.
 // ============================================================================
+// BARU -- katalog gabungan: setiap item mewakili 1 kategori notifikasi
+// dan/atau 1 perintah bot Telegram. `notifKey` -> togel per peran
+// (NOTIF_ROLE_CATEGORIES), `aliasKey` -> alias perintah (ALIAS_KATEGORI_
+// CATALOG), `hiddenKey` -> togel Fitur Tersembunyi (HIDDEN_FEATURE_
+// CATALOG). Satu item BOLEH punya lebih dari satu (mis. 'speed' punya
+// ketiganya sekaligus) -- itu sebabnya sebelumnya pengaturan 1 fitur bisa
+// tersebar di 3 panel terpisah; sekarang digabung di 1 layar per item.
+// WAJIB DEV: kalau nanti menambah entri baru ke NOTIF_ROLE_CATEGORIES /
+// ALIAS_KATEGORI_CATALOG / HIDDEN_FEATURE_CATALOG, tambahkan juga 1 baris
+// di sini (atau gabungkan ke item yang sudah ada kalau memang terkait)
+// supaya tidak "yatim" -- tidak muncul di daftar kiri sama sekali.
+const SETTINGS_ITEM_CATALOG = [
+  { id:'doc', icon:'📄', label:'Dokumen Kadaluarsa', desc:'Notifikasi berkala dokumen mobil yang mendekati/sudah kadaluarsa.', notifKey:'doc', aliasKey:'saldo:dk', akses:'Semua peran (notif berkala)' },
+  { id:'service', icon:'🔧', label:'Servis / Ganti Oli', desc:'Notifikasi berkala servis mendatang, dan perintah /service.', notifKey:'service', aliasKey:'service', akses:'Semua peran + Sopir/Admin/Finance (/service)' },
+  { id:'etoll', icon:'💳', label:'Saldo E-Toll Rendah', desc:'Notifikasi saldo kartu E-Toll menipis, dan pintasan Saldo.', notifKey:'etoll', aliasKey:'saldo:et', akses:'Sopir, Admin, Super Admin' },
+  { id:'bbm', icon:'⛽', label:'BBM Menipis', desc:'Notifikasi sisa BBM tangki menipis, dan pintasan Saldo.', notifKey:'bbm', aliasKey:'saldo:tk', akses:'Sopir, Admin, Super Admin' },
+  { id:'booking', icon:'📅', label:'Booking Mobil', desc:'Reminder booking mendatang, dan perintah booking/pesan/keep.', notifKey:'booking', aliasKey:'booking', akses:'Sopir & Admin' },
+  { id:'tripLama', icon:'⏰', label:'Trip Kelamaan Belum Tiba', desc:'Notifikasi trip yang sudah lama belum ditutup.', notifKey:'tripLama', akses:'Sopir, Admin, Super Admin' },
+  { id:'budget', icon:'💰', label:'Budget Bulanan', desc:'Notifikasi budget bulanan mendekati/lewat batas, dan pintasan Saldo.', notifKey:'budget', aliasKey:'saldo:bg', akses:'Admin & Super Admin' },
+  { id:'kalibrasi', icon:'🛰️', label:'Kalibrasi Odometer GPS.id', desc:'Notifikasi selisih odometer GPS.id vs dashboard.', notifKey:'kalibrasi', akses:'Admin & Super Admin' },
+  { id:'speed', icon:'⚡', label:'Kecepatan Berlebih', desc:'Notifikasi & ranking kecepatan sopir -- perintah tersembunyi, khusus Super Admin.', notifKey:'speed', aliasKey:'kecepatan', hiddenKey:'kecepatanCommand', akses:'Super Admin (tersembunyi)' },
+  { id:'resi', icon:'🧾', label:'Resi Perjalanan', desc:'Kartu Tanda Terima trip yang dikirim ke sopir/admin.', notifKey:'resi', akses:'Sopir, Admin, Super Admin (opsional)' },
+  { id:'bookingApproval', icon:'✅', label:'Approval Booking', desc:'Notifikasi booking yang perlu disetujui/ditolak.', notifKey:'bookingApproval', akses:'Admin (Super Admin selalu dapat)' },
+  { id:'laporanBulanan', icon:'📊', label:'Laporan Bulanan', desc:'Rekap bulanan berkala ke Admin/Finance.', notifKey:'laporanBulanan', akses:'Admin & Finance' },
+  { id:'oli', icon:'🔧', label:'/oli', desc:'Status servis ringkas khusus Sopir.', aliasKey:'oli', akses:'Sopir' },
+  { id:'cek', icon:'🚘', label:'/cek', desc:'Ringkasan trip yang sedang berjalan, khusus Admin.', aliasKey:'cek', akses:'Admin (penerima notifikasi)' },
+  { id:'lokasi', icon:'📍', label:'/lokasi', desc:'Lokasi terkini 1 mobil, Admin & Super Admin.', aliasKey:'lokasi', akses:'Admin & Super Admin' },
+  { id:'saldo_od', icon:'🛣️', label:'Pintasan Saldo — Odometer', desc:'Ketik langsung ke kategori Odometer di menu Saldo.', aliasKey:'saldo:od', akses:'Pengguna Saldo (umumnya Admin/Super Admin)' },
+  { id:'saldo_ef', icon:'📊', label:'Pintasan Saldo — Efisiensi BBM', desc:'Ketik langsung ke kategori Efisiensi BBM.', aliasKey:'saldo:ef', akses:'Pengguna Saldo (umumnya Admin/Super Admin)' },
+  { id:'saldo_bb', icon:'💵', label:'Pintasan Saldo — Biaya BBM Bulan Ini', desc:'Ketik langsung ke kategori Biaya BBM.', aliasKey:'saldo:bb', akses:'Finance' },
+  { id:'saldo_sv', icon:'🔧', label:'Pintasan Saldo — Servis', desc:'Ketik langsung ke kategori Servis Berikutnya.', aliasKey:'saldo:sv', akses:'Admin, Super Admin & Finance' },
+  { id:'menu', icon:'🏠', label:'menu', desc:'Kembali ke Menu Utama bot.', aliasKey:'menu', akses:'Semua pengguna terdaftar' },
+  { id:'rekomendasi', icon:'📋', label:'rekomendasi', desc:'Daftar perintah lengkap sesuai peran.', aliasKey:'rekomendasi', akses:'Semua pengguna terdaftar' },
+  { id:'batal', icon:'🚫', label:'batal', desc:'Batalkan alur/percakapan yang sedang berjalan.', aliasKey:'batal', akses:'Semua pengguna terdaftar' },
+  { id:'tiba', icon:'🏁', label:'tiba', desc:'Tutup trip yang sedang berjalan, khusus Sopir.', aliasKey:'tiba', akses:'Sopir' },
+  { id:'biaya', icon:'🧾', label:'biaya', desc:'Catat biaya operasional/pribadi, khusus Sopir.', aliasKey:'biaya', akses:'Sopir' },
+  { id:'mulaitrip', icon:'🚗', label:'mulai trip', desc:'Mulai trip baru, khusus Sopir.', aliasKey:'mulaitrip', akses:'Sopir' },
+  { id:'ya', icon:'✅', label:'ya', desc:'Jawaban konfirmasi Ya.', aliasKey:'ya', akses:'Semua pengguna terdaftar' },
+  { id:'tidak', icon:'❌', label:'tidak', desc:'Jawaban konfirmasi Tidak.', aliasKey:'tidak', akses:'Semua pengguna terdaftar' },
+  { id:'namaSopirLookup', icon:'👤', label:'Ketik nama sopir persis', desc:'Detail statistik 1 sopir -- perintah tersembunyi, khusus Super Admin.', hiddenKey:'namaSopirLookup', akses:'Super Admin (tersembunyi)' },
+  { id:'simGps', icon:'📶', label:'Masa Aktif SIM GPS Tracker', desc:'Notifikasi berkala kalau pulsa/masa aktif kartu SIM di alat GPS mendekati/sudah habis -- beda dari Dokumen Kadaluarsa (itu dokumen fisik kendaraan).', notifKey:'simGps', akses:'Admin & Super Admin' },
+  { id:'gpsAlert', icon:'🚨', label:'Alert Bawaan GPS.id', desc:'Teruskan alert tingkat perangkat GPS.id (SOS/rem mendadak/dst) ke Telegram -- pilih kode yang relevan di panel di bawah, default tidak ada yang diteruskan.', notifKey:'gpsAlert', akses:'Admin & Super Admin' },
+];
+const NTR_ROLE_COLS = [
+  { key:'sopir', label:'Sopir' },
+  { key:'finance', label:'Finance' },
+  { key:'admin', label:'Admin' },
+  { key:'superadmin', label:'Super Admin' },
+];
+let ntrSelectedId = null; // diingat lintas re-render selama panel ini tetap dibuka
+let ntrSearchQuery = ''; // BARU -- filter pencarian daftar kiri, diingat lintas re-render
+let ntrTestCooldownUntil = {}; // BARU -- { itemId: timestampMs } -- cooldown 10 detik/tombol tes stlh terkirim, cegah spam ke Telegram Super Admin
+const NTR_LAST_TESTED_KEY = 'fleetops_ntr_last_tested'; // BARU -- localStorage LOKAL per device (SENGAJA bukan state), supaya "sudah pernah dites" tidak ikut sinkron & bikin bingung anggota tim lain
+function getNtrLastTested(){
+  try{ return JSON.parse(localStorage.getItem(NTR_LAST_TESTED_KEY) || '{}'); }catch(e){ return {}; }
+}
+function setNtrLastTested(itemId){
+  const map = getNtrLastTested();
+  map[itemId] = Date.now();
+  try{ localStorage.setItem(NTR_LAST_TESTED_KEY, JSON.stringify(map)); }catch(e){}
+}
+// BARU -- true kalau kategori ini togel-nya OFF di KEEMPAT peran sekaligus
+// (jadi tidak pernah terkirim ke siapa pun) -- biasanya tanda lupa
+// dinyalakan lagi, bukan disengaja, jadi ditandai di daftar kiri.
+function ntrIsFullyOff(it){
+  if(!it.notifKey) return false;
+  const prefs = getNotifRolePrefs();
+  return NTR_ROLE_COLS.every(r => !prefs[r.key][it.notifKey]);
+}
+function ntrToggleHtml(on, dataAttrs){
+  return `<span class="ntr-toggle" ${dataAttrs||''} tabindex="0" role="switch" aria-checked="${on?'true':'false'}"
+    style="display:inline-block;width:36px;height:21px;border-radius:11px;border:1px solid var(--line);
+    background:${on?'var(--green)':'var(--card)'};position:relative;cursor:pointer;flex-shrink:0;vertical-align:middle;">
+    <span style="position:absolute;top:2px;left:${on?'17px':'2px'};width:15px;height:15px;border-radius:50%;
+      background:${on?'#fff':'var(--muted)'};"></span>
+  </span>`;
+}
+// ============================================================================
+// BARU -- Halaman menu khusus Super Admin: "🔔 Notifikasi Telegram per
+// Peran". Cuma bisa dibuka via titik "·" di "FleetOps — Stay in Control"
+// (PIN 009900, sama dgn PIN Insight) -- lihat wireInsightPinTrigger &
+// refreshInsightPanels(). SENGAJA TIDAK mencatat activityLog sama sekali
+// -- ini menu Super Admin, bukan aktivitas operasional biasa yang perlu
+// terlihat di riwayat aplikasi.
+//
+// v3.189.0 -- Layout diganti total dari tabel grid 12 baris x 4 kolom +
+// 3 panel <details> terpisah (alias, fitur tersembunyi) MENJADI tampilan
+// daftar+detail (mis. Pengaturan Aplikasi iOS): daftar perintah/kategori
+// di kiri, SEMUA pengaturannya (togel peran + alias + togel tersembunyi)
+// digabung di kanan begitu 1 item dipilih. Setiap toggle/perubahan
+// tersimpan LANGSUNG (tidak perlu tombol Simpan terpisah lagi) -- lebih
+// sedikit tap, lebih kecil risiko lupa simpan/salah centang di grid padat.
+// ============================================================================
+// ============================================================================
+// BARU -- Log Notifikasi: modal "📋 Cek log notifikasi" di panel Notifikasi
+// Telegram per Peran. Baca 50 entri terbaru dari GET /notif-log (worker.js,
+// dibaca dari notif-state.json). Status cuma 2 nilai: "berhasil" (Telegram
+// menerima permintaan kirim) / "gagal" (Telegram menolak) -- Telegram Bot
+// API TIDAK punya cara resmi utk tahu apakah pesan sudah DIBACA penerima
+// (beda dari WhatsApp Business API), jadi status "dibaca" SENGAJA tidak
+// pernah ditampilkan di sini supaya tidak menyesatkan.
+// ============================================================================
+const NTR_PERAN_WARNA = {
+  sopir: { bg:'#EEEDFE', text:'#3C3489' },
+  admin: { bg:'var(--blue-bg)', text:'var(--blue)' },
+  finance: { bg:'var(--amber-bg)', text:'var(--amber)' },
+  superadmin: { bg:'#FAECE7', text:'#712B13' },
+};
+const NTR_PERAN_LABEL = { sopir:'Sopir', admin:'Admin', finance:'Finance', superadmin:'Super Admin' };
+function ntrPeranBadgeHtml(peran){
+  const w = NTR_PERAN_WARNA[peran] || { bg:'var(--neutral-bg)', text:'var(--muted)' };
+  const label = NTR_PERAN_LABEL[peran] || peran || '-';
+  return `<span style="background:${w.bg};color:${w.text};font-size:11px;padding:2px 8px;border-radius:20px;white-space:nowrap;">${escapeHtml(label)}</span>`;
+}
+function ntrStatusBadgeHtml(status){
+  return status === 'berhasil'
+    ? `<span class="badge ok">Berhasil</span>`
+    : `<span class="badge danger">Gagal</span>`;
+}
+function openNotifLogModal(){
+  openModal({
+    title: '📋 Log Notifikasi',
+    body: `
+      <p class="hint" style="margin:0 0 12px;line-height:1.6;">
+        50 pengiriman notifikasi Telegram terbaru. Status "Berhasil" berarti Telegram menerima permintaan kirim --
+        Telegram tidak menyediakan cara resmi utk bot tahu apakah pesan sudah dibaca, jadi status itu SENGAJA
+        tidak ditampilkan (bukan terlewat).
+      </p>
+      <div id="notif-log-body"><p class="hint">⏳ Memuat log...</p></div>
+    `,
+    onSave: () => true
+  });
+  const saveBtn = document.getElementById('modal-save'); if(saveBtn) saveBtn.textContent = 'Tutup';
+  const cancelBtn = document.getElementById('modal-cancel'); if(cancelBtn) cancelBtn.style.display = 'none';
+
+  (async () => {
+    const bodyEl = document.getElementById('notif-log-body');
+    if(!bodyEl) return;
+    if(!(ghConfig && ghConfig.workerUrl && ghConfig.notifySecret)){
+      bodyEl.innerHTML = `<p class="hint">Perlu URL Worker & Notify Secret -- lengkapi dulu di Pengaturan → Sinkronisasi Cloud.</p>`;
+      return;
+    }
+    try{
+      const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notif-log`, { headers: { 'X-Notify-Secret': ghConfig.notifySecret } });
+      const data = await res.json().catch(()=>null);
+      if(!res.ok || !data || !data.ok) throw new Error((data&&data.error)||`HTTP ${res.status}`);
+      const rows = Array.isArray(data.notifLog) ? data.notifLog : [];
+      if(!document.getElementById('notif-log-body')) return; // modal sudah ditutup sebelum data selesai
+      if(rows.length === 0){
+        bodyEl.innerHTML = `<p class="hint">Belum ada notifikasi tercatat -- log ini mulai terisi begitu ada pengiriman berikutnya.</p>`;
+        return;
+      }
+      const cols = '52px 1.3fr 90px 1fr 74px';
+      bodyEl.innerHTML = `
+        <div style="max-height:420px;overflow-y:auto;">
+          <div style="display:grid;grid-template-columns:${cols};column-gap:16px;font-size:11px;color:var(--muted);padding:0 4px 8px;position:sticky;top:0;background:var(--card);">
+            <div>Jam</div><div>Nama / ID Telegram</div><div>Peran</div><div>Kategori</div><div>Status</div>
+          </div>
+          ${rows.map(r=>`
+            <div style="display:grid;grid-template-columns:${cols};column-gap:16px;align-items:center;padding:9px 4px;border-top:1px solid var(--line);font-size:12.5px;">
+              <div style="color:var(--muted);">${new Date(r.waktu).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}</div>
+              <div><div>${escapeHtml(r.nama||'-')}</div><div style="font-size:11px;color:var(--muted);">${escapeHtml(String(r.chatId||'-'))}</div></div>
+              <div>${ntrPeranBadgeHtml(r.peran)}</div>
+              <div style="color:var(--muted);">${escapeHtml(r.kategori||'-')}</div>
+              <div>${ntrStatusBadgeHtml(r.status)}</div>
+            </div>`).join('')}
+        </div>
+      `;
+    }catch(err){
+      if(!document.getElementById('notif-log-body')) return;
+      bodyEl.innerHTML = `<p class="hint" style="color:var(--red);">❌ Gagal memuat log: ${escapeHtml(err.message)}</p>`;
+    }
+  })();
+}
+
 function renderNotifTelegramRoles(){
   document.getElementById('header-actions').innerHTML = '';
   const content = document.getElementById('content');
-  // Guard PERTAHANAN -- seharusnya tidak pernah kejadian (satu-satunya jalan
-  // masuk ke rute ini sudah lewat PIN), tapi dijaga juga di sini kalau
-  // suatu saat ada jalan masuk lain (mis. sessionStorage insightUnlocked
-  // sempat lepas sinkron dgn tampilan). TIDAK ada tombol buka PIN di sini
-  // supaya tetap konsisten: satu-satunya pintu resmi ya titik "·" itu.
   if(!insightUnlocked){
     content.innerHTML = `
       <div class="panel">
@@ -1983,107 +2242,502 @@ function renderNotifTelegramRoles(){
       </div>`;
     return;
   }
-  const prefs = getNotifRolePrefs();
-  const kolom = [
-    { key:'sopir', label:'🚗 Sopir' },
-    { key:'finance', label:'💰 Finance' },
-    { key:'admin', label:'🛡️ Admin' },
-    { key:'superadmin', label:'👑 Super Admin' },
-  ];
-  const rows = NOTIF_ROLE_CATEGORIES.map(cat => `
-    <tr>
-      <td style="font-weight:600;">${escapeHtml(cat.label)}</td>
-      ${kolom.map(k => `
-        <td style="text-align:center;">
-          <input type="checkbox" class="in-notifrole" data-peran="${k.key}" data-kategori="${cat.key}"
-            ${prefs[k.key][cat.key] ? 'checked' : ''} style="width:19px;height:19px;">
-        </td>
-      `).join('')}
-    </tr>
-  `).join('');
-  const html = `
+  if(!ntrSelectedId || !SETTINGS_ITEM_CATALOG.some(x=>x.id===ntrSelectedId)) ntrSelectedId = SETTINGS_ITEM_CATALOG[0].id;
+
+  content.innerHTML = `
     <div class="panel">
       <div class="panel-head"><h2>🔔 Notifikasi Telegram per Peran</h2></div>
       <div class="panel-body">
         <p class="hint" style="margin:0 0 12px;line-height:1.6;">
-          Menu khusus Super Admin -- atur kategori notifikasi Telegram berkala apa saja yang boleh
-          diterima tiap peran, <b>termasuk Super Admin sendiri</b> (kolom 👑). Untuk Sopir, ini jadi
-          batas level-PERAN -- kalau sopir tertentu di Data Sopir sudah punya langganan kategori
-          sendiri yang lebih sempit, itu tetap berlaku sebagai pembatas tambahan di atas izin peran ini.
+          Menu khusus Super Admin -- pilih 1 kategori/perintah di daftar kiri, semua pengaturannya (siapa yang
+          menerima, alias kata kunci, dan togel fitur tersembunyi) muncul digabung di kanan. Setiap perubahan
+          tersimpan otomatis, tidak perlu tombol Simpan lagi. Untuk Sopir, togel di sini jadi batas level-PERAN --
+          kalau sopir tertentu di Data Sopir sudah punya langganan kategori sendiri yang lebih sempit, itu tetap
+          berlaku sebagai pembatas tambahan di atas izin peran ini.
         </p>
         <p class="hint" style="margin:0 0 12px;line-height:1.6;">
-          🧾 Khusus <b>Resi Perjalanan</b> untuk Super Admin: kalau sopir pemilik trip itu SENDIRI
-          kebetulan juga terdaftar sebagai Super Admin (Chat ID sama), salinan resi itu tidak akan
-          dikirim ke dia -- dia sudah dapat resi-nya sendiri lewat jalur Sopir, tidak perlu laporan
-          balik ke pembuatnya sendiri.
+          🧾 Khusus <b>Resi Perjalanan</b> untuk Super Admin: kalau sopir pemilik trip itu SENDIRI kebetulan juga
+          terdaftar sebagai Super Admin (Chat ID sama), salinan resi itu tidak akan dikirim ke dia.
         </p>
-        <details style="margin:0 0 16px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
-          <summary style="cursor:pointer;font-weight:600;font-size:12.5px;">📋 Daftar Perintah Chat Bot Telegram per Peran</summary>
-          <div style="margin-top:10px;font-size:11.5px;color:var(--muted);line-height:1.6;">
-            <p class="hint" style="margin:0 0 10px;">
-              Ini daftar perintah yang bisa diketik (atau ditap lewat tombol menu) langsung di chat Telegram bot,
-              BEDA dari tabel kategori notifikasi berkala di atas -- tabel di atas mengatur alert yang bot KIRIM
-              sendiri secara otomatis, daftar ini mengatur perintah yang PENGGUNA ketik ke bot. Kolom "Peran"
-              menunjukkan siapa saja yang muncul perintah itu (predikat akses SAMA PERSIS dengan
-              <code>commandReferenceMessage()</code> / tombol "📋 Rekomendasi Perintah" di worker.js -- kalau salah
-              satu diubah, ubah juga yang satunya).
-            </p>
-            <div class="table-scroll">
-              <table>
-                <thead><tr><th>Perintah</th><th>Fungsi</th><th>Peran</th></tr></thead>
-                <tbody>
-                  <tr><td>🚗 <code>/berangkat</code><br><span style="color:var(--muted);">alias: mulai trip, mulai, jalan, catat perjalanan</span></td><td>Mulai trip baru</td><td>Sopir</td></tr>
-                  <tr><td>🏁 <code>/tiba</code></td><td>Tutup trip yang sedang berjalan</td><td>Sopir</td></tr>
-                  <tr><td>🔧 <code>/oli</code></td><td>Cek status servis/ganti oli mobil yang sedang dipakai</td><td>Sopir (bukan Admin/Super Admin)</td></tr>
-                  <tr><td>⛽ <code>/isi</code></td><td>Catat Isi BBM / Top Up Saldo E-Toll</td><td>Sopir &amp; Admin</td></tr>
-                  <tr><td>🧾 <code>/biaya</code><br><span style="color:var(--muted);">alias: operasional, pribadi</span></td><td>Catat biaya operasional/pribadi pada trip yang sedang aktif</td><td>Sopir</td></tr>
-                  <tr><td>📎 <i>(kirim foto nota, lalu ketik)</i> <code>kirim</code></td><td>Teruskan foto bukti transaksi trip operasional ke Admin Finance</td><td>Sopir</td></tr>
-                  <tr><td>📅 <code>/booking</code><br><span style="color:var(--muted);">alias: pesan, boking, keep</span></td><td>Ajukan booking/pesan mobil baru</td><td>Sopir &amp; Admin</td></tr>
-                  <tr><td>💳 <code>/saldo</code></td><td>Cek saldo &amp; rekap E-Toll/BBM</td><td>Pengguna Saldo terdaftar (umumnya Admin/Super Admin)</td></tr>
-                  <tr><td>💳 <code>/saldo</code> <span style="color:var(--muted);">(versi Finance)</span></td><td>Cek Saldo E-Toll / Biaya BBM Bulan Ini / Dokumen / Budget</td><td>Finance</td></tr>
-                  <tr><td>🚘 <code>/cek</code></td><td>Lihat daftar mobil yang sedang jalan</td><td>Admin (penerima notifikasi)</td></tr>
-                  <tr><td>📍 <code>/lokasi</code></td><td>Lihat lokasi terkini 1 mobil (GPS.id)</td><td>Admin &amp; Super Admin</td></tr>
-                  <tr><td>🔧 <code>/service</code></td><td>Lihat 3 data servis terbaru</td><td>Admin, Super Admin &amp; Finance</td></tr>
-                  <tr><td>🕒 <i>kalimat bebas berisi</i> "jam"/"pukul"<br><span style="color:var(--muted);">mis. "jam 10 tadi odonya berapa?"</span></td><td>Cek odometer historis dari GPS.id pada jam tertentu</td><td>Admin &amp; Super Admin (mobil manapun); Sopir hanya untuk mobil trip aktifnya sendiri</td></tr>
-                  <tr><td>⚡ <code>/kecepatan</code><br><span style="color:var(--muted);">alias: speed, laju</span></td><td>Ranking kecepatan sopir</td><td>Super Admin</td></tr>
-                  <tr><td>📋 <code>rekomendasi</code></td><td>Tampilkan daftar perintah lengkap sesuai peran (versi chat dari tabel ini)</td><td>Semua pengguna terdaftar (Sopir/Admin/Finance/Super Admin)</td></tr>
-                  <tr><td>🚫 <code>batal</code></td><td>Batalkan alur/percakapan yang sedang berjalan</td><td>Semua pengguna terdaftar</td></tr>
-                  <tr><td>✅/❌ <code>ya</code> / <code>tidak</code><br><span style="color:var(--muted);">terima juga: iya, benar, betul, oke, gak, ga, dst.</span></td><td>Jawab konfirmasi Ya/Tidak yang ditanyakan bot</td><td>Semua pengguna terdaftar</td></tr>
-                </tbody>
-              </table>
-            </div>
+        <details style="margin:0 0 16px;border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;">
+          <summary style="cursor:pointer;font-weight:700;font-size:12.5px;">📋 Daftar Perintah &amp; Kategori (referensi)</summary>
+          <div style="margin-top:10px;">
+            ${SETTINGS_ITEM_CATALOG.map(it => `
+              <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:8px 0;border-top:1px solid var(--line);">
+                <div style="width:22px;flex-shrink:0;" aria-hidden="true">${it.icon}</div>
+                <div style="flex:1 1 240px;min-width:0;">
+                  <div style="font-size:12.5px;font-weight:700;">${escapeHtml(it.label)}</div>
+                  <div style="font-size:11.5px;color:var(--muted);">${escapeHtml(it.desc||'')}</div>
+                </div>
+                <div style="font-size:11px;color:var(--muted);margin-left:32px;">${escapeHtml(it.akses||'')}</div>
+              </div>
+            `).join('')}
           </div>
         </details>
-        <div class="table-scroll">
-          <table>
-            <thead><tr><th>Kategori</th>${kolom.map(k=>`<th style="text-align:center;">${k.label}</th>`).join('')}</tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px;">
+          <button type="button" class="btn btn-ghost btn-sm" id="ntr-export-alias" style="font-size:11.5px;">⬇️ Unduh Alias (JSON)</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ntr-import-alias-btn" style="font-size:11.5px;">⬆️ Impor Alias</button>
+          <input type="file" id="ntr-import-alias-file" accept="application/json" style="display:none;">
+          <span class="hint" style="margin:0;">Backup/pindahkan alias kustom tanpa perlu isi ulang manual satu-satu.</span>
         </div>
-        <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;margin-top:16px;">
-          <input type="checkbox" id="in-notifrole-block-self-approve" ${getNotifSettings().bookingApprovalBlockSelfApprove!==false?'checked':''} style="width:16px;height:16px;">
+        <div style="margin:0 0 14px;">
+          <button type="button" class="btn btn-ghost btn-sm" id="ntr-open-log" style="font-size:11.5px;">📋 Cek log notifikasi</button>
+        </div>
+        <div style="display:flex;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;">
+          <div style="width:240px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;">
+            <input type="text" id="ntr-search" placeholder="🔎 Cari kategori/perintah..." style="border:none;border-bottom:1px solid var(--line);border-radius:0;padding:9px 12px;font-size:12.5px;">
+            <div id="ntr-master" style="max-height:520px;overflow-y:auto;"></div>
+          </div>
+          <div id="ntr-detail" style="flex:1;min-width:0;padding:16px;"></div>
+        </div>
+        <label style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:13px;cursor:pointer;margin-top:16px;">
+          <span id="ntr-block-self-approve-wrap"></span>
           🚫 Cegah Approve Booking Sendiri
         </label>
         <div class="hint" style="margin:4px 0 0;">Kalau pengaju booking JUGA salah satu admin penerima notifikasi Telegram, dia tidak boleh menyetujui/menolak booking ajuannya sendiri -- harus admin LAIN, apapun perannya. Kecuali kalau memang tidak ada admin lain sama sekali (supaya tidak menggantung selamanya), baru diizinkan diproses sendiri.</div>
-        <button class="btn btn-primary" id="btn-save-notifrole" style="margin-top:14px;">Simpan</button>
       </div>
     </div>
   `;
-  content.innerHTML = html;
-  document.getElementById('btn-save-notifrole').onclick = () => {
-    const next = { sopir:{}, finance:{}, admin:{}, superadmin:{} };
-    document.querySelectorAll('.in-notifrole').forEach(el=>{
-      next[el.dataset.peran][el.dataset.kategori] = el.checked;
+
+  function renderNtrMaster(){
+    const el = document.getElementById('ntr-master');
+    if(!el) return;
+    const lastTested = getNtrLastTested();
+    const q = ntrSearchQuery.trim().toLowerCase();
+    const filtered = !q ? SETTINGS_ITEM_CATALOG : SETTINGS_ITEM_CATALOG.filter(it =>
+      it.label.toLowerCase().includes(q) || (it.desc||'').toLowerCase().includes(q));
+    if(filtered.length === 0){
+      el.innerHTML = `<div class="hint" style="padding:12px;">Tidak ada yang cocok dengan "${escapeHtml(ntrSearchQuery)}".</div>`;
+      return;
+    }
+    el.innerHTML = filtered.map(it=>{
+      const aktif = it.id === ntrSelectedId;
+      const matiTotal = ntrIsFullyOff(it);
+      const testedAt = lastTested[it.id];
+      return `
+        <div class="ntr-master-item" data-id="${it.id}" style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;font-size:12.5px;
+          ${aktif ? 'background:var(--green-bg);color:var(--green);font-weight:700;' : ''}
+          border-bottom:1px solid var(--line);">
+          <span aria-hidden="true">${it.icon}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(it.label)}</span>
+          ${matiTotal ? `<span title="Mati total di semua peran -- tidak pernah terkirim ke siapa pun">⚠️</span>` : ''}
+          ${testedAt ? `<span title="Terakhir dites: ${new Date(testedAt).toLocaleString('id-ID')}" style="font-size:10px;color:${aktif?'var(--green)':'var(--muted)'};">✅</span>` : ''}
+        </div>`;
+    }).join('');
+    el.querySelectorAll('.ntr-master-item').forEach(row=>{
+      row.onclick = () => { ntrSelectedId = row.dataset.id; renderNtrMaster(); renderNtrDetail(); };
     });
-    state.notifRolePrefs = next;
-    // v3.184.0 -- "Cegah Approve Booking Sendiri" pindah ke panel ini
-    // (sebelumnya di Ambang Batas Notifikasi) -- disimpan bersamaan lewat
-    // tombol Simpan yang sama, tapi tetap ke field notifSettings yang sama.
-    state.notifSettings = { ...getNotifSettings(), bookingApprovalBlockSelfApprove: document.getElementById('in-notifrole-block-self-approve').checked };
-    // SENGAJA TIDAK panggil logActivity() -- lihat catatan di atas fungsi ini.
-    saveData();
-    showToast('Pengaturan notifikasi per peran disimpan.');
+  }
+  document.getElementById('ntr-search').value = ntrSearchQuery;
+  document.getElementById('ntr-search').addEventListener('input', (e)=>{ ntrSearchQuery = e.target.value; renderNtrMaster(); });
+
+  function renderNtrDetail(){
+    const el = document.getElementById('ntr-detail');
+    if(!el) return;
+    const it = SETTINGS_ITEM_CATALOG.find(x=>x.id===ntrSelectedId);
+    if(!it){ el.innerHTML=''; return; }
+    let html = `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:2px;">
+      <div style="font-size:15px;font-weight:700;">${it.icon} ${escapeHtml(it.label)}</div>
+      <button type="button" class="btn btn-ghost btn-sm" id="ntr-reset-default" style="flex-shrink:0;font-size:11px;padding:4px 10px;">↺ Reset ke Default</button>
+    </div>`;
+    if(it.desc) html += `<div style="font-size:12.5px;color:var(--muted);margin-bottom:16px;line-height:1.6;">${escapeHtml(it.desc)}</div>`;
+
+    if(it.notifKey){
+      const prefs = getNotifRolePrefs();
+      html += `<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Diterima peran</div>`;
+      html += `<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:18px;">`;
+      html += NTR_ROLE_COLS.map(r => `
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;">
+          ${ntrToggleHtml(!!prefs[r.key][it.notifKey], `data-role="${r.key}" data-notifkey="${it.notifKey}"`)}
+          ${escapeHtml(r.label)}
+        </label>`).join('');
+      html += `</div>`;
+    }
+
+    // BARU -- khusus item "Alert Bawaan GPS.id": panel pemilihan kode alert
+    // (watchlist). Kode diambil LANGSUNG dari API GPS.id tiap panel ini
+    // dibuka (bukan hardcode), karena dokumentasi GPS.id tidak menjabarkan
+    // daftar kode yang pasti/lengkap -- device berbeda bisa punya kode
+    // berbeda. Default watchlist KOSONG -- tidak ada yang diteruskan ke
+    // Telegram sampai Super Admin sengaja pilih kodenya sendiri.
+    if(it.id === 'gpsAlert'){
+      html += `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Kode alert yang diteruskan ke Telegram</div>
+        <div id="gpsalert-watchlist-body"><div class="hint">Memuat daftar kode alert dari GPS.id...</div></div>
+      </div>`;
+    }
+
+    if(it.aliasKey){
+      const catalogEntry = ALIAS_KATEGORI_CATALOG.find(c=>c.key===it.aliasKey);
+      const defaults = catalogEntry ? catalogEntry.defaults : [];
+      const custom = Array.isArray(getCommandAliases()[it.aliasKey]) ? getCommandAliases()[it.aliasKey] : [];
+      html += `<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Kata kunci / alias</div>`;
+      html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;" id="ntr-alias-chips">`;
+      html += defaults.map(d=>`<span style="background:var(--neutral-bg);border-radius:20px;padding:4px 10px;font-size:11.5px;color:var(--muted);">${escapeHtml(d)}</span>`).join('');
+      html += custom.map(a=>`<span class="ntr-alias-chip-custom" data-alias="${escapeHtml(a)}" style="background:var(--green-bg);color:var(--green);border-radius:20px;padding:4px 6px 4px 10px;font-size:11.5px;display:inline-flex;align-items:center;gap:6px;">${escapeHtml(a)}<b class="ntr-alias-remove" data-alias="${escapeHtml(a)}" style="cursor:pointer;opacity:0.7;">✕</b></span>`).join('');
+      html += `</div>`;
+      html += `<div style="display:flex;gap:6px;margin-bottom:18px;">
+        <input type="text" id="ntr-alias-input" placeholder="Tambah alias baru..." style="flex:1;min-width:0;padding:6px 10px;font-size:12.5px;border:1px solid var(--line);border-radius:8px;">
+        <button type="button" class="btn btn-ghost" id="ntr-alias-add" style="padding:6px 12px;font-size:12.5px;">+ Tambah</button>
+      </div>`;
+    }
+
+    if(it.hiddenKey){
+      const hidden = getHiddenFeatures();
+      html += `<div style="display:flex;align-items:center;gap:10px;font-size:12.5px;padding-top:8px;border-top:1px solid var(--line);">
+        ${ntrToggleHtml(!!hidden[it.hiddenKey], `data-hiddenkey="${it.hiddenKey}"`)}
+        🔒 Perintah/fitur ini aktif
+      </div>
+      <div class="hint" style="margin-top:4px;">Fitur rahasia -- sengaja tidak pernah muncul di daftar rekomendasi bot. Matikan di sini kalau suatu saat tidak dibutuhkan lagi, tanpa perlu ubah kode.</div>`;
+    }
+
+    // BARU -- tombol "Tes" per item: kirim 1 pesan contoh (data asli kalau
+    // tersedia) ke Chat ID Super Admin yang dipilih, lewat worker.js
+    // (/run-notify-check?test_category=...). Tidak pernah kirim ke daftar
+    // penerima ASLI -- selalu ke 1 Chat ID Super Admin saja, supaya aman
+    // dites berkali-kali tanpa mengganggu siapa pun.
+    const superAdminsWithChat = (state.superAdmins || []).filter(a => a.chatId);
+    const workerReadyForTest = ghConfig && ghConfig.workerUrl && ghConfig.notifySecret;
+    html += `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">`;
+    if(!workerReadyForTest){
+      html += `<div class="hint">🔬 Tes kategori butuh URL Worker & Notify Secret -- lengkapi dulu di Pengaturan → Sinkronisasi Cloud.</div>`;
+    } else if(superAdminsWithChat.length === 0){
+      html += `<div class="hint">🔬 Belum ada Super Admin dengan Chat ID terdaftar -- daftarkan dulu lewat PIN 010194 di Telegram supaya ada tujuan tes.</div>`;
+    } else {
+      html += `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <select id="ntr-test-chat" style="flex:1;min-width:160px;">
+          ${superAdminsWithChat.map(a=>`<option value="${escapeHtml(a.chatId)}">Chat ID ${escapeHtml(a.chatId)}</option>`).join('')}
+        </select>
+        <button type="button" class="btn btn-ghost" id="ntr-test-btn">🔬 Tes kirim ke Super Admin</button>
+      </div>
+      <div id="ntr-test-result" style="margin-top:8px;"></div>`;
+    }
+    html += `</div>`;
+
+    el.innerHTML = html;
+
+    // BARU -- muat & render daftar kode alert GPS.id (khusus item gpsAlert).
+    // Terpisah dari innerHTML utama supaya fetch async tidak menunda
+    // tampilnya bagian lain panel (togel peran, dst) yang tidak perlu
+    // nunggu jaringan.
+    if(it.id === 'gpsAlert'){
+      (async () => {
+        const wrap = document.getElementById('gpsalert-watchlist-body');
+        if(!wrap) return;
+        if(!(ghConfig && ghConfig.workerUrl)){
+          wrap.innerHTML = `<div class="hint">Perlu URL Worker -- lengkapi dulu di Pengaturan → Sinkronisasi Cloud.</div>`;
+          return;
+        }
+        try{
+          const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/gpsid/alert-codes`);
+          const data = await res.json().catch(()=>null);
+          if(!res.ok || !data || !data.ok){ throw new Error((data&&data.error)||`HTTP ${res.status}`); }
+          // BARU -- bentuk "codes" TIDAK dijabarkan pasti oleh dokumentasi
+          // GPS.id, jadi ditangani fleksibel: array [{code,name}], atau
+          // objek {kode: nama}. Kalau bentuknya lain, tampilkan JSON mentah
+          // apa adanya supaya tetap ada info yang bisa dibaca/dilaporkan.
+          let entries = [];
+          if(Array.isArray(data.codes)){
+            entries = data.codes.map(c => ({ code: String(c.code ?? c.alert_no ?? c.id ?? c.value ?? ''), label: String(c.name ?? c.label ?? c.description ?? c.code ?? '') })).filter(e=>e.code);
+          } else if(data.codes && typeof data.codes==='object'){
+            entries = Object.entries(data.codes).map(([k,v])=>({ code:String(k), label:String(v) }));
+          }
+          if(entries.length === 0){
+            wrap.innerHTML = `<div class="hint">GPS.id tidak mengembalikan daftar kode dalam bentuk yang dikenali. Data mentah:</div>
+              <pre style="font-size:10.5px;background:var(--neutral-bg);padding:8px;border-radius:8px;overflow:auto;max-height:160px;">${escapeHtml(JSON.stringify(data.codes,null,2))}</pre>`;
+            return;
+          }
+          const watchlist = Array.isArray(state.gpsAlertWatchlist) ? state.gpsAlertWatchlist : [];
+          const watchlistCodes = new Set(watchlist.map(w=>w.code));
+          wrap.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;">
+            ${entries.map(e=>`
+              <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;">
+                <input type="checkbox" class="gpsalert-code-check" data-code="${escapeHtml(e.code)}" data-label="${escapeHtml(e.label)}" ${watchlistCodes.has(e.code)?'checked':''} style="width:16px;height:16px;">
+                ${escapeHtml(e.label || e.code)} <span style="color:var(--muted);">(${escapeHtml(e.code)})</span>
+              </label>`).join('')}
+          </div>
+          <div class="hint" style="margin-top:8px;">Dicek tiap siklus notifikasi berkala berjalan (bukan real-time instan). Maks 20 kombinasi mobil×kode dicek per siklus -- watchlist yang terlalu panjang di armada besar bisa tertunda beberapa siklus.</div>`;
+          wrap.querySelectorAll('.gpsalert-code-check').forEach(cb=>{
+            cb.onchange = () => {
+              const list = Array.isArray(state.gpsAlertWatchlist) ? [...state.gpsAlertWatchlist] : [];
+              const idx = list.findIndex(w=>w.code===cb.dataset.code);
+              if(cb.checked){ if(idx===-1) list.push({ code:cb.dataset.code, label:cb.dataset.label }); }
+              else { if(idx!==-1) list.splice(idx,1); }
+              state.gpsAlertWatchlist = list;
+              saveData();
+              showToast(cb.checked ? `"${cb.dataset.label||cb.dataset.code}" ditambahkan ke watchlist.` : `"${cb.dataset.label||cb.dataset.code}" dihapus dari watchlist.`);
+            };
+          });
+        }catch(err){
+          wrap.innerHTML = `<div class="hint" style="color:var(--red);">❌ Gagal memuat daftar kode alert: ${escapeHtml(err.message)}</div>`;
+        }
+      })();
+    }
+
+    // BARU -- "↺ Reset ke Default": kembalikan SEMUA yang dikustomisasi
+    // utk item ini (togel peran, alias custom, togel fitur tersembunyi) ke
+    // bawaan pabrik -- jaring pengaman kalau salah pencet/iseng, tanpa
+    // perlu hapus manual satu-satu.
+    document.getElementById('ntr-reset-default').onclick = () => {
+      const bagian = [];
+      if(it.notifKey) bagian.push('togel peran');
+      if(it.aliasKey && Array.isArray(getCommandAliases()[it.aliasKey]) && getCommandAliases()[it.aliasKey].length) bagian.push('alias custom');
+      if(it.hiddenKey) bagian.push('togel fitur tersembunyi');
+      if(bagian.length === 0){ showToast('Tidak ada yang perlu direset -- masih bawaan default.'); return; }
+      const lanjut = confirm(`↺ Kembalikan "${it.label}" ke pengaturan default?\n\nIni akan mereset: ${bagian.join(', ')}.\n\nTidak bisa dibatalkan.`);
+      if(!lanjut) return;
+      if(it.notifKey){
+        const prefs = getNotifRolePrefs();
+        NTR_ROLE_COLS.forEach(r => { prefs[r.key][it.notifKey] = NOTIF_ROLE_PREFS_DEFAULT[r.key][it.notifKey]; });
+        state.notifRolePrefs = prefs;
+      }
+      if(it.aliasKey){
+        const aliases = { ...getCommandAliases() };
+        delete aliases[it.aliasKey];
+        state.commandAliases = aliases;
+      }
+      if(it.hiddenKey){
+        const hidden = { ...getHiddenFeatures() };
+        delete hidden[it.hiddenKey]; // getHiddenFeatures() isi ulang default (true) kalau key tidak ada
+        state.hiddenFeatures = hidden;
+      }
+      saveData();
+      showToast(`"${it.label}" dikembalikan ke default.`);
+      renderNtrMaster();
+      renderNtrDetail();
+    };
+
+
+    const testBtn = document.getElementById('ntr-test-btn');
+    if(testBtn){
+      const cooldownUntil = ntrTestCooldownUntil[it.id] || 0;
+      if(Date.now() < cooldownUntil){
+        // BARU -- proteksi klik-berulang: kalau baru saja kirim tes utk item
+        // ini, tombol tetap nonaktif dgn hitung mundur sampai cooldown
+        // selesai (10 detik), supaya tidak banjiri Telegram Super Admin
+        // kalau ada yang iseng klik cepat berkali-kali.
+        testBtn.disabled = true;
+        const tick = () => {
+          const sisa = Math.ceil((cooldownUntil - Date.now())/1000);
+          if(sisa <= 0){ testBtn.disabled = false; testBtn.textContent = '🔬 Tes kirim ke Super Admin'; return; }
+          testBtn.textContent = `⏳ Tunggu ${sisa}d...`;
+          setTimeout(tick, 500);
+        };
+        tick();
+      }
+      testBtn.onclick = async () => {
+        if(Date.now() < (ntrTestCooldownUntil[it.id]||0)) return; // jaga-jaga double klik pas transisi
+        const resultEl = document.getElementById('ntr-test-result');
+        const chatId = document.getElementById('ntr-test-chat').value;
+        testBtn.disabled = true;
+        const original = testBtn.textContent;
+        testBtn.textContent = '⏳ Mengirim...';
+        try{
+          if(it.id === 'resi'){
+            // BARU -- khusus item Resi Perjalanan: tes SEBELUMNYA cuma
+            // kirim teks ringkasan (jalur /run-notify-check), TIDAK pernah
+            // benar-benar menjalankan render html2canvas -- jadi tidak
+            // menguji bagian yang justru paling rawan gagal (rendering
+            // gambar di browser). Sekarang tes ini benar-benar me-render
+            // gambar Tanda Terima ASLI (fungsi generateTripReceiptBlob()
+            // yang SAMA dgn yang dipakai kirim resi sungguhan) dari 1 trip
+            // Operasional nyata yang sudah selesai, lalu kirim gambarnya
+            // LANGSUNG ke Chat ID Super Admin yang dipilih di atas --
+            // TIDAK PERNAH ke chat sopir pemilik trip itu, walau datanya
+            // dipinjam dari trip sopir tsb, supaya tidak ada salah paham
+            // di tim ("kenapa saya tiba-tiba dapat resi trip lama").
+            const tripContoh = [...state.usage].reverse().find(u => u.status === 'selesai' && u.jenisPenggunaan !== 'pribadi');
+            if(!tripContoh){
+              resultEl.innerHTML = `<div class="hint">ℹ️ Belum ada trip Operasional yang sudah selesai di data -- belum ada contoh nyata untuk dijadikan gambar tes. Coba lagi setelah ada 1 trip Operasional ditutup.</div>`;
+              return;
+            }
+            testBtn.textContent = '⏳ Merender gambar...';
+            const blob = await generateTripReceiptBlob(tripContoh);
+            testBtn.textContent = '⏳ Mengirim gambar...';
+            const fd = new FormData();
+            fd.append('chatId', chatId);
+            fd.append('photo', blob, 'resi-tes.png');
+            fd.append('caption', `🔬 [TES] Contoh gambar Tanda Terima (render html2canvas asli) -- trip: ${carLabel(tripContoh.carId)}. Dikirim ke Anda sebagai Super Admin, BUKAN ke sopir aslinya.`);
+            const resImg = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai-photo`, {
+              method: 'POST', headers: { 'X-Notify-Secret': ghConfig.notifySecret }, body: fd,
+            });
+            const imgBody = await resImg.json().catch(()=>({}));
+            if(resImg.ok && imgBody.ok){
+              resultEl.innerHTML = `<div class="hint" style="color:var(--green);">✅ Gambar berhasil dirender & terkirim ke Chat ID ${escapeHtml(chatId)}. Kalau gambar ini muncul normal di Telegram, berarti jalur render+kirim resi sungguhan juga berfungsi.</div>`;
+              setNtrLastTested(it.id);
+              renderNtrMaster();
+            } else {
+              resultEl.innerHTML = `<div class="hint" style="color:var(--red);">❌ Gagal (HTTP ${resImg.status}): ${escapeHtml(imgBody.error || 'Tidak ada detail error.')} -- ini berarti jalur gambar KEMUNGKINAN akan gagal juga saat trip sungguhan ditutup (walau tetap ada fallback resi teks otomatis).</div>`;
+            }
+            return;
+          }
+          const testUrl = `${ghConfig.workerUrl}/run-notify-check?test_chat_id=${encodeURIComponent(chatId)}&test_category=${encodeURIComponent(it.notifKey || it.id)}`;
+          const res = await fetch(testUrl, { headers: { 'X-Notify-Secret': ghConfig.notifySecret } });
+          const data = await res.json().catch(()=>null);
+          if(res.ok && data && data.ok){
+            resultEl.innerHTML = `<div class="hint" style="color:var(--green);">✅ Terkirim. Cek Telegram Chat ID ${escapeHtml(chatId)} dalam beberapa detik.</div>`;
+            setNtrLastTested(it.id);
+            renderNtrMaster();
+          } else {
+            resultEl.innerHTML = `<div class="hint" style="color:var(--red);">❌ Gagal (HTTP ${res.status}): ${escapeHtml((data && data.reason) || 'Tidak ada detail error.')}</div>`;
+          }
+        }catch(e){
+          resultEl.innerHTML = `<div class="hint" style="color:var(--red);">❌ Gagal terhubung ke Worker: ${escapeHtml(e.message)}</div>`;
+        } finally {
+          // BARU -- cooldown 10 detik/tombol tes stlh SETIAP percobaan
+          // (berhasil maupun gagal), bukan langsung aktif lagi.
+          const cooldownMs = 10000;
+          ntrTestCooldownUntil[it.id] = Date.now() + cooldownMs;
+          const tick2 = () => {
+            const sisa = Math.ceil((ntrTestCooldownUntil[it.id] - Date.now())/1000);
+            if(!testBtn.isConnected) return; // panel sudah dirender ulang/ditutup -- berhenti
+            if(sisa <= 0){ testBtn.disabled = false; testBtn.textContent = original; return; }
+            testBtn.disabled = true;
+            testBtn.textContent = `⏳ Tunggu ${sisa}d...`;
+            setTimeout(tick2, 500);
+          };
+          tick2();
+        }
+      };
+    }
+
+
+    el.querySelectorAll('.ntr-toggle[data-notifkey]').forEach(t=>{
+      t.onclick = () => {
+        const prefs = getNotifRolePrefs();
+        const role = t.dataset.role, key = t.dataset.notifkey;
+        prefs[role][key] = !prefs[role][key];
+        state.notifRolePrefs = prefs;
+        saveData();
+        renderNtrDetail();
+      };
+    });
+    el.querySelectorAll('.ntr-toggle[data-hiddenkey]').forEach(t=>{
+      t.onclick = () => {
+        const hidden = getHiddenFeatures();
+        const key = t.dataset.hiddenkey;
+        hidden[key] = !hidden[key];
+        state.hiddenFeatures = hidden;
+        saveData();
+        renderNtrDetail();
+        showToast(hidden[key] ? 'Fitur diaktifkan.' : 'Fitur dimatikan.');
+      };
+    });
+    const addBtn = document.getElementById('ntr-alias-add');
+    if(addBtn){
+      const doAdd = () => {
+        const input = document.getElementById('ntr-alias-input');
+        const val = (input.value||'').trim().toLowerCase();
+        if(!val) return;
+        if(defaultsIncludeWord(it.aliasKey, val)){ showToast('Kata itu sudah jadi kata kunci bawaan.'); return; }
+        const bentrok = findAliasCollisionGlobal(val, it.aliasKey);
+        if(bentrok){
+          const lanjut = confirm(`⚠️ Kata "${val}" sudah dipakai sebagai ${bentrok.jenis} di "${bentrok.label}".\n\nBisa bikin bot bingung perintah mana yang dimaksud.\n\nTetap tambahkan?`);
+          if(!lanjut) return;
+        }
+        const aliases = { ...getCommandAliases() };
+        const list = Array.isArray(aliases[it.aliasKey]) ? [...aliases[it.aliasKey]] : [];
+        if(!list.includes(val)) list.push(val);
+        aliases[it.aliasKey] = list;
+        state.commandAliases = aliases;
+        saveData();
+        showToast(`Alias "${val}" ditambahkan.`);
+        renderNtrDetail();
+      };
+      addBtn.onclick = doAdd;
+      document.getElementById('ntr-alias-input').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); doAdd(); } });
+    }
+    el.querySelectorAll('.ntr-alias-remove').forEach(x=>{
+      x.onclick = () => {
+        const val = x.dataset.alias;
+        const aliases = { ...getCommandAliases() };
+        aliases[it.aliasKey] = (Array.isArray(aliases[it.aliasKey]) ? aliases[it.aliasKey] : []).filter(a=>a!==val);
+        state.commandAliases = aliases;
+        saveData();
+        showToast(`Alias "${val}" dihapus.`);
+        renderNtrDetail();
+      };
+    });
+  }
+
+  function defaultsIncludeWord(aliasKey, word){
+    const cat = ALIAS_KATEGORI_CATALOG.find(c=>c.key===aliasKey);
+    return cat ? cat.defaults.includes(word) : false;
+  }
+  function findAliasCollisionGlobal(word, excludeKey){
+    for(const cat of ALIAS_KATEGORI_CATALOG){
+      if(cat.key === excludeKey) continue;
+      if(cat.defaults.includes(word)) return { label: cat.label, jenis: 'kata kunci bawaan' };
+      const custom = Array.isArray(getCommandAliases()[cat.key]) ? getCommandAliases()[cat.key] : [];
+      if(custom.includes(word)) return { label: cat.label, jenis: 'alias custom' };
+    }
+    return null;
+  }
+
+  const blockSelfWrap = document.getElementById('ntr-block-self-approve-wrap');
+  function renderBlockSelfToggle(){
+    blockSelfWrap.innerHTML = ntrToggleHtml(getNotifSettings().bookingApprovalBlockSelfApprove!==false, 'id="ntr-block-self-approve"');
+    document.getElementById('ntr-block-self-approve').onclick = () => {
+      const cur = getNotifSettings().bookingApprovalBlockSelfApprove!==false;
+      state.notifSettings = { ...getNotifSettings(), bookingApprovalBlockSelfApprove: !cur };
+      saveData();
+      renderBlockSelfToggle();
+    };
+  }
+  renderBlockSelfToggle();
+
+  // BARU -- Ekspor/Impor alias sebagai backup JSON. Ekspor: unduh
+  // state.commandAliases apa adanya. Impor: GABUNG (bukan timpa total) ke
+  // alias yang sudah ada, per kategori -- supaya impor dari backup lama
+  // tidak diam-diam menghapus alias baru yang sudah ditambahkan sejak
+  // backup itu dibuat.
+  document.getElementById('ntr-export-alias').onclick = () => {
+    const payload = { fleetopsAliasBackup: true, exportedAt: new Date().toISOString(), commandAliases: getCommandAliases() };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `fleetops-alias-backup-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast('Alias diunduh sebagai JSON.');
   };
+  document.getElementById('ntr-import-alias-btn').onclick = () => document.getElementById('ntr-import-alias-file').click();
+  document.getElementById('ntr-import-alias-file').addEventListener('change', async (e)=>{
+    const file = e.target.files[0];
+    e.target.value = ''; // supaya bisa pilih file yg sama lagi kalau perlu
+    if(!file) return;
+    try{
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const incoming = (parsed && typeof parsed==='object' && parsed.commandAliases && typeof parsed.commandAliases==='object')
+        ? parsed.commandAliases
+        : (parsed && typeof parsed==='object' && !parsed.fleetopsAliasBackup ? parsed : null); // toleransi file lama tanpa pembungkus
+      if(!incoming){ showToast('File tidak dikenali sebagai backup alias FleetOps.', true); return; }
+      const kategoriValid = new Set(ALIAS_KATEGORI_CATALOG.map(c=>c.key));
+      const merged = { ...getCommandAliases() };
+      let jumlahDitambah = 0, kategoriDilewati = [];
+      Object.keys(incoming).forEach(key=>{
+        if(!kategoriValid.has(key)){ kategoriDilewati.push(key); return; }
+        const daftarBaru = Array.isArray(incoming[key]) ? incoming[key].map(a=>String(a||'').trim().toLowerCase()).filter(Boolean) : [];
+        const existing = Array.isArray(merged[key]) ? merged[key] : [];
+        const gabungan = Array.from(new Set([...existing, ...daftarBaru]));
+        jumlahDitambah += gabungan.length - existing.length;
+        merged[key] = gabungan;
+      });
+      state.commandAliases = merged;
+      saveData();
+      renderNtrMaster();
+      renderNtrDetail();
+      showToast(`Impor selesai -- ${jumlahDitambah} alias baru ditambahkan (digabung, bukan menimpa).${kategoriDilewati.length ? ' ' + kategoriDilewati.length + ' kategori tidak dikenali dilewati.' : ''}`);
+    }catch(err){
+      showToast('Gagal membaca file -- pastikan file JSON hasil unduhan dari sini.', true);
+    }
+  });
+
+  document.getElementById('ntr-open-log').onclick = () => openNotifLogModal();
+
+  renderNtrMaster();
+  renderNtrDetail();
 }
 // Kode unik Mobil & Perjalanan -- dipakai KHUSUS untuk menu "Hapus Data"
 // (lihat konsep di bawah). Format sengaja pendek & mudah dibaca/disalin,
@@ -5721,6 +6375,7 @@ function openModeSopirPinModal(){
           sessionStorage.setItem(INSIGHT_UNLOCK_SESSION_KEY, '1');
         }catch(e){}
         showToast('Super Akses terbuka (Normal + Insight) untuk sesi ini.');
+        refreshChangelogButtonVisibility();
       } else {
         toggleFieldError('f-modesopir-pin', true);
         return false;
@@ -6049,6 +6704,7 @@ function openInsightPinModal(opts){
         sessionStorage.setItem(MODE_SOPIR_SESSION_KEY, '1');
       }catch(e){}
       showToast('Insight & Mode Sopir terbuka untuk sesi ini.');
+      refreshChangelogButtonVisibility();
       applyModeSopirVisibility();
       refreshInsightPanels();
       // BARU -- dipakai khusus klik titik "·" utk langsung membuka menu
@@ -7387,7 +8043,7 @@ function renderDrivers(){
               <td>${t.totalKm>0?t.totalKm.toLocaleString('id-ID')+' KM':'-'}</td>
               <td>${t.totalMenit>0?fmtDurationMinutes(t.totalMenit):'-'}</td>
               <td style="text-align:right;white-space:nowrap;">
-                ${(insightUnlocked && d.telegramChatId) ? `<button class="btn btn-ghost btn-sm" data-testnotif="${d.id}" title="Test kirim notifikasi ke sopir ini">🧪 Test</button>` : ''}
+                ${(insightUnlocked && d.telegramChatId) ? `<button class="btn btn-ghost btn-sm" data-testnotif="${d.id}" title="Test kirim notifikasi ke sopir ini">🔬 Test</button>` : ''}
                 <button class="btn btn-ghost btn-sm" data-edit="${d.id}">Edit</button>
               </td>
             </tr>`;
@@ -7408,7 +8064,7 @@ function renderDrivers(){
             <div class="data-card-row"><span class="k">Total KM</span><span class="v">${t.totalKm>0?t.totalKm.toLocaleString('id-ID')+' KM':'-'}</span></div>
             <div class="data-card-row"><span class="k">Total Jam Jalan</span><span class="v">${t.totalMenit>0?fmtDurationMinutes(t.totalMenit):'-'}</span></div>
             <div class="data-card-actions">
-              ${(insightUnlocked && d.telegramChatId) ? `<button class="btn btn-ghost btn-sm" data-testnotif="${d.id}">🧪 Test Notifikasi</button>` : ''}
+              ${(insightUnlocked && d.telegramChatId) ? `<button class="btn btn-ghost btn-sm" data-testnotif="${d.id}">🔬 Test Notifikasi</button>` : ''}
               <button class="btn btn-ghost btn-sm" data-edit="${d.id}">✏️ Edit</button>
             </div>
           </div>`;
@@ -13376,10 +14032,11 @@ function gpsTripRangeFor(u){
   return { start, end };
 }
 
-async function fetchGpsTripInsight(imei, start, end){
+async function fetchGpsTripInsight(imei, start, end, includeRoute){
   if(!imei || !isGhConnected()) return { error: 'GPS.id belum terhubung (cek pengaturan Worker).' };
   try{
     const params = new URLSearchParams({ imei, start, end });
+    if(includeRoute) params.set('route','1');
     const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/gpsid/trip-insight?${params.toString()}`, { headers: { 'accept':'application/json' } });
     const data = await res.json().catch(()=>null);
     if(!res.ok || !data || data.error) return { error: data?.error || `HTTP ${res.status}` };
@@ -13409,7 +14066,7 @@ async function openGpsInsightModal(tripId){
   const saveBtn = document.getElementById('modal-save'); if(saveBtn) saveBtn.textContent = 'Tutup';
   const cancelBtn = document.getElementById('modal-cancel'); if(cancelBtn) cancelBtn.style.display = 'none';
 
-  const insight = await fetchGpsTripInsight(car.imeiGps, range.start, range.end);
+  const insight = await fetchGpsTripInsight(car.imeiGps, range.start, range.end, true);
   const bodyEl = document.getElementById('gps-insight-body');
   if(!bodyEl) return; // modal sudah ditutup pengguna sebelum data selesai diambil
 
@@ -13452,7 +14109,75 @@ async function openGpsInsightModal(tripId){
     </div>
     ${noiseLine}
     ${selisihLine}
+    ${(Array.isArray(insight.route) && insight.route.length >= 2) ? `
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:12px;color:var(--muted);">🎥 Replay Rute</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button type="button" class="btn btn-ghost btn-sm" id="gps-replay-playpause" style="font-size:11.5px;">▶️ Putar</button>
+          <span id="gps-replay-speed-label" style="font-size:11px;color:var(--muted);"></span>
+        </div>
+      </div>
+      <div id="gps-replay-map" style="height:220px;border-radius:12px;overflow:hidden;background:var(--neutral-bg);"></div>
+      <input type="range" id="gps-replay-slider" min="0" max="${insight.route.length-1}" value="0" style="width:100%;margin-top:8px;">
+    </div>` : ''}
   `;
+
+  // BARU -- render peta rute (Leaflet, pola sama dgn peta Lacak Kendaraan)
+  // + animasi replay: geser slider ATAU tekan Putar utk menggerakkan marker
+  // sepanjang titik-titik rute trip ini, berguna verifikasi rute yang
+  // "meleset jauh" dari tujuan atau audit klaim BBM, tanpa perlu buka
+  // aplikasi GPS.id terpisah.
+  if(Array.isArray(insight.route) && insight.route.length >= 2){
+    try{
+      await loadLeaflet();
+      const mapEl = document.getElementById('gps-replay-map');
+      if(mapEl && window.L){
+        const route = insight.route;
+        const latlngs = route.map(p=>[p.lat,p.lon]);
+        const replayMap = L.map('gps-replay-map', { attributionControl:false });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(replayMap);
+        L.polyline(latlngs, { color:'#0E9488', weight:3, opacity:0.7 }).addTo(replayMap);
+        L.circleMarker(latlngs[0], { radius:6, color:'#22c55e', fillColor:'#22c55e', fillOpacity:1 }).bindTooltip('Mulai', {permanent:false}).addTo(replayMap);
+        L.circleMarker(latlngs[latlngs.length-1], { radius:6, color:'#ef4444', fillColor:'#ef4444', fillOpacity:1 }).bindTooltip('Selesai', {permanent:false}).addTo(replayMap);
+        replayMap.fitBounds(latlngs, { padding:[20,20] });
+        const carIcon = L.divIcon({ className:'', html:'<div style="font-size:18px;">🚗</div>', iconSize:[24,24], iconAnchor:[12,12] });
+        const replayMarker = L.marker(latlngs[0], { icon: carIcon }).addTo(replayMap);
+        setTimeout(()=>replayMap.invalidateSize(), 60);
+
+        const slider = document.getElementById('gps-replay-slider');
+        const playBtn = document.getElementById('gps-replay-playpause');
+        const speedLabel = document.getElementById('gps-replay-speed-label');
+        let playing = false, timer = null;
+        function tampilkanIndeks(i){
+          const p = route[i];
+          replayMarker.setLatLng([p.lat,p.lon]);
+          speedLabel.textContent = (p.speed!=null) ? `${Math.round(p.speed)} km/j — ${new Date(p.t).toLocaleTimeString('id-ID')}` : new Date(p.t).toLocaleTimeString('id-ID');
+        }
+        tampilkanIndeks(0);
+        slider.addEventListener('input', ()=>{ if(playing) togglePlay(); tampilkanIndeks(Number(slider.value)); });
+        function togglePlay(){
+          playing = !playing;
+          playBtn.textContent = playing ? '⏸️ Jeda' : '▶️ Putar';
+          if(playing){
+            if(Number(slider.value) >= route.length-1) slider.value = 0;
+            timer = setInterval(()=>{
+              let i = Number(slider.value) + 1;
+              if(i >= route.length){ clearInterval(timer); playing = false; playBtn.textContent = '▶️ Putar'; return; }
+              slider.value = i;
+              tampilkanIndeks(i);
+            }, 120); // ~kecepatan replay tetap, bukan real-time (rute bisa berjam-jam)
+          } else {
+            clearInterval(timer);
+          }
+        }
+        playBtn.onclick = togglePlay;
+      }
+    }catch(e){
+      const mapEl = document.getElementById('gps-replay-map');
+      if(mapEl) mapEl.innerHTML = `<div class="hint" style="padding:10px;">Gagal memuat peta rute: ${escapeHtml(e.message)}</div>`;
+    }
+  }
 }
 
 // ============================================================================
@@ -13905,6 +14630,7 @@ function renderGpsTracking(){
                 <div class="gps-card-title">${judul}</div>
                 ${(!car && imei) ? `<div class="gps-card-imei-warn">IMEI ${escapeHtml(String(imei))} belum dihubungkan ke mobil manapun. Isi field "IMEI GPS.id" di Data Mobil supaya tampil nama & foto mobilnya.</div>` : ''}
               </div>
+              ${v._gpsPushSource ? '<span class="badge ok" title="Posisi ini dari Push Data API GPS.id, real-time (~30 detik), bukan hasil nanya berkala">⚡ Real-time</span>' : ''}
               ${accRaw!=null ? (accOn ? '<span class="badge ok">Mesin ON</span>' : '<span class="badge neutral">Mesin OFF</span>') : ''}
             </div>
             ${kecepatan!=null ? `<div class="data-card-row"><span class="k">Kecepatan</span><span class="v">${escapeHtml(String(kecepatan))} km/j</span></div>` : ''}
@@ -13952,11 +14678,21 @@ function renderGpsTracking(){
       const accOn = accRaw===1 || accRaw===true || String(accRaw).toUpperCase()==='ON';
       const kecepatan = v.speed ?? v.kecepatan ?? null;
       const waktu = v.last_update ?? v.gps_date ?? v.updated_at ?? v.waktu ?? v.gps_time ?? null;
+      // BARU -- field "angle" (0-360°, 0=Utara searah jarum jam) dari
+      // GPS.id, belum pernah dipakai sebelumnya. Cuma bermakna kalau mobil
+      // memang sedang bergerak (acc ON & speed > 0) -- diam di tempat,
+      // arah terakhir sering tidak akurat/berubah-ubah, jadi panah
+      // disembunyikan supaya tidak menyesatkan.
+      const angle = v.angle != null ? Number(v.angle) : null;
+      const tampilkanArah = accOn && Number(kecepatan) > 0 && angle != null && !isNaN(angle);
 
       const warna = accOn ? '#0E9488' : '#94A3B8';
       const icon = L.divIcon({
         className: '',
-        html: `<div style="width:30px;height:30px;border-radius:50%;background:${warna};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,24,40,.35);border:2px solid #fff;font-size:15px;">🚗</div>`,
+        html: `<div style="position:relative;width:30px;height:30px;">
+          ${tampilkanArah ? `<div style="position:absolute;top:-9px;left:50%;transform:translateX(-50%) rotate(${angle}deg);transform-origin:50% 24px;font-size:13px;color:${warna};line-height:1;">▲</div>` : ''}
+          <div style="width:30px;height:30px;border-radius:50%;background:${warna};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,24,40,.35);border:2px solid #fff;font-size:15px;">🚗</div>
+        </div>`,
         iconSize: [30,30], iconAnchor: [15,15],
       });
       const popupHtml = `
@@ -14178,6 +14914,8 @@ async function openCarTrackingModal(carId){
     const waktu = v.last_update ?? v.gps_date ?? v.updated_at ?? v.waktu ?? v.gps_time ?? null;
     const accRaw = v.acc ?? v.acc_status ?? v.status_mesin ?? null;
     const accOn = accRaw===1 || accRaw===true || String(accRaw).toUpperCase()==='ON';
+    const angleMini = v.angle != null ? Number(v.angle) : null;
+    const tampilkanArahMini = accOn && kecepatanNum!=null && kecepatanNum > 0 && angleMini != null && !isNaN(angleMini);
     const lat = v.latitude ?? v.lat ?? null;
     const lon = v.longitude ?? v.lon ?? null;
     const mapsUrl = (lat!=null && lon!=null) ? `https://www.google.com/maps?q=${encodeURIComponent(lat)},${encodeURIComponent(lon)}` : null;
@@ -14230,7 +14968,10 @@ async function openCarTrackingModal(carId){
           const warna = accOn ? '#0E9488' : '#94A3B8';
           const icon = L.divIcon({
             className: '',
-            html: `<div style="width:30px;height:30px;border-radius:50%;background:${warna};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,24,40,.35);border:2px solid #fff;font-size:15px;">🚗</div>`,
+            html: `<div style="position:relative;width:30px;height:30px;">
+              ${tampilkanArahMini ? `<div style="position:absolute;top:-9px;left:50%;transform:translateX(-50%) rotate(${angleMini}deg);transform-origin:50% 24px;font-size:13px;color:${warna};line-height:1;">▲</div>` : ''}
+              <div style="width:30px;height:30px;border-radius:50%;background:${warna};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,24,40,.35);border:2px solid #fff;font-size:15px;">🚗</div>
+            </div>`,
             iconSize: [30,30], iconAnchor: [15,15],
           });
           L.marker([lat,lon], {icon}).addTo(carTrackingMiniMap);
@@ -14917,7 +15658,7 @@ function openTestNotifModal(driverId){
   const workerReady = ghConfig && ghConfig.workerUrl && ghConfig.notifySecret;
 
   openModal({
-    title: `🧪 Test Notifikasi — ${driver.nama}`,
+    title: `🔬 Test Notifikasi — ${driver.nama}`,
     body: `
       ${workerReady ? `
       <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.6;">
@@ -15572,6 +16313,115 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.194.0',
+    date: '01 Agu 2026',
+    notes: [
+      '📋 BARU: tombol "Cek log notifikasi" di panel "🔔 Notifikasi Telegram per Peran" -- modal berisi 50 pengiriman notifikasi Telegram terbaru: jam, nama & ID Telegram penerima, peran, kategori pesan, dan status (Berhasil/Gagal).',
+      'ℹ️ Status cuma 2 nilai (Berhasil/Gagal) -- Telegram Bot API tidak punya cara resmi memberi tahu bot apakah pesan sudah DIBACA penerima (beda dari WhatsApp Business API), jadi status "dibaca" sengaja tidak ditampilkan supaya tidak menyesatkan.',
+      '⚠️ <b>CATATAN CAKUPAN</b>: log ini mencatat pengiriman lewat jalur cron/berkala (alert biasa, Laporan Bulanan, Resi cadangan, notif Finance/Super Admin). Resi Perjalanan yang terkirim lewat jalur INSTAN (langsung dari aplikasi saat trip ditutup, jalur tercepat & paling sering dipakai) BELUM tercatat di log ini -- kemungkinan jumlah Resi yang terlihat di log lebih sedikit dari yang sebenarnya terkirim.',
+      '⚠️ <b>Upload ulang worker.js terbaru</b> supaya endpoint /notif-log & pencatatan log di setiap jalur kirim notifikasi ini aktif.',
+    ]
+  },
+  {
+    v: '3.193.0',
+    date: '01 Agu 2026',
+    notes: [
+      '⚡ PERUBAHAN ARSITEKTUR: GPS.id sekarang bisa "push" (kirim sendiri) posisi/kecepatan tiap ~30 detik ke Worker lewat endpoint baru <code>/gpsid/push-data</code>, disimpan di Cloudflare KV -- BUKAN lagi Worker yang harus "nanya" (polling) berkala ke GPS.id. Efeknya: posisi/kecepatan jauh lebih real-time & risiko kena rate-limit (429) jauh berkurang.',
+      'ℹ️ HYBRID, bukan gantian total: polling ke /vehicle TETAP jalan seperti biasa (field expired_gsm/door/battery/owner TIDAK ada di format Push Data GPS.id) -- data push cuma MENIMPA field posisi/kecepatan/odometer/arah kalau lebih segar. Fitur lain (Reminder SIM GPS Tracker, dst) tidak terpengaruh sama sekali.',
+      '⚡ Badge "Real-time" baru muncul di kartu Lacak Kendaraan kalau posisi mobil itu memang berasal dari data push (bukan hasil polling berkala).',
+      '🔒 SEPENUHNYA OPSIONAL & aman dilewati -- kalau KV belum di-bind atau belum didaftarkan ke GPS.id, aplikasi tetap jalan normal seperti sebelumnya (full polling), tidak ada yang rusak.',
+      '⚠️ <b>SETUP MANUAL WAJIB (2 langkah, tidak bisa diotomatisasi)</b>: (1) Buat Cloudflare KV Namespace lalu bind ke Worker dgn nama variable <code>GPS_PUSH_KV</code> (dashboard Cloudflare → Workers & Pages → KV → Create, lalu Worker → Settings → Bindings → Add → KV Namespace). (2) Kirim email ke it.ss@gps.id (subjek: Register Endpoint Push Data), sertakan username akun GPS.id, unit yang mau diintegrasikan, & alamat endpoint <code>https://&lt;url-worker-anda&gt;/gpsid/push-data?secret=&lt;NOTIFY_SECRET&gt;</code> (pakai NOTIFY_SECRET yang SUDAH ADA, tidak perlu bikin baru).',
+      '⚠️ <b>Upload ulang worker.js terbaru</b> supaya endpoint /gpsid/push-data & overlay data push ini aktif.',
+    ]
+  },
+  {
+    v: '3.192.0',
+    date: '01 Agu 2026',
+    notes: [
+      '📶 BARU: kategori notifikasi "Masa Aktif SIM GPS Tracker" -- peringatan berkala (60/30/7 hari + lewat, sama seperti Dokumen Kadaluarsa) kalau pulsa/masa aktif kartu SIM di alat GPS mendekati/sudah habis. Beda dari Dokumen Kadaluarsa yang sudah ada (itu dokumen fisik kendaraan) -- field ini (expired_gsm) sebelumnya diambil dari GPS.id tapi tidak pernah dipakai.',
+      '🚨 BARU: kategori "Alert Bawaan GPS.id" -- teruskan alert tingkat perangkat (SOS/rem mendadak/power cut/dst, TERGANTUNG tipe device) ke Telegram. Super Admin pilih sendiri kode mana yang relevan lewat panel watchlist baru (diambil live dari API GPS.id, bukan hardcode) -- default KOSONG, tidak ada yang diteruskan sampai sengaja diisi.',
+      '🎥 BARU: "Replay Rute" di modal "🛰️ Insight GPS.id" (Riwayat Trip) -- peta interaktif menampilkan jalur perjalanan lengkap + tombol Putar/Jeda & slider utk menggeser waktu, berguna verifikasi rute yang meleset jauh dari tujuan atau audit klaim BBM.',
+      '🧭 BARU: marker mobil di peta (Lacak Kendaraan & popup Lacak per mobil) sekarang menampilkan panah arah gerak (compass heading dari field "angle" GPS.id) -- cuma muncul kalau mobil memang sedang bergerak, supaya tidak menyesatkan saat diam.',
+      '⚠️ <b>CATATAN JUJUR soal Alert Bawaan GPS.id</b>: dokumentasi resmi GPS.id tidak menjabarkan bentuk pasti respons endpoint kode alert & data alert -- parsing di kode ini menduga bentuk yang lazim (sama pola dgn endpoint GPS.id lain) & sudah dibuat defensif (fallback tampilkan data mentah kalau bentuknya meleset), tapi BELUM PERNAH diuji dengan akun GPS.id sungguhan. Cek langsung panel watchlist setelah upload -- kalau daftar kode tidak muncul dgn benar, laporkan bentuk data mentah yang ditampilkan supaya bisa disesuaikan.',
+      '⚠️ <b>Upload ulang worker.js terbaru</b> supaya seluruh fitur GPS.id baru ini (endpoint /gpsid/alert-codes, parameter route= di /gpsid/trip-insight, & 2 kategori notifikasi baru) aktif.',
+    ]
+  },
+  {
+    v: '3.191.0',
+    date: '01 Agu 2026',
+    notes: [
+      '✅ BARU: badge "sudah pernah dites" di daftar kiri panel "🔔 Notifikasi Telegram per Peran" -- muncul begitu 1 kategori berhasil dites, disimpan LOKAL per HP (localStorage, TIDAK ikut sinkron ke tim lain) supaya tidak bikin salah paham antar anggota tim.',
+      '🔎 BARU: kotak cari di atas daftar kiri -- ketik nama kategori/perintah langsung filter, tidak perlu scroll manual lagi di antara 28 item.',
+      '↺ BARU: tombol "Reset ke Default" per item -- kembalikan togel peran, alias custom, & togel fitur tersembunyi ke bawaan pabrik dalam 1 klik (dgn konfirmasi), jaring pengaman kalau salah pencet/iseng.',
+      '⏳ BARU: cooldown 10 detik pada tombol Tes setelah setiap percobaan kirim (berhasil maupun gagal) -- mencegah banjir pesan ke Telegram Super Admin kalau tombol diklik cepat berkali-kali.',
+      '⬇️⬆️ BARU: tombol "Unduh Alias (JSON)" & "Impor Alias" -- backup/pindahkan seluruh alias custom sekaligus. Impor bersifat GABUNG (bukan menimpa total) supaya tidak diam-diam menghapus alias baru yang ditambahkan setelah backup dibuat.',
+      '⚠️ BARU: tanda peringatan di daftar kiri untuk kategori yang togelnya OFF di SEMUA peran sekaligus (tidak pernah terkirim ke siapa pun) -- biasanya tanda lupa dinyalakan lagi, bukan disengaja.',
+    ]
+  },
+  {
+    v: '3.190.2',
+    date: '01 Agu 2026',
+    notes: [
+      '🔬 Icon tombol/pesan Test diganti dari 🧪 jadi 🔬 di seluruh aplikasi (panel Notifikasi Telegram per Peran & Test Notifikasi per sopir di Data Sopir) supaya konsisten.',
+    ]
+  },
+  {
+    v: '3.190.1',
+    date: '01 Agu 2026',
+    notes: [
+      '🖼️ Tombol tes kategori "Resi Perjalanan" sekarang BENAR-BENAR me-render gambar Tanda Terima (html2canvas asli, dari 1 trip Operasional nyata yang sudah selesai) lalu mengirimkannya sbg gambar -- sebelumnya tes ini cuma kirim ringkasan teks, jadi tidak menguji bagian yang justru paling rawan gagal (proses render gambar di browser).',
+      '🔒 Dikonfirmasi ulang: SEMUA tombol tes di panel "🔔 Notifikasi Telegram per Peran" (termasuk tes gambar Resi yang baru) hanya bisa dikirim ke Chat ID Super Admin yang terdaftar & dipilih sendiri -- tidak pernah ke chat sopir/admin lain, walau datanya (mis. nama mobil di tes Resi) dipinjam dari trip sopir asli, supaya tidak ada salah paham di tim.',
+    ]
+  },
+  {
+    v: '3.190.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🔬 BARU: tombol "Tes kirim ke Super Admin" di setiap item panel "🔔 Notifikasi Telegram per Peran" (khusus Super Admin, PIN 009900) -- kirim 1 pesan contoh langsung ke Chat ID Super Admin pilihan (tidak pernah ke penerima asli), supaya bisa lihat format & isi notifikasi tanpa menunggu kondisinya benar-benar terjadi.',
+      '📊 Untuk 9 kategori alert berkala (Dokumen, Servis, E-Toll, BBM, Booking, Trip Lama, Budget, Kalibrasi, Kecepatan), pesan tes memakai DATA ASLI -- kalau saat ini memang ada yang memenuhi syarat (mis. dokumen yang mendekati kadaluarsa), itu yang dikirim persis seperti aslinya. Kalau tidak ada, dikasih tahu jujur "sedang tidak ada yang memicu" bukan pesan palsu.',
+      'ℹ️ Untuk perintah on-demand (oli, cek, lokasi, menu, dst -- yang dipicu pengguna ketik ke bot, bukan notifikasi push), tombol tes memberi penjelasan singkat + saran cara tes paling akurat (ketik langsung ke bot), karena secara alami tidak ada "data yang menunggu dikirim" untuk perintah jenis ini.',
+      '⚠️ <b>Upload ulang worker.js terbaru</b> supaya endpoint <code>/run-notify-check</code> menerima parameter baru <code>test_category</code>.',
+    ]
+  },
+  {
+    v: '3.189.1',
+    date: '01 Agu 2026',
+    notes: [
+      '📋 Tabel referensi "Daftar Perintah &amp; Kategori" ditambahkan kembali ke menu "🔔 Notifikasi Telegram per Peran" (khusus Super Admin) -- kali ini dalam bentuk daftar simpel & tercollapse (bukan tabel grid banyak kolom seperti sebelumnya), dibangun otomatis dari katalog yang sama dengan daftar kiri jadi selalu sinkron tanpa perlu diperbarui manual 2 tempat.',
+    ]
+  },
+  {
+    v: '3.189.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🎨 Layout menu "🔔 Notifikasi Telegram per Peran" dirombak total (khusus Super Admin, PIN 009900) -- sebelumnya tabel grid padat 12 baris x 4 kolom checkbox + 3 panel terpisah (alias, fitur tersembunyi), sekarang jadi tampilan daftar+detail: pilih 1 perintah/kategori di kiri, semua pengaturannya (togel per peran, alias kata kunci, togel fitur tersembunyi) digabung jadi 1 layar di kanan.',
+      '⚡ Setiap perubahan (togel peran, tambah/hapus alias, nyala/mati fitur tersembunyi, Cegah Approve Booking Sendiri) SEKARANG tersimpan LANGSUNG -- tombol "Simpan" terpisah dihapus, tidak ada lagi risiko lupa tap Simpan setelah mengubah banyak hal.',
+      '🔗 Kategori yang sebelumnya tersebar di 3 sistem berbeda (mis. "Kecepatan Berlebih") sekarang digabung jadi 1 item -- klik sekali langsung lihat & atur togel peran, alias (kecepatan/speed/laju), DAN togel aktif/mati fitur tersembunyinya sekaligus, tidak perlu buka 3 panel berbeda lagi.',
+      'ℹ️ Tabel referensi statis "Daftar Perintah Chat Bot Telegram per Peran" (rincian predikat akses per perintah) untuk sementara dilepas dari panel ini seiring perombakan -- deskripsi singkat tiap perintah sekarang ada langsung di panel detail kanan.',
+    ]
+  },
+  {
+    v: '3.188.0',
+    date: '01 Agu 2026',
+    notes: [
+      '✏️ Panel "Kelola Alias Perintah" diperluas -- sekarang juga bisa diisi utk perintah <code>menu</code>, <code>rekomendasi</code>, <code>batal</code>, <code>tiba</code>, <code>biaya</code>/operasional/pribadi, <code>booking</code>/pesan/boking/keep, <code>mulai trip</code>/mulai/jalan/berangkat, & jawaban <code>ya</code>/<code>tidak</code> -- sebelumnya cuma /oli, /cek, /lokasi, /service, /kecepatan, & pintasan Saldo.',
+      '⚠️ BARU: peringatan tabrakan alias -- kalau kata yang mau ditambahkan sudah dipakai kategori LAIN (default bawaan atau alias custom), sistem kasih tahu dulu (boleh tetap lanjut) supaya tidak bikin bot bingung perintah mana yang dimaksud.',
+      '🔒 Panel "Fitur Tersembunyi" bertambah 1 togel: "Ketik nama sopir persis" (lihat detail statistik 1 sopir, Super Admin) -- sekarang bisa dimatikan manual juga, sama seperti /kecepatan.',
+      '⚠️ <b>Upload ulang worker.js terbaru</b> supaya seluruh alias & togel fitur tersembunyi baru ini aktif di jalur bot Telegram (termasuk di jalur cron/notifikasi berkala, bukan cuma chat langsung).',
+    ]
+  },
+  {
+    v: '3.187.0',
+    date: '01 Agu 2026',
+    notes: [
+      '✏️ BARU (menu khusus Super Admin, PIN 009900): panel "Kelola Alias Perintah" di dalam "🔔 Notifikasi Telegram per Peran" -- sekarang Super Admin bisa menambah/menghapus kata kunci TAMBAHAN untuk perintah bot (/oli, /cek, /lokasi, /service, /kecepatan, & semua pintasan Saldo) langsung dari UI, TANPA perlu minta developer ubah kode. Kata kunci bawaan tetap ada & tidak bisa dihapus dari sini.',
+      '🔒 BARU: panel "Fitur Tersembunyi" -- perintah rahasia (saat ini: /kecepatan) sekarang bisa dinyalakan/dimatikan manual dari UI, tidak perlu ubah kode kalau suatu saat tidak dibutuhkan lagi.',
+      '🙈 Changelog & rincian popup "Versi Baru Tersedia" SEKARANG disembunyikan dari petugas umum -- keduanya sering menyebut detail rahasia (PIN Super Admin, dsb). Tombol "Lihat Changelog" & isi rinci popup update cuma tampil kalau sesi ini sudah buka PIN Super Akses (009900); petugas umum tetap diberi tahu ADA pembaruan, tanpa rinciannya.',
+      '📋 Checklist rilis developer ditambah aturan baru: setiap perintah bot Telegram baru WAJIB disinkronkan ke menu Notifikasi Telegram per Peran (togel izin peran, katalog alias, dan/atau katalog fitur tersembunyi) supaya tidak ada perintah yang "yatim".',
+      '⚠️ <b>Upload ulang worker.js terbaru</b> supaya sistem alias (state.commandAliases) & togel fitur tersembunyi (state.hiddenFeatures) ini dibaca di jalur bot Telegram.',
+    ]
+  },
   {
     v: '3.186.0',
     date: '01 Agu 2026',
@@ -16332,7 +17182,7 @@ const CHANGELOG = [
     v: '3.97.0',
     date: '26 Jul 2026',
     notes: [
-      'Fitur baru: Test Notifikasi per sopir (Data Sopir → tombol "🧪 Test", cuma muncul kalau PIN Insight terbuka & sopir itu sudah punya Telegram Chat ID). Karena Bot Token Telegram sengaja TIDAK PERNAH ada di browser (demi keamanan), tombol ini menyiapkan Chat ID (tinggal salin) + link langsung ke halaman GitHub Actions yang tepat -- 2 klik di GitHub untuk kirim 1 pesan tes ke sopir itu.',
+      'Fitur baru: Test Notifikasi per sopir (Data Sopir → tombol "🔬 Test", cuma muncul kalau PIN Insight terbuka & sopir itu sudah punya Telegram Chat ID). Karena Bot Token Telegram sengaja TIDAK PERNAH ada di browser (demi keamanan), tombol ini menyiapkan Chat ID (tinggal salin) + link langsung ke halaman GitHub Actions yang tepat -- 2 klik di GitHub untuk kirim 1 pesan tes ke sopir itu.',
       'telegram-notify.yml & telegram-notify.mjs diperbarui: workflow_dispatch sekarang punya input "test_chat_id" -- kalau diisi manual, script langsung kirim 1 pesan tes ke Chat ID itu dan berhenti (tidak menyentuh logika deteksi alert/anti-spam sama sekali).',
     ]
   },
@@ -17762,8 +18612,23 @@ document.getElementById('btn-changelog').onclick = () => {
   if(cancelBtn) cancelBtn.style.display = 'none';
 };
 
+// BARU -- Changelog lengkap SENGAJA disembunyikan dari petugas umum, karena
+// isinya kadang menyebut detail rahasia (mis. keberadaan PIN Super Admin
+// 009900/010194 & fitur tersembunyi). Tombol "Lihat Changelog" & rincian
+// fitur di popup "Versi Baru Tersedia" cuma tampil kalau sesi ini sudah
+// buka PIN Super Akses (insightUnlocked) -- petugas umum tetap tahu ADA
+// pembaruan (lewat nomor versi), cuma tidak lihat rinciannya. Dipanggil
+// ulang tiap kali insightUnlocked berubah (lihat openModeSopirPinModal &
+// openInsightPinModal).
+function refreshChangelogButtonVisibility(){
+  const btn = document.getElementById('btn-changelog');
+  if(!btn) return;
+  btn.style.display = insightUnlocked ? '' : 'none';
+}
+
 /* ---------------- Init ---------------- */
 document.getElementById('btn-changelog').textContent = 'v' + APP_VERSION + ' · Lihat Changelog';
+refreshChangelogButtonVisibility();
 renderPetugasSelect();
 wireStorageIndicator();
 // Perbaikan v3.28.0: backfillDestinationEstimates() sudah ada sejak awal
@@ -18010,11 +18875,19 @@ if ('serviceWorker' in navigator) {
   }
   document.getElementById('btn-force-update').addEventListener('click', forceCheckUpdate);
 
+  // BARU -- rincian fitur (items) BISA memuat detail rahasia (mis. PIN
+  // Super Admin), jadi hanya ditampilkan kalau sesi ini sudah Super Akses
+  // (insightUnlocked). Petugas umum tetap diberi tahu ADA pembaruan, cuma
+  // isinya generik tanpa detail.
+  function featureListHtml(items){
+    if(insightUnlocked && items && items.length) return items.map(t=>`<li>${escapeHtml(t)}</li>`).join('');
+    return `<li>Perbaikan &amp; peningkatan umum. Hubungi Super Admin untuk rincian lengkap.</li>`;
+  }
   function openPopupPending(newWorker, versionKey, items){
     pendingWorker = newWorker;
     btnApply.textContent = 'Perbarui Sekarang';
     versionLabelEl.textContent = versionKey ? ('v'+versionKey) : 'Versi terbaru';
-    featureListEl.innerHTML = (items && items.length) ? items.map(t=>`<li>${escapeHtml(t)}</li>`).join('') : `<li>Perbaikan &amp; peningkatan umum.</li>`;
+    featureListEl.innerHTML = featureListHtml(items);
     updateOverlay.style.display = 'flex';
   }
   // Dipakai saat ternyata sudah otomatis di versi terbaru (lihat
@@ -18023,7 +18896,7 @@ if ('serviceWorker' in navigator) {
     pendingWorker = null;
     btnApply.textContent = 'Oke, Mengerti';
     versionLabelEl.textContent = versionKey ? ('v'+versionKey) : 'Versi terbaru';
-    featureListEl.innerHTML = (items && items.length) ? items.map(t=>`<li>${escapeHtml(t)}</li>`).join('') : `<li>Perbaikan &amp; peningkatan umum.</li>`;
+    featureListEl.innerHTML = featureListHtml(items);
     updateOverlay.style.display = 'flex';
   }
 
