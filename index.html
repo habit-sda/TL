@@ -6431,7 +6431,14 @@ try{ modeSopirUnlocked = localStorage.getItem(MODE_SOPIR_SESSION_KEY) === '1'; }
 function applyModeSopirVisibility(){
   document.querySelectorAll('.menu-item[data-route]').forEach(el=>{
     const route = el.dataset.route;
-    const diizinkan = modeSopirUnlocked || MODE_SOPIR_ALLOWED_ROUTES.includes(route);
+    // BARU -- 'notiftelegram' SENGAJA digerbang insightUnlocked di sini
+    // (BUKAN modeSopirUnlocked seperti menu lain) -- PIN Operator saja HARUS
+    // TETAP menyembunyikan menu ini total, cuma PIN Insight/Super Akses yang
+    // boleh memunculkannya. Ini beda dari SEMUA menu lain, yang memang
+    // sengaja terbuka begitu Operator saja terbuka (operasional harian).
+    const diizinkan = route === 'notiftelegram'
+      ? insightUnlocked
+      : (modeSopirUnlocked || MODE_SOPIR_ALLOWED_ROUTES.includes(route));
     el.style.display = diizinkan ? '' : 'none';
   });
 }
@@ -6827,6 +6834,14 @@ document.getElementById('insight-pin-trigger').addEventListener('click', ()=>{
     try{ localStorage.removeItem(INSIGHT_UNLOCK_SESSION_KEY); }catch(e){}
     showToast('Insight dikunci kembali.');
     refreshInsightPanels();
+    // BARU -- menu "Notifikasi Telegram per Peran" digerbang insightUnlocked
+    // (lihat applyModeSopirVisibility di atas) -- begitu Insight dikunci
+    // ulang, menu itu harus ikut hilang lagi dari sidebar SEKARANG JUGA,
+    // dan kalau pengguna kebetulan sedang membuka halaman itu, dilempar
+    // keluar ke dashboard (kontennya sendiri sudah otomatis terkunci lewat
+    // renderNotifTelegramRoles(), ini cuma soal sidebar & rute aktifnya).
+    applyModeSopirVisibility();
+    if(currentRoute === 'notiftelegram') navigate('dashboard');
   } else {
     // BARU -- titik "·" ini sekarang JUGA jadi pintu masuk menu khusus
     // Super Admin "Notifikasi Telegram per Peran": begitu PIN Super Akses benar,
