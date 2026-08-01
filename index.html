@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.194.0">
+<meta name="app-version" content="3.196.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1401,7 +1401,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       Jangan sampai ada perintah bot yang "yatim" -- tidak muncul & tidak
       bisa diatur dari menu ini sama sekali.
    ============================================================================ */
-const APP_VERSION = '3.194.0';
+const APP_VERSION = '3.196.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -2260,37 +2260,37 @@ function renderNotifTelegramRoles(){
           terdaftar sebagai Super Admin (Chat ID sama), salinan resi itu tidak akan dikirim ke dia.
         </p>
         <details style="margin:0 0 16px;border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;">
-          <summary style="cursor:pointer;font-weight:700;font-size:12.5px;">📋 Daftar Perintah &amp; Kategori (referensi)</summary>
+          <summary style="cursor:pointer;font-weight:700;font-size:14px;">📋 Daftar Perintah &amp; Kategori (referensi)</summary>
           <div style="margin-top:10px;">
             ${SETTINGS_ITEM_CATALOG.map(it => `
               <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:8px 0;border-top:1px solid var(--line);">
                 <div style="width:22px;flex-shrink:0;" aria-hidden="true">${it.icon}</div>
                 <div style="flex:1 1 240px;min-width:0;">
-                  <div style="font-size:12.5px;font-weight:700;">${escapeHtml(it.label)}</div>
-                  <div style="font-size:11.5px;color:var(--muted);">${escapeHtml(it.desc||'')}</div>
+                  <div style="font-size:14px;font-weight:700;">${escapeHtml(it.label)}</div>
+                  <div style="font-size:13px;color:var(--muted);">${escapeHtml(it.desc||'')}</div>
                 </div>
-                <div style="font-size:11px;color:var(--muted);margin-left:32px;">${escapeHtml(it.akses||'')}</div>
+                <div style="font-size:12.5px;color:var(--muted);margin-left:32px;">${escapeHtml(it.akses||'')}</div>
               </div>
             `).join('')}
           </div>
         </details>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px;">
-          <button type="button" class="btn btn-ghost btn-sm" id="ntr-export-alias" style="font-size:11.5px;">⬇️ Unduh Alias (JSON)</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="ntr-import-alias-btn" style="font-size:11.5px;">⬆️ Impor Alias</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ntr-export-alias" style="font-size:13px;">⬇️ Unduh Alias (JSON)</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ntr-import-alias-btn" style="font-size:13px;">⬆️ Impor Alias</button>
           <input type="file" id="ntr-import-alias-file" accept="application/json" style="display:none;">
           <span class="hint" style="margin:0;">Backup/pindahkan alias kustom tanpa perlu isi ulang manual satu-satu.</span>
         </div>
         <div style="margin:0 0 14px;">
-          <button type="button" class="btn btn-ghost btn-sm" id="ntr-open-log" style="font-size:11.5px;">📋 Cek log notifikasi</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ntr-open-log" style="font-size:13px;">📋 Cek log notifikasi</button>
         </div>
         <div style="display:flex;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;">
           <div style="width:240px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;">
-            <input type="text" id="ntr-search" placeholder="🔎 Cari kategori/perintah..." style="border:none;border-bottom:1px solid var(--line);border-radius:0;padding:9px 12px;font-size:12.5px;">
+            <input type="text" id="ntr-search" placeholder="🔎 Cari kategori/perintah..." style="border:none;border-bottom:1px solid var(--line);border-radius:0;padding:9px 12px;font-size:14px;">
             <div id="ntr-master" style="max-height:520px;overflow-y:auto;"></div>
           </div>
           <div id="ntr-detail" style="flex:1;min-width:0;padding:16px;"></div>
         </div>
-        <label style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:13px;cursor:pointer;margin-top:16px;">
+        <label style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:14.5px;cursor:pointer;margin-top:16px;">
           <span id="ntr-block-self-approve-wrap"></span>
           🚫 Cegah Approve Booking Sendiri
         </label>
@@ -2315,13 +2315,13 @@ function renderNotifTelegramRoles(){
       const matiTotal = ntrIsFullyOff(it);
       const testedAt = lastTested[it.id];
       return `
-        <div class="ntr-master-item" data-id="${it.id}" style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;font-size:12.5px;
+        <div class="ntr-master-item" data-id="${it.id}" style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;font-size:14px;
           ${aktif ? 'background:var(--green-bg);color:var(--green);font-weight:700;' : ''}
           border-bottom:1px solid var(--line);">
           <span aria-hidden="true">${it.icon}</span>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(it.label)}</span>
           ${matiTotal ? `<span title="Mati total di semua peran -- tidak pernah terkirim ke siapa pun">⚠️</span>` : ''}
-          ${testedAt ? `<span title="Terakhir dites: ${new Date(testedAt).toLocaleString('id-ID')}" style="font-size:10px;color:${aktif?'var(--green)':'var(--muted)'};">✅</span>` : ''}
+          ${testedAt ? `<span title="Terakhir dites: ${new Date(testedAt).toLocaleString('id-ID')}" style="font-size:11.5px;color:${aktif?'var(--green)':'var(--muted)'};">✅</span>` : ''}
         </div>`;
     }).join('');
     el.querySelectorAll('.ntr-master-item').forEach(row=>{
@@ -2337,17 +2337,17 @@ function renderNotifTelegramRoles(){
     const it = SETTINGS_ITEM_CATALOG.find(x=>x.id===ntrSelectedId);
     if(!it){ el.innerHTML=''; return; }
     let html = `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:2px;">
-      <div style="font-size:15px;font-weight:700;">${it.icon} ${escapeHtml(it.label)}</div>
-      <button type="button" class="btn btn-ghost btn-sm" id="ntr-reset-default" style="flex-shrink:0;font-size:11px;padding:4px 10px;">↺ Reset ke Default</button>
+      <div style="font-size:17px;font-weight:700;">${it.icon} ${escapeHtml(it.label)}</div>
+      <button type="button" class="btn btn-ghost btn-sm" id="ntr-reset-default" style="flex-shrink:0;font-size:12.5px;padding:4px 10px;">↺ Reset ke Default</button>
     </div>`;
-    if(it.desc) html += `<div style="font-size:12.5px;color:var(--muted);margin-bottom:16px;line-height:1.6;">${escapeHtml(it.desc)}</div>`;
+    if(it.desc) html += `<div style="font-size:14px;color:var(--muted);margin-bottom:16px;line-height:1.6;">${escapeHtml(it.desc)}</div>`;
 
     if(it.notifKey){
       const prefs = getNotifRolePrefs();
-      html += `<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Diterima peran</div>`;
+      html += `<div style="font-size:13.5px;color:var(--muted);margin-bottom:6px;">Diterima peran</div>`;
       html += `<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:18px;">`;
       html += NTR_ROLE_COLS.map(r => `
-        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;">
           ${ntrToggleHtml(!!prefs[r.key][it.notifKey], `data-role="${r.key}" data-notifkey="${it.notifKey}"`)}
           ${escapeHtml(r.label)}
         </label>`).join('');
@@ -2362,7 +2362,7 @@ function renderNotifTelegramRoles(){
     // Telegram sampai Super Admin sengaja pilih kodenya sendiri.
     if(it.id === 'gpsAlert'){
       html += `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Kode alert yang diteruskan ke Telegram</div>
+        <div style="font-size:13.5px;color:var(--muted);margin-bottom:8px;">Kode alert yang diteruskan ke Telegram</div>
         <div id="gpsalert-watchlist-body"><div class="hint">Memuat daftar kode alert dari GPS.id...</div></div>
       </div>`;
     }
@@ -2371,20 +2371,20 @@ function renderNotifTelegramRoles(){
       const catalogEntry = ALIAS_KATEGORI_CATALOG.find(c=>c.key===it.aliasKey);
       const defaults = catalogEntry ? catalogEntry.defaults : [];
       const custom = Array.isArray(getCommandAliases()[it.aliasKey]) ? getCommandAliases()[it.aliasKey] : [];
-      html += `<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Kata kunci / alias</div>`;
+      html += `<div style="font-size:13.5px;color:var(--muted);margin-bottom:6px;">Kata kunci / alias</div>`;
       html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;" id="ntr-alias-chips">`;
-      html += defaults.map(d=>`<span style="background:var(--neutral-bg);border-radius:20px;padding:4px 10px;font-size:11.5px;color:var(--muted);">${escapeHtml(d)}</span>`).join('');
-      html += custom.map(a=>`<span class="ntr-alias-chip-custom" data-alias="${escapeHtml(a)}" style="background:var(--green-bg);color:var(--green);border-radius:20px;padding:4px 6px 4px 10px;font-size:11.5px;display:inline-flex;align-items:center;gap:6px;">${escapeHtml(a)}<b class="ntr-alias-remove" data-alias="${escapeHtml(a)}" style="cursor:pointer;opacity:0.7;">✕</b></span>`).join('');
+      html += defaults.map(d=>`<span style="background:var(--neutral-bg);border-radius:20px;padding:4px 10px;font-size:13px;color:var(--muted);">${escapeHtml(d)}</span>`).join('');
+      html += custom.map(a=>`<span class="ntr-alias-chip-custom" data-alias="${escapeHtml(a)}" style="background:var(--green-bg);color:var(--green);border-radius:20px;padding:4px 6px 4px 10px;font-size:13px;display:inline-flex;align-items:center;gap:6px;">${escapeHtml(a)}<b class="ntr-alias-remove" data-alias="${escapeHtml(a)}" style="cursor:pointer;opacity:0.7;">✕</b></span>`).join('');
       html += `</div>`;
       html += `<div style="display:flex;gap:6px;margin-bottom:18px;">
-        <input type="text" id="ntr-alias-input" placeholder="Tambah alias baru..." style="flex:1;min-width:0;padding:6px 10px;font-size:12.5px;border:1px solid var(--line);border-radius:8px;">
-        <button type="button" class="btn btn-ghost" id="ntr-alias-add" style="padding:6px 12px;font-size:12.5px;">+ Tambah</button>
+        <input type="text" id="ntr-alias-input" placeholder="Tambah alias baru..." style="flex:1;min-width:0;padding:6px 10px;font-size:14px;border:1px solid var(--line);border-radius:8px;">
+        <button type="button" class="btn btn-ghost" id="ntr-alias-add" style="padding:6px 12px;font-size:14px;">+ Tambah</button>
       </div>`;
     }
 
     if(it.hiddenKey){
       const hidden = getHiddenFeatures();
-      html += `<div style="display:flex;align-items:center;gap:10px;font-size:12.5px;padding-top:8px;border-top:1px solid var(--line);">
+      html += `<div style="display:flex;align-items:center;gap:10px;font-size:14px;padding-top:8px;border-top:1px solid var(--line);">
         ${ntrToggleHtml(!!hidden[it.hiddenKey], `data-hiddenkey="${it.hiddenKey}"`)}
         🔒 Perintah/fitur ini aktif
       </div>
@@ -2444,14 +2444,14 @@ function renderNotifTelegramRoles(){
           }
           if(entries.length === 0){
             wrap.innerHTML = `<div class="hint">GPS.id tidak mengembalikan daftar kode dalam bentuk yang dikenali. Data mentah:</div>
-              <pre style="font-size:10.5px;background:var(--neutral-bg);padding:8px;border-radius:8px;overflow:auto;max-height:160px;">${escapeHtml(JSON.stringify(data.codes,null,2))}</pre>`;
+              <pre style="font-size:12px;background:var(--neutral-bg);padding:8px;border-radius:8px;overflow:auto;max-height:160px;">${escapeHtml(JSON.stringify(data.codes,null,2))}</pre>`;
             return;
           }
           const watchlist = Array.isArray(state.gpsAlertWatchlist) ? state.gpsAlertWatchlist : [];
           const watchlistCodes = new Set(watchlist.map(w=>w.code));
           wrap.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;">
             ${entries.map(e=>`
-              <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;">
+              <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;">
                 <input type="checkbox" class="gpsalert-code-check" data-code="${escapeHtml(e.code)}" data-label="${escapeHtml(e.label)}" ${watchlistCodes.has(e.code)?'checked':''} style="width:16px;height:16px;">
                 ${escapeHtml(e.label || e.code)} <span style="color:var(--muted);">(${escapeHtml(e.code)})</span>
               </label>`).join('')}
@@ -6310,8 +6310,16 @@ function renderTripBubblePanelContent(){
    internal tim kecil, bukan untuk data yang betul-betul rahasia. */
 const INSIGHT_PIN_HASH = '13af54b2ccc64ee1ab317abddcb23d15d8a82b33d2aa58ba331131c2b1a0ffcb';
 const INSIGHT_UNLOCK_SESSION_KEY = 'fleetops_insight_unlocked';
+// v3.195.0 -- PERBAIKAN BUG: sebelumnya dipakai sessionStorage, yang ikut
+// hilang begitu tab dianggap "sesi baru" oleh browser -- termasuk saat
+// proses "Cek Update" memaksa location.href ke alamat baru (?_refresh=...),
+// membuka app lewat shortcut PWA baru, atau di sejumlah kombinasi
+// browser/OS bahkan pada refresh biasa. Akibatnya PIN yang sudah dibuka
+// terasa "tertutup sendiri" tiap refresh. Pindah ke localStorage supaya
+// status tetap terbuka sampai memang sengaja dikunci lagi (lihat
+// wireModeSopirLongPress / tombol kunci) -- bukan direset otomatis.
 let insightUnlocked = false;
-try{ insightUnlocked = sessionStorage.getItem(INSIGHT_UNLOCK_SESSION_KEY) === '1'; }catch(e){}
+try{ insightUnlocked = localStorage.getItem(INSIGHT_UNLOCK_SESSION_KEY) === '1'; }catch(e){}
 
 /* ---------------- Mode Sopir (v3.130.0) ----------------
    Tampilan DEFAULT aplikasi -- sengaja DIBALIK dari kebiasaan (biasanya
@@ -6339,7 +6347,7 @@ const MODE_SOPIR_ALLOWED_ROUTES = ['dashboard', 'usage', 'bookings', 'service',
   // renderNotifTelegramRoles().
   'notiftelegram'];
 let modeSopirUnlocked = false;
-try{ modeSopirUnlocked = sessionStorage.getItem(MODE_SOPIR_SESSION_KEY) === '1'; }catch(e){}
+try{ modeSopirUnlocked = localStorage.getItem(MODE_SOPIR_SESSION_KEY) === '1'; }catch(e){}
 
 function applyModeSopirVisibility(){
   document.querySelectorAll('.menu-item[data-route]').forEach(el=>{
@@ -6365,16 +6373,16 @@ function openModeSopirPinModal(){
       const hash = await sha256Hex(pin);
       if(hash === MODE_SOPIR_PIN_HASH){
         modeSopirUnlocked = true;
-        try{ sessionStorage.setItem(MODE_SOPIR_SESSION_KEY, '1'); }catch(e){}
-        showToast('Tampilan Normal terbuka untuk sesi ini.');
+        try{ localStorage.setItem(MODE_SOPIR_SESSION_KEY, '1'); }catch(e){}
+        showToast('Tampilan Normal terbuka.');
       } else if(hash === INSIGHT_PIN_HASH){
         modeSopirUnlocked = true;
         insightUnlocked = true;
         try{
-          sessionStorage.setItem(MODE_SOPIR_SESSION_KEY, '1');
-          sessionStorage.setItem(INSIGHT_UNLOCK_SESSION_KEY, '1');
+          localStorage.setItem(MODE_SOPIR_SESSION_KEY, '1');
+          localStorage.setItem(INSIGHT_UNLOCK_SESSION_KEY, '1');
         }catch(e){}
-        showToast('Super Akses terbuka (Normal + Insight) untuk sesi ini.');
+        showToast('Super Akses terbuka (Normal + Insight).');
         refreshChangelogButtonVisibility();
       } else {
         toggleFieldError('f-modesopir-pin', true);
@@ -6407,7 +6415,7 @@ document.getElementById('brand-logo-longpress').addEventListener('contextmenu', 
       timer = null;
       if(modeSopirUnlocked){
         modeSopirUnlocked = false;
-        try{ sessionStorage.removeItem(MODE_SOPIR_SESSION_KEY); }catch(e){}
+        try{ localStorage.removeItem(MODE_SOPIR_SESSION_KEY); }catch(e){}
         showToast('Kembali ke Mode Sopir.');
         applyModeSopirVisibility();
         if(!MODE_SOPIR_ALLOWED_ROUTES.includes(currentRoute)) navigate('dashboard');
@@ -6700,10 +6708,10 @@ function openInsightPinModal(opts){
       // logo ATAU titik ini) -- sekarang keduanya konsisten.
       modeSopirUnlocked = true;
       try{
-        sessionStorage.setItem(INSIGHT_UNLOCK_SESSION_KEY, '1');
-        sessionStorage.setItem(MODE_SOPIR_SESSION_KEY, '1');
+        localStorage.setItem(INSIGHT_UNLOCK_SESSION_KEY, '1');
+        localStorage.setItem(MODE_SOPIR_SESSION_KEY, '1');
       }catch(e){}
-      showToast('Insight & Mode Sopir terbuka untuk sesi ini.');
+      showToast('Insight & Mode Sopir terbuka.');
       refreshChangelogButtonVisibility();
       applyModeSopirVisibility();
       refreshInsightPanels();
@@ -6719,7 +6727,7 @@ function openInsightPinModal(opts){
 document.getElementById('insight-pin-trigger').addEventListener('click', ()=>{
   if(insightUnlocked){
     insightUnlocked = false;
-    try{ sessionStorage.removeItem(INSIGHT_UNLOCK_SESSION_KEY); }catch(e){}
+    try{ localStorage.removeItem(INSIGHT_UNLOCK_SESSION_KEY); }catch(e){}
     showToast('Insight dikunci kembali.');
     refreshInsightPanels();
   } else {
@@ -16313,6 +16321,21 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.196.0',
+    date: '01 Agu 2026',
+    notes: [
+      '👀 Ukuran teks di panel "🔔 Notifikasi Telegram per Peran" (daftar kategori kiri, label "Diterima peran", chip alias, keterangan, dst) dinaikkan supaya lebih nyaman dibaca -- sebelumnya terlalu kecil (10-12.5px) untuk sebagian orang.',
+      '🐛 PERBAIKAN BUG SERIUS (worker.js, perlu update manual): deklarasi fungsi <code>handleGpsIdTripInsight</code> hilang di kode Worker (badan fungsinya "mengambang" tanpa <code>async function ... {</code> pembungkus), yang membuat SELURUH worker.js gagal di-deploy/gagal jalan (bukan cuma endpoint /gpsid/trip-insight) -- lihat instruksi patch di chat.',
+    ]
+  },
+  {
+    v: '3.195.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG: status "PIN 009900 terbuka" (Insight & Super Akses/Mode Sopir) sebelumnya disimpan di sessionStorage, yang bisa ikut ter-reset jadi terkunci lagi saat refresh -- terutama saat proses "Cek Update" memuat ulang halaman ke alamat baru, buka lewat shortcut PWA baru, atau kombinasi browser/OS tertentu. Sekarang dipindah ke localStorage supaya akses tetap terbuka sampai memang sengaja dikunci lagi (tekan-lama logo, atau titik "·" di footer).',
+    ]
+  },
   {
     v: '3.194.0',
     date: '01 Agu 2026',
