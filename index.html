@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.204.0">
+<meta name="app-version" content="3.206.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -294,6 +294,17 @@
   .settings-card-desc{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px;}
   .settings-card-status{font-size:10.5px;font-weight:700;color:var(--blue-dark);}
   .settings-detail-back{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--blue);cursor:pointer;margin-bottom:14px;}
+  /* BARU (v3.206.0) -- kartu di menu "📖 Panduan Pengguna", gaya sengaja
+     dibuat mirip .settings-card di atas (konsisten visual), tapi punya 2
+     tombol aksi (Preview & Download) alih-alih 1 kartu yang bisa diklik. */
+  .panduan-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:640px){.panduan-card-grid{grid-template-columns:1fr;}}
+  .panduan-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;}
+  .panduan-card-icon{font-size:26px;margin-bottom:8px;}
+  .panduan-card-title{font-weight:700;font-size:14.5px;margin-bottom:5px;}
+  .panduan-card-desc{font-size:11.5px;color:var(--muted);line-height:1.55;margin-bottom:14px;}
+  .panduan-card-actions{display:flex;gap:8px;}
+  .panduan-card-actions a{flex:1;text-align:center;}
   /* Field terkunci: dibuat jelas SECARA VISUAL (bukan cuma disabled bawaan
      browser yang kadang kurang kontras) -- latar abu, kursor "not-allowed",
      supaya jelas kelihatan "baca saja" sebelum tekan Edit. */
@@ -1231,6 +1242,10 @@
     <div class="menu-item" data-route="monthlyreport"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#161C27" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2.5H6.5A1.5 1.5 0 0 0 5 4v16a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 20V7.5z"/><path d="M14 2.5V7.5H19"/><line x1="8" y1="18" x2="8" y2="15" stroke="#0891B2" stroke-width="1.9"/><line x1="11.3" y1="18" x2="11.3" y2="12.5" stroke="#0891B2" stroke-width="1.9"/><line x1="14.6" y1="18" x2="14.6" y2="14.3" stroke="#0891B2" stroke-width="1.9"/></svg></span>Laporan Bulanan</div>
     <div class="menu-item" data-route="hapusdata"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#161C27" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><polyline points="3 6 5 6 21 6" stroke="#C4302B"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke="#C4302B"/></svg></span>Hapus Data</div>
     <div class="menu-item" data-route="settings"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#161C27" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="#2F6FED" stroke="#2F6FED"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Pengaturan</div>
+    <!-- BARU (v3.206.0) -- "Panduan Pengguna": SELALU tampil (lihat gerbang
+         khusus route==='panduan' di applyModeOperatorVisibility()), tidak
+         diatur lewat "Menu Mode Sopir dan Operator" sama sekali. -->
+    <div class="menu-item" data-route="panduan"><span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#161C27" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 17.5v-12z"/><path d="M4 17.5A2.5 2.5 0 0 1 6.5 15H20" stroke="#2F6FED"/><line x1="7.5" y1="7" x2="15.5" y2="7" stroke-width="1.5"/><line x1="7.5" y1="10" x2="15.5" y2="10" stroke-width="1.5"/></svg></span>Panduan Pengguna</div>
   </nav>
   <div id="petugas-box">
     <label for="petugas-select">Petugas aktif</label>
@@ -1413,7 +1428,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.205.0';
+const APP_VERSION = '3.206.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -4833,6 +4848,54 @@ function wireStorageIndicator(){
    Khusus Data Tujuan, boleh juga langsung pakai NAMA-nya (lihat komentar
    di dalam renderHapusData).
    ======================================================================== */
+// BARU (v3.206.0) -- Menu "📖 Panduan Pengguna": daftar PDF panduan pemakaian
+// yang bisa di-preview/download, file-nya DISIMPAN TERPISAH (bukan di-embed
+// di index.html) di folder panduan/ pada hosting yang sama dgn index.html --
+// supaya isi panduan bisa direvisi & diupload ulang KAPAN SAJA tanpa perlu
+// naikkan APP_VERSION/deploy ulang aplikasi sama sekali (beda dari fitur
+// biasa). minLevel: 0 = semua orang (Mode Sopir pun boleh), 1 = butuh
+// modeOperatorUnlocked (PIN Operator/Super Akses), 2 = butuh insightUnlocked
+// (PIN Super Akses SAJA, sama seperti gerbang panel Insight lainnya).
+// "?_swbypass=1" di URL SENGAJA ditambahkan -- itu parameter yang sudah
+// dikenali sw.js utk MELEWATI cache sama sekali (lihat blok fetch di sw.js),
+// supaya PDF yang baru diupload Super Admin langsung ke-reflect ke semua
+// user tanpa nyangkut di cache lama, TANPA perlu naikkan CACHE_VERSION.
+const PANDUAN_CATALOG = [
+  { key:'sopir-finance', icon:'🚗', title:'Panduan Sopir & Admin Finance', desc:'Cara pakai bot Telegram: berangkat/tiba, catat biaya, isi BBM/E-Toll, kirim nota ke Finance, booking, dan cek saldo/info.', file:'panduan/panduan-sopir-finance.pdf', minLevel:0 },
+  { key:'admin', icon:'🧭', title:'Panduan Admin (Operator)', desc:'Cara pakai aplikasi web sehari-hari: semua menu operasional armada & cara masuk tampilan Operator.', file:'panduan/panduan-admin-operator.pdf', minLevel:1 },
+  { key:'superadmin', icon:'👑', title:'Panduan Super Admin', desc:'Akses penuh + panel pengaturan sistem, cara kelola Super Admin/Admin Finance/Admin Notifikasi lewat bot.', file:'panduan/panduan-super-admin.pdf', minLevel:2 },
+];
+function renderPanduanPengguna(){
+  document.getElementById('header-actions').innerHTML = '';
+  const level = insightUnlocked ? 2 : (modeOperatorUnlocked ? 1 : 0);
+  const list = PANDUAN_CATALOG.filter(p => p.minLevel <= level);
+  const petunjukLevel = level < 2
+    ? ' Tekan &amp; tahan logo FleetOps di sidebar untuk membuka PIN Operator/Super Akses dan melihat panduan lainnya.'
+    : '';
+  document.getElementById('content').innerHTML = `
+    <div class="panel">
+      <div class="panel-head"><h2>📖 Panduan Pengguna</h2></div>
+      <div class="panel-body">
+        <p class="hint" style="margin:0 0 14px 0;">
+          Panduan pemakaian aplikasi dalam format PDF -- daftar yang tampil menyesuaikan level akses kamu saat ini.${petunjukLevel}
+        </p>
+        <div class="panduan-card-grid">
+          ${list.map(p => `
+            <div class="panduan-card">
+              <div class="panduan-card-icon">${p.icon}</div>
+              <div class="panduan-card-title">${escapeHtml(p.title)}</div>
+              <div class="panduan-card-desc">${escapeHtml(p.desc)}</div>
+              <div class="panduan-card-actions">
+                <a class="btn btn-ghost btn-sm" href="${p.file}?_swbypass=1" target="_blank" rel="noopener">👁️ Preview</a>
+                <a class="btn btn-primary btn-sm" href="${p.file}?_swbypass=1" download>⬇️ Download</a>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
 function renderHapusData(){
   document.getElementById('header-actions').innerHTML = '';
   document.getElementById('content').innerHTML = `
@@ -5945,6 +6008,14 @@ const ROUTES = {
   monthlyreport: {title:'Laporan Bulanan', sub:'Ringkasan biaya & pemakaian armada per bulan', render: renderMonthlyReport},
   hapusdata: {title:'Hapus Data', sub:'Hapus Data Mobil / Perjalanan pakai kode khusus', render: renderHapusData},
   settings:  {title:'Pengaturan', sub:'Kelola nama petugas/admin', render: renderSettings},
+  // BARU (v3.206.0) -- menu "Panduan Pengguna": download PDF panduan pemakaian
+  // (Sopir & Finance / Admin / Super Admin), isinya menyesuaikan level akses
+  // saat ini. SENGAJA TIDAK dimasukkan ke MODE_OPERATOR_MENU_CATALOG --
+  // menu ini SELALU tampil ke semua orang tanpa terkecuali (lihat gerbang
+  // khusus di applyModeOperatorVisibility()), karena isinya sendiri sudah
+  // otomatis menyaring per level akses, jadi tidak perlu lapisan
+  // pengaturan visibility tambahan dari Super Admin.
+  panduan:   {title:'📖 Panduan Pengguna', sub:'Download panduan pemakaian aplikasi sesuai level akses kamu', render: renderPanduanPengguna},
   // BARU -- menu khusus Super Admin, SENGAJA TIDAK didaftarkan sbg
   // .menu-item statis di sidebar HTML -- cuma bisa dibuka lewat titik "·"
   // di "FleetOps — Stay in Control" (PIN Super Akses, sama dgn PIN Insight),
@@ -6640,7 +6711,14 @@ function applyModeOperatorVisibility(){
     // TETAP menyembunyikan menu ini total, cuma PIN Insight/Super Akses yang
     // boleh memunculkannya. Ini beda dari SEMUA menu lain, yang memang
     // sengaja terbuka begitu Operator saja terbuka (operasional harian).
-    const diizinkan = route === 'notiftelegram'
+    // BARU (v3.206.0) -- 'panduan' KEBALIKANNYA: SELALU tampil ke SIAPA PUN,
+    // di kondisi apa pun (Mode Sopir/Operator/Super Akses) -- halaman itu
+    // sendiri yang menyaring PDF mana yang boleh didownload sesuai level
+    // akses (lihat renderPanduanPengguna()), jadi menu ini sengaja TIDAK
+    // ikut sistem visibility Mode Sopir sama sekali.
+    const diizinkan = route === 'panduan'
+      ? true
+      : route === 'notiftelegram'
       ? insightUnlocked
       : (modeOperatorUnlocked || getModeOperatorAllowedRoutes().includes(route));
     el.style.display = diizinkan ? '' : 'none';
@@ -16801,6 +16879,13 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.206.0',
+    date: '01 Agu 2026',
+    notes: [
+      '📖 Menu baru <b>"Panduan Pengguna"</b> di sidebar (paling bawah) -- download/preview PDF panduan pemakaian aplikasi, menyesuaikan level akses: Mode Sopir cuma bisa panduan Sopir &amp; Admin Finance, Operator dapat tambahan panduan Admin, Super Akses dapat semua (termasuk panduan Super Admin). Menu ini SENGAJA SELALU tampil ke siapa pun (tidak ikut sistem "Menu Mode Sopir dan Operator") -- kontennya sendiri yang menyaring per level akses. File PDF-nya disimpan terpisah di folder <code>panduan/</code> pada hosting yang sama dengan index.html -- update isi panduan cukup timpa file PDF-nya, TIDAK perlu naikkan versi/deploy ulang aplikasi.',
+    ]
+  },
   {
     v: '3.205.0',
     date: '01 Agu 2026',
