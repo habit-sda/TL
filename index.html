@@ -1428,7 +1428,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.207.0';
+const APP_VERSION = '3.208.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -5037,6 +5037,13 @@ let settingsView = null;
 // dalam mode Edit (terbuka). Direset tiap kali PINDAH kategori/keluar dari
 // Pengaturan -- supaya tidak "kebawa" ke sesi berikutnya.
 let settingsUnlockedPanels = new Set();
+// v3.208.0 -- BARU: state lokal khusus panel "🧭 Menu Mode Sopir dan
+// Operator" -- null = tampilkan ringkasan kartu per kategori (lihat
+// MODE_OPERATOR_MENU_CATEGORIES), string (kunci kategori) = sedang
+// membuka detail centang utk kategori itu SAJA. Direset tiap kali
+// keluar/pindah settingsView (sama pola dgn settingsUnlockedPanels) supaya
+// tidak "kebawa" nyangkut ke kategori lama saat pengguna balik lagi.
+let modeOperatorMenuCategoryOpen = null;
 
 // v3.178.0 -- Helper GENERIK: kunci/buka SEMUA input/select/textarea di
 // dalam 1 kontainer sekaligus, TANPA perlu menambah atribut disabled satu
@@ -5194,6 +5201,7 @@ function renderSettingsCards(query){
       }
       settingsView = this.dataset.gotoSettings;
       settingsUnlockedPanels.clear();
+      modeOperatorMenuCategoryOpen = null;
       renderSettings();
     });
   });
@@ -5203,7 +5211,7 @@ function settingsDetailBackHtml(){
 }
 function wireSettingsDetailBack(){
   const btn = document.getElementById('btn-settings-back');
-  if(btn) btn.onclick = () => { settingsView = null; settingsUnlockedPanels.clear(); renderSettings(); };
+  if(btn) btn.onclick = () => { settingsView = null; settingsUnlockedPanels.clear(); modeOperatorMenuCategoryOpen = null; renderSettings(); };
 }
 function settingsEditBarHtml(panelKey, editBtnId, saveBtnId, cancelBtnId){
   const unlocked = settingsUnlockedPanels.has(panelKey);
@@ -5554,43 +5562,7 @@ function renderSettingsDetailNotifGabungan(){
     <div class="panel">
       <div class="panel-head"><h2>🧭 Menu Mode Sopir dan Operator</h2></div>
       <div class="panel-body">
-        <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
-          Atur menu (dan sub-item/tombol di dalamnya) apa saja yang tampil untuk 2 level akses sebelum Super Akses: kolom <b>Sopir</b> = tampilan default/terkunci (sebelum PIN apa pun dibuka), kolom <b>Operator</b> = setelah PIN Operator level normal dibuka (belum Super Akses). Menu yang <b>tidak</b> dicentang di kolom itu tetap ada di aplikasi, cuma disembunyikan buat level tersebut.
-        </p>
-        <p style="font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.6;">
-          🔓 <b>PIN Super Akses OTOMATIS melihat semua menu & sub-item</b>, apa pun isi centang di kedua kolom -- pengaturan ini tidak berlaku sama sekali untuk level Super Akses.
-        </p>
-        <div id="mode-operator-menu-list" style="max-width:420px;">
-          <div style="display:grid;grid-template-columns:1fr 56px 56px;">
-            <span></span>
-            <span style="font-size:11px;font-weight:600;color:var(--muted);text-align:center;padding:0 0 6px;border-left:1px solid var(--line);">Sopir</span>
-            <span style="font-size:11px;font-weight:600;color:var(--muted);text-align:center;padding:4px 0 6px;background:var(--blue-bg);border-radius:6px 6px 0 0;">Operator</span>
-          </div>
-          <div style="border:1px solid var(--line);border-radius:8px;overflow:hidden;">
-          ${MODE_OPERATOR_MENU_CATALOG.map((m,mi)=>{
-          const subs = MODE_OPERATOR_SUBMENU_CATALOG[m.key];
-          const subPrefsSopir = subs ? getModeOperatorSubmenuPrefs(m.key,'sopir') : null;
-          const subPrefsOperator = subs ? getModeOperatorSubmenuPrefs(m.key,'operator') : null;
-          return `
-          <div style="${mi>0?'border-top:1px solid var(--line);':''}">
-            <div style="display:grid;grid-template-columns:1fr 56px 56px;align-items:center;padding:8px 0;">
-              <span style="font-size:13px;padding-left:10px;">${escapeHtml(m.label)}</span>
-              <span style="text-align:center;border-left:1px solid var(--line);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-menu-check" data-role="sopir" data-key="${m.key}" ${getModeOperatorMenuPrefs('sopir')[m.key]?'checked':''} style="width:18px;height:18px;"></span>
-              <span style="text-align:center;background:var(--blue-bg);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-menu-check" data-role="operator" data-key="${m.key}" ${getModeOperatorMenuPrefs('operator')[m.key]?'checked':''} style="width:18px;height:18px;"></span>
-            </div>
-            ${subs ? subs.map(s=>`
-              <div style="display:grid;grid-template-columns:1fr 56px 56px;align-items:center;padding:6px 0;border-top:1px dashed var(--line);">
-                <span style="font-size:12px;color:var(--muted);padding-left:26px;">${escapeHtml(s.label)}</span>
-                <span style="text-align:center;border-left:1px solid var(--line);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="sopir" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsSopir[s.key]?'checked':''} style="width:15px;height:15px;"></span>
-                <span style="text-align:center;background:var(--blue-bg);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="operator" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsOperator[s.key]?'checked':''} style="width:15px;height:15px;"></span>
-              </div>
-              `).join('') : ''}
-          </div>
-          `;
-        }).join('')}
-          </div>
-        </div>
-        <p style="font-size:11px;color:var(--muted);margin:8px 0 0;">Kolom biru = Operator.</p>
+        ${modeOperatorMenuCategoryOpen===null ? modeOperatorMenuOverviewHtml() : modeOperatorMenuDetailHtml(modeOperatorMenuCategoryOpen)}
       </div>
     </div>
     ` : ''}
@@ -5820,6 +5792,20 @@ function renderSettingsDetailNotifGabungan(){
     wireFinanceAdminsSection();
   }
   if(settingsView==='menu-mode-operator' && insightUnlocked){
+    // v3.208.0 -- BARU: kartu ringkasan per kategori -> klik "Edit kategori
+    // ini" masuk ke detail centang kategori itu SAJA, link "Kembali" balik
+    // ke ringkasan. Hanya salah satu yang ada di DOM tergantung
+    // modeOperatorMenuCategoryOpen (lihat modeOperatorMenuOverviewHtml/
+    // modeOperatorMenuDetailHtml), jadi aman querySelectorAll di sini tanpa
+    // syarat tambahan -- yang tidak ada di DOM otomatis di-skip forEach-nya.
+    document.querySelectorAll('[data-open-category]').forEach(btn=>{
+      btn.addEventListener('click', function(){
+        modeOperatorMenuCategoryOpen = this.dataset.openCategory;
+        renderSettings();
+      });
+    });
+    const backCatBtn = document.getElementById('btn-mode-operator-back-category');
+    if(backCatBtn) backCatBtn.addEventListener('click', () => { modeOperatorMenuCategoryOpen = null; renderSettings(); });
     // v3.207.0 -- BARU: 2 kolom peran (Sopir/Operator) dalam 1 checkbox
     // matrix, bukan cuma 1 kolom Sopir seperti sebelumnya. data-role
     // menentukan field state mana yang ditulis: 'sopir' -> modeOperatorMenuPrefs/
@@ -6111,7 +6097,7 @@ function navigate(route, opts){
   // selalu mulai dari grid, tidak "nyangkut" di kategori terakhir yang
   // sempat dibuka (field yang sempat kebuka lewat Edit juga ikut terkunci
   // lagi, bukan kebawa ke sesi berikutnya).
-  if(route !== 'settings'){ settingsView = null; settingsUnlockedPanels.clear(); }
+  if(route !== 'settings'){ settingsView = null; settingsUnlockedPanels.clear(); modeOperatorMenuCategoryOpen = null; }
   // PENTING: pakai sessionStorage (bukan localStorage). sessionStorage ikut
   // hilang begitu aplikasi BENAR-BENAR ditutup (proses/tab dimatikan), tapi
   // TETAP ada kalau HP cuma dikunci/layar dimatikan (proses tetap hidup di
@@ -6645,6 +6631,20 @@ const MODE_OPERATOR_MENU_CATALOG = [
   { key:'hapusdata', label:'Hapus Data' },
   { key:'settings', label:'Pengaturan' },
 ];
+// v3.208.0 -- BARU: pengelompokan MODE_OPERATOR_MENU_CATALOG jadi 4
+// kategori, dipakai HANYA untuk tampilan ringkasan kartu di panel
+// "🧭 Menu Mode Sopir dan Operator" (lihat renderModeOperatorMenuOverview())
+// -- TIDAK mempengaruhi data/izin sama sekali, murni pengelompokan visual
+// supaya daftar 14 menu (+ puluhan sub-item) tidak jadi 1 tumpukan panjang.
+// Kalau menambah menu baru ke MODE_OPERATOR_MENU_CATALOG, WAJIB tambahkan
+// key-nya ke salah satu kategori di sini juga -- menu yang tidak masuk
+// kategori mana pun tidak akan muncul di panel ini sama sekali.
+const MODE_OPERATOR_MENU_CATEGORIES = [
+  { key:'operasional', icon:'🚕', label:'Operasional Harian', keys:['dashboard','usage','bookings','gps'] },
+  { key:'data-master', icon:'🗂️', label:'Data Master', keys:['cars','drivers','destinations'] },
+  { key:'servis-biaya', icon:'💳', label:'Servis, Dokumen & Biaya', keys:['service','docs','etoll','bbm'] },
+  { key:'laporan-admin', icon:'🛠️', label:'Laporan & Admin', keys:['monthlyreport','hapusdata','settings'] },
+];
 const MODE_OPERATOR_MENU_DEFAULT = {
   dashboard:true, usage:true, cars:false, gps:false, drivers:false, destinations:false,
   bookings:true, service:true, docs:false, etoll:false, bbm:false, monthlyreport:false,
@@ -6744,6 +6744,94 @@ function getModeOperatorSubmenuPrefs(menuKey, role){
   }
   const stored = (state.modeOperatorSubmenuPrefs && typeof state.modeOperatorSubmenuPrefs==='object') ? state.modeOperatorSubmenuPrefs[menuKey] : null;
   return { ...(MODE_OPERATOR_SUBMENU_DEFAULT[menuKey]||{}), ...(stored && typeof stored==='object' ? stored : {}) };
+}
+// v3.208.0 -- BARU: 2 fungsi builder HTML utk panel "🧭 Menu Mode Sopir dan
+// Operator" -- SEBELUMNYA panel ini 1 tabel centang panjang (14 menu + semua
+// sub-item sekaligus, termasuk 14 sub-item Pengaturan), dikeluhkan
+// berantakan/susah dibaca. SEKARANG dipecah 2 tahap: ringkasan kartu per
+// kategori dulu (modeOperatorMenuOverviewHtml, lihat MODE_OPERATOR_MENU_
+// CATEGORIES), baru masuk ke tabel centang detail per kategori
+// (modeOperatorMenuDetailHtml) kalau kartu itu di-klik "Edit kategori ini".
+// Logika baca/tulis prefs SAMA PERSIS dengan sebelumnya (getModeOperatorMenuPrefs/
+// getModeOperatorSubmenuPrefs, class .mode-role-menu-check/.mode-role-submenu-check),
+// cuma tampilannya yang dipecah -- lihat wiring checkbox yang TIDAK berubah
+// di renderSettingsDetailNotifGabungan().
+function modeOperatorMenuOverviewHtml(){
+  const sopirPrefs = getModeOperatorMenuPrefs('sopir');
+  const opPrefs = getModeOperatorMenuPrefs('operator');
+  return `
+    <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
+      Atur menu (dan sub-item/tombol di dalamnya) apa saja yang tampil untuk 2 level akses sebelum Super Akses: <b>Sopir</b> = tampilan default/terkunci (sebelum PIN apa pun dibuka), <b>Operator</b> = setelah PIN Operator level normal dibuka (belum Super Akses). Menu yang tidak dicentang tetap ada di aplikasi, cuma disembunyikan buat level tersebut. Klik <b>"Edit kategori ini"</b> pada tiap kartu untuk mengubah centangnya.
+    </p>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 16px;line-height:1.6;">
+      🔓 <b>PIN Super Akses OTOMATIS melihat semua menu &amp; sub-item</b>, apa pun isi centang di bawah -- pengaturan ini tidak berlaku sama sekali untuk level Super Akses.
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+      ${MODE_OPERATOR_MENU_CATEGORIES.map(cat=>{
+        const items = cat.keys.map(k=>MODE_OPERATOR_MENU_CATALOG.find(m=>m.key===k)).filter(Boolean);
+        const sopirCount = items.filter(m=>sopirPrefs[m.key]).length;
+        const opCount = items.filter(m=>opPrefs[m.key]).length;
+        return `
+        <div style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px;">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;">${cat.icon} ${escapeHtml(cat.label).toUpperCase()}</span>
+            <span style="font-size:10.5px;color:var(--muted);white-space:nowrap;">Sopir ${sopirCount}/${items.length} · Op. ${opCount}/${items.length}</span>
+          </div>
+          ${items.map((m,mi)=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;${mi>0?'border-top:1px solid var(--line);':''}">
+              <span style="font-size:12.5px;">${escapeHtml(m.label)}</span>
+              <span style="font-size:10px;display:flex;gap:4px;flex-shrink:0;">
+                <span style="background:${sopirPrefs[m.key]?'var(--green-bg)':'var(--neutral-bg)'};color:${sopirPrefs[m.key]?'var(--green)':'var(--muted)'};padding:2px 6px;border-radius:4px;">Sopir</span>
+                <span style="background:${opPrefs[m.key]?'var(--blue-bg)':'var(--neutral-bg)'};color:${opPrefs[m.key]?'var(--blue)':'var(--muted)'};padding:2px 6px;border-radius:4px;">Operator</span>
+              </span>
+            </div>
+          `).join('')}
+          <button class="btn btn-ghost btn-sm" data-open-category="${cat.key}" style="margin-top:10px;width:100%;">✏️ Edit kategori ini</button>
+        </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+function modeOperatorMenuDetailHtml(catKey){
+  const cat = MODE_OPERATOR_MENU_CATEGORIES.find(c=>c.key===catKey);
+  if(!cat){ modeOperatorMenuCategoryOpen = null; return modeOperatorMenuOverviewHtml(); } // kunci kategori tidak dikenal -> aman kembali ke ringkasan
+  const items = cat.keys.map(k=>MODE_OPERATOR_MENU_CATALOG.find(m=>m.key===k)).filter(Boolean);
+  return `
+    <div id="btn-mode-operator-back-category" style="display:inline-block;color:var(--blue);font-size:12.5px;font-weight:600;cursor:pointer;margin-bottom:14px;">← Kembali ke ringkasan kategori</div>
+    <p style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;margin:0 0 10px;">${cat.icon} ${escapeHtml(cat.label).toUpperCase()}</p>
+    <div id="mode-operator-menu-list" style="max-width:420px;">
+      <div style="display:grid;grid-template-columns:1fr 56px 56px;">
+        <span></span>
+        <span style="font-size:11px;font-weight:600;color:var(--muted);text-align:center;padding:0 0 6px;border-left:1px solid var(--line);">Sopir</span>
+        <span style="font-size:11px;font-weight:600;color:var(--muted);text-align:center;padding:4px 0 6px;background:var(--blue-bg);border-radius:6px 6px 0 0;">Operator</span>
+      </div>
+      <div style="border:1px solid var(--line);border-radius:8px;overflow:hidden;">
+      ${items.map((m,mi)=>{
+      const subs = MODE_OPERATOR_SUBMENU_CATALOG[m.key];
+      const subPrefsSopir = subs ? getModeOperatorSubmenuPrefs(m.key,'sopir') : null;
+      const subPrefsOperator = subs ? getModeOperatorSubmenuPrefs(m.key,'operator') : null;
+      return `
+      <div style="${mi>0?'border-top:1px solid var(--line);':''}">
+        <div style="display:grid;grid-template-columns:1fr 56px 56px;align-items:center;padding:8px 0;">
+          <span style="font-size:13px;padding-left:10px;">${escapeHtml(m.label)}</span>
+          <span style="text-align:center;border-left:1px solid var(--line);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-menu-check" data-role="sopir" data-key="${m.key}" ${getModeOperatorMenuPrefs('sopir')[m.key]?'checked':''} style="width:18px;height:18px;"></span>
+          <span style="text-align:center;background:var(--blue-bg);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-menu-check" data-role="operator" data-key="${m.key}" ${getModeOperatorMenuPrefs('operator')[m.key]?'checked':''} style="width:18px;height:18px;"></span>
+        </div>
+        ${subs ? subs.map(s=>`
+          <div style="display:grid;grid-template-columns:1fr 56px 56px;align-items:center;padding:6px 0;border-top:1px dashed var(--line);">
+            <span style="font-size:12px;color:var(--muted);padding-left:26px;">${escapeHtml(s.label)}</span>
+            <span style="text-align:center;border-left:1px solid var(--line);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="sopir" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsSopir[s.key]?'checked':''} style="width:15px;height:15px;"></span>
+            <span style="text-align:center;background:var(--blue-bg);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="operator" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsOperator[s.key]?'checked':''} style="width:15px;height:15px;"></span>
+          </div>
+          `).join('') : ''}
+      </div>
+      `;
+      }).join('')}
+      </div>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin:8px 0 0;">Kolom biru = Operator.</p>
+  `;
 }
 // v3.207.0 -- SEBELUMNYA "if(modeOperatorUnlocked) return true" (level PIN
 // apa pun -- normal maupun Super Akses -- langsung bypass total). SEKARANG
@@ -16984,6 +17072,15 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.208.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🧭 Panel Pengaturan → "🧭 Menu Mode Sopir dan Operator" <b>dirombak tampilannya</b> supaya lebih rapi & gampang dibaca -- SEBELUMNYA 1 tabel centang panjang (14 menu + puluhan sub-item sekaligus, termasuk 14 sub-item Pengaturan, jadi 1 tumpukan raksasa). SEKARANG dipecah 2 tahap: dibuka pertama kali langsung tampil <b>ringkasan kartu per 4 kategori</b> (Operasional Harian, Data Master, Servis/Dokumen/Biaya, Laporan & Admin) -- tiap menu cukup dilihat lewat chip warna (hijau/biru = tampil, abu = disembunyikan), baru klik "✏️ Edit kategori ini" utk masuk ke tabel centang detail (persis seperti sebelumnya) khusus kategori itu saja.',
+      '🔧 Cuma tampilan yang berubah -- data/logika izin (getModeOperatorMenuPrefs, getModeOperatorSubmenuPrefs, kelas checkbox .mode-role-menu-check/.mode-role-submenu-check) SAMA PERSIS dengan sebelumnya, jadi setelan yang sudah ada tidak berubah/hilang sama sekali.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.207.0',
     date: '01 Agu 2026',
