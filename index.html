@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.196.0">
+<meta name="app-version" content="3.198.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1401,7 +1401,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       Jangan sampai ada perintah bot yang "yatim" -- tidak muncul & tidak
       bisa diatur dari menu ini sama sekali.
    ============================================================================ */
-const APP_VERSION = '3.196.0';
+const APP_VERSION = '3.198.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -4475,10 +4475,31 @@ function showToast(msg, isErr){
 // petugas) -- ini murni siapa yang terima notifikasi Telegram, boleh lebih
 // dari 1 nomor, tiap nomor punya label nama sendiri & preferensi sendiri
 // untuk notifikasi trip selesai.
+// UX sama seperti Admin Finance: baris yang BELUM disimpan (baru
+// ditambah / sedang di-Edit) tampil sbg form isian; begitu disimpan,
+// field DIKUNCI (tampil kartu ringkas) dan cuma ada tombol ✏️ Edit /
+// 🗑️ Hapus. notifAdminEditingIds transient (tidak ikut disimpan/
+// disinkron) -- reset ke terkunci semua tiap reload.
+let notifAdminEditingIds = new Set();
+function tripNotifLabel(v){
+  return v==='off' ? 'Tidak dikirim apa-apa' : v==='resi' ? 'Resi lengkap' : 'Notifikasi ringkas';
+}
 function renderNotifAdminsRows(){
   const list = state.notifAdmins||[];
   if(!list.length) return `<p class="hint" style="margin:0 0 10px;">Belum ada admin yang didaftarkan menerima notifikasi Telegram.</p>`;
-  return list.map(a=>`
+  return list.map(a=>{
+    const editing = notifAdminEditingIds.has(a.id) || !a.chatId; // belum pernah disimpan (chatId kosong) -> otomatis mode edit
+    if(!editing){
+      return `
+      <div class="grid-2" data-notifadmin-row="${a.id}" style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;align-items:center;">
+        <div><b>${escapeHtml(a.nama||'(tanpa nama)')}</b><br><span class="hint">Chat ID: ${escapeHtml(a.chatId||'-')} · Trip selesai: ${escapeHtml(tripNotifLabel(a.tripNotif||'ringkas'))}</span></div>
+        <div style="text-align:right;">
+          <button class="btn btn-ghost btn-sm" data-edit-notifadmin="${a.id}">✏️ Edit</button>
+          <button class="btn btn-ghost btn-sm" data-del-notifadmin="${a.id}" style="color:var(--red);">🗑️ Hapus</button>
+        </div>
+      </div>`;
+    }
+    return `
     <div class="grid-2" data-notifadmin-row="${a.id}" style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;">
       <div class="field">
         <label>Nama (label, bebas -- biar tahu ini nomor siapa)</label>
@@ -4496,50 +4517,73 @@ function renderNotifAdminsRows(){
           <option value="resi" ${a.tripNotif==='resi'?'selected':''}>Kirim resi lengkap juga</option>
         </select>
       </div>
-      <div style="grid-column:1/-1;text-align:right;margin-top:6px;">
-        <button class="btn btn-ghost btn-sm" data-del-notifadmin="${a.id}" style="color:var(--red);">🗑️ Hapus</button>
+      <div style="grid-column:1/-1;text-align:right;margin-top:6px;display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-ghost btn-sm" data-cancel-notifadmin="${a.id}">Batal</button>
+        <button class="btn btn-primary btn-sm" data-save-notifadmin="${a.id}">💾 Simpan</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 function wireNotifAdminsSection(){
+  document.querySelectorAll('[data-edit-notifadmin]').forEach(btn=>{
+    btn.onclick = () => {
+      notifAdminEditingIds.add(btn.dataset.editNotifadmin);
+      renderSettings();
+    };
+  });
+  document.querySelectorAll('[data-cancel-notifadmin]').forEach(btn=>{
+    btn.onclick = () => {
+      const id = btn.dataset.cancelNotifadmin;
+      const a = (state.notifAdmins||[]).find(x=>x.id===id);
+      // Baris baru yang belum pernah disimpan (chatId masih kosong) -> batal berarti buang barisnya.
+      if(a && !a.chatId){
+        state.notifAdmins = (state.notifAdmins||[]).filter(x=>x.id!==id);
+      }
+      notifAdminEditingIds.delete(id);
+      renderSettings();
+    };
+  });
   document.querySelectorAll('[data-del-notifadmin]').forEach(btn=>{
     btn.onclick = () => {
       const id = btn.dataset.delNotifadmin;
       if(!confirm('Hapus admin ini dari daftar penerima notifikasi?')) return;
       markDeleted('notifAdmins', id);
       state.notifAdmins = (state.notifAdmins||[]).filter(a=>a.id!==id);
+      notifAdminEditingIds.delete(id);
       saveData();
       showToast('Admin dihapus dari daftar notifikasi.');
+      renderNotifBell();
+      renderSettings();
+    };
+  });
+  document.querySelectorAll('[data-save-notifadmin]').forEach(btn=>{
+    btn.onclick = () => {
+      const id = btn.dataset.saveNotifadmin;
+      const row = document.querySelector(`[data-notifadmin-row="${id}"]`);
+      const a = (state.notifAdmins||[]).find(x=>x.id===id);
+      if(!row || !a) return;
+      const nama = row.querySelector('.in-na-nama').value.trim();
+      const chatId = row.querySelector('.in-na-chatid').value.trim();
+      const tripNotif = row.querySelector('.in-na-tripnotif').value;
+      if(!chatId){ showToast('Chat ID wajib diisi supaya bisa menerima notifikasi.', true); return; }
+      a.nama = nama;
+      a.chatId = chatId;
+      a.tripNotif = ['off','ringkas','resi'].includes(tripNotif) ? tripNotif : 'ringkas';
+      touch(a);
+      notifAdminEditingIds.delete(id);
+      saveData();
+      showToast('Admin notifikasi disimpan.');
+      renderNotifBell();
       renderSettings();
     };
   });
   const btnAdd = document.getElementById('btn-add-notif-admin');
   if(btnAdd) btnAdd.onclick = () => {
     if(!Array.isArray(state.notifAdmins)) state.notifAdmins = [];
-    state.notifAdmins.push({ id: uid(), nama:'', chatId:'', tripNotif:'ringkas' });
+    const id = uid();
+    state.notifAdmins.push({ id, nama:'', chatId:'', tripNotif:'ringkas' });
+    notifAdminEditingIds.add(id);
     renderSettings();
-  };
-  const btnSave = document.getElementById('btn-save-notif-admins');
-  if(btnSave) btnSave.onclick = () => {
-    const rows = document.querySelectorAll('[data-notifadmin-row]');
-    let adaChatIdKosong = false;
-    rows.forEach(row=>{
-      const id = row.dataset.notifadminRow;
-      const a = (state.notifAdmins||[]).find(x=>x.id===id);
-      if(!a) return;
-      const nama = row.querySelector('.in-na-nama').value.trim();
-      const chatId = row.querySelector('.in-na-chatid').value.trim();
-      const tripNotif = row.querySelector('.in-na-tripnotif').value;
-      if(!chatId) adaChatIdKosong = true;
-      a.nama = nama;
-      a.chatId = chatId;
-      a.tripNotif = ['off','ringkas','resi'].includes(tripNotif) ? tripNotif : 'ringkas';
-      touch(a);
-    });
-    saveData();
-    showToast(adaChatIdKosong ? 'Disimpan (ada baris tanpa Chat ID -- baris itu tidak akan menerima notifikasi apa pun).' : 'Daftar admin notifikasi disimpan.');
-    renderNotifBell();
   };
 }
 /* ---------------- Admin Finance (penerima nota/tanda terima trip) ----------------
@@ -5282,12 +5326,11 @@ function renderSettingsDetailNotifGabungan(){
       <div class="panel-head"><h2>👤 Admin Penerima Notifikasi Telegram</h2></div>
       <div class="panel-body">
         <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
-          Daftar admin di sini menerima notifikasi berkala (dokumen/servis/BBM/E-Toll/booking) yang sama seperti sopir. Untuk trip yang ditandai <b>"Selesai"</b>, tiap admin bisa diatur SENDIRI-SENDIRI: tidak usah dikirim apa-apa, notifikasi ringkas saja, atau ikut dikirimi resi lengkap seperti yang diterima sopir. Kolom "Nama" bebas diisi apa saja -- cuma label supaya Anda tahu Chat ID ini milik siapa, tidak dipakai sistem untuk apa-apa selain ditampilkan di sini.
+          Daftar admin di sini menerima notifikasi berkala (dokumen/servis/BBM/E-Toll/booking) yang sama seperti sopir. Untuk trip yang ditandai <b>"Selesai"</b>, tiap admin bisa diatur SENDIRI-SENDIRI: tidak usah dikirim apa-apa, notifikasi ringkas saja, atau ikut dikirimi resi lengkap seperti yang diterima sopir. Kolom "Nama" bebas diisi apa saja -- cuma label supaya Anda tahu Chat ID ini milik siapa, tidak dipakai sistem untuk apa-apa selain ditampilkan di sini. Setelah baris disimpan, field dikunci -- tap ✏️ Edit untuk mengubah.
         </p>
         <div id="notif-admins-list">${renderNotifAdminsRows()}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
           <button class="btn btn-ghost btn-sm" id="btn-add-notif-admin">+ Tambah Admin</button>
-          <button class="btn btn-primary btn-sm" id="btn-save-notif-admins">💾 Simpan Admin Notifikasi</button>
         </div>
         <details style="margin-top:16px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
           <summary style="cursor:pointer;font-weight:600;font-size:12.5px;">ℹ️ Aturan Lengkap Notifikasi Telegram (termasuk aturan tersembunyi)</summary>
@@ -8051,7 +8094,7 @@ function renderDrivers(){
               <td>${t.totalKm>0?t.totalKm.toLocaleString('id-ID')+' KM':'-'}</td>
               <td>${t.totalMenit>0?fmtDurationMinutes(t.totalMenit):'-'}</td>
               <td style="text-align:right;white-space:nowrap;">
-                ${(insightUnlocked && d.telegramChatId) ? `<button class="btn btn-ghost btn-sm" data-testnotif="${d.id}" title="Test kirim notifikasi ke sopir ini">🔬 Test</button>` : ''}
+                ${(insightUnlocked && d.telegramChatId) ? `<button class="btn btn-ghost btn-sm" data-testnotif="${d.id}" title="Test kirim notifikasi ke sopir ini">🎤 Test</button>` : ''}
                 <button class="btn btn-ghost btn-sm" data-edit="${d.id}">Edit</button>
               </td>
             </tr>`;
@@ -8072,7 +8115,7 @@ function renderDrivers(){
             <div class="data-card-row"><span class="k">Total KM</span><span class="v">${t.totalKm>0?t.totalKm.toLocaleString('id-ID')+' KM':'-'}</span></div>
             <div class="data-card-row"><span class="k">Total Jam Jalan</span><span class="v">${t.totalMenit>0?fmtDurationMinutes(t.totalMenit):'-'}</span></div>
             <div class="data-card-actions">
-              ${(insightUnlocked && d.telegramChatId) ? `<button class="btn btn-ghost btn-sm" data-testnotif="${d.id}">🔬 Test Notifikasi</button>` : ''}
+              ${(insightUnlocked && d.telegramChatId) ? `<button class="btn btn-ghost btn-sm" data-testnotif="${d.id}">🎤 Test Notifikasi</button>` : ''}
               <button class="btn btn-ghost btn-sm" data-edit="${d.id}">✏️ Edit</button>
             </div>
           </div>`;
@@ -16321,6 +16364,20 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.198.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🎤 Ikon tombol "Test" di menu Data Sopir (kirim tes notifikasi ke sopir) diganti dari 🔬 jadi 🎤 -- fungsinya tetap sama persis, cuma tampilan ikonnya yang berubah.',
+    ]
+  },
+  {
+    v: '3.197.0',
+    date: '01 Agu 2026',
+    notes: [
+      '✏️ Menu Pengaturan → Admin Penerima Notifikasi Telegram sekarang pakai pola simpan-per-baris yang sama seperti Admin Finance: setelah 1 baris disimpan, field-nya dikunci (tampil kartu ringkas) dan cuma bisa diubah lewat tombol ✏️ Edit -- tombol "💾 Simpan Admin Notifikasi" (bulk, simpan semua baris sekaligus) sudah dihapus.',
+    ]
+  },
   {
     v: '3.196.0',
     date: '01 Agu 2026',
