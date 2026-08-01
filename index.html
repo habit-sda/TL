@@ -5001,13 +5001,12 @@ function lockSettingsPanelAfterSave(panelKey){
 // -- titik itu `insightUnlocked` sudah pasti terisi), bukan lagi const
 // yang dievaluasi langsung di urutan baca script dari atas ke bawah.
 function getSettingsCategories(){
-  // Poin baru -- 3 kartu ini (Admin Finance, Admin Penerima Notifikasi,
-  // Notifikasi Telegram per Peran) SENGAJA disembunyikan dari grid
-  // Pengaturan saat modeSopirUnlocked aktif (sopir sedang pakai mode
-  // Sopir), walau insightUnlocked ikut true. Filter di-apply di akhir
-  // fungsi ini (lihat bawah), bukan di sini, supaya struktur array di
-  // bawah tidak perlu diubah/dipecah.
-  const HIDDEN_KEYS_MODE_SOPIR = ['admin-finance', 'admin-notifikasi', 'notiftelegram-peran'];
+  // CATATAN -- 3 kartu (Admin Finance, Admin Penerima Notifikasi,
+  // Notifikasi Telegram per Peran) TIDAK pakai filter modeSopirUnlocked
+  // terpisah: mereka sudah digerbang insightUnlocked di dalam blok di
+  // bawah. Sebelum menambah filter modeSopirUnlocked di sini (atau di
+  // mana pun), WAJIB baca aturan lengkap di deklarasi `modeSopirUnlocked`
+  // (cari komentar "⚠️ ATURAN WAJIB BACA") -- ada jebakan Super Akses.
   const categories = [
   { key:'tampilan', icon:'🎨', title:'Tampilan', desc:'Mode gelap/terang', hasLock:true,
     status: () => localStorage.getItem('fleetops_theme')==='dark' ? 'Mode Gelap' : 'Mode Terang' },
@@ -5045,7 +5044,7 @@ function getSettingsCategories(){
   { key:'nama-petugas', icon:'🧑\u200d🔧', title:'Nama Petugas / Admin', desc:'Kelola daftar petugas aplikasi', hasLock:false,
     status: () => `${state.admins.length} petugas` },
   ];
-  return modeSopirUnlocked ? categories.filter(c => !HIDDEN_KEYS_MODE_SOPIR.includes(c.key)) : categories;
+  return categories;
 }
 
 function renderSettingsGrid(){
@@ -6435,6 +6434,42 @@ const MODE_SOPIR_SESSION_KEY = 'fleetops_mode_sopir_unlocked';
 const MODE_SOPIR_ALLOWED_ROUTES = ['dashboard', 'usage', 'bookings', 'service'];
 let modeSopirUnlocked = false;
 try{ modeSopirUnlocked = localStorage.getItem(MODE_SOPIR_SESSION_KEY) === '1'; }catch(e){}
+
+// ============================================================
+// ⚠️ ATURAN WAJIB BACA sebelum nambah pengecekan `modeSopirUnlocked`
+// di mana pun (menu sidebar, kartu Pengaturan, gerbang route, dll):
+//
+// PIN "Buka Operator" (openModeSopirPinModal) punya 2 hasil level:
+//   - level 'normal'      -> HANYA modeSopirUnlocked = true
+//                            (insightUnlocked TETAP false)
+//   - level 'Super Akses' -> modeSopirUnlocked = true DAN
+//                            insightUnlocked = true SEKALIGUS
+//                            ("Normal + Insight")
+//
+// Akibatnya: `if(modeSopirUnlocked){ sembunyikan X }` TIDAK SAMA
+// dengan "sembunyikan X di mode Sopir/Operator biasa". Kalau X itu
+// sesuatu yang HANYA muncul saat insightUnlocked (mis. kartu di dalam
+// blok `...(insightUnlocked ? [...] : [])`), maka filter
+// `modeSopirUnlocked` di atasnya JUSTRU baru "kena" pas Super Akses
+// (level tertinggi, harusnya lihat semua) -- BUKAN pas level normal
+// (yang memang sudah otomatis tidak pernah menampilkan X sama sekali,
+// karena insightUnlocked-nya belum tentu true).
+//
+// SEBELUM menambah kondisi baru berdasar modeSopirUnlocked, tanya dulu:
+//   1) Apakah item ini sudah digerbang insightUnlocked di tempat lain?
+//      -> kalau YA, jangan tambah filter modeSopirUnlocked lagi di
+//         atasnya kecuali memang SENGAJA mau ikut menyembunyikannya
+//         di Super Akses juga.
+//   2) Kalau maksudnya "sembunyikan HANYA di level normal, tetap
+//      tampil di Super Akses" -> pakai `modeSopirUnlocked &&
+//      !insightUnlocked`, BUKAN `modeSopirUnlocked` saja.
+//
+// (Kejadian nyata: kartu Admin Finance/Admin Penerima Notifikasi/
+// Notifikasi Telegram per Peran di getSettingsCategories() sempat
+// difilter pakai modeSopirUnlocked saja -- efeknya malah hilang di
+// Super Akses, bukan di mode Sopir biasa yang memang sudah otomatis
+// tersembunyi lewat gerbang insightUnlocked. Sudah dibatalkan.)
+// ============================================================
 
 function applyModeSopirVisibility(){
   document.querySelectorAll('.menu-item[data-route]').forEach(el=>{
