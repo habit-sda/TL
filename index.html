@@ -1413,7 +1413,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.201.0';
+const APP_VERSION = '3.201.1';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -2600,7 +2600,7 @@ function renderNotifTelegramRoles(){
             setNtrLastTested(it.id);
             renderNtrMaster();
           } else {
-            resultEl.innerHTML = `<div class="hint" style="color:var(--red);">❌ Gagal (HTTP ${res.status}): ${escapeHtml((data && data.reason) || 'Tidak ada detail error.')}</div>`;
+            resultEl.innerHTML = `<div class="hint" style="color:var(--red);">❌ Gagal (HTTP ${res.status}): ${escapeHtml((data && (data.reason || data.error)) || 'Tidak ada detail error.')}</div>`;
           }
         }catch(e){
           resultEl.innerHTML = `<div class="hint" style="color:var(--red);">❌ Gagal terhubung ke Worker: ${escapeHtml(e.message)}</div>`;
@@ -16410,6 +16410,13 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.201.1',
+    date: '01 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG: tombol "Tes kirim ke Super Admin" per kategori (panel Notifikasi Telegram per Peran) menampilkan "Tidak ada detail error" saat Worker gagal -- padahal pesan error aslinya sudah ada, cuma dikirim di field JSON berbeda (`error`, bukan `reason`) sejak pengaman try/catch global ditambahkan di worker.js. Sekarang kedua field dibaca, jadi pesan error asli langsung terlihat.',
+    ]
+  },
   {
     v: '3.201.0',
     date: '01 Agu 2026',
