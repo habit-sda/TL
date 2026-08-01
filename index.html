@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.207.0">
+<meta name="app-version" content="3.208.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1428,7 +1428,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.208.0';
+const APP_VERSION = '3.208.1';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -17072,6 +17072,14 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.208.1',
+    date: '01 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG: tombol "🔄 Cek Update" SELALU membersihkan cache & memuat ulang halaman walau sebenarnya sudah versi terbaru -- penyebabnya tag <code>&lt;meta name="app-version"&gt;</code> di &lt;head&gt; sempat tidak disamakan saat APP_VERSION dinaikkan ke 3.208.0 kemarin (langkah #2 di checklist rilis kelewat), jadi perbandingan versi (forceCheckUpdate) selalu menganggap ada versi baru. Sudah disamakan lagi -- catatan buat rilis-rilis berikutnya: WAJIB cek 2 tempat ini bersamaan, bukan cuma const APP_VERSION.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.208.0',
     date: '01 Agu 2026',
