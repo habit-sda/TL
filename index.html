@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.203.0">
+<meta name="app-version" content="3.204.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1413,7 +1413,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.203.0';
+const APP_VERSION = '3.204.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1806,6 +1806,12 @@ function loadData(){
       notifSettings: (parsed.notifSettings && typeof parsed.notifSettings==='object') ? parsed.notifSettings : defaultData().notifSettings,
       // BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin).
       notifRolePrefs: (parsed.notifRolePrefs && typeof parsed.notifRolePrefs==='object') ? parsed.notifRolePrefs : {},
+      // v3.204.0 -- BARU: Menu Mode Operator (menu khusus Super Admin) --
+      // lihat getModeOperatorMenuPrefs(). Kosong di sini SENGAJA, sama
+      // seperti notifRolePrefs -- nilai default sesungguhnya diisi oleh
+      // getModeOperatorMenuPrefs() (MODE_OPERATOR_MENU_DEFAULT), bukan di
+      // sini, supaya satu-satunya sumber kebenaran default cuma di 1 tempat.
+      modeOperatorMenuPrefs: (parsed.modeOperatorMenuPrefs && typeof parsed.modeOperatorMenuPrefs==='object') ? parsed.modeOperatorMenuPrefs : {},
     };
   }catch(e){
     console.error('Gagal membaca data tersimpan, memakai data kosong.', e);
@@ -1821,7 +1827,9 @@ function defaultData(){
     // SENGAJA -- nilai default sesungguhnya (yang meniru perilaku LAMA
     // sebelum fitur ini ada) diisi oleh getNotifRolePrefs(), bukan di sini,
     // supaya satu-satunya sumber kebenaran default cuma di 1 tempat.
-    notifRolePrefs: {} };
+    notifRolePrefs: {},
+    // v3.204.0 -- BARU: Menu Mode Operator, lihat getModeOperatorMenuPrefs().
+    modeOperatorMenuPrefs: {} };
 }
 // v3.95.0 -- Pengaturan Notifikasi (nilai ambang batas dipakai computeAlerts()
 // & telegram-notify.mjs). PENTING: dibaca lewat fungsi ini SAJA (bukan baca
@@ -3053,6 +3061,8 @@ function loadDataFromObject(parsed){
     notifSettings: (parsed.notifSettings && typeof parsed.notifSettings==='object') ? parsed.notifSettings : def.notifSettings,
     // BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin).
     notifRolePrefs: (parsed.notifRolePrefs && typeof parsed.notifRolePrefs==='object') ? parsed.notifRolePrefs : {},
+    // v3.204.0 -- BARU: Menu Mode Operator (menu khusus Super Admin).
+    modeOperatorMenuPrefs: (parsed.modeOperatorMenuPrefs && typeof parsed.modeOperatorMenuPrefs==='object') ? parsed.modeOperatorMenuPrefs : {},
   };
 }
 
@@ -5038,6 +5048,15 @@ function getSettingsCategories(){
   // 'notiftelegram' (render function sendiri), BUKAN masuk settingsView.
   { key:'notiftelegram-peran', icon:'🔔', title:'Notifikasi Telegram per Peran', desc:'Kategori default per Sopir/Finance/Admin/Super Admin', hasLock:false, externalRoute:'notiftelegram',
     status: () => 'Khusus Super Admin' },
+  // v3.204.0 -- BARU: atur menu apa saja yang tampil di tampilan Mode
+  // Operator (default/terkunci, sebelum PIN dibuka) -- SEBELUMNYA daftar ini
+  // hardcode di kode (MODE_OPERATOR_ALLOWED_ROUTES), cuma developer yang
+  // bisa mengubahnya. Super Akses/Super Admin OTOMATIS tetap melihat SEMUA
+  // menu apa pun isi pengaturan ini (lihat applyModeOperatorVisibility() --
+  // modeOperatorUnlocked jadi true begitu PIN Super Akses benar, tidak
+  // bergantung ke daftar ini sama sekali).
+  { key:'menu-mode-operator', icon:'🧭', title:'Menu Mode Operator', desc:'Menu apa saja yang tampil sebelum PIN dibuka', hasLock:false,
+    status: () => `${getModeOperatorAllowedRoutes().length}/${MODE_OPERATOR_MENU_CATALOG.length} menu aktif` },
   ] : []),
   { key:'toleransi-gap', icon:'📏', title:'Toleransi Gap Odometer', desc:'Batas jarak antar-trip tak tercatat', hasLock:true,
     status: () => `${state.toleransiGapKm} KM` },
@@ -5450,6 +5469,25 @@ function renderSettingsDetailNotifGabungan(){
       </div>
     </div>
     ` : ''}
+    ${settingsView==='menu-mode-operator' && insightUnlocked ? `
+    <div class="panel">
+      <div class="panel-head"><h2>🧭 Menu Mode Operator</h2></div>
+      <div class="panel-body">
+        <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
+          Atur menu apa saja yang tampil di sidebar saat aplikasi masih dalam tampilan <b>Mode Operator</b> (default/terkunci, sebelum tekan-lama logo + PIN dibuka) -- biasanya HP yang dipegang sopir sehari-hari. Menu yang <b>tidak</b> dicentang di sini tetap ada di aplikasi, cuma disembunyikan sampai PIN Operator/Super Akses dibuka.
+        </p>
+        <p style="font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.6;">
+          🔓 <b>PIN Super Akses OTOMATIS melihat semua menu</b>, apa pun isi centang di bawah ini -- pengaturan ini cuma berlaku untuk tampilan Operator yang BELUM dibuka PIN sama sekali.
+        </p>
+        <div id="mode-operator-menu-list">${MODE_OPERATOR_MENU_CATALOG.map(m=>`
+          <label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer;">
+            <input type="checkbox" class="mode-operator-menu-check" data-key="${m.key}" ${getModeOperatorMenuPrefs()[m.key]?'checked':''} style="width:18px;height:18px;flex-shrink:0;">
+            <span style="font-size:13px;">${escapeHtml(m.label)}</span>
+          </label>
+        `).join('')}</div>
+      </div>
+    </div>
+    ` : ''}
     ${settingsView==='pemeriksaan-tanggal' ? (() => {
       if(!insightUnlocked) return '';
       const suspek = computeSuspiciousDateTrips();
@@ -5674,6 +5712,17 @@ function renderSettingsDetailNotifGabungan(){
   }
   if(settingsView==='admin-finance' && insightUnlocked){
     wireFinanceAdminsSection();
+  }
+  if(settingsView==='menu-mode-operator' && insightUnlocked){
+    document.querySelectorAll('.mode-operator-menu-check').forEach(cb=>{
+      cb.addEventListener('change', function(){
+        const prefs = { ...getModeOperatorMenuPrefs(), [this.dataset.key]: this.checked };
+        state.modeOperatorMenuPrefs = prefs;
+        saveData();
+        applyModeOperatorVisibility();
+        showToast(this.checked ? `Menu "${MODE_OPERATOR_MENU_CATALOG.find(m=>m.key===this.dataset.key)?.label||this.dataset.key}" ditampilkan di Mode Operator.` : `Menu "${MODE_OPERATOR_MENU_CATALOG.find(m=>m.key===this.dataset.key)?.label||this.dataset.key}" disembunyikan dari Mode Operator.`);
+      });
+    });
   }
   document.querySelectorAll('[data-cek-tanggal]').forEach(btn=>{
     btn.addEventListener('click', function(){
@@ -5900,7 +5949,7 @@ function navigate(route, opts){
   // tidak diizinkan otomatis dialihkan ke dashboard -- mencegah akses
   // langsung ke halaman terbatas lewat cara lain (mis. shortcut PWA/QR yang
   // arahnya ke rute tertentu), bukan cuma menyembunyikan menu di sidebar.
-  if(!modeOperatorUnlocked && !MODE_OPERATOR_ALLOWED_ROUTES.includes(route)){
+  if(!modeOperatorUnlocked && !getModeOperatorAllowedRoutes().includes(route)){
     route = 'dashboard';
   }
   // Catat route SEBELUMNYA ke stack -- KECUALI kalau navigasi ini dipicu oleh
@@ -6422,18 +6471,55 @@ try{ insightUnlocked = localStorage.getItem(INSIGHT_UNLOCK_SESSION_KEY) === '1';
 // keduanya diverifikasi lewat POST /verify-pin ke worker.js, bukan
 // dibandingkan di browser lagi.
 const MODE_OPERATOR_SESSION_KEY = 'fleetops_mode_sopir_unlocked';
-// v3.202.0 -- 'notiftelegram' SEBELUMNYA sengaja dikecualikan dari gerbang
-// Mode Sopir (supaya bisa dibuka langsung dari titik "·" tanpa tekan-lama
-// logo dulu) -- SEKARANG DIHAPUS dari daftar ini atas permintaan: menu
-// "🔔 Notifikasi Telegram per Peran" tidak lagi ikut nongol di sidebar
-// tampilan Operator default/terkunci. Jalur titik "·" TETAP berfungsi normal
-// tanpa perubahan apa pun -- lihat openInsightPinModal(): begitu PIN Super
-// Akses benar, modeOperatorUnlocked di-set true SEBELUM navigate('notiftelegram')
-// dipanggil, jadi gerbang navigate() di bawah tetap meloloskannya walau
-// 'notiftelegram' sudah tidak ada lagi di daftar ini.
-const MODE_OPERATOR_ALLOWED_ROUTES = ['dashboard', 'usage', 'bookings', 'service'];
+// v3.204.0 -- SEBELUMNYA daftar ini konstanta statis (hardcode di kode,
+// cuma developer yang bisa mengubahnya). SEKARANG bisa diatur langsung oleh
+// Super Admin lewat menu Pengaturan → "🧭 Menu Mode Operator" (lihat
+// getSettingsCategories() & renderSettingsDetailNotifGabungan()), tanpa
+// perlu minta developer ubah kode. MODE_OPERATOR_MENU_CATALOG = daftar
+// SEMUA menu yang bisa diatur (label utk ditampilkan di panel pengaturan);
+// MODE_OPERATOR_MENU_DEFAULT = nilai bawaan, SENGAJA disalin PERSIS dari
+// array lama di atas supaya pengguna yang BELUM PERNAH membuka panel
+// pengaturan ini sama sekali TIDAK MENGALAMI PERUBAHAN PERILAKU apa pun.
+// 'notiftelegram' SENGAJA TIDAK dimasukkan ke katalog ini -- menu itu
+// digerbang insightUnlocked secara terpisah (lihat applyModeOperatorVisibility()),
+// bukan bagian dari sistem izin Mode Operator sama sekali.
+const MODE_OPERATOR_MENU_CATALOG = [
+  { key:'dashboard', label:'Dashboard' },
+  { key:'usage', label:'Catat Perjalanan' },
+  { key:'cars', label:'Data Mobil' },
+  { key:'gps', label:'Lacak Kendaraan' },
+  { key:'drivers', label:'Data Sopir' },
+  { key:'destinations', label:'Data Tujuan' },
+  { key:'bookings', label:'Booking Mobil' },
+  { key:'service', label:'Servis & Maintenance' },
+  { key:'docs', label:'Dokumen' },
+  { key:'etoll', label:'Kartu E-Toll' },
+  { key:'bbm', label:'BBM' },
+  { key:'monthlyreport', label:'Laporan Bulanan' },
+  { key:'hapusdata', label:'Hapus Data' },
+  { key:'settings', label:'Pengaturan' },
+];
+const MODE_OPERATOR_MENU_DEFAULT = {
+  dashboard:true, usage:true, cars:false, gps:false, drivers:false, destinations:false,
+  bookings:true, service:true, docs:false, etoll:false, bbm:false, monthlyreport:false,
+  hapusdata:false, settings:false,
+};
+// Dibaca lewat fungsi ini SAJA (bukan baca state.modeOperatorMenuPrefs
+// langsung) -- pola sama dengan getNotifSettings() -- supaya data LAMA
+// (dibuat sebelum fitur ini ada, belum punya field ini sama sekali) atau
+// akun baru yang belum pernah menyimpan sekalipun tetap otomatis dapat
+// nilai default yang benar, dan menu BARU yang ditambahkan ke katalog di
+// masa depan otomatis kebagian default (bukan malah hilang/undefined).
+function getModeOperatorMenuPrefs(){
+  return { ...MODE_OPERATOR_MENU_DEFAULT, ...(state.modeOperatorMenuPrefs && typeof state.modeOperatorMenuPrefs==='object' ? state.modeOperatorMenuPrefs : {}) };
+}
+function getModeOperatorAllowedRoutes(){
+  const prefs = getModeOperatorMenuPrefs();
+  return MODE_OPERATOR_MENU_CATALOG.map(m=>m.key).filter(key=>prefs[key]);
+}
 let modeOperatorUnlocked = false;
 try{ modeOperatorUnlocked = localStorage.getItem(MODE_OPERATOR_SESSION_KEY) === '1'; }catch(e){}
+
 
 // ============================================================
 // ⚠️ ATURAN WAJIB BACA sebelum nambah pengecekan `modeOperatorUnlocked`
@@ -6481,7 +6567,7 @@ function applyModeOperatorVisibility(){
     // sengaja terbuka begitu Operator saja terbuka (operasional harian).
     const diizinkan = route === 'notiftelegram'
       ? insightUnlocked
-      : (modeOperatorUnlocked || MODE_OPERATOR_ALLOWED_ROUTES.includes(route));
+      : (modeOperatorUnlocked || getModeOperatorAllowedRoutes().includes(route));
     el.style.display = diizinkan ? '' : 'none';
   });
 }
@@ -6529,7 +6615,7 @@ function openModeOperatorPinModal(){
       }
       applyModeOperatorVisibility();
       refreshInsightPanels();
-      if(!MODE_OPERATOR_ALLOWED_ROUTES.includes(currentRoute)) { /* rute sekarang tetap sah, tidak perlu redirect */ }
+      if(!getModeOperatorAllowedRoutes().includes(currentRoute)) { /* rute sekarang tetap sah, tidak perlu redirect */ }
       navigate(currentRoute, {fromBack:true});
       return true;
     }
@@ -6576,11 +6662,11 @@ document.getElementById('brand-logo-longpress').addEventListener('contextmenu', 
         }
         showToast('Kembali ke Operator.');
         applyModeOperatorVisibility();
-        // 'notiftelegram' SENGAJA tidak ada di MODE_OPERATOR_ALLOWED_ROUTES,
+        // 'notiftelegram' SENGAJA tidak ada di menu yang diizinkan (getModeOperatorAllowedRoutes()),
         // jadi kondisi di bawah ini SUDAH otomatis mencakup kasus "sedang
         // buka Notifikasi Telegram per Peran waktu dikunci" -- tidak perlu
         // pengecekan currentRoute==='notiftelegram' terpisah.
-        if(!MODE_OPERATOR_ALLOWED_ROUTES.includes(currentRoute)) navigate('dashboard');
+        if(!getModeOperatorAllowedRoutes().includes(currentRoute)) navigate('dashboard');
       } else {
         openModeOperatorPinModal();
       }
@@ -16640,6 +16726,13 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.204.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🧭 BARU (menu khusus Super Admin, Pengaturan → "🧭 Menu Mode Operator"): menu apa saja yang tampil di sidebar saat tampilan Mode Operator masih terkunci (belum PIN) sekarang bisa diatur langsung dari UI, mirip pola panel "🔔 Notifikasi Telegram per Peran" -- sebelumnya daftar ini hardcode di kode (perlu developer ubah kode utk menambah/mengurangi). Default SENGAJA meniru PERSIS daftar lama (Dashboard, Catat Perjalanan, Booking Mobil, Servis & Maintenance) supaya tidak ada perubahan tampilan diam-diam sampai Super Admin sendiri yang membuka & mengubahnya. PIN Super Akses tetap OTOMATIS melihat semua menu apa pun isi pengaturan ini. Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.203.0',
     date: '01 Agu 2026',
