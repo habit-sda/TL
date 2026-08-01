@@ -5001,7 +5001,14 @@ function lockSettingsPanelAfterSave(panelKey){
 // -- titik itu `insightUnlocked` sudah pasti terisi), bukan lagi const
 // yang dievaluasi langsung di urutan baca script dari atas ke bawah.
 function getSettingsCategories(){
-  return [
+  // Poin baru -- 3 kartu ini (Admin Finance, Admin Penerima Notifikasi,
+  // Notifikasi Telegram per Peran) SENGAJA disembunyikan dari grid
+  // Pengaturan saat modeSopirUnlocked aktif (sopir sedang pakai mode
+  // Sopir), walau insightUnlocked ikut true. Filter di-apply di akhir
+  // fungsi ini (lihat bawah), bukan di sini, supaya struktur array di
+  // bawah tidak perlu diubah/dipecah.
+  const HIDDEN_KEYS_MODE_SOPIR = ['admin-finance', 'admin-notifikasi', 'notiftelegram-peran'];
+  const categories = [
   { key:'tampilan', icon:'🎨', title:'Tampilan', desc:'Mode gelap/terang', hasLock:true,
     status: () => localStorage.getItem('fleetops_theme')==='dark' ? 'Mode Gelap' : 'Mode Terang' },
   { key:'backup', icon:'💾', title:'Backup & Pulihkan', desc:'Cadangan data mandiri (file JSON)', hasLock:false,
@@ -5038,6 +5045,7 @@ function getSettingsCategories(){
   { key:'nama-petugas', icon:'🧑\u200d🔧', title:'Nama Petugas / Admin', desc:'Kelola daftar petugas aplikasi', hasLock:false,
     status: () => `${state.admins.length} petugas` },
   ];
+  return modeSopirUnlocked ? categories.filter(c => !HIDDEN_KEYS_MODE_SOPIR.includes(c.key)) : categories;
 }
 
 function renderSettingsGrid(){
