@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.184.0">
+<meta name="app-version" content="3.186.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1386,7 +1386,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.185.0';
+const APP_VERSION = '3.186.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -9622,6 +9622,16 @@ function buildTripReceiptTextTg(u){
 // Fire-and-forget: kirim resi instan ke Worker. TIDAK PERNAH melempar error
 // ke pemanggil (kegagalan di sini harus diam -- jalur cadangan lewat cron
 // GitHub Actions yang tetap menjamin resi akhirnya terkirim).
+// v3.186.0 -- resi sekarang dikirim sbg GAMBAR (kartu "Tanda Terima
+// Perjalanan", di-render html2canvas -- fungsi generateTripReceiptBlob()
+// yang SAMA PERSIS dipakai fitur "Bagikan"/"Salin Gambar" yang sudah ada,
+// lihat openTripReceiptModal()). Rendering terjadi 100% di BROWSER sopir
+// (gratis, tanpa API key, tanpa CPU Worker) lalu di-upload langsung ke
+// Telegram lewat endpoint /notify-trip-selesai-photo -- TIDAK PERNAH lewat
+// GitHub sama sekali, jadi tidak menambah beban token/API GitHub sedikit
+// pun dibanding sebelumnya. Kalau html2canvas gagal dimuat/render (mis.
+// sopir benar2 offline pas trip ditutup), otomatis FALLBACK ke resi teks
+// biasa lewat endpoint lama (/notify-trip-selesai) -- resi tetap terjamin.
 async function sendInstantTripReceipt(u){
   try{
     if(!isGhConnected() || !ghConfig.notifySecret) return; // belum diatur -> serahkan ke cron seperti biasa
@@ -9635,25 +9645,60 @@ async function sendInstantTripReceipt(u){
     if(!chatId) return; // sopir ini tidak terdaftar Telegram -- tidak ada yang perlu dikirim instan
     if(u.telegramResiSent) return; // sudah pernah terkirim (mis. edit ulang data tiba)
 
-    const text = buildTripReceiptTextTg(u);
-    const bodyStr = JSON.stringify({ chatId, text });
-    const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai`, {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
-      body: bodyStr,
-      ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
-    });
-    if(!res.ok){
-      // v3.136.2 -- SEBELUMNYA gagal diam-diam total (cuma console.error,
-      // tidak kelihatan di HP tanpa DevTools). Sekarang tampilkan toast
-      // singkat berisi alasannya, supaya bisa dites/didiagnosis langsung
-      // dari HP tanpa perlu laptop. Resi TETAP aman -- cron GitHub Actions
-      // tetap jadi cadangan seperti biasa, ini cuma soal kelihatan/tidak.
-      const errBody = await res.json().catch(()=>({}));
-      showToast(`Resi instan gagal (HTTP ${res.status}): ${errBody.error || 'tidak diketahui'} -- resi tetap akan terkirim via jadwal biasa.`, true);
-      return;
+    let fileId = null;
+    let terkirimSbgGambar = false;
+    try{
+      const blob = await generateTripReceiptBlob(u);
+      const fd = new FormData();
+      fd.append('chatId', chatId);
+      fd.append('photo', blob, 'resi.png');
+      // TIDAK pakai keepalive di sini -- body gambar biasanya jauh di atas
+      // batas 64KB keepalive browser, beda dari request teks kecil di atas.
+      const resImg = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai-photo`, {
+        method: 'POST',
+        headers: { 'X-Notify-Secret': ghConfig.notifySecret },
+        body: fd,
+      });
+      if(resImg.ok){
+        const imgBody = await resImg.json().catch(()=>({}));
+        fileId = imgBody.fileId || null;
+        terkirimSbgGambar = true;
+      } else {
+        const errBody = await resImg.json().catch(()=>({}));
+        console.error('Resi gambar ditolak Worker/Telegram, fallback ke teks:', errBody.error);
+      }
+    }catch(eImg){
+      console.error('Resi gambar gagal dibuat/dikirim (html2canvas?), fallback ke teks:', eImg);
     }
+
+    if(!terkirimSbgGambar){
+      // ---- FALLBACK: resi teks biasa (perilaku lama, dipertahankan apa adanya) ----
+      const text = buildTripReceiptTextTg(u);
+      const bodyStr = JSON.stringify({ chatId, text });
+      const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+        body: bodyStr,
+        ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
+      });
+      if(!res.ok){
+        // v3.136.2 -- SEBELUMNYA gagal diam-diam total (cuma console.error,
+        // tidak kelihatan di HP tanpa DevTools). Sekarang tampilkan toast
+        // singkat berisi alasannya, supaya bisa dites/didiagnosis langsung
+        // dari HP tanpa perlu laptop. Resi TETAP aman -- cron GitHub Actions
+        // tetap jadi cadangan seperti biasa, ini cuma soal kelihatan/tidak.
+        const errBody = await res.json().catch(()=>({}));
+        showToast(`Resi instan gagal (HTTP ${res.status}): ${errBody.error || 'tidak diketahui'} -- resi tetap akan terkirim via jadwal biasa.`, true);
+        return;
+      }
+    }
+
     u.telegramResiSent = true;
+    // BARU (v3.186.0) -- disimpan supaya kirimNotaKeFinance() (worker.js)
+    // bisa meneruskan gambar resi yang SAMA ke Admin Finance nanti (digabung
+    // 1 paket dgn nota, lihat sendInstantNotaConfirmAsk() di bawah), cukup
+    // modal file_id-nya lagi tanpa upload ulang bytes.
+    if(fileId) u.resiImageFileId = fileId;
     touch(u);
     // Tandai juga langsung di localStorage supaya flag ini tidak hilang kalau
     // tab ditutup sebelum saveData() lain sempat jalan -- saveData() penuh
@@ -9667,14 +9712,15 @@ async function sendInstantTripReceipt(u){
 }
 
 // BARU -- Poin 1 otomatisasi kirim nota ke Admin Finance: begitu trip
-// OPERASIONAL (bukan Pribadi) ditandai selesai, deteksi apakah sopir SUDAH
-// punya lampiran nota/tanda terima tertampung (u.buktiPending, dikirim lewat
-// bot selama/segera setelah trip) ATAU sudah ada biaya operasional tercatat.
-// Kalau ya, kirim 1 pesan konfirmasi ke sopir lewat Telegram, lengkap dgn
-// tombol "✅ Nota Sudah Lengkap, Kirim Sekarang" (tap = sama persis dgn ketik
-// "kirim" di bot, tapi discope ke trip ini saja -- lihat callback
-// "kirimnota:<tripId>" di worker.js). Kalau belum ada lampiran/biaya sama
-// sekali, TIDAK dikirim pesan apa pun di sini -- sopir tetap kebagian
+// OPERASIONAL (bukan Pribadi) ditandai selesai, kirim 1 pesan konfirmasi ke
+// sopir lewat Telegram, lengkap dgn tombol "✅ Kirim ke Finance Sekarang"
+// (tap = sama persis dgn ketik "kirim" di bot, tapi discope ke trip ini saja
+// -- lihat callback "kirimnota:<tripId>" di worker.js). v3.186.0 -- SEKARANG
+// SELALU ditanyakan utk SETIAP trip Operasional (bukan cuma yg sudah punya
+// lampiran nota/biaya) karena gambar "Tanda Terima Perjalanan" ikut
+// diteruskan ke Finance begitu tombol ini ditekan (lihat kirimNotaKeFinance()
+// di worker.js) -- jadi Finance tetap perlu menerimanya walau tripnya tidak
+// ada nota sama sekali. Sopir tetap kebagian
 // pengingat biasa 5 jam kemudian kalau lupa (lihat runNotifyCheck di
 // worker.js). Fire-and-forget & diam-diam gagal seperti resi instan, TIDAK
 // PERNAH memblokir penutupan trip. Ditandai lewat u.telegramNotaConfirmAsked
@@ -9688,19 +9734,24 @@ async function sendInstantNotaConfirmAsk(u){
     const chatId = driver && (driver.telegramChatId||'').toString().trim();
     if(!chatId) return;
     const jumlahBukti = Array.isArray(u.buktiPending) ? u.buktiPending.length : 0;
-    const adaBiayaOp = usageBiayaOpItems(u).length > 0;
-    if(jumlahBukti===0 && !adaBiayaOp) return; // belum ada apa pun yg bisa dilaporkan -- jangan tanya dulu
+    // v3.186.0 -- SEBELUMNYA baris ini "return" (skip, tidak tanya sama
+    // sekali) kalau belum ada nota/biaya operasional tercatat. Sekarang
+    // gerbang itu DIHAPUS SENGAJA -- begitu tombol di bawah ditekan, gambar
+    // "Tanda Terima Perjalanan" (bukan cuma nota) juga ikut diteruskan ke
+    // Admin Finance (lihat kirimNotaKeFinance() di worker.js), jadi
+    // konfirmasi tetap perlu ditanyakan utk SEMUA trip Operasional, bukan
+    // cuma yg kebetulan ada nota/biaya.
 
     const text = [
       '🔔 <b>Perjalanan terdeteksi telah selesai</b>',
       '',
       `${escapeHtml(carLabel(u.carId))} — ${escapeHtml(u.tujuan||'-')}`,
-      jumlahBukti>0 ? `📎 ${jumlahBukti} lampiran nota/tanda terima sudah tertampung.` : '📎 Belum ada foto nota/tanda terima yang terlampir.',
+      jumlahBukti>0 ? `📎 ${jumlahBukti} lampiran nota sudah tertampung.` : '📎 Belum ada foto nota yang terlampir.',
       '',
-      'Apakah nota perjalanan sudah terkirim semua di sini? Kalau masih ada, kirim dulu fotonya ke chat ini ya.',
-      'Kalau sudah lengkap semua, tap tombol di bawah supaya bisa dilaporkan ke Dept. Finance.',
+      'Kalau ada foto nota/tanda terima pembayaran (BBM, tol, parkir, dll) yang belum dikirim, kirim dulu fotonya ke chat ini ya.',
+      'Tanda Terima Perjalanan (ringkasan trip) akan ikut diteruskan ke Admin Finance begitu tombol di bawah ditekan.',
     ].join('\n');
-    const buttons = [{ text: '✅ Nota Sudah Lengkap, Kirim Sekarang', callback_data: `kirimnota:${u.id}` }];
+    const buttons = [{ text: '✅ Kirim ke Finance Sekarang', callback_data: `kirimnota:${u.id}` }];
     const bodyStr = JSON.stringify({ chatId, text, buttons });
     const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai`, {
       method: 'POST',
@@ -15379,6 +15430,16 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.186.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🖼️ BARU: Resi Perjalanan ke sopir sekarang dikirim sbg <b>GAMBAR</b> (kartu "Tanda Terima Perjalanan" yang sama persis dgn tampilan di fitur Bagikan/Salin Gambar), bukan teks biasa lagi -- dirender di HP sopir sendiri (gratis, tanpa API key, tanpa membebani GitHub sama sekali karena gambarnya tidak pernah disimpan ke repo). Kalau gagal dirender (mis. sopir offline pas trip ditutup), otomatis kembali ke resi teks seperti sebelumnya -- resi tetap terjamin terkirim.',
+      '📎 BARU: begitu sopir menekan tombol "✅ Kirim ke Finance Sekarang" (atau ketik "kirim"), gambar Tanda Terima ini SEKARANG IKUT diteruskan ke Admin Finance, DIGABUNG jadi 1 paket bersama nota/foto yang sudah dikirim sopir -- bukan notifikasi terpisah, supaya Finance tidak menerima kiriman dobel utk 1 trip yang sama.',
+      'ℹ️ Konfirmasi "Kirim ke Finance" sekarang SELALU ditanyakan ke sopir setiap trip Operasional selesai (sebelumnya dilewati kalau belum ada nota/biaya tercatat) -- supaya Admin Finance akhirnya menerima Tanda Terima utk SEMUA trip Operasional, bukan cuma yg kebetulan ada nota. Sopir tetap bisa melengkapi foto nota dulu sebelum menekan tombol kirim, tidak ada yang otomatis terkirim tanpa konfirmasi.',
+      '⚠️ <b>Upload ulang worker.js terbaru ke Cloudflare Worker</b> supaya endpoint gambar baru (/notify-trip-selesai-photo) & penggabungan paket ke Finance ini aktif.',
+    ]
+  },
   {
     v: '3.185.0',
     date: '01 Agu 2026',
