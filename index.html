@@ -2586,7 +2586,15 @@ function resyncOdometerDanSaldoEtoll(){
 }
 
 let ghAutoSyncTimer = null;
-const GH_AUTO_SYNC_INTERVAL_MS = 20000; // cek update dari GitHub tiap 20 detik
+// FIX (v3.187.0) -- SEBELUMNYA 20 detik, GET Contents API PENUH tiap kali
+// walau tidak ada perubahan sama sekali. Diperlebar ke 45 detik DAN
+// fetchFromGithub() sekarang kirim header If-None-Match (lihat di bawah) --
+// GitHub akan balas 304 Not Modified (super ringan, tetap 1 request tapi
+// tidak perlu transfer+decode isi file) kalau memang belum ada perubahan.
+// Ini sumber pemakaian token GitHub yang PALING besar dibanding cron Worker
+// (tiap 5 menit) atau push perubahan data -- karena jalan terus per
+// perangkat yang membuka aplikasi, bukan cuma pas ada aksi.
+const GH_AUTO_SYNC_INTERVAL_MS = 45000; // cek update dari GitHub tiap 45 detik
 
 function startAutoSync(){
   if(ghAutoSyncTimer) clearInterval(ghAutoSyncTimer);
@@ -2603,7 +2611,24 @@ document.addEventListener('visibilitychange', ()=>{
 async function fetchFromGithub(){
   if(!isGhConnected()) return;
   try{
-    const res = await fetch(`${ghApiUrl()}?ref=${encodeURIComponent(ghConfig.branch)}&_=${Date.now()}`, { headers: ghHeaders(), cache:'no-store' });
+    // FIX (v3.187.0) -- kirim If-None-Match pakai ETag hasil fetch TERAKHIR
+    // (disimpan di ghConfig.etag). Kalau file belum berubah sama sekali sejak
+    // itu, GitHub balas 304 Not Modified -- jauh lebih ringan drpd 200 penuh
+    // (tidak perlu kirim ulang+decode base64 seluruh isi file), walau tetap
+    // terhitung 1 request di kuota. Ini yg bikin polling tiap 45 detik jadi
+    // jauh lebih murah drpd sebelumnya (selalu full fetch tiap 20 detik).
+    // NOTE: hapus juga cache-busting query "_=Date.now()" -- itu sengaja
+    // dipasang dulu utk menghindari cache browser/CDN, tapi sekarang tidak
+    // relevan lagi karena validasi freshness sudah dijamin oleh ETag sendiri.
+    const condHeaders = { ...ghHeaders() };
+    if(ghConfig.etag) condHeaders['If-None-Match'] = ghConfig.etag;
+    const res = await fetch(`${ghApiUrl()}?ref=${encodeURIComponent(ghConfig.branch)}`, { headers: condHeaders, cache:'no-store' });
+    if(res.status === 304){
+      // Tidak ada perubahan di GitHub sejak fetch terakhir -> tidak ada yang
+      // perlu digabung/dirender ulang, langsung selesai (hemat).
+      markSyncedNow();
+      return;
+    }
     if(res.status === 404){
       // File belum ada di repo -> buat baru dari data lokal.
       await pushToGithub();
@@ -2613,6 +2638,8 @@ async function fetchFromGithub(){
       const errBody = await res.json().catch(()=>({}));
       throw new Error(errBody.message || ('HTTP ' + res.status));
     }
+    const etagBaru = res.headers.get('ETag');
+    if(etagBaru){ ghConfig.etag = etagBaru; saveGhConfig(ghConfig); }
     const data = await res.json();
     const parsed = JSON.parse(b64DecodeUtf8(data.content));
     const remoteState = parsed.data || {};
@@ -2724,6 +2751,11 @@ async function pushToGithub(){
     }
     const data = await res.json();
     ghConfig.sha = data.content.sha;
+    // FIX (v3.187.0) -- ETag tersimpan (dipakai If-None-Match di
+    // fetchFromGithub) jadi basi begitu kita baru saja menulis isi baru --
+    // hapus supaya fetch auto-sync BERIKUTNYA tetap full-fetch sekali (aman),
+    // baru setelah itu ETag-nya ke-refresh lagi dari GET tsb.
+    delete ghConfig.etag;
     saveGhConfig(ghConfig);
     markSyncedNow();
   }catch(e){
@@ -9700,10 +9732,19 @@ async function sendInstantTripReceipt(u){
     // modal file_id-nya lagi tanpa upload ulang bytes.
     if(fileId) u.resiImageFileId = fileId;
     touch(u);
-    // Tandai juga langsung di localStorage supaya flag ini tidak hilang kalau
-    // tab ditutup sebelum saveData() lain sempat jalan -- saveData() penuh
-    // (dgn sinkron ke GitHub) tetap dijadwalkan seperti biasa di pemanggil.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    // FIX (v3.187.0): SEBELUMNYA cuma localStorage.setItem langsung di sini,
+    // dgn asumsi saveData() di PEMANGGIL (sebelum sendInstantTripReceipt
+    // dipanggil) sudah menjadwalkan push ke GitHub. Asumsi itu KELIRU --
+    // saveData() pemanggil jalan SEBELUM resiImageFileId ini terisi (proses
+    // render html2canvas + upload ke Worker di atas hampir selalu > 600ms
+    // debounce scheduleCloudPush()), jadi field resiImageFileId nyaris selalu
+    // TIDAK terikut ke GitHub. Akibatnya worker.js (yg baca data fresh dari
+    // GitHub, bukan dari HP ini) tidak pernah melihat resiImageFileId-nya,
+    // sehingga tombol "✅ Kirim ke Finance Sekarang"/ketik "kirim" gagal
+    // (dibalas "belum ada nota/tanda terima") padahal resi sudah kekirim ke
+    // sopir. saveData() di sini menjadwalkan ULANG scheduleCloudPush() (debounce
+    // 600ms) SETELAH fileId benar-benar ada, supaya benar-benar tersinkron.
+    saveData();
     showToast('🧾 Resi Telegram terkirim instan ke ' + (driver.nama||'sopir') + '.');
   }catch(e){
     showToast('Resi instan gagal terkirim (' + e.message + ') -- resi tetap akan terkirim via jadwal biasa.', true);
