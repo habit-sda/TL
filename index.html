@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.206.0">
+<meta name="app-version" content="3.207.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1428,7 +1428,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.206.0';
+const APP_VERSION = '3.207.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1830,6 +1830,11 @@ function loadData(){
       // v3.205.0 -- BARU: sub-item per menu (lihat getModeOperatorSubmenuPrefs()),
       // pola sama persis dgn modeOperatorMenuPrefs di atas.
       modeOperatorSubmenuPrefs: (parsed.modeOperatorSubmenuPrefs && typeof parsed.modeOperatorSubmenuPrefs==='object') ? parsed.modeOperatorSubmenuPrefs : {},
+      // v3.207.0 -- BARU: sama seperti modeOperatorMenuPrefs/modeOperatorSubmenuPrefs
+      // di atas, tapi untuk role 'operator' (PIN Operator level normal, bukan
+      // Super Akses) -- lihat getModeOperatorMenuPrefs(role)/getModeOperatorSubmenuPrefs(menuKey,role).
+      modeAdminMenuPrefs: (parsed.modeAdminMenuPrefs && typeof parsed.modeAdminMenuPrefs==='object') ? parsed.modeAdminMenuPrefs : {},
+      modeAdminSubmenuPrefs: (parsed.modeAdminSubmenuPrefs && typeof parsed.modeAdminSubmenuPrefs==='object') ? parsed.modeAdminSubmenuPrefs : {},
     };
   }catch(e){
     console.error('Gagal membaca data tersimpan, memakai data kosong.', e);
@@ -1849,7 +1854,10 @@ function defaultData(){
     // v3.204.0 -- BARU: Menu Mode Sopir dan Operator, lihat getModeOperatorMenuPrefs().
     modeOperatorMenuPrefs: {},
     // v3.205.0 -- BARU: sub-item per menu, lihat getModeOperatorSubmenuPrefs().
-    modeOperatorSubmenuPrefs: {} };
+    modeOperatorSubmenuPrefs: {},
+    // v3.207.0 -- BARU: versi role 'operator' dari 2 field di atas.
+    modeAdminMenuPrefs: {},
+    modeAdminSubmenuPrefs: {} };
 }
 // v3.95.0 -- Pengaturan Notifikasi (nilai ambang batas dipakai computeAlerts()
 // & telegram-notify.mjs). PENTING: dibaca lewat fungsi ini SAJA (bukan baca
@@ -3085,6 +3093,9 @@ function loadDataFromObject(parsed){
     modeOperatorMenuPrefs: (parsed.modeOperatorMenuPrefs && typeof parsed.modeOperatorMenuPrefs==='object') ? parsed.modeOperatorMenuPrefs : {},
     // v3.205.0 -- BARU: sub-item per menu, pola sama dgn modeOperatorMenuPrefs.
     modeOperatorSubmenuPrefs: (parsed.modeOperatorSubmenuPrefs && typeof parsed.modeOperatorSubmenuPrefs==='object') ? parsed.modeOperatorSubmenuPrefs : {},
+    // v3.207.0 -- BARU: versi role 'operator' dari 2 field di atas.
+    modeAdminMenuPrefs: (parsed.modeAdminMenuPrefs && typeof parsed.modeAdminMenuPrefs==='object') ? parsed.modeAdminMenuPrefs : {},
+    modeAdminSubmenuPrefs: (parsed.modeAdminSubmenuPrefs && typeof parsed.modeAdminSubmenuPrefs==='object') ? parsed.modeAdminSubmenuPrefs : {},
   };
 }
 
@@ -5126,7 +5137,7 @@ function getSettingsCategories(){
   // modeOperatorUnlocked jadi true begitu PIN Super Akses benar, tidak
   // bergantung ke daftar ini sama sekali).
   { key:'menu-mode-operator', icon:'🧭', title:'Menu Mode Sopir dan Operator', desc:'Menu & fitur apa saja yang tampil sebelum PIN dibuka', hasLock:false,
-    status: () => `${getModeOperatorAllowedRoutes().length}/${MODE_OPERATOR_MENU_CATALOG.length} menu aktif` },
+    status: () => `Sopir ${getModeOperatorAllowedRoutes('sopir').length}/${MODE_OPERATOR_MENU_CATALOG.length} · Operator ${getModeOperatorAllowedRoutes('operator').length}/${MODE_OPERATOR_MENU_CATALOG.length}` },
   ] : []),
   { key:'toleransi-gap', icon:'📏', title:'Toleransi Gap Odometer', desc:'Batas jarak antar-trip tak tercatat', hasLock:true,
     status: () => `${state.toleransiGapKm} KM` },
@@ -5544,33 +5555,43 @@ function renderSettingsDetailNotifGabungan(){
       <div class="panel-head"><h2>🧭 Menu Mode Sopir dan Operator</h2></div>
       <div class="panel-body">
         <p style="color:var(--muted);margin:0 0 12px;line-height:1.6;">
-          Atur menu apa saja yang tampil di sidebar saat aplikasi masih dalam tampilan <b>Mode Sopir</b> (default/terkunci, sebelum tekan-lama logo + PIN dibuka) -- biasanya HP yang dipegang sopir sehari-hari. Menu yang <b>tidak</b> dicentang di sini tetap ada di aplikasi, cuma disembunyikan sampai PIN Operator/Super Akses dibuka. Kalau sebuah menu punya sub-item (fitur/tombol tertentu di dalamnya), sub-item itu juga bisa disembunyikan sendiri walau menunya tetap tampil.
+          Atur menu (dan sub-item/tombol di dalamnya) apa saja yang tampil untuk 2 level akses sebelum Super Akses: kolom <b>Sopir</b> = tampilan default/terkunci (sebelum PIN apa pun dibuka), kolom <b>Operator</b> = setelah PIN Operator level normal dibuka (belum Super Akses). Menu yang <b>tidak</b> dicentang di kolom itu tetap ada di aplikasi, cuma disembunyikan buat level tersebut.
         </p>
         <p style="font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.6;">
-          🔓 <b>PIN Super Akses OTOMATIS melihat semua menu & sub-item</b>, apa pun isi centang di bawah ini -- pengaturan ini cuma berlaku untuk tampilan Sopir yang BELUM dibuka PIN sama sekali.
+          🔓 <b>PIN Super Akses OTOMATIS melihat semua menu & sub-item</b>, apa pun isi centang di kedua kolom -- pengaturan ini tidak berlaku sama sekali untuk level Super Akses.
         </p>
-        <div id="mode-operator-menu-list">${MODE_OPERATOR_MENU_CATALOG.map(m=>{
+        <div id="mode-operator-menu-list">
+          <div style="display:grid;grid-template-columns:1fr 60px 60px;gap:6px;padding:0 0 8px;">
+            <span></span>
+            <span style="font-size:11px;color:var(--muted);text-align:center;">Sopir</span>
+            <span style="font-size:11px;color:var(--muted);text-align:center;">Operator</span>
+          </div>
+          ${MODE_OPERATOR_MENU_CATALOG.map(m=>{
           const subs = MODE_OPERATOR_SUBMENU_CATALOG[m.key];
-          const subPrefs = subs ? getModeOperatorSubmenuPrefs(m.key) : null;
+          const subPrefsSopir = subs ? getModeOperatorSubmenuPrefs(m.key,'sopir') : null;
+          const subPrefsOperator = subs ? getModeOperatorSubmenuPrefs(m.key,'operator') : null;
           return `
           <div style="border-bottom:1px solid var(--line);padding:9px 0;">
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="checkbox" class="mode-operator-menu-check" data-key="${m.key}" ${getModeOperatorMenuPrefs()[m.key]?'checked':''} style="width:18px;height:18px;flex-shrink:0;">
+            <div style="display:grid;grid-template-columns:1fr 60px 60px;gap:6px;align-items:center;">
               <span style="font-size:13px;">${escapeHtml(m.label)}</span>
-            </label>
+              <span style="text-align:center;"><input type="checkbox" class="mode-role-menu-check" data-role="sopir" data-key="${m.key}" ${getModeOperatorMenuPrefs('sopir')[m.key]?'checked':''} style="width:18px;height:18px;"></span>
+              <span style="text-align:center;"><input type="checkbox" class="mode-role-menu-check" data-role="operator" data-key="${m.key}" ${getModeOperatorMenuPrefs('operator')[m.key]?'checked':''} style="width:18px;height:18px;"></span>
+            </div>
             ${subs ? `
-            <div style="margin:6px 0 0 28px;display:flex;flex-direction:column;gap:6px;">
+            <div style="margin:6px 0 0 0;display:flex;flex-direction:column;gap:6px;">
               ${subs.map(s=>`
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                <input type="checkbox" class="mode-operator-submenu-check" data-menu="${m.key}" data-sub="${s.key}" ${subPrefs[s.key]?'checked':''} style="width:15px;height:15px;flex-shrink:0;">
+              <div style="display:grid;grid-template-columns:1fr 60px 60px;gap:6px;align-items:center;padding-left:18px;">
                 <span style="font-size:12px;color:var(--muted);">${escapeHtml(s.label)}</span>
-              </label>
+                <span style="text-align:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="sopir" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsSopir[s.key]?'checked':''} style="width:15px;height:15px;"></span>
+                <span style="text-align:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="operator" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsOperator[s.key]?'checked':''} style="width:15px;height:15px;"></span>
+              </div>
               `).join('')}
             </div>
             ` : ''}
           </div>
           `;
-        }).join('')}</div>
+        }).join('')}
+        </div>
       </div>
     </div>
     ` : ''}
@@ -5800,27 +5821,38 @@ function renderSettingsDetailNotifGabungan(){
     wireFinanceAdminsSection();
   }
   if(settingsView==='menu-mode-operator' && insightUnlocked){
-    document.querySelectorAll('.mode-operator-menu-check').forEach(cb=>{
+    // v3.207.0 -- BARU: 2 kolom peran (Sopir/Operator) dalam 1 checkbox
+    // matrix, bukan cuma 1 kolom Sopir seperti sebelumnya. data-role
+    // menentukan field state mana yang ditulis: 'sopir' -> modeOperatorMenuPrefs/
+    // modeOperatorSubmenuPrefs (nama field LAMA, sengaja dipertahankan demi
+    // kompatibilitas data lama), 'operator' -> modeAdminMenuPrefs/
+    // modeAdminSubmenuPrefs (field BARU).
+    const roleLabel = { sopir:'Sopir', operator:'Operator' };
+    document.querySelectorAll('.mode-role-menu-check').forEach(cb=>{
       cb.addEventListener('change', function(){
-        const prefs = { ...getModeOperatorMenuPrefs(), [this.dataset.key]: this.checked };
-        state.modeOperatorMenuPrefs = prefs;
+        const role = this.dataset.role;
+        const prefs = { ...getModeOperatorMenuPrefs(role), [this.dataset.key]: this.checked };
+        if(role==='operator'){ state.modeAdminMenuPrefs = prefs; } else { state.modeOperatorMenuPrefs = prefs; }
         saveData();
         applyModeOperatorVisibility();
-        showToast(this.checked ? `Menu "${MODE_OPERATOR_MENU_CATALOG.find(m=>m.key===this.dataset.key)?.label||this.dataset.key}" ditampilkan di Mode Sopir.` : `Menu "${MODE_OPERATOR_MENU_CATALOG.find(m=>m.key===this.dataset.key)?.label||this.dataset.key}" disembunyikan dari Mode Sopir.`);
+        const menuLabel = MODE_OPERATOR_MENU_CATALOG.find(m=>m.key===this.dataset.key)?.label||this.dataset.key;
+        showToast(this.checked ? `Menu "${menuLabel}" ditampilkan di Mode ${roleLabel[role]}.` : `Menu "${menuLabel}" disembunyikan dari Mode ${roleLabel[role]}.`);
       });
     });
-    // v3.205.0 -- BARU: sub-item (fitur/tombol spesifik) di dalam tiap menu.
+    // v3.205.0 -- sub-item (fitur/tombol spesifik) di dalam tiap menu.
     // Hasilnya cuma kepakai lagi lain kali menu itu dirender (bukan live
     // langsung di halaman lain), sama seperti pola menu utama di atas.
-    document.querySelectorAll('.mode-operator-submenu-check').forEach(cb=>{
+    // v3.207.0 -- sekarang role-aware juga, pola sama dgn menu utama.
+    document.querySelectorAll('.mode-role-submenu-check').forEach(cb=>{
       cb.addEventListener('change', function(){
-        const menuKey = this.dataset.menu, subKey = this.dataset.sub;
-        const allSubPrefs = { ...(state.modeOperatorSubmenuPrefs && typeof state.modeOperatorSubmenuPrefs==='object' ? state.modeOperatorSubmenuPrefs : {}) };
-        allSubPrefs[menuKey] = { ...getModeOperatorSubmenuPrefs(menuKey), [subKey]: this.checked };
-        state.modeOperatorSubmenuPrefs = allSubPrefs;
+        const role = this.dataset.role, menuKey = this.dataset.menu, subKey = this.dataset.sub;
+        const stateKey = role==='operator' ? 'modeAdminSubmenuPrefs' : 'modeOperatorSubmenuPrefs';
+        const allSubPrefs = { ...(state[stateKey] && typeof state[stateKey]==='object' ? state[stateKey] : {}) };
+        allSubPrefs[menuKey] = { ...getModeOperatorSubmenuPrefs(menuKey, role), [subKey]: this.checked };
+        state[stateKey] = allSubPrefs;
         saveData();
         const subLabel = (MODE_OPERATOR_SUBMENU_CATALOG[menuKey]||[]).find(s=>s.key===subKey)?.label || subKey;
-        showToast(this.checked ? `"${subLabel}" ditampilkan di Mode Sopir.` : `"${subLabel}" disembunyikan dari Mode Sopir.`);
+        showToast(this.checked ? `"${subLabel}" ditampilkan di Mode ${roleLabel[role]}.` : `"${subLabel}" disembunyikan dari Mode ${roleLabel[role]}.`);
       });
     });
   }
@@ -6057,8 +6089,15 @@ function navigate(route, opts){
   // tidak diizinkan otomatis dialihkan ke dashboard -- mencegah akses
   // langsung ke halaman terbatas lewat cara lain (mis. shortcut PWA/QR yang
   // arahnya ke rute tertentu), bukan cuma menyembunyikan menu di sidebar.
-  if(!modeOperatorUnlocked && !getModeOperatorAllowedRoutes().includes(route)){
-    route = 'dashboard';
+  // v3.207.0 -- SEBELUMNYA "!modeOperatorUnlocked && ..." -- level PIN
+  // Operator normal ATAU Super Akses sama-sama langsung lolos gerbang ini.
+  // SEKARANG cuma Super Akses (insightUnlocked) yang lolos tanpa syarat;
+  // level Operator normal ikut dicek terhadap allowed routes role 'operator'
+  // (baru), Mode Sopir (belum ada PIN) tetap dicek role 'sopir' seperti
+  // sebelumnya -- simetris dengan applyModeOperatorVisibility().
+  if(!insightUnlocked){
+    const navGateRole = modeOperatorUnlocked ? 'operator' : 'sopir';
+    if(!getModeOperatorAllowedRoutes(navGateRole).includes(route)) route = 'dashboard';
   }
   // Catat route SEBELUMNYA ke stack -- KECUALI kalau navigasi ini dipicu oleh
   // tombol Kembali (fromBack) atau route-nya sama dengan yang sekarang (mis.
@@ -6612,17 +6651,30 @@ const MODE_OPERATOR_MENU_DEFAULT = {
   bookings:true, service:true, docs:false, etoll:false, bbm:false, monthlyreport:false,
   hapusdata:false, settings:false,
 };
+// v3.207.0 -- BARU: role 'operator' (PIN Operator level "normal", BUKAN
+// Super Akses). SEBELUMNYA modeOperatorUnlocked (level apa pun) langsung
+// bypass total filter menu -- sekarang level normal ikut disaring pakai
+// katalog & prefs sendiri (terpisah dari prefs Mode Sopir di atas), level
+// Super Akses (insightUnlocked) TETAP selalu lihat semua tanpa syarat.
+// Default SEMUA true (bukan meniru MODE_OPERATOR_MENU_DEFAULT yang
+// beberapa false) -- supaya Operator lama yang belum pernah buka panel ini
+// TIDAK KEHILANGAN menu apa pun dibanding perilaku sebelum fitur ini ada.
+const MODE_OPERATOR_MENU_DEFAULT_ADMIN = MODE_OPERATOR_MENU_CATALOG.reduce((acc,m)=>{ acc[m.key]=true; return acc; }, {});
 // Dibaca lewat fungsi ini SAJA (bukan baca state.modeOperatorMenuPrefs
 // langsung) -- pola sama dengan getNotifSettings() -- supaya data LAMA
 // (dibuat sebelum fitur ini ada, belum punya field ini sama sekali) atau
 // akun baru yang belum pernah menyimpan sekalipun tetap otomatis dapat
 // nilai default yang benar, dan menu BARU yang ditambahkan ke katalog di
 // masa depan otomatis kebagian default (bukan malah hilang/undefined).
-function getModeOperatorMenuPrefs(){
+// role: 'sopir' (default, balik ke perilaku lama persis) atau 'operator'.
+function getModeOperatorMenuPrefs(role){
+  if(role==='operator'){
+    return { ...MODE_OPERATOR_MENU_DEFAULT_ADMIN, ...(state.modeAdminMenuPrefs && typeof state.modeAdminMenuPrefs==='object' ? state.modeAdminMenuPrefs : {}) };
+  }
   return { ...MODE_OPERATOR_MENU_DEFAULT, ...(state.modeOperatorMenuPrefs && typeof state.modeOperatorMenuPrefs==='object' ? state.modeOperatorMenuPrefs : {}) };
 }
-function getModeOperatorAllowedRoutes(){
-  const prefs = getModeOperatorMenuPrefs();
+function getModeOperatorAllowedRoutes(role){
+  const prefs = getModeOperatorMenuPrefs(role);
   return MODE_OPERATOR_MENU_CATALOG.map(m=>m.key).filter(key=>prefs[key]);
 }
 // v3.205.0 -- BARU: submenu (fitur/tombol spesifik) di dalam tiap menu, di
@@ -6644,6 +6696,29 @@ const MODE_OPERATOR_SUBMENU_CATALOG = {
   docs:          [{ key:'tambah', label:'+ Tambah Dokumen' }],
   etoll:         [{ key:'tambah', label:'+ Tambah Kartu' }],
   monthlyreport: [{ key:'exportpdf', label:'📄 Export PDF' }, { key:'exportexcel', label:'📊 Export Excel' }],
+  // v3.207.0 -- BARU: submenu utk menu "Pengaturan" itu sendiri, 1 entri per
+  // kartu di getSettingsCategories() (SENGAJA disalin utuh 14 kartu, bukan
+  // cuma yang tidak digerbang insightUnlocked -- kartu yang sudah digerbang
+  // Insight tetap tidak akan pernah muncul buat role Sopir/Operator biasa
+  // apa pun isi centangnya di sini, checkbox-nya cuma tidak akan pernah
+  // "kena" -- ini pilihan sadar demi katalog lengkap/konsisten, lihat
+  // diskusi saat fitur ini dibuat).
+  settings: [
+    { key:'tampilan', label:'🎨 Tampilan' },
+    { key:'backup', label:'💾 Backup & Pulihkan' },
+    { key:'izin-notif', label:'🔔 Izin Notifikasi Browser' },
+    { key:'ambang-batas', label:'⏰ Ambang Batas Notifikasi' },
+    { key:'alert-kecepatan', label:'🚨 Alert Kecepatan Berlebih' },
+    { key:'kalibrasi-gps', label:'🛰️ Kalibrasi Odometer GPS.id' },
+    { key:'jam-sunyi', label:'🌙 Jam Sunyi' },
+    { key:'admin-notifikasi', label:'👤 Admin Penerima Notifikasi' },
+    { key:'admin-finance', label:'🧑\u200d💼 Admin Finance' },
+    { key:'pemeriksaan-tanggal', label:'🕐 Pemeriksaan Tanggal' },
+    { key:'notiftelegram-peran', label:'🔔 Notifikasi Telegram per Peran' },
+    { key:'menu-mode-operator', label:'🧭 Menu Mode Sopir dan Operator' },
+    { key:'toleransi-gap', label:'📏 Toleransi Gap Odometer' },
+    { key:'nama-petugas', label:'🧑\u200d🔧 Nama Petugas / Admin' },
+  ],
 };
 // Default SENGAJA semua true (tampil) -- fitur ini baru ditambahkan, jadi
 // tidak boleh diam-diam menyembunyikan apa pun sampai Super Admin sendiri
@@ -6652,16 +6727,36 @@ const MODE_OPERATOR_SUBMENU_DEFAULT = {
   cars:{tambah:true}, drivers:{tambah:true}, destinations:{tambah:true}, usage:{tambah:true},
   bookings:{tambah:true}, service:{tambah:true}, docs:{tambah:true}, etoll:{tambah:true},
   monthlyreport:{exportpdf:true, exportexcel:true},
+  settings: MODE_OPERATOR_SUBMENU_CATALOG.settings.reduce((acc,s)=>{ acc[s.key]=true; return acc; }, {}),
 };
-function getModeOperatorSubmenuPrefs(menuKey){
+// v3.207.0 -- default submenu utk role 'operator' (PIN normal) -- dibangun
+// otomatis dari MODE_OPERATOR_SUBMENU_CATALOG, semua true, supaya kalau ada
+// submenu baru ditambahkan di masa depan otomatis ikut default true juga
+// (tidak perlu diingat-ingat manual di 2 tempat).
+const MODE_OPERATOR_SUBMENU_DEFAULT_ADMIN = Object.keys(MODE_OPERATOR_SUBMENU_CATALOG).reduce((acc,menuKey)=>{
+  acc[menuKey] = MODE_OPERATOR_SUBMENU_CATALOG[menuKey].reduce((a,s)=>{ a[s.key]=true; return a; }, {});
+  return acc;
+}, {});
+// role: 'sopir' (default, balik ke perilaku lama persis) atau 'operator'.
+function getModeOperatorSubmenuPrefs(menuKey, role){
+  if(role==='operator'){
+    const stored = (state.modeAdminSubmenuPrefs && typeof state.modeAdminSubmenuPrefs==='object') ? state.modeAdminSubmenuPrefs[menuKey] : null;
+    return { ...(MODE_OPERATOR_SUBMENU_DEFAULT_ADMIN[menuKey]||{}), ...(stored && typeof stored==='object' ? stored : {}) };
+  }
   const stored = (state.modeOperatorSubmenuPrefs && typeof state.modeOperatorSubmenuPrefs==='object') ? state.modeOperatorSubmenuPrefs[menuKey] : null;
   return { ...(MODE_OPERATOR_SUBMENU_DEFAULT[menuKey]||{}), ...(stored && typeof stored==='object' ? stored : {}) };
 }
+// v3.207.0 -- SEBELUMNYA "if(modeOperatorUnlocked) return true" (level PIN
+// apa pun -- normal maupun Super Akses -- langsung bypass total). SEKARANG
+// cuma Super Akses (insightUnlocked) yang bypass total; level Operator
+// normal ikut disaring prefs role 'operator' (baru), persis seperti Mode
+// Sopir disaring prefs role 'sopir'.
 function isModeOperatorSubmenuVisible(menuKey, subKey){
-  if(modeOperatorUnlocked) return true; // PIN Operator/Super Akses -> selalu semua
+  if(insightUnlocked) return true; // Super Akses -> selalu semua
   const subs = MODE_OPERATOR_SUBMENU_CATALOG[menuKey];
   if(!subs || !subs.some(s=>s.key===subKey)) return true; // belum ada submenu terdaftar -> tidak difilter
-  return !!getModeOperatorSubmenuPrefs(menuKey)[subKey];
+  const role = modeOperatorUnlocked ? 'operator' : 'sopir';
+  return !!getModeOperatorSubmenuPrefs(menuKey, role)[subKey];
 }
 let modeOperatorUnlocked = false;
 try{ modeOperatorUnlocked = localStorage.getItem(MODE_OPERATOR_SESSION_KEY) === '1'; }catch(e){}
@@ -6716,11 +6811,22 @@ function applyModeOperatorVisibility(){
     // sendiri yang menyaring PDF mana yang boleh didownload sesuai level
     // akses (lihat renderPanduanPengguna()), jadi menu ini sengaja TIDAK
     // ikut sistem visibility Mode Sopir sama sekali.
+    // v3.207.0 -- SEBELUMNYA "modeOperatorUnlocked || ...sopir" -- level PIN
+    // Operator normal maupun Super Akses SAMA-SAMA langsung bypass filter.
+    // SEKARANG cuma Super Akses (insightUnlocked) yang bypass total; level
+    // Operator normal disaring pakai prefs role 'operator' sendiri (default
+    // semua true, lihat MODE_OPERATOR_MENU_DEFAULT_ADMIN), Mode Sopir
+    // (belum ada PIN sama sekali) tetap disaring prefs role 'sopir' seperti
+    // sebelumnya.
     const diizinkan = route === 'panduan'
       ? true
       : route === 'notiftelegram'
       ? insightUnlocked
-      : (modeOperatorUnlocked || getModeOperatorAllowedRoutes().includes(route));
+      : insightUnlocked
+      ? true
+      : modeOperatorUnlocked
+      ? getModeOperatorAllowedRoutes('operator').includes(route)
+      : getModeOperatorAllowedRoutes('sopir').includes(route);
     el.style.display = diizinkan ? '' : 'none';
   });
 }
@@ -16879,6 +16985,15 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.207.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🧭 Panel Pengaturan → "🧭 Menu Mode Sopir dan Operator" sekarang punya <b>2 kolom centang berdampingan (Sopir &amp; Operator)</b>, bukan cuma 1 kolom Sopir seperti sebelumnya. Sebelumnya, begitu PIN Operator level normal dibuka, SEMUA menu langsung terlihat tanpa bisa disaring -- sekarang level Operator normal juga bisa diatur menu & sub-itemnya sendiri, terpisah dari Mode Sopir. Default kolom Operator SENGAJA semua tercentang (meniru persis perilaku lama) supaya Operator yang sudah ada tidak kehilangan menu apa pun sampai Super Admin sendiri yang membuka panel ini &amp; mematikan sebagian. PIN Super Akses TETAP OTOMATIS melihat semua menu &amp; sub-item, tidak terpengaruh sama sekali oleh pengaturan ini.',
+      '🧭 Menu <b>"Pengaturan" sendiri sekarang punya sub-item</b> yang bisa diatur satu per satu (14 kartu, sama persis dengan isi menu Pengaturan) -- sebelumnya Pengaturan cuma bisa disembunyikan/ditampilkan sebagai satu menu utuh. Catatan: 9 dari 14 kartu itu sudah digerbang PIN Super Akses di tempat lain, jadi centang di sini untuk kartu-kartu tersebut tidak akan pernah berpengaruh buat Sopir/Operator biasa -- katalognya tetap dibuat lengkap demi konsistensi.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.206.0',
     date: '01 Agu 2026',
