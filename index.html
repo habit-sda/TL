@@ -6766,27 +6766,27 @@ function modeOperatorMenuOverviewHtml(){
     <p style="font-size:12px;color:var(--muted);margin:0 0 16px;line-height:1.6;">
       🔓 <b>PIN Super Akses OTOMATIS melihat semua menu &amp; sub-item</b>, apa pun isi centang di bawah -- pengaturan ini tidak berlaku sama sekali untuk level Super Akses.
     </p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+    <div style="display:flex;flex-direction:column;gap:14px;max-width:640px;">
       ${MODE_OPERATOR_MENU_CATEGORIES.map(cat=>{
         const items = cat.keys.map(k=>MODE_OPERATOR_MENU_CATALOG.find(m=>m.key===k)).filter(Boolean);
         const sopirCount = items.filter(m=>sopirPrefs[m.key]).length;
         const opCount = items.filter(m=>opPrefs[m.key]).length;
         return `
-        <div style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px;">
-            <span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;">${cat.icon} ${escapeHtml(cat.label).toUpperCase()}</span>
-            <span style="font-size:10.5px;color:var(--muted);white-space:nowrap;">Sopir ${sopirCount}/${items.length} · Op. ${opCount}/${items.length}</span>
+        <div style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+            <span style="font-size:15px;font-weight:700;color:var(--text);">${cat.icon} ${escapeHtml(cat.label)}</span>
+            <span style="font-size:12.5px;color:var(--muted);white-space:nowrap;">Sopir ${sopirCount}/${items.length} · Operator ${opCount}/${items.length}</span>
           </div>
-          ${items.map((m,mi)=>`
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;${mi>0?'border-top:1px solid var(--line);':''}">
-              <span style="font-size:12.5px;">${escapeHtml(m.label)}</span>
-              <span style="font-size:10px;display:flex;gap:4px;flex-shrink:0;">
-                <span style="background:${sopirPrefs[m.key]?'var(--green-bg)':'var(--neutral-bg)'};color:${sopirPrefs[m.key]?'var(--green)':'var(--muted)'};padding:2px 6px;border-radius:4px;">Sopir</span>
-                <span style="background:${opPrefs[m.key]?'var(--blue-bg)':'var(--neutral-bg)'};color:${opPrefs[m.key]?'var(--blue)':'var(--muted)'};padding:2px 6px;border-radius:4px;">Operator</span>
+          ${items.map((m)=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-top:1px solid #F0F1F3;">
+              <span style="font-size:15.5px;color:var(--text);">${escapeHtml(m.label)}</span>
+              <span style="display:flex;gap:8px;flex-shrink:0;">
+                <span style="background:${sopirPrefs[m.key]?'var(--green-bg)':'var(--neutral-bg)'};color:${sopirPrefs[m.key]?'var(--green)':'var(--muted)'};font-size:13px;font-weight:600;padding:5px 12px;border-radius:6px;">Sopir</span>
+                <span style="background:${opPrefs[m.key]?'var(--blue-bg)':'var(--neutral-bg)'};color:${opPrefs[m.key]?'var(--blue)':'var(--muted)'};font-size:13px;font-weight:600;padding:5px 12px;border-radius:6px;">Operator</span>
               </span>
             </div>
           `).join('')}
-          <button class="btn btn-ghost btn-sm" data-open-category="${cat.key}" style="margin-top:10px;width:100%;">✏️ Edit kategori ini</button>
+          <button class="btn btn-ghost btn-sm" data-open-category="${cat.key}" style="margin-top:12px;width:100%;font-size:14px;padding:10px;">✏️ Edit kategori ini</button>
         </div>
         `;
       }).join('')}
@@ -6798,13 +6798,13 @@ function modeOperatorMenuDetailHtml(catKey){
   if(!cat){ modeOperatorMenuCategoryOpen = null; return modeOperatorMenuOverviewHtml(); } // kunci kategori tidak dikenal -> aman kembali ke ringkasan
   const items = cat.keys.map(k=>MODE_OPERATOR_MENU_CATALOG.find(m=>m.key===k)).filter(Boolean);
   return `
-    <div id="btn-mode-operator-back-category" style="display:inline-block;color:var(--blue);font-size:12.5px;font-weight:600;cursor:pointer;margin-bottom:14px;">← Kembali ke ringkasan kategori</div>
-    <p style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;margin:0 0 10px;">${cat.icon} ${escapeHtml(cat.label).toUpperCase()}</p>
-    <div id="mode-operator-menu-list" style="max-width:420px;">
-      <div style="display:grid;grid-template-columns:1fr 56px 56px;">
+    <div id="btn-mode-operator-back-category" style="display:inline-block;color:var(--blue);font-size:13.5px;font-weight:600;cursor:pointer;margin-bottom:14px;">← Kembali ke ringkasan kategori</div>
+    <p style="font-size:13px;font-weight:700;color:var(--text);margin:0 0 12px;">${cat.icon} ${escapeHtml(cat.label)}</p>
+    <div id="mode-operator-menu-list" style="max-width:480px;">
+      <div style="display:grid;grid-template-columns:1fr 68px 68px;">
         <span></span>
-        <span style="font-size:11px;font-weight:600;color:var(--muted);text-align:center;padding:0 0 6px;border-left:1px solid var(--line);">Sopir</span>
-        <span style="font-size:11px;font-weight:600;color:var(--muted);text-align:center;padding:4px 0 6px;background:var(--blue-bg);border-radius:6px 6px 0 0;">Operator</span>
+        <span style="font-size:12px;font-weight:600;color:var(--muted);text-align:center;padding:0 0 6px;border-left:1px solid var(--line);">Sopir</span>
+        <span style="font-size:12px;font-weight:600;color:var(--muted);text-align:center;padding:4px 0 6px;background:var(--blue-bg);border-radius:6px 6px 0 0;">Operator</span>
       </div>
       <div style="border:1px solid var(--line);border-radius:8px;overflow:hidden;">
       ${items.map((m,mi)=>{
@@ -6813,16 +6813,16 @@ function modeOperatorMenuDetailHtml(catKey){
       const subPrefsOperator = subs ? getModeOperatorSubmenuPrefs(m.key,'operator') : null;
       return `
       <div style="${mi>0?'border-top:1px solid var(--line);':''}">
-        <div style="display:grid;grid-template-columns:1fr 56px 56px;align-items:center;padding:8px 0;">
-          <span style="font-size:13px;padding-left:10px;">${escapeHtml(m.label)}</span>
-          <span style="text-align:center;border-left:1px solid var(--line);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-menu-check" data-role="sopir" data-key="${m.key}" ${getModeOperatorMenuPrefs('sopir')[m.key]?'checked':''} style="width:18px;height:18px;"></span>
-          <span style="text-align:center;background:var(--blue-bg);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-menu-check" data-role="operator" data-key="${m.key}" ${getModeOperatorMenuPrefs('operator')[m.key]?'checked':''} style="width:18px;height:18px;"></span>
+        <div style="display:grid;grid-template-columns:1fr 68px 68px;align-items:center;padding:10px 0;">
+          <span style="font-size:15px;padding-left:12px;">${escapeHtml(m.label)}</span>
+          <span style="text-align:center;border-left:1px solid var(--line);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-menu-check" data-role="sopir" data-key="${m.key}" ${getModeOperatorMenuPrefs('sopir')[m.key]?'checked':''} style="width:20px;height:20px;"></span>
+          <span style="text-align:center;background:var(--blue-bg);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-menu-check" data-role="operator" data-key="${m.key}" ${getModeOperatorMenuPrefs('operator')[m.key]?'checked':''} style="width:20px;height:20px;"></span>
         </div>
         ${subs ? subs.map(s=>`
-          <div style="display:grid;grid-template-columns:1fr 56px 56px;align-items:center;padding:6px 0;border-top:1px dashed var(--line);">
-            <span style="font-size:12px;color:var(--muted);padding-left:26px;">${escapeHtml(s.label)}</span>
-            <span style="text-align:center;border-left:1px solid var(--line);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="sopir" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsSopir[s.key]?'checked':''} style="width:15px;height:15px;"></span>
-            <span style="text-align:center;background:var(--blue-bg);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="operator" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsOperator[s.key]?'checked':''} style="width:15px;height:15px;"></span>
+          <div style="display:grid;grid-template-columns:1fr 68px 68px;align-items:center;padding:8px 0;border-top:1px dashed var(--line);">
+            <span style="font-size:13.5px;color:var(--muted);padding-left:30px;">${escapeHtml(s.label)}</span>
+            <span style="text-align:center;border-left:1px solid var(--line);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="sopir" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsSopir[s.key]?'checked':''} style="width:17px;height:17px;"></span>
+            <span style="text-align:center;background:var(--blue-bg);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="operator" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsOperator[s.key]?'checked':''} style="width:17px;height:17px;"></span>
           </div>
           `).join('') : ''}
       </div>
@@ -6830,7 +6830,7 @@ function modeOperatorMenuDetailHtml(catKey){
       }).join('')}
       </div>
     </div>
-    <p style="font-size:11px;color:var(--muted);margin:8px 0 0;">Kolom biru = Operator.</p>
+    <p style="font-size:12px;color:var(--muted);margin:10px 0 0;">Kolom biru = Operator.</p>
   `;
 }
 // v3.207.0 -- SEBELUMNYA "if(modeOperatorUnlocked) return true" (level PIN
