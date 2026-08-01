@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.208.1">
+<meta name="app-version" content="3.208.2">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1428,7 +1428,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.208.1';
+const APP_VERSION = '3.208.2';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -6080,7 +6080,17 @@ function navigate(route, opts){
   // level Operator normal ikut dicek terhadap allowed routes role 'operator'
   // (baru), Mode Sopir (belum ada PIN) tetap dicek role 'sopir' seperti
   // sebelumnya -- simetris dengan applyModeOperatorVisibility().
-  if(!insightUnlocked){
+  // v3.208.2 -- PERBAIKAN BUG: gerbang ini SEBELUMNYA tidak mengecualikan
+  // route 'panduan' -- padahal 'panduan' SENGAJA tidak pernah dimasukkan ke
+  // MODE_OPERATOR_MENU_CATALOG (lihat komentar di deklarasinya & di
+  // applyModeOperatorVisibility()), jadi getModeOperatorAllowedRoutes()
+  // TIDAK PERNAH akan berisi 'panduan' apa pun isi prefs-nya. Akibatnya menu
+  // "📖 Panduan Pengguna" di sidebar (yang memang sengaja SELALU tampil ke
+  // siapa pun) diam-diam dialihkan balik ke Dashboard begitu diklik di Mode
+  // Sopir/Operator -- paling sering dialami di HP karena itu kondisi default
+  // sebelum PIN dibuka. Exempt 'panduan' di sini juga, simetris dgn
+  // applyModeOperatorVisibility() yang sudah benar dari awal.
+  if(!insightUnlocked && route !== 'panduan'){
     const navGateRole = modeOperatorUnlocked ? 'operator' : 'sopir';
     if(!getModeOperatorAllowedRoutes(navGateRole).includes(route)) route = 'dashboard';
   }
@@ -17072,6 +17082,14 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.208.2',
+    date: '01 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG: menu "📖 Panduan Pengguna" tidak bisa dibuka (otomatis balik ke Dashboard begitu diklik) buat siapa pun yang belum buka PIN Operator/Super Akses -- paling sering dialami di HP karena itu kondisi default (Mode Sopir terkunci). Penyebabnya: gerbang keamanan rute di navigate() memblokir semua rute yang tidak terdaftar di MODE_OPERATOR_MENU_CATALOG, padahal \'panduan\' SENGAJA tidak pernah dimasukkan ke katalog itu (aksesnya diatur sendiri di dalam halamannya). Sudah dikecualikan, sekarang menu ini benar-benar selalu bisa dibuka seperti seharusnya.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.208.1',
     date: '01 Agu 2026',
