@@ -1386,7 +1386,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.184.0';
+const APP_VERSION = '3.185.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -4564,6 +4564,73 @@ function renderSettingsDetailNotifGabungan(){
           <button class="btn btn-ghost btn-sm" id="btn-add-notif-admin">+ Tambah Admin</button>
           <button class="btn btn-primary btn-sm" id="btn-save-notif-admins">💾 Simpan Admin Notifikasi</button>
         </div>
+        <details style="margin-top:16px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
+          <summary style="cursor:pointer;font-weight:600;font-size:12.5px;">ℹ️ Aturan Lengkap Notifikasi Telegram (termasuk aturan tersembunyi)</summary>
+          <div style="margin-top:10px;font-size:11.5px;color:var(--muted);line-height:1.7;">
+
+            <b style="color:var(--text);">🔕 Anti-Spam — Cegah 1 Orang Dapat Notifikasi Dobel</b>
+            <ul style="margin:6px 0 12px;padding-left:18px;">
+              <li>Kalau 1 <b>Chat ID Telegram yang SAMA</b> kebetulan terdaftar lebih dari sekali untuk 1 kejadian yang sama — baik dobel di daftar yang sama, maupun tersebar di beberapa daftar berbeda (Secret <code>ADMIN_CHAT_IDS</code> di Cloudflare, Admin Penerima Notifikasi Telegram di menu ini, atau Super Admin) — sistem <b>hanya mengirim SATU pesan</b> ke Chat ID itu, tidak berkali-kali. Kemunculan pertama (urutan prioritas: Secret <code>ADMIN_CHAT_IDS</code> → Admin di menu ini → Super Admin) yang menentukan versi pesan yang sampai.</li>
+              <li>Kalau 1 orang terdaftar sekaligus sbg <b>Sopir</b> (Data Sopir) <b>dan</b> sbg Admin/Super Admin di sini dengan Chat ID yang sama, untuk Resi Perjalanan & notifikasi "trip selesai" dia <b>hanya dapat 1x</b> sebagai Sopir (versi lengkap) — salinan sbg Admin/Super Admin sengaja TIDAK dikirim.</li>
+              <li>Aturan dedup ini berlaku di <b>SEMUA jalur</b> pengiriman: jalur instan (langsung dari aplikasi) maupun jalur cadangan (Cloudflare Worker Cron, jalan otomatis tiap ~5 menit kalau jalur instan gagal terkirim, mis. karena offline).</li>
+            </ul>
+
+            <b style="color:var(--text);">👥 4 Daftar Penerima yang Terpisah</b>
+            <ul style="margin:6px 0 12px;padding-left:18px;">
+              <li><b>Secret <code>ADMIN_CHAT_IDS</code></b> — diatur di dasbor Cloudflare Worker (BUKAN di aplikasi ini), bisa lebih dari 1 nomor dipisah koma. Selalu dapat SEMUA kategori, tidak melewati gerbang izin peran apa pun.</li>
+              <li><b>Admin Penerima Notifikasi Telegram</b> (menu ini) — dapat notifikasi berkala (dokumen/servis/BBM/E-Toll/booking dll) + bisa atur preferensi sendiri utk notifikasi trip selesai: <i>off</i> / <i>ringkas</i> / <i>resi lengkap</i>.</li>
+              <li><b>Admin Finance</b> (menu "Admin Finance", terpisah total) — HANYA menerima foto nota/tanda terima trip operasional + kategori Dokumen/Servis/Laporan Bulanan. Tidak perlu & tidak boleh dianggap sama dengan daftar Admin di atas.</li>
+              <li><b>Super Admin</b> — level akses tertinggi. Kategori yang diterima diatur lewat menu "🔔 Notifikasi Telegram per Peran": 9 kategori alert biasa (Dokumen/Servis/E-Toll/BBM/Booking/Trip Lama/Budget/Kalibrasi/Kecepatan) default AKTIF (meniru perilaku lama), sedangkan Resi Perjalanan/Approval Booking/Laporan Bulanan bersifat opt-in & default MATI.</li>
+            </ul>
+
+            <b style="color:var(--text);">🚦 2 Lapis Izin (Peran + Individu)</b>
+            <ul style="margin:6px 0 12px;padding-left:18px;">
+              <li>Lapis 1 — izin level PERAN (Sopir/Finance/Admin/Super Admin), diatur Super Admin lewat menu "Notifikasi Telegram per Peran".</li>
+              <li>Lapis 2 — preferensi INDIVIDUAL tiap admin (tripNotif: off/ringkas/resi) atau tiap sopir (kategori langganan pribadi di Data Sopir).</li>
+              <li>Kedua lapis harus SAMA-SAMA mengizinkan. Kalau lapis peran mematikan 1 kategori, preferensi individu di bawahnya tidak berpengaruh — tetap tidak dikirim.</li>
+            </ul>
+
+            <b style="color:var(--text);">📋 Approval Booking via Telegram</b>
+            <ul style="margin:6px 0 12px;padding-left:18px;">
+              <li>Kalau pengaju booking (lewat chat Telegram) kebetulan Chat ID-nya sama dengan salah satu Admin Penerima Notifikasi Telegram, dia <b>dikecualikan</b> dari daftar admin yang dikirimi tombol "✅ Setuju"/"❌ Tolak" untuk booking miliknya sendiri (tidak boleh approve booking sendiri).</li>
+              <li>Kalau ternyata dia satu-satunya admin terdaftar, permintaan approval TETAP dikirim ke dia sbg jalan darurat (supaya booking tidak menggantung selamanya di status "Menunggu"), disertai catatan tegas bahwa ini kondisi darurat.</li>
+              <li>Begitu salah satu admin tap tombol, tombol di pesan admin-admin lain otomatis dinonaktifkan — mencegah 2 admin memproses booking yang sama secara bersamaan.</li>
+              <li>Super Admin bisa ikut dikirimi tombol approval juga, tapi ini opt-in (default MATI) & TAMBAHAN dari daftar Admin, bukan pengganti.</li>
+            </ul>
+
+            <b style="color:var(--text);">⏱️ Waktu Pengecekan Booking</b>
+            <ul style="margin:6px 0 12px;padding-left:18px;">
+              <li>Booking "hari ini" (H-0) SELALU dicek tiap ~5 menit, tidak peduli pengaturan interval — supaya tidak telat kalau jadwalnya cuma beberapa menit lagi.</li>
+              <li>Booking "besok" (H-1) ikut interval cek biasa di Pengaturan &gt; Ambang Batas Notifikasi (bisa sampai 60 menit) — masih ada 1 hari penuh, tidak mendesak.</li>
+            </ul>
+
+            <b style="color:var(--text);">🧾 Resi Perjalanan (Trip Selesai)</b>
+            <ul style="margin:6px 0 12px;padding-left:18px;">
+              <li>Sopir: dapat resi lengkap otomatis kalau Chat ID terdaftar di Data Sopir (bisa dimatikan Super Admin lewat gerbang peran Sopir &gt; Resi Perjalanan).</li>
+              <li>Admin (menu ini): sesuai preferensi per-admin — off / ringkas / resi lengkap.</li>
+              <li>Super Admin: opt-in (default MATI). Kalau diaktifkan & dia BUKAN sopir pemilik trip itu sendiri, dia ikut dapat salinan resi lengkap.</li>
+            </ul>
+
+            <b style="color:var(--text);">📄 Notifikasi Dokumen</b>
+            <ul style="margin:6px 0 12px;padding-left:18px;">
+              <li>Dokumen milik SOPIR (mis. SIM) dikirim LANGSUNG hanya ke sopir bersangkutan, tidak disiarkan ke sopir lain.</li>
+              <li>Dokumen milik MOBIL (mis. STNK) disiarkan ke semua sopir yang berlangganan kategori Dokumen, ditambah Admin/Admin Finance yang mengizinkan kategori ini.</li>
+            </ul>
+
+            <b style="color:var(--text);">🔁 Jalur Instan vs Jalur Cadangan (Cron)</b>
+            <ul style="margin:6px 0 12px;padding-left:18px;">
+              <li>Jalur utama: instan, langsung dari aplikasi begitu kejadian terjadi (mis. trip ditandai selesai).</li>
+              <li>Jalur cadangan: Cloudflare Worker Cron Trigger, PORTING PERSIS dari jalur instan, jalan otomatis tiap ~5 menit — kalau jalur instan gagal (mis. aplikasi sedang offline), jalur ini yang mengambil alih. Setiap kejadian ditandai di data supaya TIDAK terkirim dobel walau lewat 2 jalur berbeda.</li>
+              <li>Webhook Telegram real-time dipakai utk perintah chat sopir/admin ("tiba", "saldo", tombol Setuju/Tolak, dll). Kalau webhook aktif, polling <code>getUpdates()</code> otomatis TIDAK dipakai bersamaan (Telegram menolak kombinasi ini, error 409).</li>
+            </ul>
+
+            <b style="color:var(--text);">👤 Nama di Kolom "Nama"</b>
+            <ul style="margin:6px 0 0;padding-left:18px;">
+              <li>Kolom Nama di setiap daftar (Admin, Admin Finance, Super Admin) hanya label bebas untuk memudahkan Anda mengenali Chat ID ini milik siapa — TIDAK dipakai sistem untuk mencocokkan apa pun, kecuali di alur "pengaju booking dikenali sbg admin" (dicocokkan by Chat ID, bukan nama).</li>
+            </ul>
+
+          </div>
+        </details>
       </div>
     </div>
     ` : ''}
@@ -9667,9 +9734,16 @@ async function sendInstantAdminTripNotif(u){
     const admins = (state.notifAdmins||[]).filter(a=> a.chatId && a.tripNotif && a.tripNotif!=='off');
     if(!admins.length) return;
     if(!Array.isArray(u.telegramAdminNotifSentIds)) u.telegramAdminNotifSentIds = [];
+    // Anti-spam: kalau Chat ID admin ini SAMA dengan Chat ID sopir pemilik
+    // trip ini (1 orang terdaftar dobel sbg sopir & admin), dia sudah dapat
+    // resi/notif-nya sendiri lewat jalur Sopir -- jangan dikirimi salinan
+    // kedua di sini. Lihat aturan lengkap di menu Notifikasi Telegram.
+    const driverUntukTripIni = (state.drivers||[]).find(d=> d.id===u.driverId);
+    const driverChatIdUntukTripIni = driverUntukTripIni ? (driverUntukTripIni.telegramChatId||'').toString().trim() : '';
     let adaPerubahan = false;
     for(const a of admins){
       if(u.telegramAdminNotifSentIds.includes(a.id)) continue; // sudah pernah ke admin ini
+      if(driverChatIdUntukTripIni && (a.chatId||'').toString().trim()===driverChatIdUntukTripIni) continue;
       const text = a.tripNotif==='resi'
         ? buildTripReceiptTextTg(u)
         : `✅ <b>Trip Selesai</b>\n\n${escapeHtml(carLabel(u.carId))} — ${escapeHtml(u.tujuan||'-')}\nSopir: ${escapeHtml(driverLabel(u.driverId,u.driver))}\nTiba: ${u.tglKembali?escapeHtml(fmtDate(u.tglKembali)):'-'}${u.jamKembali?', '+u.jamKembali:''}`;
@@ -9737,8 +9811,16 @@ async function sendBookingApprovalRequest(b){
     ].filter(Boolean).join('\n');
 
     let adaPerubahan = false;
+    // Anti-spam: `admins` (state.notifAdmins) & `superAdminsForApproval`
+    // (state.superAdmins) bisa memuat Chat ID Telegram yang SAMA (mis. 1
+    // orang terdaftar di kedua daftar sekaligus). chatIdSudahDikirim
+    // memastikan Chat ID itu cuma dikirimi SATU pesan approval booking ini,
+    // bukan dua -- lihat aturan lengkap di menu Notifikasi Telegram.
+    const chatIdSudahDikirim = new Set();
     for(const a of admins){
       if(b.telegramApprovalSentAdminIds.includes(a.id)) continue;
+      const cidA = (a.chatId||'').toString().trim();
+      if(chatIdSudahDikirim.has(cidA)){ b.telegramApprovalSentAdminIds.push(a.id); adaPerubahan = true; continue; }
       const bodyStr = JSON.stringify({ chatId: a.chatId, text, bookingId: b.id });
       try{
         const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-booking-approval`, {
@@ -9747,11 +9829,13 @@ async function sendBookingApprovalRequest(b){
           body: bodyStr,
           ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
         });
-        if(res.ok){ b.telegramApprovalSentAdminIds.push(a.id); adaPerubahan = true; }
+        if(res.ok){ b.telegramApprovalSentAdminIds.push(a.id); chatIdSudahDikirim.add(cidA); adaPerubahan = true; }
       }catch(e){ /* diam -- admin masih bisa cek & approve manual dari aplikasi/data */ }
     }
     for(const sa of superAdminsForApproval){
       if(b.telegramApprovalSentSuperAdminIds.includes(sa.id)) continue;
+      const cidSa = (sa.chatId||'').toString().trim();
+      if(chatIdSudahDikirim.has(cidSa)){ b.telegramApprovalSentSuperAdminIds.push(sa.id); adaPerubahan = true; continue; }
       const bodyStr = JSON.stringify({ chatId: sa.chatId, text, bookingId: b.id });
       try{
         const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-booking-approval`, {
@@ -9760,7 +9844,7 @@ async function sendBookingApprovalRequest(b){
           body: bodyStr,
           ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
         });
-        if(res.ok){ b.telegramApprovalSentSuperAdminIds.push(sa.id); adaPerubahan = true; }
+        if(res.ok){ b.telegramApprovalSentSuperAdminIds.push(sa.id); chatIdSudahDikirim.add(cidSa); adaPerubahan = true; }
       }catch(e){ /* diam -- Super Admin masih bisa cek & approve manual dari aplikasi/data */ }
     }
     if(adaPerubahan){
@@ -15295,6 +15379,14 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.185.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🔕 Aturan anti-spam BARU: kalau 1 Chat ID Telegram yang SAMA kebetulan terdaftar lebih dari sekali untuk 1 kejadian yang sama -- baik dobel di daftar yang sama maupun tersebar di beberapa daftar berbeda (Secret ADMIN_CHAT_IDS, Admin Penerima Notifikasi Telegram, Super Admin), atau orang yang sama terdaftar sbg Sopir SEKALIGUS Admin/Super Admin -- sistem sekarang HANYA mengirim SATU pesan ke Chat ID itu (bukan berkali-kali), utk notifikasi mulai/tutup trip, approval booking, konfirmasi booking H-1, dan resi trip selesai. Berlaku di jalur instan maupun jalur cadangan (cron). ⚠️ <b>Upload ulang worker.js terbaru ke Cloudflare Worker</b> supaya dedup ini aktif juga di jalur cron/webhook.',
+      'ℹ️ Menu Pengaturan → Admin Penerima Notifikasi Telegram sekarang punya kotak "Aturan Lengkap Notifikasi Telegram" (bisa dibuka/tutup) yang mencatat SEMUA aturan pengiriman notifikasi -- termasuk aturan tersembunyi yang selama ini cuma ada di komentar kode (4 daftar penerima terpisah, 2 lapis izin peran+individu, aturan approval booking, waktu cek H-0/H-1, aturan resi per peran, aturan dokumen sopir vs mobil, jalur instan vs cadangan).',
+    ]
+  },
   {
     v: '3.184.0',
     date: '01 Agu 2026',
