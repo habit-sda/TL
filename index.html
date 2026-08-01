@@ -5560,38 +5560,37 @@ function renderSettingsDetailNotifGabungan(){
         <p style="font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.6;">
           🔓 <b>PIN Super Akses OTOMATIS melihat semua menu & sub-item</b>, apa pun isi centang di kedua kolom -- pengaturan ini tidak berlaku sama sekali untuk level Super Akses.
         </p>
-        <div id="mode-operator-menu-list">
-          <div style="display:grid;grid-template-columns:1fr 60px 60px;gap:6px;padding:0 0 8px;">
+        <div id="mode-operator-menu-list" style="max-width:420px;">
+          <div style="display:grid;grid-template-columns:1fr 56px 56px;">
             <span></span>
-            <span style="font-size:11px;color:var(--muted);text-align:center;">Sopir</span>
-            <span style="font-size:11px;color:var(--muted);text-align:center;">Operator</span>
+            <span style="font-size:11px;font-weight:600;color:var(--muted);text-align:center;padding:0 0 6px;border-left:1px solid var(--line);">Sopir</span>
+            <span style="font-size:11px;font-weight:600;color:var(--muted);text-align:center;padding:4px 0 6px;background:var(--blue-bg);border-radius:6px 6px 0 0;">Operator</span>
           </div>
-          ${MODE_OPERATOR_MENU_CATALOG.map(m=>{
+          <div style="border:1px solid var(--line);border-radius:8px;overflow:hidden;">
+          ${MODE_OPERATOR_MENU_CATALOG.map((m,mi)=>{
           const subs = MODE_OPERATOR_SUBMENU_CATALOG[m.key];
           const subPrefsSopir = subs ? getModeOperatorSubmenuPrefs(m.key,'sopir') : null;
           const subPrefsOperator = subs ? getModeOperatorSubmenuPrefs(m.key,'operator') : null;
           return `
-          <div style="border-bottom:1px solid var(--line);padding:9px 0;">
-            <div style="display:grid;grid-template-columns:1fr 60px 60px;gap:6px;align-items:center;">
-              <span style="font-size:13px;">${escapeHtml(m.label)}</span>
-              <span style="text-align:center;"><input type="checkbox" class="mode-role-menu-check" data-role="sopir" data-key="${m.key}" ${getModeOperatorMenuPrefs('sopir')[m.key]?'checked':''} style="width:18px;height:18px;"></span>
-              <span style="text-align:center;"><input type="checkbox" class="mode-role-menu-check" data-role="operator" data-key="${m.key}" ${getModeOperatorMenuPrefs('operator')[m.key]?'checked':''} style="width:18px;height:18px;"></span>
+          <div style="${mi>0?'border-top:1px solid var(--line);':''}">
+            <div style="display:grid;grid-template-columns:1fr 56px 56px;align-items:center;padding:8px 0;">
+              <span style="font-size:13px;padding-left:10px;">${escapeHtml(m.label)}</span>
+              <span style="text-align:center;border-left:1px solid var(--line);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-menu-check" data-role="sopir" data-key="${m.key}" ${getModeOperatorMenuPrefs('sopir')[m.key]?'checked':''} style="width:18px;height:18px;"></span>
+              <span style="text-align:center;background:var(--blue-bg);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-menu-check" data-role="operator" data-key="${m.key}" ${getModeOperatorMenuPrefs('operator')[m.key]?'checked':''} style="width:18px;height:18px;"></span>
             </div>
-            ${subs ? `
-            <div style="margin:6px 0 0 0;display:flex;flex-direction:column;gap:6px;">
-              ${subs.map(s=>`
-              <div style="display:grid;grid-template-columns:1fr 60px 60px;gap:6px;align-items:center;padding-left:18px;">
-                <span style="font-size:12px;color:var(--muted);">${escapeHtml(s.label)}</span>
-                <span style="text-align:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="sopir" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsSopir[s.key]?'checked':''} style="width:15px;height:15px;"></span>
-                <span style="text-align:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="operator" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsOperator[s.key]?'checked':''} style="width:15px;height:15px;"></span>
+            ${subs ? subs.map(s=>`
+              <div style="display:grid;grid-template-columns:1fr 56px 56px;align-items:center;padding:6px 0;border-top:1px dashed var(--line);">
+                <span style="font-size:12px;color:var(--muted);padding-left:26px;">${escapeHtml(s.label)}</span>
+                <span style="text-align:center;border-left:1px solid var(--line);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="sopir" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsSopir[s.key]?'checked':''} style="width:15px;height:15px;"></span>
+                <span style="text-align:center;background:var(--blue-bg);align-self:stretch;display:flex;align-items:center;justify-content:center;"><input type="checkbox" class="mode-role-submenu-check" data-role="operator" data-menu="${m.key}" data-sub="${s.key}" ${subPrefsOperator[s.key]?'checked':''} style="width:15px;height:15px;"></span>
               </div>
-              `).join('')}
-            </div>
-            ` : ''}
+              `).join('') : ''}
           </div>
           `;
         }).join('')}
+          </div>
         </div>
+        <p style="font-size:11px;color:var(--muted);margin:8px 0 0;">Kolom biru = Operator.</p>
       </div>
     </div>
     ` : ''}
