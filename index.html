@@ -2461,11 +2461,11 @@ function renderNotifTelegramRoles(){
     } else if(superAdminsWithChat.length === 0){
       html += `<div class="hint">🔬 Belum ada Super Admin dengan Chat ID terdaftar -- daftarkan dulu lewat PIN Kelola Super Admin di Telegram supaya ada tujuan tes.</div>`;
     } else {
-      html += `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-        <select id="ntr-test-chat" style="flex:1;min-width:160px;">
+      html += `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select id="ntr-test-chat" style="flex:1;min-width:180px;border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:15px;font-family:inherit;background:var(--card);color:var(--text);">
           ${superAdminsWithChat.map(a=>`<option value="${escapeHtml(a.chatId)}">Chat ID ${escapeHtml(a.chatId)}</option>`).join('')}
         </select>
-        <button type="button" class="btn btn-ghost" id="ntr-test-btn">🔬 Tes kirim ke Super Admin</button>
+        <button type="button" class="btn btn-ghost" id="ntr-test-btn" style="font-size:15px;">🔬 Tes kirim ke Super Admin</button>
       </div>
       <div id="ntr-test-result" style="margin-top:8px;"></div>`;
     }
@@ -17079,6 +17079,7 @@ const CHANGELOG = [
       '🧭 Panel Pengaturan → "🧭 Menu Mode Sopir dan Operator" <b>dirombak tampilannya</b> supaya lebih rapi & gampang dibaca -- SEBELUMNYA 1 tabel centang panjang (14 menu + puluhan sub-item sekaligus, termasuk 14 sub-item Pengaturan, jadi 1 tumpukan raksasa). SEKARANG dipecah 2 tahap: dibuka pertama kali langsung tampil <b>ringkasan kartu per 4 kategori</b> (Operasional Harian, Data Master, Servis/Dokumen/Biaya, Laporan & Admin) -- tiap menu cukup dilihat lewat chip warna (hijau/biru = tampil, abu = disembunyikan), baru klik "✏️ Edit kategori ini" utk masuk ke tabel centang detail (persis seperti sebelumnya) khusus kategori itu saja.',
       '🔧 Cuma tampilan yang berubah -- data/logika izin (getModeOperatorMenuPrefs, getModeOperatorSubmenuPrefs, kelas checkbox .mode-role-menu-check/.mode-role-submenu-check) SAMA PERSIS dengan sebelumnya, jadi setelan yang sudah ada tidak berubah/hilang sama sekali.',
       '👀 Ukuran teks di panel "🔔 Notifikasi Telegram per Peran" dinaikkan LAGI (daftar kategori kiri, "Diterima peran", chip alias, dll) -- kenaikan di v3.196.0 ternyata masih kurang buat sebagian orang. Sekalian togel (ntrToggleHtml, dipakai di 3 tempat panel ini) diperbesar dari 36x21 jadi 42x24.',
+      '🐛 PERBAIKAN BUG TAMPILAN: dropdown "Chat ID" di tombol Tes tiap kategori (panel yang sama) tampil polos/berantakan (kotak native browser, bukan gaya app) -- ternyata elemen ini SATU-SATUNYA &lt;select&gt; di seluruh app yang tidak dibungkus <code>.field</code> DAN tidak punya CSS khusus sendiri, jadi tidak kebagian border/radius/padding standar sama sekali. Sudah dikasih style eksplisit yang sama dengan field lain.',
       '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
     ]
   },
