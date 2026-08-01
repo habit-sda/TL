@@ -1401,7 +1401,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       Jangan sampai ada perintah bot yang "yatim" -- tidak muncul & tidak
       bisa diatur dari menu ini sama sekali.
    7. WAJIB & KONSISTEN kalau entri CHANGELOG baru menyentuh/membahas PIN
-      010194 (menu Kelola Super Admin) atau PIN 009900 (Super Akses/Insight/
+      Kelola Super Admin atau PIN Super Akses (Super Akses/Insight/
       Mode Sopir) -- ATAU topik apa pun yang berkaitan dengan keduanya (cara
       daftar Super Admin, keberadaan menu rahasia, dst): angka PIN-nya
       SENDIRI SENGAJA TIDAK PERNAH ditulis eksplisit di teks catatan, pakai
@@ -1413,7 +1413,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.200.1';
+const APP_VERSION = '3.201.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1785,7 +1785,7 @@ function loadData(){
       // notifikasi berkala, cuma penerima lampiran bukti trip). Lihat panel
       // "Admin Finance" di menu Pengaturan.
       financeAdmins: Array.isArray(parsed.financeAdmins) ? parsed.financeAdmins : [],
-      // Super Admin -- didaftarkan lewat PIN 010194 di Telegram (server-side,
+      // Super Admin -- didaftarkan lewat PIN Kelola Super Admin di Telegram (server-side,
       // worker.js), field ini di sisi app cuma DIBACA (read-only) untuk
       // ditampilkan di panel & dipakai target tes/approval. Sebelum v3.200.0
       // field ini TIDAK terdaftar di SYNC_COLLECTIONS sama sekali -- akibatnya
@@ -1908,7 +1908,7 @@ function getNotifSettings(){
   return { ...NOTIF_SETTINGS_DEFAULT, ...(state.notifSettings||{}) };
 }
 // ============================================================================
-// BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin, PIN 009900
+// BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin, PIN Super Akses
 // -- SAMA dgn PIN Insight, lihat titik "·" di "FleetOps — Stay in Control").
 // TERPISAH TOTAL dari notifKategori per-SOPIR INDIVIDUAL yang sudah ada
 // (Data Sopir, dikunci PIN Insight juga) -- ini pengaturan level PERAN
@@ -1917,7 +1917,7 @@ function getNotifSettings(){
 // TAMBAHAN di atas izin peran ini (harus keduanya mengizinkan), bukan
 // pengganti.
 //
-// v3.184.0 -- Super Admin (state.superAdmins, didaftarkan via PIN 010194 di
+// v3.184.0 -- Super Admin (state.superAdmins, didaftarkan via PIN Kelola Super Admin di
 // Telegram) SEKARANG JUGA ikut diatur di sini (kolom "👑 Super Admin"),
 // SEBELUMNYA sengaja dikecualikan & selalu menerima semua kategori. Default
 // di bawah SENGAJA meniru PERSIS perilaku lama supaya menambahkan kolom ini
@@ -2071,7 +2071,7 @@ function getHiddenFeatures(){
 // ============================================================================
 // BARU -- Halaman menu khusus Super Admin: "🔔 Notifikasi Telegram per
 // Peran". Cuma bisa dibuka via titik "·" di "FleetOps — Stay in Control"
-// (PIN 009900, sama dgn PIN Insight) -- lihat wireInsightPinTrigger &
+// (PIN Super Akses, sama dgn PIN Insight) -- lihat wireInsightPinTrigger &
 // refreshInsightPanels(). SENGAJA TIDAK mencatat activityLog sama sekali
 // (baik saat dibuka maupun saat Simpan) -- ini menu Super Admin, bukan
 // aktivitas operasional biasa yang perlu terlihat di riwayat aplikasi.
@@ -2156,7 +2156,7 @@ function ntrToggleHtml(on, dataAttrs){
 // ============================================================================
 // BARU -- Halaman menu khusus Super Admin: "🔔 Notifikasi Telegram per
 // Peran". Cuma bisa dibuka via titik "·" di "FleetOps — Stay in Control"
-// (PIN 009900, sama dgn PIN Insight) -- lihat wireInsightPinTrigger &
+// (PIN Super Akses, sama dgn PIN Insight) -- lihat wireInsightPinTrigger &
 // refreshInsightPanels(). SENGAJA TIDAK mencatat activityLog sama sekali
 // -- ini menu Super Admin, bukan aktivitas operasional biasa yang perlu
 // terlihat di riwayat aplikasi.
@@ -2423,7 +2423,7 @@ function renderNotifTelegramRoles(){
     if(!workerReadyForTest){
       html += `<div class="hint">🔬 Tes kategori butuh URL Worker & Notify Secret -- lengkapi dulu di Pengaturan → Sinkronisasi Cloud.</div>`;
     } else if(superAdminsWithChat.length === 0){
-      html += `<div class="hint">🔬 Belum ada Super Admin dengan Chat ID terdaftar -- daftarkan dulu lewat PIN 010194 di Telegram supaya ada tujuan tes.</div>`;
+      html += `<div class="hint">🔬 Belum ada Super Admin dengan Chat ID terdaftar -- daftarkan dulu lewat PIN Kelola Super Admin di Telegram supaya ada tujuan tes.</div>`;
     } else {
       html += `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
         <select id="ntr-test-chat" style="flex:1;min-width:160px;">
@@ -5849,7 +5849,7 @@ const ROUTES = {
   settings:  {title:'Pengaturan', sub:'Kelola nama petugas/admin', render: renderSettings},
   // BARU -- menu khusus Super Admin, SENGAJA TIDAK didaftarkan sbg
   // .menu-item statis di sidebar HTML -- cuma bisa dibuka lewat titik "·"
-  // di "FleetOps — Stay in Control" (PIN 009900, sama dgn PIN Insight),
+  // di "FleetOps — Stay in Control" (PIN Super Akses, sama dgn PIN Insight),
   // lihat wireInsightPinTrigger() & refreshInsightPanels(). Route ini tetap
   // perlu didaftarkan di sini supaya navigate('notiftelegram') & tombol
   // Kembali browser bisa merender halamannya.
@@ -6071,7 +6071,7 @@ function computeAlerts(){
   // pengingat ini muncul lagi tiap N hari selama mobil masih terhubung
   // imeiGps, bukan cuma sekali lalu diam selamanya.
   // v3.158.0 -- SENGAJA cuma ditampilkan di app (Dashboard "Perlu Perhatian"
-  // & lonceng) kalau sesi ini sudah PIN Mode Sopir (001100/009900) --
+  // & lonceng) kalau sesi ini sudah PIN Mode Sopir atau PIN Super Akses --
   // dipakai ULANG variabel modeSopirUnlocked yang sudah ada, TIDAK bikin
   // PIN baru. Alasan: panel Dashboard sengaja tidak bisa di-dismiss (biar
   // tidak ada yang terlewat), jadi ini muncul TIAP HARI selama app dibuka
@@ -6366,14 +6366,18 @@ function renderTripBubblePanelContent(){
 // Menu 4-aksi (Edit / Biaya Operasional / Tandai Kembali / Hapus) muncul dekat
 // kartu yang diklik, mengambang di atas semua elemen lain (position:fixed).
 /* ---------------- Kunci PIN untuk panel Insight/Anomali (BBM & Servis) ----------------
-   PIN TIDAK disimpan sebagai teks polos di kode -- yang tersimpan cuma hash
-   SHA-256-nya (lewat Web Crypto API bawaan browser), supaya PIN aslinya
-   tidak langsung kelihatan walau seseorang buka kode sumbernya.
-   JUJUR soal batasnya: ini menghalangi orang awam & mencegah kepencet
-   tidak sengaja -- BUKAN keamanan tingkat tinggi (orang yang paham teknis
-   & sabar tetap bisa mencoba membobolnya lewat DevTools). Cocok untuk
-   internal tim kecil, bukan untuk data yang betul-betul rahasia. */
-const INSIGHT_PIN_HASH = '13af54b2ccc64ee1ab317abddcb23d15d8a82b33d2aa58ba331131c2b1a0ffcb';
+   PIN TIDAK ADA SAMA SEKALI di kode ini -- tidak lagi disimpan sebagai hash
+   di browser. PIN asli sekarang cuma tersimpan sebagai Cloudflare Secret di
+   worker.js (lihat handleVerifyPin()); browser cuma mengirim apa yang
+   diketik user ke endpoint POST /verify-pin, dan SERVER yang membandingkan.
+   Ini perbaikan dari versi sebelumnya (hash SHA-256 di kode sumber) --
+   hash 6-digit angka itu bisa di-brute-force OFFLINE dalam hitungan detik
+   kalau seseorang buka "View Source". Sekarang percobaan HARUS online ke
+   worker & dibatasi rate-limit di sana.
+   JUJUR soal batasnya: ini tetap gerbang UI, bukan otorisasi data
+   sesungguhnya (endpoint GitHub proxy di worker tidak ikut mengecek PIN
+   ini) -- cocok untuk internal tim kecil, bukan untuk data yang betul-betul
+   rahasia. */
 const INSIGHT_UNLOCK_SESSION_KEY = 'fleetops_insight_unlocked';
 // v3.195.0 -- PERBAIKAN BUG: sebelumnya dipakai sessionStorage, yang ikut
 // hilang begitu tab dianggap "sesi baru" oleh browser -- termasuk saat
@@ -6394,21 +6398,23 @@ try{ insightUnlocked = localStorage.getItem(INSIGHT_UNLOCK_SESSION_KEY) === '1';
    sopir sehari-hari otomatis aman/simpel tanpa perlu diatur ulang tiap
    kali, dan admin yang butuh akses penuh tinggal tekan-lama logo + PIN.
    2 PIN beda tingkat:
-   - PIN biasa (001100) -> buka tampilan Normal (spt sekarang, semua menu).
-   - PIN Super (009900 -- SENGAJA SAMA dgn PIN Insight yang sudah ada,
+   - PIN Mode Sopir -> buka tampilan Normal (spt sekarang, semua menu).
+   - PIN Super Akses (SENGAJA SAMA dgn PIN Insight yang sudah ada,
      supaya siapa pun yang sudah tahu PIN Insight otomatis dapat AKSES
      PENUH sekaligus -- Normal + Insight terbuka bersamaan, hemat 1
      langkah, bukan 2 PIN worth mengingat).
    Mengunci BALIK ke Mode Sopir TIDAK butuh PIN (mengunci itu aman,
    cuma membuka yang perlu diverifikasi) -- tekan-lama logo sekali lagi
    langsung mengunci. */
-const MODE_SOPIR_PIN_HASH = 'a78b7c21dc8ed6694424e4afcd8ccc7e45f9b454f2deec3e84bbb1befe1baeb9'; // 001100
+// PIN Mode Sopir & PIN Super Akses -- sama seperti PIN Insight di atas,
+// keduanya diverifikasi lewat POST /verify-pin ke worker.js, bukan
+// dibandingkan di browser lagi.
 const MODE_SOPIR_SESSION_KEY = 'fleetops_mode_sopir_unlocked';
 const MODE_SOPIR_ALLOWED_ROUTES = ['dashboard', 'usage', 'bookings', 'service',
   // BARU -- menu khusus "Notifikasi Telegram per Peran" SENGAJA tidak ikut
   // diblok gerbang Mode Sopir (supaya bisa dibuka langsung dari titik "·"
   // tanpa perlu tekan-lama logo dulu) -- gerbang AKSES sesungguhnya untuk
-  // menu ini tetap PIN 009900/insightUnlocked, dicek sendiri di dalam
+  // menu ini tetap PIN Super Akses/insightUnlocked, dicek sendiri di dalam
   // renderNotifTelegramRoles().
   'notiftelegram'];
 let modeSopirUnlocked = false;
@@ -6435,12 +6441,25 @@ function openModeSopirPinModal(){
     body,
     onSave: async () => {
       const pin = document.getElementById('in-modesopir-pin').value.trim();
-      const hash = await sha256Hex(pin);
-      if(hash === MODE_SOPIR_PIN_HASH){
+      let result;
+      try{
+        const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/verify-pin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin, context: 'modesopir' })
+        });
+        result = await res.json();
+        if(!res.ok || !result.ok) throw new Error(result.error || 'PIN salah.');
+      }catch(e){
+        toggleFieldError('f-modesopir-pin', true);
+        document.querySelector('#f-modesopir-pin .err-msg').textContent = e.message || 'PIN salah, coba lagi.';
+        return false;
+      }
+      if(result.level === 'normal'){
         modeSopirUnlocked = true;
         try{ localStorage.setItem(MODE_SOPIR_SESSION_KEY, '1'); }catch(e){}
         showToast('Tampilan Normal terbuka.');
-      } else if(hash === INSIGHT_PIN_HASH){
+      } else {
         modeSopirUnlocked = true;
         insightUnlocked = true;
         try{
@@ -6449,9 +6468,6 @@ function openModeSopirPinModal(){
         }catch(e){}
         showToast('Super Akses terbuka (Normal + Insight).');
         refreshChangelogButtonVisibility();
-      } else {
-        toggleFieldError('f-modesopir-pin', true);
-        return false;
       }
       applyModeSopirVisibility();
       refreshInsightPanels();
@@ -6530,7 +6546,7 @@ function refreshInsightPanels(){
   // TIDAK ada di sidebar HTML statis (lihat catatan di ROUTES) -- item-nya
   // baru dimunculkan/disembunyikan di sini, mengikuti insightUnlocked,
   // supaya begitu terbuka (lewat titik "·") Super Admin punya jalan balik
-  // ke menu ini tanpa perlu masukin PIN 009900 berulang tiap kali pindah
+  // ke menu ini tanpa perlu masukin PIN Super Akses berulang tiap kali pindah
   // halaman lain dalam sesi yang sama.
   const navMenuEl = document.getElementById('nav-menu');
   let notifTelegramNavItem = document.getElementById('nav-notiftelegram');
@@ -6756,9 +6772,17 @@ function openInsightPinModal(opts){
     body,
     onSave: async () => {
       const pin = document.getElementById('in-insight-pin').value.trim();
-      const hash = await sha256Hex(pin);
-      if(hash !== INSIGHT_PIN_HASH){
+      try{
+        const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/verify-pin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin, context: 'insight' })
+        });
+        const result = await res.json();
+        if(!res.ok || !result.ok) throw new Error(result.error || 'PIN salah.');
+      }catch(e){
         toggleFieldError('f-insight-pin', true);
+        document.querySelector('#f-insight-pin .err-msg').textContent = e.message || 'PIN salah, coba lagi.';
         return false;
       }
       insightUnlocked = true;
@@ -6766,9 +6790,9 @@ function openInsightPinModal(opts){
       // membuka insightUnlocked, TIDAK ikut membuka modeSopirUnlocked --
       // akibatnya menu SIDEBAR (Data Mobil, Laporan Bulanan, dst, yg
       // visibilitasnya bergantung ke modeSopirUnlocked) TETAP tersembunyi
-      // walau PIN 009900 sudah benar & konten HALAMAN yang sedang dibuka
+      // walau PIN Super Akses sudah benar & konten HALAMAN yang sedang dibuka
       // sudah kelihatan lengkap -- gejala "cuma buka pengaturan notif, menu
-      // lain tidak ikut terbuka". PIN 009900 SEHARUSNYA berarti "buka semua
+      // lain tidak ikut terbuka". PIN Super Akses SEHARUSNYA berarti "buka semua
       // tanpa kecuali" TIDAK PEDULI dari jalur mana dimasukkan (tekan-lama
       // logo ATAU titik ini) -- sekarang keduanya konsisten.
       modeSopirUnlocked = true;
@@ -6797,7 +6821,7 @@ document.getElementById('insight-pin-trigger').addEventListener('click', ()=>{
     refreshInsightPanels();
   } else {
     // BARU -- titik "·" ini sekarang JUGA jadi pintu masuk menu khusus
-    // Super Admin "Notifikasi Telegram per Peran": begitu PIN 009900 benar,
+    // Super Admin "Notifikasi Telegram per Peran": begitu PIN Super Akses benar,
     // langsung diarahkan ke menu itu (bukan cuma diam-diam unlock Insight).
     openInsightPinModal({ onUnlocked: () => navigate('notiftelegram') });
   }
@@ -11347,7 +11371,7 @@ function openUsageModal(editId, presetCarId){
         <!-- v3.130.0 -- SENGAJA disembunyikan (bukan cuma dropdown pilihan)
              KHUSUS trip BARU -- tanggal SELALU otomatis "hari ini", tidak
              bisa diubah manual sama sekali, TIDAK PEDULI Mode Sopir
-             terkunci/terbuka atau PIN mana yang dipakai (001100/009900) --
+             terkunci/terbuka atau PIN mana yang dipakai (Mode Sopir/Super Akses) --
              ini pengaman integritas data, bukan soal level akses. Kalau
              memang perlu DIKOREKSI (bukan dimanipulasi saat input), pakai
              menu Edit trip yang sudah tercatat (mis. lewat "Pemeriksaan
@@ -16387,6 +16411,13 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '3.201.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🔒 Verifikasi PIN Insight & Mode Sopir dipindah sepenuhnya ke server (worker.js, endpoint baru POST /verify-pin). Sebelumnya PIN dibandingkan sebagai hash SHA-256 langsung di kode aplikasi -- siapa pun yang buka "View Source" bisa menyalin hash itu lalu mencoba menjebolnya secara offline. Sekarang PIN asli hanya tersimpan sebagai Cloudflare Secret di server, tidak pernah dikirim ke perangkat, dan percobaan yang salah dibatasi (rate-limit) di server.',
+    ]
+  },
+  {
     v: '3.200.1',
     date: '01 Agu 2026',
     notes: [
@@ -16427,7 +16458,7 @@ const CHANGELOG = [
     v: '3.195.0',
     date: '01 Agu 2026',
     notes: [
-      '🐛 PERBAIKAN BUG: status "PIN 009900 terbuka" (Insight & Super Akses/Mode Sopir) sebelumnya disimpan di sessionStorage, yang bisa ikut ter-reset jadi terkunci lagi saat refresh -- terutama saat proses "Cek Update" memuat ulang halaman ke alamat baru, buka lewat shortcut PWA baru, atau kombinasi browser/OS tertentu. Sekarang dipindah ke localStorage supaya akses tetap terbuka sampai memang sengaja dikunci lagi (tekan-lama logo, atau titik "·" di footer).',
+      '🐛 PERBAIKAN BUG: status "PIN Super Akses terbuka" (Insight & Super Akses/Mode Sopir) sebelumnya disimpan di sessionStorage, yang bisa ikut ter-reset jadi terkunci lagi saat refresh -- terutama saat proses "Cek Update" memuat ulang halaman ke alamat baru, buka lewat shortcut PWA baru, atau kombinasi browser/OS tertentu. Sekarang dipindah ke localStorage supaya akses tetap terbuka sampai memang sengaja dikunci lagi (tekan-lama logo, atau titik "·" di footer).',
     ]
   },
   {
@@ -16495,7 +16526,7 @@ const CHANGELOG = [
     v: '3.190.0',
     date: '01 Agu 2026',
     notes: [
-      '🔬 BARU: tombol "Tes kirim ke Super Admin" di setiap item panel "🔔 Notifikasi Telegram per Peran" (khusus Super Admin, PIN 009900) -- kirim 1 pesan contoh langsung ke Chat ID Super Admin pilihan (tidak pernah ke penerima asli), supaya bisa lihat format & isi notifikasi tanpa menunggu kondisinya benar-benar terjadi.',
+      '🔬 BARU: tombol "Tes kirim ke Super Admin" di setiap item panel "🔔 Notifikasi Telegram per Peran" (khusus Super Admin, PIN Super Akses) -- kirim 1 pesan contoh langsung ke Chat ID Super Admin pilihan (tidak pernah ke penerima asli), supaya bisa lihat format & isi notifikasi tanpa menunggu kondisinya benar-benar terjadi.',
       '📊 Untuk 9 kategori alert berkala (Dokumen, Servis, E-Toll, BBM, Booking, Trip Lama, Budget, Kalibrasi, Kecepatan), pesan tes memakai DATA ASLI -- kalau saat ini memang ada yang memenuhi syarat (mis. dokumen yang mendekati kadaluarsa), itu yang dikirim persis seperti aslinya. Kalau tidak ada, dikasih tahu jujur "sedang tidak ada yang memicu" bukan pesan palsu.',
       'ℹ️ Untuk perintah on-demand (oli, cek, lokasi, menu, dst -- yang dipicu pengguna ketik ke bot, bukan notifikasi push), tombol tes memberi penjelasan singkat + saran cara tes paling akurat (ketik langsung ke bot), karena secara alami tidak ada "data yang menunggu dikirim" untuk perintah jenis ini.',
       '⚠️ <b>Upload ulang worker.js terbaru</b> supaya endpoint <code>/run-notify-check</code> menerima parameter baru <code>test_category</code>.',
@@ -16512,7 +16543,7 @@ const CHANGELOG = [
     v: '3.189.0',
     date: '01 Agu 2026',
     notes: [
-      '🎨 Layout menu "🔔 Notifikasi Telegram per Peran" dirombak total (khusus Super Admin, PIN 009900) -- sebelumnya tabel grid padat 12 baris x 4 kolom checkbox + 3 panel terpisah (alias, fitur tersembunyi), sekarang jadi tampilan daftar+detail: pilih 1 perintah/kategori di kiri, semua pengaturannya (togel per peran, alias kata kunci, togel fitur tersembunyi) digabung jadi 1 layar di kanan.',
+      '🎨 Layout menu "🔔 Notifikasi Telegram per Peran" dirombak total (khusus Super Admin, PIN Super Akses) -- sebelumnya tabel grid padat 12 baris x 4 kolom checkbox + 3 panel terpisah (alias, fitur tersembunyi), sekarang jadi tampilan daftar+detail: pilih 1 perintah/kategori di kiri, semua pengaturannya (togel per peran, alias kata kunci, togel fitur tersembunyi) digabung jadi 1 layar di kanan.',
       '⚡ Setiap perubahan (togel peran, tambah/hapus alias, nyala/mati fitur tersembunyi, Cegah Approve Booking Sendiri) SEKARANG tersimpan LANGSUNG -- tombol "Simpan" terpisah dihapus, tidak ada lagi risiko lupa tap Simpan setelah mengubah banyak hal.',
       '🔗 Kategori yang sebelumnya tersebar di 3 sistem berbeda (mis. "Kecepatan Berlebih") sekarang digabung jadi 1 item -- klik sekali langsung lihat & atur togel peran, alias (kecepatan/speed/laju), DAN togel aktif/mati fitur tersembunyinya sekaligus, tidak perlu buka 3 panel berbeda lagi.',
       'ℹ️ Tabel referensi statis "Daftar Perintah Chat Bot Telegram per Peran" (rincian predikat akses per perintah) untuk sementara dilepas dari panel ini seiring perombakan -- deskripsi singkat tiap perintah sekarang ada langsung di panel detail kanan.',
@@ -16532,9 +16563,9 @@ const CHANGELOG = [
     v: '3.187.0',
     date: '01 Agu 2026',
     notes: [
-      '✏️ BARU (menu khusus Super Admin, PIN 009900): panel "Kelola Alias Perintah" di dalam "🔔 Notifikasi Telegram per Peran" -- sekarang Super Admin bisa menambah/menghapus kata kunci TAMBAHAN untuk perintah bot (/oli, /cek, /lokasi, /service, /kecepatan, & semua pintasan Saldo) langsung dari UI, TANPA perlu minta developer ubah kode. Kata kunci bawaan tetap ada & tidak bisa dihapus dari sini.',
+      '✏️ BARU (menu khusus Super Admin, PIN Super Akses): panel "Kelola Alias Perintah" di dalam "🔔 Notifikasi Telegram per Peran" -- sekarang Super Admin bisa menambah/menghapus kata kunci TAMBAHAN untuk perintah bot (/oli, /cek, /lokasi, /service, /kecepatan, & semua pintasan Saldo) langsung dari UI, TANPA perlu minta developer ubah kode. Kata kunci bawaan tetap ada & tidak bisa dihapus dari sini.',
       '🔒 BARU: panel "Fitur Tersembunyi" -- perintah rahasia (saat ini: /kecepatan) sekarang bisa dinyalakan/dimatikan manual dari UI, tidak perlu ubah kode kalau suatu saat tidak dibutuhkan lagi.',
-      '🙈 Changelog & rincian popup "Versi Baru Tersedia" SEKARANG disembunyikan dari petugas umum -- keduanya sering menyebut detail rahasia (PIN Super Admin, dsb). Tombol "Lihat Changelog" & isi rinci popup update cuma tampil kalau sesi ini sudah buka PIN Super Akses (009900); petugas umum tetap diberi tahu ADA pembaruan, tanpa rinciannya.',
+      '🙈 Changelog & rincian popup "Versi Baru Tersedia" SEKARANG disembunyikan dari petugas umum -- keduanya sering menyebut detail rahasia (PIN Super Admin, dsb). Tombol "Lihat Changelog" & isi rinci popup update cuma tampil kalau sesi ini sudah buka PIN Super Akses; petugas umum tetap diberi tahu ADA pembaruan, tanpa rinciannya.',
       '📋 Checklist rilis developer ditambah aturan baru: setiap perintah bot Telegram baru WAJIB disinkronkan ke menu Notifikasi Telegram per Peran (togel izin peran, katalog alias, dan/atau katalog fitur tersembunyi) supaya tidak ada perintah yang "yatim".',
       '⚠️ <b>Upload ulang worker.js terbaru</b> supaya sistem alias (state.commandAliases) & togel fitur tersembunyi (state.hiddenFeatures) ini dibaca di jalur bot Telegram.',
     ]
@@ -16576,7 +16607,7 @@ const CHANGELOG = [
     v: '3.182.0',
     date: '31 Jul 2026',
     notes: [
-      'Perbaikan bug: PIN Super Akses (009900) yang dimasukkan lewat titik kecil "·" (bukan tekan-lama logo) sebelumnya HANYA membuka konten Insight, TIDAK ikut membuka menu sidebar (Data Mobil, Laporan Bulanan, dst) -- gejalanya "cuma buka pengaturan notif, menu lain tidak ikut terbuka". Sekarang PIN 009900 selalu membuka SEMUA menu tanpa kecuali, dari jalur mana pun dimasukkan. Diverifikasi lewat simulasi memakai skenario persis yang dilaporkan.',
+      'Perbaikan bug: PIN Super Akses yang dimasukkan lewat titik kecil "·" (bukan tekan-lama logo) sebelumnya HANYA membuka konten Insight, TIDAK ikut membuka menu sidebar (Data Mobil, Laporan Bulanan, dst) -- gejalanya "cuma buka pengaturan notif, menu lain tidak ikut terbuka". Sekarang PIN Super Akses selalu membuka SEMUA menu tanpa kecuali, dari jalur mana pun dimasukkan. Diverifikasi lewat simulasi memakai skenario persis yang dilaporkan.',
     ]
   },
   {
@@ -16630,7 +16661,7 @@ const CHANGELOG = [
     v: '3.175.0',
     date: '01 Agu 2026',
     notes: [
-      '🟢 BARU (menu khusus Super Admin): <b>🔔 Notifikasi Telegram per Peran</b> -- atur kategori notifikasi Telegram berkala apa saja (Dokumen, Servis, E-Toll, BBM, Booking, Trip Lama, Budget, Kalibrasi GPS.id, Kecepatan Berlebih) yang diterima Sopir/Finance/Admin. Super Admin tidak diatur di sini -- selalu menerima semua kategori. Dibuka lewat titik kecil "·" di tulisan "FleetOps — Stay in Control" (pojok kiri bawah sidebar), PIN sama dengan PIN Insight (009900). Perubahan di menu ini SENGAJA TIDAK tercatat di Riwayat Aktivitas.',
+      '🟢 BARU (menu khusus Super Admin): <b>🔔 Notifikasi Telegram per Peran</b> -- atur kategori notifikasi Telegram berkala apa saja (Dokumen, Servis, E-Toll, BBM, Booking, Trip Lama, Budget, Kalibrasi GPS.id, Kecepatan Berlebih) yang diterima Sopir/Finance/Admin. Super Admin tidak diatur di sini -- selalu menerima semua kategori. Dibuka lewat titik kecil "·" di tulisan "FleetOps — Stay in Control" (pojok kiri bawah sidebar), PIN sama dengan PIN Insight. Perubahan di menu ini SENGAJA TIDAK tercatat di Riwayat Aktivitas.',
       '🔧 Perbaikan bug lama: pengaturan <b>Ambang Batas Notifikasi</b> ternyata tidak pernah ikut ter-load ulang dari data tersimpan/sinkron (selalu balik ke default tiap reload) -- sekarang sudah benar.',
       '⚠️ <b>Upload ulang worker.js terbaru ke Cloudflare Worker</b> supaya penyaringan penerima notifikasi ini aktif.',
     ]
@@ -16773,7 +16804,7 @@ const CHANGELOG = [
     v: '3.158.0',
     date: '30 Jul 2026',
     notes: [
-      'Notifikasi "🛰️ Kalibrasi Odometer GPS.id" di Dashboard (panel "Perlu Perhatian") sekarang cuma tampil kalau sesi ini sudah buka PIN Mode Sopir (001100 atau 009900) -- sebelumnya muncul ke siapa pun tiap kali Dashboard dibuka, tiap hari selama masa berlaku pengingat (panel ini memang sengaja tidak bisa di-dismiss). Tidak mempengaruhi pengiriman Telegram ke Admin, itu tetap jalan seperti biasa lewat jadwal cron.',
+      'Notifikasi "🛰️ Kalibrasi Odometer GPS.id" di Dashboard (panel "Perlu Perhatian") sekarang cuma tampil kalau sesi ini sudah buka PIN Mode Sopir atau PIN Super Akses -- sebelumnya muncul ke siapa pun tiap kali Dashboard dibuka, tiap hari selama masa berlaku pengingat (panel ini memang sengaja tidak bisa di-dismiss). Tidak mempengaruhi pengiriman Telegram ke Admin, itu tetap jalan seperti biasa lewat jadwal cron.',
     ]
   },
   {
@@ -16999,7 +17030,7 @@ const CHANGELOG = [
     v: '3.130.0',
     date: '27 Jul 2026',
     notes: [
-      'Fitur besar baru: "Mode Sopir" -- tampilan DEFAULT aplikasi sekarang disederhanakan (cuma Dashboard, Catat Perjalanan, Booking Mobil, Servis & Maintenance yang terlihat). Tekan & tahan logo FleetOps 2 detik untuk buka tampilan lengkap: PIN 001100 = tampilan Normal, PIN Super = tampilan Normal + Insight terbuka sekaligus. Mengunci balik ke Mode Sopir tidak butuh PIN (tekan-lama logo lagi langsung terkunci). Dashboard juga menampilkan Aksi Cepat yang dikurasi khusus untuk sopir (Catat Perjalanan, Booking, Servis, Rute Pulang, Beli BBM/Isi E-Toll Luar Trip) saat Mode Sopir aktif.',
+      'Fitur besar baru: "Mode Sopir" -- tampilan DEFAULT aplikasi sekarang disederhanakan (cuma Dashboard, Catat Perjalanan, Booking Mobil, Servis & Maintenance yang terlihat). Tekan & tahan logo FleetOps 2 detik untuk buka tampilan lengkap: PIN Mode Sopir = tampilan Normal, PIN Super = tampilan Normal + Insight terbuka sekaligus. Mengunci balik ke Mode Sopir tidak butuh PIN (tekan-lama logo lagi langsung terkunci). Dashboard juga menampilkan Aksi Cepat yang dikurasi khusus untuk sopir (Catat Perjalanan, Booking, Servis, Rute Pulang, Beli BBM/Isi E-Toll Luar Trip) saat Mode Sopir aktif.',
       'Field "Tanggal Berangkat" di form Catat Perjalanan BARU sekarang SELALU otomatis "hari ini" (disembunyikan, bukan cuma dikunci) -- tidak peduli PIN/Mode apa yang aktif, supaya tidak bisa dimanipulasi siapa pun saat mencatat trip baru. Koreksi tanggal yang genuinely salah tetap bisa lewat Edit trip yang sudah tercatat (mis. via "Pemeriksaan Tanggal" di Pengaturan).',
     ]
   },
@@ -18731,7 +18762,7 @@ document.getElementById('btn-changelog').onclick = () => {
 
 // BARU -- Changelog lengkap SENGAJA disembunyikan dari petugas umum, karena
 // isinya kadang menyebut detail rahasia (mis. keberadaan PIN Super Admin
-// 009900/010194 & fitur tersembunyi). Tombol "Lihat Changelog" & rincian
+// PIN Super Akses/Kelola Super Admin & fitur tersembunyi). Tombol "Lihat Changelog" & rincian
 // fitur di popup "Versi Baru Tersedia" cuma tampil kalau sesi ini sudah
 // buka PIN Super Akses (insightUnlocked) -- petugas umum tetap tahu ADA
 // pembaruan (lewat nomor versi), cuma tidak lihat rinciannya. Dipanggil
