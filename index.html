@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.183.0">
+<meta name="app-version" content="3.184.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1386,7 +1386,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       ada perubahan teknis -- ini yang memicu popup "Versi Baru Tersedia")
    5. Cek sintaks (node --check) sebelum dikirim
    ============================================================================ */
-const APP_VERSION = '3.183.0';
+const APP_VERSION = '3.184.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1881,9 +1881,19 @@ function getNotifSettings(){
 // TAMBAHAN di atas izin peran ini (harus keduanya mengizinkan), bukan
 // pengganti.
 //
-// Super Admin (state.superAdmins, didaftarkan via PIN 010194 di Telegram)
-// SENGAJA TIDAK ada di sini -- mereka selalu menerima SEMUA kategori,
-// tidak bisa/tidak perlu diatur (lihat catatan di runNotifyCheck worker.js).
+// v3.184.0 -- Super Admin (state.superAdmins, didaftarkan via PIN 010194 di
+// Telegram) SEKARANG JUGA ikut diatur di sini (kolom "👑 Super Admin"),
+// SEBELUMNYA sengaja dikecualikan & selalu menerima semua kategori. Default
+// di bawah SENGAJA meniru PERSIS perilaku lama supaya menambahkan kolom ini
+// TIDAK diam-diam mengubah apa yang sudah diterima Super Admin: 9 kategori
+// alert lama (doc..speed) tetap default TERCENTANG (dulu memang selalu
+// dikirim semua), sedangkan 3 kategori BARU utk Super Admin -- Resi
+// Perjalanan, Approval Booking, Laporan Bulanan -- default TIDAK tercentang
+// (dulu Super Admin memang tidak pernah menerima ketiganya sama sekali).
+// Resi Perjalanan Super Admin juga py aturan tambahan: kalau sopir pemilik
+// trip itu SENDIRI terdaftar sbg Super Admin (Chat ID sama), salinan resi
+// itu TIDAK dikirim ke dia -- dia sudah dapat resi-nya sendiri lewat jalur
+// Sopir, tidak perlu laporan balik ke pembuatnya sendiri (lihat worker.js).
 //
 // Default di bawah SENGAJA meniru PERSIS perilaku pengiriman yang sudah
 // berjalan SEBELUM menu ini dibuat, supaya menu ini tidak diam-diam
@@ -1936,11 +1946,12 @@ const NOTIF_ROLE_PREFS_DEFAULT = {
   sopir:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:false, kalibrasi:false, speed:false, resi:true,  bookingApproval:false, laporanBulanan:false },
   finance: { doc:true,  service:true,  etoll:false, bbm:false, booking:false, tripLama:false, budget:false, kalibrasi:false, speed:false, resi:false, bookingApproval:false, laporanBulanan:true  },
   admin:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:true,  kalibrasi:true,  speed:true,  resi:true,  bookingApproval:true,  laporanBulanan:true  },
+  superadmin: { doc:true, service:true, etoll:true, bbm:true, booking:true, tripLama:true, budget:true, kalibrasi:true, speed:true, resi:false, bookingApproval:false, laporanBulanan:false },
 };
 function getNotifRolePrefs(){
   const saved = (state.notifRolePrefs && typeof state.notifRolePrefs==='object') ? state.notifRolePrefs : {};
   const out = {};
-  ['sopir','finance','admin'].forEach(peran=>{
+  ['sopir','finance','admin','superadmin'].forEach(peran=>{
     out[peran] = { ...NOTIF_ROLE_PREFS_DEFAULT[peran], ...(saved[peran]||{}) };
   });
   return out;
@@ -1975,6 +1986,7 @@ function renderNotifTelegramRoles(){
     { key:'sopir', label:'🚗 Sopir' },
     { key:'finance', label:'💰 Finance' },
     { key:'admin', label:'🛡️ Admin' },
+    { key:'superadmin', label:'👑 Super Admin' },
   ];
   const rows = NOTIF_ROLE_CATEGORIES.map(cat => `
     <tr>
@@ -1993,10 +2005,15 @@ function renderNotifTelegramRoles(){
       <div class="panel-body">
         <p class="hint" style="margin:0 0 12px;line-height:1.6;">
           Menu khusus Super Admin -- atur kategori notifikasi Telegram berkala apa saja yang boleh
-          diterima tiap peran. <b>Super Admin (010194 di Telegram) tidak ada di sini karena selalu
-          menerima SEMUA kategori.</b> Untuk Sopir, ini jadi batas level-PERAN -- kalau sopir tertentu
-          di Data Sopir sudah punya langganan kategori sendiri yang lebih sempit, itu tetap berlaku
-          sebagai pembatas tambahan di atas izin peran ini.
+          diterima tiap peran, <b>termasuk Super Admin sendiri</b> (kolom 👑). Untuk Sopir, ini jadi
+          batas level-PERAN -- kalau sopir tertentu di Data Sopir sudah punya langganan kategori
+          sendiri yang lebih sempit, itu tetap berlaku sebagai pembatas tambahan di atas izin peran ini.
+        </p>
+        <p class="hint" style="margin:0 0 12px;line-height:1.6;">
+          🧾 Khusus <b>Resi Perjalanan</b> untuk Super Admin: kalau sopir pemilik trip itu SENDIRI
+          kebetulan juga terdaftar sebagai Super Admin (Chat ID sama), salinan resi itu tidak akan
+          dikirim ke dia -- dia sudah dapat resi-nya sendiri lewat jalur Sopir, tidak perlu laporan
+          balik ke pembuatnya sendiri.
         </p>
         <div class="table-scroll">
           <table>
@@ -2004,17 +2021,26 @@ function renderNotifTelegramRoles(){
             <tbody>${rows}</tbody>
           </table>
         </div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;margin-top:16px;">
+          <input type="checkbox" id="in-notifrole-block-self-approve" ${getNotifSettings().bookingApprovalBlockSelfApprove!==false?'checked':''} style="width:16px;height:16px;">
+          🚫 Cegah Approve Booking Sendiri
+        </label>
+        <div class="hint" style="margin:4px 0 0;">Kalau pengaju booking JUGA salah satu admin penerima notifikasi Telegram, dia tidak boleh menyetujui/menolak booking ajuannya sendiri -- harus admin LAIN, apapun perannya. Kecuali kalau memang tidak ada admin lain sama sekali (supaya tidak menggantung selamanya), baru diizinkan diproses sendiri.</div>
         <button class="btn btn-primary" id="btn-save-notifrole" style="margin-top:14px;">Simpan</button>
       </div>
     </div>
   `;
   content.innerHTML = html;
   document.getElementById('btn-save-notifrole').onclick = () => {
-    const next = { sopir:{}, finance:{}, admin:{} };
+    const next = { sopir:{}, finance:{}, admin:{}, superadmin:{} };
     document.querySelectorAll('.in-notifrole').forEach(el=>{
       next[el.dataset.peran][el.dataset.kategori] = el.checked;
     });
     state.notifRolePrefs = next;
+    // v3.184.0 -- "Cegah Approve Booking Sendiri" pindah ke panel ini
+    // (sebelumnya di Ambang Batas Notifikasi) -- disimpan bersamaan lewat
+    // tombol Simpan yang sama, tapi tetap ke field notifSettings yang sama.
+    state.notifSettings = { ...getNotifSettings(), bookingApprovalBlockSelfApprove: document.getElementById('in-notifrole-block-self-approve').checked };
     // SENGAJA TIDAK panggil logActivity() -- lihat catatan di atas fungsi ini.
     saveData();
     showToast('Pengaturan notifikasi per peran disimpan.');
@@ -4208,7 +4234,7 @@ function getSettingsCategories(){
   // lebih mudah, TANPA menghapus akses lewat sidebar (2 jalan ke tempat yang
   // sama). externalRoute -> klik kartu ini NAVIGATE ke rute terpisah
   // 'notiftelegram' (render function sendiri), BUKAN masuk settingsView.
-  { key:'notiftelegram-peran', icon:'🔔', title:'Notifikasi Telegram per Peran', desc:'Kategori default per Sopir/Finance/Admin', hasLock:false, externalRoute:'notiftelegram',
+  { key:'notiftelegram-peran', icon:'🔔', title:'Notifikasi Telegram per Peran', desc:'Kategori default per Sopir/Finance/Admin/Super Admin', hasLock:false, externalRoute:'notiftelegram',
     status: () => 'Khusus Super Admin' },
   ] : []),
   { key:'toleransi-gap', icon:'📏', title:'Toleransi Gap Odometer', desc:'Batas jarak antar-trip tak tercatat', hasLock:true,
@@ -4414,11 +4440,6 @@ function renderSettingsDetailNotifGabungan(){
           </div>
         </div>
         <div class="hint" style="margin:-4px 0 12px;">Nilai "default" di sini cuma dipakai untuk mobil/kartu yang BELUM diisi batasnya sendiri-sendiri (di Data Mobil / Kartu E-Toll) -- mengisi batas di situ tetap didahulukan.</div>
-        <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;margin-top:6px;">
-          <input type="checkbox" id="in-notif-block-self-approve" ${getNotifSettings().bookingApprovalBlockSelfApprove!==false?'checked':''} style="width:16px;height:16px;">
-          🚫 Cegah Approve Booking Sendiri
-        </label>
-        <div class="hint" style="margin:4px 0 0;">Kalau pengaju booking JUGA salah satu admin penerima notifikasi Telegram, dia tidak boleh menyetujui/menolak booking ajuannya sendiri -- harus admin LAIN, apapun perannya. Kecuali kalau memang tidak ada admin lain sama sekali (supaya tidak menggantung selamanya), baru diizinkan diproses sendiri.</div>
         </div>
         ${settingsEditBarHtml('ambang-batas','btn-edit-ambang-batas','btn-save-ambang-batas','btn-cancel-ambang-batas')}
       </div>
@@ -4670,11 +4691,15 @@ function renderSettingsDetailNotifGabungan(){
       const etollMin = Number(getRibuanValue('in-notif-etoll-min') || 0);
       const budgetPct = Number(document.getElementById('in-notif-budget-pct').value || 0);
       const tripLamaJam = Number(document.getElementById('in-notif-trip-lama').value || 0);
-      const bookingApprovalBlockSelfApprove = document.getElementById('in-notif-block-self-approve').checked;
       // v3.178.0 -- pakai spread dari getNotifSettings() SAAT INI, cuma
       // TIMPA field kategori ini -- karena field kategori LAIN (speed,
       // kalibrasi, jam sunyi) TIDAK ADA lagi di halaman yang sama sejak
       // dipecah per-kartu, jadi TIDAK BOLEH ditimpa nilai kosong/default.
+      // v3.184.0 -- bookingApprovalBlockSelfApprove TIDAK LAGI diatur di
+      // sini -- pindah ke panel "Notifikasi Telegram per Peran" (menu
+      // khusus Super Admin). Spread getNotifSettings() di atas otomatis
+      // mempertahankan nilainya apa adanya karena field ini tidak ditimpa
+      // di sini lagi.
       state.notifSettings = {
         ...getNotifSettings(),
         serviceWarnPct: (svcPct>0 && svcPct<=100) ? svcPct : NOTIF_SETTINGS_DEFAULT.serviceWarnPct,
@@ -4682,7 +4707,6 @@ function renderSettingsDetailNotifGabungan(){
         etollMinDefault: etollMin>=0 ? etollMin : NOTIF_SETTINGS_DEFAULT.etollMinDefault,
         budgetWarnPct: (budgetPct>0 && budgetPct<=100) ? budgetPct : NOTIF_SETTINGS_DEFAULT.budgetWarnPct,
         tripDurationWarnHours: tripLamaJam>0 ? tripLamaJam : NOTIF_SETTINGS_DEFAULT.tripDurationWarnHours,
-        bookingApprovalBlockSelfApprove,
       };
       saveData();
       showToast('Ambang batas notifikasi disimpan.');
@@ -4972,7 +4996,7 @@ const ROUTES = {
   // lihat wireInsightPinTrigger() & refreshInsightPanels(). Route ini tetap
   // perlu didaftarkan di sini supaya navigate('notiftelegram') & tombol
   // Kembali browser bisa merender halamannya.
-  notiftelegram: {title:'Notifikasi Telegram per Peran', sub:'Khusus Super Admin -- atur kategori notifikasi Telegram apa saja yang diterima Sopir, Finance, dan Admin', render: renderNotifTelegramRoles},
+  notiftelegram: {title:'Notifikasi Telegram per Peran', sub:'Khusus Super Admin -- atur kategori notifikasi Telegram apa saja yang diterima Sopir, Finance, Admin, dan Super Admin', render: renderNotifTelegramRoles},
 };
 
 // Stack menu yang PERNAH dikunjungi dalam sesi ini (bukan cuma "1 menu
@@ -9689,10 +9713,17 @@ async function sendBookingApprovalRequest(b){
     // menyetujui booking secara manual lewat aplikasi, booking bisa
     // "menggantung" selamanya di status Menunggu Persetujuan. Default
     // TETAP true (tidak mengubah perilaku lama) sampai sengaja dimatikan.
-    if(!getNotifRolePrefs().admin.bookingApproval) return;
-    const admins = (state.notifAdmins||[]).filter(a=> a.chatId);
-    if(!admins.length) return;
+    const rolePrefsSBA = getNotifRolePrefs();
+    const adminBookingApprovalOn = !!rolePrefsSBA.admin.bookingApproval;
+    // v3.184.0 -- Super Admin (opt-in lewat rolePrefs.superadmin.bookingApproval,
+    // default OFF) ikut dikirimi juga, TAMBAHAN dari Admin biasa di atas.
+    const superAdminBookingApprovalOn = !!(rolePrefsSBA.superadmin && rolePrefsSBA.superadmin.bookingApproval);
+    if(!adminBookingApprovalOn && !superAdminBookingApprovalOn) return;
+    const admins = adminBookingApprovalOn ? (state.notifAdmins||[]).filter(a=> a.chatId) : [];
+    const superAdminsForApproval = superAdminBookingApprovalOn ? (state.superAdmins||[]).filter(a=> a.chatId) : [];
+    if(!admins.length && !superAdminsForApproval.length) return;
     if(!Array.isArray(b.telegramApprovalSentAdminIds)) b.telegramApprovalSentAdminIds = [];
+    if(!Array.isArray(b.telegramApprovalSentSuperAdminIds)) b.telegramApprovalSentSuperAdminIds = [];
     const text = [
       '📋 <b>Booking Baru — Perlu Persetujuan</b>',
       '',
@@ -9718,6 +9749,19 @@ async function sendBookingApprovalRequest(b){
         });
         if(res.ok){ b.telegramApprovalSentAdminIds.push(a.id); adaPerubahan = true; }
       }catch(e){ /* diam -- admin masih bisa cek & approve manual dari aplikasi/data */ }
+    }
+    for(const sa of superAdminsForApproval){
+      if(b.telegramApprovalSentSuperAdminIds.includes(sa.id)) continue;
+      const bodyStr = JSON.stringify({ chatId: sa.chatId, text, bookingId: b.id });
+      try{
+        const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-booking-approval`, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+          body: bodyStr,
+          ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
+        });
+        if(res.ok){ b.telegramApprovalSentSuperAdminIds.push(sa.id); adaPerubahan = true; }
+      }catch(e){ /* diam -- Super Admin masih bisa cek & approve manual dari aplikasi/data */ }
     }
     if(adaPerubahan){
       touch(b);
@@ -15251,6 +15295,14 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.184.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🔔 Menu "Notifikasi Telegram per Peran" (khusus Super Admin) sekarang punya kolom "👑 Super Admin" -- SEBELUMNYA Super Admin sengaja dikecualikan & selalu menerima semua kategori. Untuk 9 kategori alert lama (Dokumen, Servis, E-Toll, BBM, Booking, Trip Lama, Budget, Kalibrasi, Kecepatan), default TETAP tercentang semua supaya perilaku lama tidak berubah. 3 kategori lain -- Resi Perjalanan, Approval Booking, Laporan Bulanan -- BARU tersedia utk Super Admin & default TIDAK tercentang (dulu memang tidak pernah dikirim ke Super Admin). Khusus Resi Perjalanan: kalau sopir pemilik trip itu sendiri kebetulan terdaftar sbg Super Admin, salinan resi tidak dikirim balik ke dia. Diverifikasi lewat simulasi beberapa skenario (default baru, opt-in resi/approval/laporan, self-exclusion resi). ⚠️ <b>Upload ulang worker.js terbaru</b> supaya seluruh gerbang & pengiriman baru ini aktif di jalur cron/Telegram.',
+      '🚫 "Cegah Approve Booking Sendiri" dipindah dari Pengaturan → Ambang Batas Notifikasi ke Pengaturan → Notifikasi Telegram per Peran (masih di panel khusus Super Admin, cuma pindah lokasi) -- nilai pengaturan yang sudah ada tetap tersimpan seperti biasa, tidak ada yang berubah.',
+    ]
+  },
   {
     v: '3.183.0',
     date: '31 Jul 2026',
