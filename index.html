@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.199.0">
+<meta name="app-version" content="3.200.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1400,8 +1400,20 @@ const STORAGE_KEY = 'fleetops_data_v1';
       HIDDEN_FEATURE_CATALOG supaya bisa dinyala/matikan manual dari UI.
       Jangan sampai ada perintah bot yang "yatim" -- tidak muncul & tidak
       bisa diatur dari menu ini sama sekali.
+   7. WAJIB & KONSISTEN kalau entri CHANGELOG baru menyentuh/membahas PIN
+      010194 (menu Kelola Super Admin) atau PIN 009900 (Super Akses/Insight/
+      Mode Sopir) -- ATAU topik apa pun yang berkaitan dengan keduanya (cara
+      daftar Super Admin, keberadaan menu rahasia, dst): angka PIN-nya
+      SENDIRI SENGAJA TIDAK PERNAH ditulis eksplisit di teks catatan, pakai
+      istilah generik ("menu rahasia di Telegram", "PIN Super Akses", dst).
+      Ini berlaku SELALU, bukan cuma sekali ini -- termasuk kalau CHANGELOG
+      ini nanti tetap tersembunyi dari petugas umum (lihat
+      refreshChangelogButtonVisibility, cuma tampil kalau insightUnlocked)
+      -- jangan andalkan gerbang PIN itu sebagai alasan untuk tetap menulis
+      angkanya, anggap catatan changelog selalu berpotensi terbaca orang
+      yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.199.0';
+const APP_VERSION = '3.200.1';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1426,10 +1438,10 @@ const GPS_ODO_AUTOFILL_ENABLED = true;
 
 /* ---------------- Defensive storage layer ---------------- */
 const TOMBSTONES_KEY = 'fleetops_tombstones_v1';
-const SYNC_COLLECTIONS = ['cars','drivers','usage','services','documents','etollCards','etollTransactions','activityLog','bookings','destinations','notifAdmins','pendingTripReminders','financeAdmins'];
+const SYNC_COLLECTIONS = ['cars','drivers','usage','services','documents','etollCards','etollTransactions','activityLog','bookings','destinations','notifAdmins','pendingTripReminders','financeAdmins','superAdmins'];
 
 function defaultTombstones(){
-  return { cars:[], drivers:[], usage:[], services:[], documents:[], etollCards:[], etollTransactions:[], activityLog:[], bookings:[], destinations:[], notifAdmins:[], financeAdmins:[] };
+  return { cars:[], drivers:[], usage:[], services:[], documents:[], etollCards:[], etollTransactions:[], activityLog:[], bookings:[], destinations:[], notifAdmins:[], financeAdmins:[], superAdmins:[] };
 }
 function loadTombstones(){
   try{
@@ -1472,6 +1484,7 @@ function ensureDestinationsArray(){
   if(!Array.isArray(state.notifAdmins)) state.notifAdmins = [];
   if(!Array.isArray(state.pendingTripReminders)) state.pendingTripReminders = [];
   if(!Array.isArray(state.financeAdmins)) state.financeAdmins = [];
+  if(!Array.isArray(state.superAdmins)) state.superAdmins = [];
 }
 
 // Rata-rata Jarak & BBM dari riwayat Catat Perjalanan untuk 1 nama tujuan
@@ -1772,6 +1785,14 @@ function loadData(){
       // notifikasi berkala, cuma penerima lampiran bukti trip). Lihat panel
       // "Admin Finance" di menu Pengaturan.
       financeAdmins: Array.isArray(parsed.financeAdmins) ? parsed.financeAdmins : [],
+      // Super Admin -- didaftarkan lewat PIN 010194 di Telegram (server-side,
+      // worker.js), field ini di sisi app cuma DIBACA (read-only) untuk
+      // ditampilkan di panel & dipakai target tes/approval. Sebelum v3.200.0
+      // field ini TIDAK terdaftar di SYNC_COLLECTIONS sama sekali -- akibatnya
+      // walau registrasi Super Admin via Telegram sukses tersimpan di cloud,
+      // aplikasi tidak pernah menariknya masuk (tetap tampil kosong/"Belum
+      // ada Super Admin" selamanya, di semua device manapun).
+      superAdmins: Array.isArray(parsed.superAdmins) ? parsed.superAdmins : [],
       admins: Array.isArray(parsed.admins) && parsed.admins.length ? parsed.admins : defaultData().admins,
       // Toleransi jarak "hilang" (gap odometer) antar-trip per HARI yang
       // dianggap wajar/tidak perlu ditandai (mis. bolak-balik ke masjid,
@@ -1793,7 +1814,7 @@ function loadData(){
   }
 }
 function defaultData(){
-  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], notifAdmins: [], financeAdmins: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
+  return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], notifAdmins: [], financeAdmins: [], superAdmins: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
     notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 },
     // BARU -- Notifikasi Telegram per Peran (menu khusus Super Admin, lihat
     // getNotifRolePrefs() & renderNotifTelegramRoles()). Kosong di sini
@@ -3022,6 +3043,7 @@ function loadDataFromObject(parsed){
     destinations: Array.isArray(parsed.destinations) ? parsed.destinations : [],
     notifAdmins: Array.isArray(parsed.notifAdmins) ? parsed.notifAdmins : [],
     financeAdmins: Array.isArray(parsed.financeAdmins) ? parsed.financeAdmins : [],
+    superAdmins: Array.isArray(parsed.superAdmins) ? parsed.superAdmins : [],
     admins: Array.isArray(parsed.admins) && parsed.admins.length ? parsed.admins : def.admins,
     toleransiGapKm: (typeof parsed.toleransiGapKm === 'number' && parsed.toleransiGapKm >= 0) ? parsed.toleransiGapKm : 15,
     carCodeSeq: Number(parsed.carCodeSeq)||0, usageCodeSeq: Number(parsed.usageCodeSeq)||0,
@@ -16364,6 +16386,14 @@ function openModal({title, body, onSave, saveLabel, footerNote}){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.200.1',
+    date: '01 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG: Super Admin yang didaftarkan lewat menu rahasia di Telegram tersimpan dengan benar di data cloud, TAPI field ini ternyata tidak pernah terdaftar di daftar koleksi yang disinkronkan ke aplikasi web (SYNC_COLLECTIONS) -- akibatnya aplikasi (di device manapun) tidak pernah menariknya masuk, panel "Notifikasi Telegram per Peran" & tujuan tes tetap menampilkan "Belum ada Super Admin" walau registrasinya sudah sukses. Sekarang sudah didaftarkan dengan benar, akan tertarik otomatis begitu aplikasi sinkron ke cloud.',
+      '🔒 Aturan baku baru (lihat checklist rilis di kode): mulai sekarang, catatan CHANGELOG apa pun yang menyentuh PIN Kelola Super Admin atau PIN Super Akses TIDAK PERNAH menuliskan angka PIN-nya secara eksplisit -- selalu pakai istilah generik, konsisten di setiap rilis ke depan, terlepas dari apakah changelog ini sendiri sudah tersembunyi dari petugas umum atau tidak.',
+    ]
+  },
   {
     v: '3.199.0',
     date: '01 Agu 2026',
