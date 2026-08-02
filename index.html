@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.217.1">
+<meta name="app-version" content="3.225.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -616,7 +616,7 @@
   /* ---------------- Widget pemilih level BBM (Bar) ---------------- */
   .bar-picker-widget{
     border:1px solid var(--line);
-    background:var(--hover-bg);
+    background:var(--card);
     border-radius:14px;
     padding:16px;
   }
@@ -631,12 +631,12 @@
      berapa pun jumlah Bar (maxBarBbm beda-beda per mobil), tidak digantung
      asumsi "biasanya muat 1 baris" seperti versi sebelumnya. */
   .bar-picker-grid{
-    display:grid;grid-template-columns:repeat(auto-fit, minmax(32px, 40px));
-    justify-content:center;gap:6px;margin-bottom:18px;
+    display:grid;grid-template-columns:repeat(auto-fit, minmax(36px, 44px));
+    justify-content:center;gap:7px;margin-bottom:18px;
   }
   .bar-picker-btn{
-    width:100%;height:34px;
-    border:1.5px solid var(--line);border-radius:8px;background:var(--card);
+    width:100%;height:40px;
+    border:1.5px solid var(--line);border-radius:10px;background:var(--hover-bg);
     font-size:13px;font-weight:800;color:var(--text);cursor:pointer;font-family:'JetBrains Mono',monospace;
     display:flex;align-items:center;justify-content:center;transition:all .12s ease;
   }
@@ -1068,6 +1068,97 @@
   .cdd-option.disabled{color:#B7BDC7;cursor:not-allowed;}
   .cdd-option.disabled:hover{background:none;}
 
+  /* ---------------- Dropdown mode "sheet" (v3.224.0) ----------------
+     Dipakai khusus field yang butuh perhatian ekstra (Mobil & Sopir di
+     Catat Perjalanan) -- kotak trigger jadi kartu besar + ikon, panelnya
+     jadi bottom sheet penuh gaya Gojek/Grab (bukan panel kecil menempel
+     di bawah kotak). Semua dropdown lain TIDAK terpengaruh. */
+  .cdd-icon{
+    width:34px;height:34px;border-radius:9px;background:var(--blue-bg);
+    display:flex;align-items:center;justify-content:center;font-size:16px;
+    flex-shrink:0;
+  }
+  .cdd-sheet .cdd-control{padding:11px 12px;border-radius:12px;gap:10px;}
+  .cdd-sheet .cdd-chevron{transform:rotate(-90deg);}
+  .cdd-sheet.open .cdd-chevron{transform:rotate(-90deg);}
+  .cdd-sheet.open::after{
+    content:'';position:fixed;inset:0;background:rgba(15,20,28,0.5);z-index:140;
+  }
+  .cdd-sheet.open .cdd-panel{
+    position:fixed;top:auto;left:0;right:0;bottom:0;z-index:150;
+    max-height:75vh;border-radius:18px 18px 0 0;
+    padding:0 8px calc(14px + env(safe-area-inset-bottom,0px));
+    box-shadow:0 -10px 34px rgba(16,24,40,0.28);
+  }
+  .cdd-sheet-header{position:sticky;top:0;background:var(--card);padding:10px 6px 8px;z-index:2;}
+  .cdd-sheet-handle{width:36px;height:4px;background:var(--line);border-radius:3px;margin:0 auto 12px;}
+  .cdd-sheet-title{font-size:15px;font-weight:800;color:var(--text);padding:0 4px;}
+  .cdd-sheet-subtitle{font-size:11.5px;color:var(--muted);padding:0 4px;margin-top:2px;}
+  .cdd-sheet .cdd-option[data-value=""]{display:none;}
+  .cdd-sheet-row{padding:10px 6px;gap:10px;}
+  .cdd-sheet-row-ic{
+    width:36px;height:36px;border-radius:9px;background:var(--hover-bg);
+    display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;
+  }
+  .cdd-option.disabled .cdd-sheet-row-ic{background:var(--neutral-bg);}
+  .cdd-sheet-row-txt{display:flex;flex-direction:column;flex:1;min-width:0;}
+  .cdd-sheet-row-primary{font-size:13.5px;font-weight:700;color:var(--text);}
+  .cdd-option.disabled .cdd-sheet-row-primary{color:#B7BDC7;}
+  .cdd-sheet-row-sub{font-size:11px;color:var(--green);margin-top:1px;}
+  .cdd-sheet-row-sub.busy{color:var(--red);}
+  .cdd-sheet-row .check{font-size:15px;}
+
+  /* ---------------- Kartu pengelompok form (v3.224.0) ----------------
+     Bungkus sekelompok field terkait jadi 1 kartu putih terpisah -- gaya
+     Gojek/Grab (form dipecah per-kartu, bukan 1 daftar panjang menerus)
+     supaya lebih gampang dipindai mata. Dipakai di Catat Perjalanan. */
+  .tf-card{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px;margin-bottom:10px;
+  }
+  .tf-row-divider{height:1px;background:var(--line);margin:12px 0;}
+  .tf-chip-group{display:flex;gap:8px;}
+  .tf-chip{
+    flex:1;text-align:center;padding:10px 6px;border-radius:24px;
+    background:var(--neutral-bg);color:var(--muted);font-size:12.5px;font-weight:700;
+    cursor:pointer;user-select:none;transition:background .12s,color .12s;
+  }
+  .tf-chip.active{background:var(--blue);color:#fff;}
+
+  /* ---------------- Modal "Akhiri Trip" gaya Gojek/Grab (v3.225.0) ----------------
+     SENGAJA di-scope KHUSUS ke .trip-end-modal (lewat modalClass baru di
+     openModal()) -- modal LAIN sama sekali tidak terpengaruh. Ini MURNI
+     perubahan tampilan: id/nama field, fungsi onSave, dan urutan validasi
+     TIDAK disentuh sama sekali, cuma dibungkus ulang jadi kartu-kartu
+     terpisah (pola sama dgn .tf-card yang sudah dipakai Catat Perjalanan)
+     + header gelap & tombol simpan hijau penuh supaya senada gaya
+     konfirmasi Gojek/Grab. */
+  .modal.trip-end-modal .modal-head{background:var(--navy);border-bottom:none;}
+  .modal.trip-end-modal .modal-head h3{color:#fff;font-size:15px;font-weight:500;}
+  .modal.trip-end-modal .modal-close{color:#fff;opacity:.85;}
+  .modal.trip-end-modal .modal-body{background:var(--bg);padding:14px 16px;}
+  .modal.trip-end-modal .modal-foot{
+    background:var(--bg);border-top:none;padding:6px 16px 18px;
+    flex-direction:column-reverse;gap:6px;
+  }
+  .modal.trip-end-modal .modal-foot #modal-save{
+    width:100%;background:var(--green);border-color:var(--green);
+    padding:14px 0;border-radius:12px;font-size:14.5px;font-weight:600;
+  }
+  .modal.trip-end-modal .modal-foot #modal-cancel{
+    width:100%;background:none;border:none;color:var(--muted);
+    padding:2px 0;font-size:12px;
+  }
+  .tem-info-card{display:flex;align-items:center;gap:10px;}
+  .tem-info-ic{
+    width:36px;height:36px;border-radius:8px;background:var(--blue-bg);
+    color:var(--blue);display:flex;align-items:center;justify-content:center;
+    font-size:16px;flex-shrink:0;
+  }
+  .tem-info-title{font-size:13px;font-weight:700;color:var(--text);}
+  .tem-info-sub{font-size:11.5px;color:var(--muted);margin-top:1px;}
+  .tem-card-title{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:10px;}
+
   .field input, .field select, .field textarea{
     width:100%;
     border:1px solid var(--line);
@@ -1088,6 +1179,7 @@
     font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace;
   }
   .field.error input, .field.error select{border-color:var(--red);}
+  .field.error .cdd-control{border-color:var(--red);box-shadow:0 0 0 3px rgba(196,48,43,0.12);}
   .field .err-msg{font-size:11.5px;color:var(--red);margin-top:4px;display:none;}
   .field.error .err-msg{display:block;}
   .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
@@ -1136,6 +1228,18 @@
 
   select.select-inline{border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12.5px;}
   .search-row{display:flex;gap:8px;margin-bottom:14px;}
+  /* Wrapper tombol clear (✕) universal di semua field pencarian -- lihat
+     wireSearchClear(). flex:1 + min-width:0 supaya tetap pas di layout flex
+     yang sudah ada (.search-row, atau berdampingan dgn elemen lain). */
+  .search-clear-wrap{position:relative;display:flex;flex:1;min-width:0;}
+  .search-clear-wrap input{width:100%;padding-right:30px !important;}
+  .search-clear-btn{
+    display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);
+    background:none;border:none;color:var(--muted);font-size:14px;line-height:1;
+    cursor:pointer;padding:6px 8px;border-radius:6px;
+  }
+  .search-clear-btn:hover{background:var(--hover-bg);color:var(--text);}
+  .search-clear-wrap.has-value .search-clear-btn{display:block;}
   .ac-wrap{position:relative;}
   .autocomplete-box{
     display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;
@@ -1451,7 +1555,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.217.1';
+const APP_VERSION = '3.225.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -1917,6 +2021,14 @@ const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDe
   // Budget/Kecepatan) supaya tidak lupa cek & kalibrasi ulang -- TIDAK
   // mengubah/mengisi apa pun secara otomatis, murni pengingat manual.
   kalibrasiGpsEnabled: true, kalibrasiGpsIntervalHari: 30,
+  // BARU -- Peringatan Rute Menyimpang: SALINAN PERSIS dari
+  // NOTIF_SETTINGS_DEFAULT di worker.js -- lihat catatan lengkap
+  // (computeRouteDeviationFlags()) di sana. minCyclesStreak = berapa kali
+  // cron BERTURUT-TURUT (tiap 5 menit) jaraknya harus konsisten membesar
+  // sebelum dianggap sinyal valid. minIncreaseMeters = kenaikan jarak
+  // minimal per siklus supaya tidak salah tangkap gara-gara ketidakakuratan
+  // GPS kecil.
+  routeDeviationEnabled: true, routeDeviationCooldownMinutes: 30, routeDeviationMinCyclesStreak: 3, routeDeviationMinIncreaseMeters: 200,
   // v3.183.0 -- Cegah Approve Booking Sendiri: kalau pengaju booking (yang
   // membuatnya di aplikasi) kebetulan JUGA salah satu admin penerima
   // notifikasi Telegram, dia TIDAK BOLEH menyetujui/menolak booking
@@ -1937,7 +2049,7 @@ const NOTIF_CATEGORIES = [
   { key:'etoll', label:'Saldo E-Toll Rendah', prefix:'etoll-' },
   { key:'bbm', label:'BBM Menipis', prefix:'bbm-' },
   { key:'booking', label:'Reminder Booking', prefix:'booking-h' }, // v3.121.0 -- diperbaiki dari 'booking-h1-' -- SEBELUMNYA "Booking hari ini" (booking-h0-, ditambah v3.116.0) tidak pernah cocok kategori manapun, jadi tersaring/tidak terkirim ke sopir dgn langganan kategori spesifik
-  { key:'tripLama', label:'Trip Kelamaan Belum Tiba', prefix:'trip-lama-' },
+  { key:'tripLama', label:'Trip Kelamaan Belum Diakhiri', prefix:'trip-lama-' },
 ];
 function categoryOfAlertId(id){
   const found = NOTIF_CATEGORIES.find(c=> id.startsWith(c.prefix));
@@ -2007,7 +2119,7 @@ const NOTIF_ROLE_CATEGORIES = [
   { key:'etoll', label:'Saldo E-Toll Rendah' },
   { key:'bbm', label:'BBM Menipis' },
   { key:'booking', label:'Reminder Booking' },
-  { key:'tripLama', label:'Trip Kelamaan Belum Tiba' },
+  { key:'tripLama', label:'Trip Kelamaan Belum Diakhiri' },
   { key:'budget', label:'Budget Bulanan' },
   { key:'kalibrasi', label:'Kalibrasi Odometer GPS.id' },
   { key:'speed', label:'Kecepatan Berlebih' },
@@ -2025,6 +2137,9 @@ const NOTIF_ROLE_CATEGORIES = [
   // lihat panel "🚨 Alert Bawaan GPS.id" di bawah).
   { key:'simGps', label:'Masa Aktif SIM GPS Tracker' },
   { key:'gpsAlert', label:'Alert Bawaan GPS.id (SOS/Rem Mendadak/dst)' },
+  // BARU -- Peringatan Rute Menyimpang (lihat panel "🧭 Peringatan Rute
+  // Menyimpang" di Pengaturan).
+  { key:'routeDeviation', label:'Peringatan Rute Menyimpang' },
 ];
 const NOTIF_ROLE_PREFS_DEFAULT = {
   // Default SENGAJA meniru PERSIS perilaku SEBELUM 3 kategori ini ada,
@@ -2050,10 +2165,10 @@ const NOTIF_ROLE_PREFS_DEFAULT = {
   //   gpsAlert TETAP tidak akan pernah terkirim ke siapa pun sampai
   //   watchlist kode alert-nya diisi (lihat panel di bawah), apa pun
   //   togel di sini.
-  sopir:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:false, kalibrasi:false, speed:false, resi:true,  bookingApproval:false, laporanBulanan:false, simGps:false, gpsAlert:false },
-  finance: { doc:true,  service:true,  etoll:false, bbm:false, booking:false, tripLama:false, budget:false, kalibrasi:false, speed:false, resi:false, bookingApproval:false, laporanBulanan:true,  simGps:false, gpsAlert:false },
-  admin:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:true,  kalibrasi:true,  speed:true,  resi:true,  bookingApproval:true,  laporanBulanan:true,  simGps:true,  gpsAlert:true  },
-  superadmin: { doc:true, service:true, etoll:true, bbm:true, booking:true, tripLama:true, budget:true, kalibrasi:true, speed:true, resi:false, bookingApproval:false, laporanBulanan:false, simGps:true, gpsAlert:true },
+  sopir:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:false, kalibrasi:false, speed:false, resi:true,  bookingApproval:false, laporanBulanan:false, simGps:false, gpsAlert:false, routeDeviation:false },
+  finance: { doc:true,  service:true,  etoll:false, bbm:false, booking:false, tripLama:false, budget:false, kalibrasi:false, speed:false, resi:false, bookingApproval:false, laporanBulanan:true,  simGps:false, gpsAlert:false, routeDeviation:false },
+  admin:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:true,  kalibrasi:true,  speed:true,  resi:true,  bookingApproval:true,  laporanBulanan:true,  simGps:true,  gpsAlert:true,  routeDeviation:true  },
+  superadmin: { doc:true, service:true, etoll:true, bbm:true, booking:true, tripLama:true, budget:true, kalibrasi:true, speed:true, resi:false, bookingApproval:false, laporanBulanan:false, simGps:true, gpsAlert:true, routeDeviation:true },
 };
 function getNotifRolePrefs(){
   const saved = (state.notifRolePrefs && typeof state.notifRolePrefs==='object') ? state.notifRolePrefs : {};
@@ -2157,7 +2272,7 @@ const SETTINGS_ITEM_CATALOG = [
   { id:'etoll', icon:'💳', label:'Saldo E-Toll Rendah', desc:'Notifikasi saldo kartu E-Toll menipis, dan pintasan Saldo.', notifKey:'etoll', aliasKey:'saldo:et', akses:'Sopir, Admin, Administrator' },
   { id:'bbm', icon:'⛽', label:'BBM Menipis', desc:'Notifikasi sisa BBM tangki menipis, dan pintasan Saldo.', notifKey:'bbm', aliasKey:'saldo:tk', akses:'Sopir, Admin, Administrator' },
   { id:'booking', icon:'📅', label:'Booking Mobil', desc:'Reminder booking mendatang, dan perintah booking/pesan/keep.', notifKey:'booking', aliasKey:'booking', akses:'Sopir & Operator' },
-  { id:'tripLama', icon:'⏰', label:'Trip Kelamaan Belum Tiba', desc:'Notifikasi trip yang sudah lama belum ditutup.', notifKey:'tripLama', akses:'Sopir, Admin, Administrator' },
+  { id:'tripLama', icon:'⏰', label:'Trip Kelamaan Belum Diakhiri', desc:'Notifikasi trip yang sudah lama belum ditutup.', notifKey:'tripLama', akses:'Sopir, Admin, Administrator' },
   { id:'budget', icon:'💰', label:'Budget Bulanan', desc:'Notifikasi budget bulanan mendekati/lewat batas, dan pintasan Saldo.', notifKey:'budget', aliasKey:'saldo:bg', akses:'Operator & Administrator' },
   { id:'kalibrasi', icon:'🛰️', label:'Kalibrasi Odometer GPS.id', desc:'Notifikasi selisih odometer GPS.id vs dashboard.', notifKey:'kalibrasi', akses:'Operator & Administrator' },
   { id:'speed', icon:'⚡', label:'Kecepatan Berlebih', desc:'Notifikasi & ranking kecepatan sopir -- perintah tersembunyi, khusus Administrator.', notifKey:'speed', aliasKey:'kecepatan', hiddenKey:'kecepatanCommand', akses:'Administrator (tersembunyi)' },
@@ -2420,6 +2535,7 @@ function renderNotifTelegramRoles(){
   }
   document.getElementById('ntr-search').value = ntrSearchQuery;
   document.getElementById('ntr-search').addEventListener('input', (e)=>{ ntrSearchQuery = e.target.value; renderNtrMaster(); });
+  wireSearchClear('ntr-search');
 
   function renderNtrDetail(){
     const el = document.getElementById('ntr-detail');
@@ -2442,6 +2558,15 @@ function renderNotifTelegramRoles(){
           ${escapeHtml(r.label)}
         </label>`).join('');
       html += `</div>`;
+    } else if(it.akses){
+      // Item tanpa notifKey (perintah command murni, mis. /cek, /oli) tidak
+      // punya mekanisme togel per peran yang nyata di worker.js -- aksesnya
+      // hardcode di kode bot. Supaya tidak bikin togel PALSU (kelihatan bisa
+      // diubah tapi sebenarnya tidak ngaruh), di sini cuma ditampilkan sbg
+      // badge baca-saja dari field `akses` yang sudah ada di katalog.
+      html += `<div style="font-size:14.5px;font-weight:600;color:var(--muted);margin-bottom:8px;">Diterima peran</div>`;
+      html += `<div style="display:inline-block;background:var(--neutral-bg);border-radius:8px;padding:9px 13px;font-size:14.5px;margin-bottom:6px;">${escapeHtml(it.akses)}</div>`;
+      html += `<div class="hint" style="margin-bottom:18px;">Baca-saja -- ini perintah command, bukan notifikasi, jadi belum bisa diatur per peran di sini.</div>`;
     }
 
     // BARU -- khusus item "Alert Bawaan GPS.id": panel pemilihan kode alert
@@ -4375,6 +4500,36 @@ function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+// Tombol clear (✕) generik untuk field pencarian -- supaya hapus isi tidak
+// perlu backspace satu-satu. Membungkus <input> yang sudah ada dengan
+// wrapper posisi relative + tombol ✕ yang muncul begitu ada teks, tanpa
+// perlu ubah markup HTML tiap field satu-satu. Aman dipanggil berkali-kali
+// (idempotent) kalau view yang sama di-render ulang -- deteksi wrapper yang
+// sudah ada lewat class 'search-clear-wrap' di parent.
+function wireSearchClear(inputId){
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  if(input.parentElement && input.parentElement.classList.contains('search-clear-wrap')) return; // sudah dibungkus
+  const wrap = document.createElement('span');
+  wrap.className = 'search-clear-wrap';
+  input.parentNode.insertBefore(wrap, input);
+  wrap.appendChild(input);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'search-clear-btn';
+  btn.setAttribute('aria-label', 'Hapus pencarian');
+  btn.textContent = '✕';
+  wrap.appendChild(btn);
+  const sync = () => wrap.classList.toggle('has-value', !!input.value);
+  sync();
+  input.addEventListener('input', sync);
+  btn.addEventListener('click', () => {
+    input.value = '';
+    input.dispatchEvent(new Event('input', {bubbles:true}));
+    input.focus();
+  });
+}
+
 // v3.166.0 -- Badge kecil "🟢 Aktif" / "⚪ Nonaktif" ditaruh di sebelah label
 // checkbox pengaturan on/off (Jam Sunyi, Alert Kecepatan, Kalibrasi GPS, dst)
 // supaya statusnya kelihatan jelas sekilas, bukan cuma tanda centang kecil
@@ -4608,7 +4763,7 @@ function renderNotifAdminsRows(){
         <input type="text" inputmode="numeric" class="in-na-chatid" value="${escapeHtml(a.chatId||'')}" placeholder="mis. 123456789">
       </div>
       <div class="field" style="grid-column:1/-1;margin-top:-6px;">
-        <label>Saat trip ditandai "Selesai" (Tiba)</label>
+        <label>Saat trip ditandai "Akhiri Trip"</label>
         <select class="in-na-tripnotif">
           <option value="off" ${a.tripNotif==='off'?'selected':''}>Tidak usah dikirim apa-apa</option>
           <option value="ringkas" ${(a.tripNotif||'ringkas')==='ringkas'?'selected':''}>Notifikasi ringkas saja</option>
@@ -5152,6 +5307,12 @@ function getSettingsCategories(){
     status: () => getNotifSettings().speedAlertEnabled ? `🟢 Aktif · ${getNotifSettings().speedLimitKmh} km/jam` : '⚪ Nonaktif' },
   { key:'kalibrasi-gps', icon:'🛰️', title:'Kalibrasi Odometer GPS.id', desc:'Pengingat reset berkala', hasLock:true,
     status: () => getNotifSettings().kalibrasiGpsEnabled ? `🟢 Aktif · tiap ${getNotifSettings().kalibrasiGpsIntervalHari} hari` : '⚪ Nonaktif' },
+  // BARU -- Peringatan Rute Menyimpang: info ringan ke admin kalau posisi
+  // GPS.id trip aktif (>1 tujuan) konsisten menjauh dari titik tujuan
+  // berikutnya (lihat computeRouteDeviationFlags() di worker.js). Pola
+  // status/lock SAMA PERSIS dgn Kalibrasi Odometer GPS.id di atas.
+  { key:'rute-menyimpang', icon:'🧭', title:'Peringatan Rute Menyimpang', desc:'Info kalau posisi GPS menjauh dari urutan', hasLock:true,
+    status: () => getNotifSettings().routeDeviationEnabled ? `🟢 Aktif · ${getNotifSettings().routeDeviationMinCyclesStreak}x cron berturut-turut` : '⚪ Nonaktif' },
   { key:'jam-sunyi', icon:'🌙', title:'Jam Sunyi', desc:'Tunda notifikasi level "Perlu Diperhatikan"', hasLock:true,
     status: () => getNotifSettings().quietHoursEnabled ? `🟢 ${getNotifSettings().quietHoursStart}–${getNotifSettings().quietHoursEnd}` : '⚪ Nonaktif' },
   { key:'admin-notifikasi', icon:'👤', title:'Admin Penerima Notifikasi', desc:'Daftar admin & preferensi resi', hasLock:true,
@@ -5378,7 +5539,7 @@ function renderSettingsDetailNotifGabungan(){
             <div class="hint">Hanya berlaku untuk mobil yang sudah diisi "Budget Bulanan" di Data Mobil. Notifikasi Telegram-nya <b>khusus Operator</b>, tidak dikirim ke sopir.</div>
           </div>
           <div class="field">
-            <label>⏳ Trip dianggap "kelamaan" belum Tiba setelah (jam)</label>
+            <label>⏳ Trip dianggap "kelamaan" belum diakhiri setelah (jam)</label>
             <input type="text" inputmode="numeric" id="in-notif-trip-lama" value="${getNotifSettings().tripDurationWarnHours}">
             <div class="hint">Pengingat "abaikan kalau memang masih di jalan" -- cuma dikirim lewat Telegram jam 06:00-06:59 WIB (1x sehari), bel di aplikasi tetap tampil kapan saja.</div>
           </div>
@@ -5441,6 +5602,41 @@ function renderSettingsDetailNotifGabungan(){
         </div>
         </div>
         ${settingsEditBarHtml('kalibrasi-gps','btn-edit-kalibrasi-gps','btn-save-kalibrasi-gps','btn-cancel-kalibrasi-gps')}
+      </div>
+    </div>
+    ` : ''}
+    ${settingsView==='rute-menyimpang' && insightUnlocked ? `
+    <div class="panel">
+      <div class="panel-head"><h2>🧭 Peringatan Rute Menyimpang</h2></div>
+      <div class="panel-body">
+        <div class="field-locked" id="lock-rute-menyimpang">
+        <div style="padding-top:0;">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="in-notif-rutedev-enabled" ${getNotifSettings().routeDeviationEnabled?'checked':''} style="width:16px;height:16px;">
+            🧭 Peringatan Rute Menyimpang
+            ${toggleStatusBadgeHtml('notif-rutedev-status-badge', getNotifSettings().routeDeviationEnabled)}
+          </label>
+          <div class="hint" style="margin:4px 0 10px;">Khusus trip yang punya lebih dari 1 tujuan (Tujuan Tambahan) &amp; sudah pernah pakai "🔀 Optimalkan Urutan" -- kalau posisi GPS.id mobil konsisten menjauh (bukan mendekat) dari titik tujuan berikutnya beberapa siklus cron berturut-turut, Operator dapat notifikasi ringan. <b>Info saja, bukan larangan</b> -- banyak alasan sah kenapa mobil menyimpang (macet, keperluan mendadak, jalan ditutup). <b>Khusus Operator</b>, tidak dikirim ke sopir. Jarak dihitung garis lurus (bukan mengikuti bentuk jalan), jadi ada margin toleransi wajar.</div>
+          <div class="grid-2" id="notif-rutedev-fields" style="${getNotifSettings().routeDeviationEnabled?'':'opacity:0.5;pointer-events:none;'}">
+            <div class="field">
+              <label>Jeda antar-alert (menit)</label>
+              <input type="text" inputmode="numeric" id="in-notif-rutedev-cooldown" value="${getNotifSettings().routeDeviationCooldownMinutes}">
+              <div class="hint">Supaya tidak kirim ulang tiap 5 menit selama kondisinya masih berlangsung -- mis. 30 = paling cepat 1 alert per 30 menit untuk trip yang sama.</div>
+            </div>
+            <div class="field">
+              <label>Minimal cron berturut-turut menjauh</label>
+              <input type="text" inputmode="numeric" id="in-notif-rutedev-streak" value="${getNotifSettings().routeDeviationMinCyclesStreak}">
+              <div class="hint">Cron jalan tiap 5 menit -- mis. 3 = jaraknya harus konsisten membesar 3x berturut-turut (~15 menit) sebelum dianggap sinyal valid, bukan cuma sekali mampir istirahat.</div>
+            </div>
+            <div class="field">
+              <label>Minimal kenaikan jarak per siklus (meter)</label>
+              <input type="text" inputmode="numeric" id="in-notif-rutedev-mindist" value="${getNotifSettings().routeDeviationMinIncreaseMeters}">
+              <div class="hint">Supaya tidak salah tangkap gara-gara ketidakakuratan GPS kecil -- mis. 200 = jarak ke tujuan berikutnya harus bertambah minimal 200m tiap siklus.</div>
+            </div>
+          </div>
+        </div>
+        </div>
+        ${settingsEditBarHtml('rute-menyimpang','btn-edit-rute-menyimpang','btn-save-rute-menyimpang','btn-cancel-rute-menyimpang')}
       </div>
     </div>
     ` : ''}
@@ -5625,7 +5821,7 @@ function renderSettingsDetailNotifGabungan(){
               </div>
               <div style="font-size:11.5px;margin-top:6px;line-height:1.6;">
                 ${s.fieldRawan.includes('tglKeluar') ? `<div>🚗 Berangkat: <b>${escapeHtml(s.u.tglKeluar||'-')}, ${escapeHtml(s.u.jamKeluar||'-')}</b> <span style="color:var(--muted);">← jam rawan</span></div>` : `<div style="color:var(--muted);">🚗 Berangkat: ${escapeHtml(s.u.tglKeluar||'-')}, ${escapeHtml(s.u.jamKeluar||'-')}</div>`}
-                ${s.fieldRawan.includes('tglKembali') ? `<div>🏁 Tiba: <b>${escapeHtml(s.u.tglKembali||'-')}, ${escapeHtml(s.u.jamKembali||'-')}</b> <span style="color:var(--muted);">← jam rawan</span></div>` : (s.u.tglKembali ? `<div style="color:var(--muted);">🏁 Tiba: ${escapeHtml(s.u.tglKembali)}, ${escapeHtml(s.u.jamKembali||'-')}</div>` : '')}
+                ${s.fieldRawan.includes('tglKembali') ? `<div>🏁 Akhiri Trip: <b>${escapeHtml(s.u.tglKembali||'-')}, ${escapeHtml(s.u.jamKembali||'-')}</b> <span style="color:var(--muted);">← jam rawan</span></div>` : (s.u.tglKembali ? `<div style="color:var(--muted);">🏁 Akhiri Trip: ${escapeHtml(s.u.tglKembali)}, ${escapeHtml(s.u.jamKembali||'-')}</div>` : '')}
               </div>
               <button class="btn btn-ghost btn-sm" style="margin-top:8px;" data-cek-tanggal="${s.u.id}">✏️ Buka & Cek Tanggal</button>
             </div>
@@ -5787,6 +5983,34 @@ function renderSettingsDetailNotifGabungan(){
       showToast('Pengingat Kalibrasi GPS.id disimpan.');
       renderNotifBell();
       lockSettingsPanelAfterSave('kalibrasi-gps');
+      renderSettings();
+    };
+  }
+  if(settingsView==='rute-menyimpang' && insightUnlocked){
+    ['in-notif-rutedev-cooldown','in-notif-rutedev-streak','in-notif-rutedev-mindist'].forEach(id=> attachIntegerOnlyInput(id));
+    wireSettingsLockButtons('rute-menyimpang','lock-rute-menyimpang','btn-edit-rute-menyimpang','btn-cancel-rute-menyimpang');
+    document.getElementById('in-notif-rutedev-enabled').addEventListener('change', function(){
+      const fieldsWrap = document.getElementById('notif-rutedev-fields');
+      if(fieldsWrap) fieldsWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
+      updateToggleStatusBadge('notif-rutedev-status-badge', this.checked);
+    });
+    const btnSaveRuteMenyimpang = document.getElementById('btn-save-rute-menyimpang');
+  if(btnSaveRuteMenyimpang) btnSaveRuteMenyimpang.onclick = () => {
+      const routeDeviationEnabled = document.getElementById('in-notif-rutedev-enabled').checked;
+      const routeDeviationCooldownMinutes = Number(document.getElementById('in-notif-rutedev-cooldown').value || 0);
+      const routeDeviationMinCyclesStreak = Number(document.getElementById('in-notif-rutedev-streak').value || 0);
+      const routeDeviationMinIncreaseMeters = Number(document.getElementById('in-notif-rutedev-mindist').value || 0);
+      state.notifSettings = {
+        ...getNotifSettings(),
+        routeDeviationEnabled,
+        routeDeviationCooldownMinutes: routeDeviationCooldownMinutes>0 ? routeDeviationCooldownMinutes : NOTIF_SETTINGS_DEFAULT.routeDeviationCooldownMinutes,
+        routeDeviationMinCyclesStreak: routeDeviationMinCyclesStreak>0 ? routeDeviationMinCyclesStreak : NOTIF_SETTINGS_DEFAULT.routeDeviationMinCyclesStreak,
+        routeDeviationMinIncreaseMeters: routeDeviationMinIncreaseMeters>0 ? routeDeviationMinIncreaseMeters : NOTIF_SETTINGS_DEFAULT.routeDeviationMinIncreaseMeters,
+      };
+      saveData();
+      showToast('Peringatan Rute Menyimpang disimpan.');
+      renderNotifBell();
+      lockSettingsPanelAfterSave('rute-menyimpang');
       renderSettings();
     };
   }
@@ -6357,7 +6581,7 @@ function computeAlerts(){
     if(jamBerlalu < jamBatasTripLama) return;
     alerts.push({
       id: `trip-lama-${u.id}-${hariIniStr}`, route:'usage', ic:'⏳', level:'warn',
-      judul:'Trip belum ditandai Tiba', keterangan: `${carLabel(u.carId)} — ${u.tujuan||'(tanpa tujuan)'}, sudah ${Math.floor(jamBerlalu)} jam sejak berangkat. Abaikan kalau memang masih dalam perjalanan.`,
+      judul:'Trip belum diakhiri', keterangan: `${carLabel(u.carId)} — ${u.tujuan||'(tanpa tujuan)'}, sudah ${Math.floor(jamBerlalu)} jam sejak berangkat. Abaikan kalau memang masih dalam perjalanan.`,
       targetDriverIds: u.driverId ? [u.driverId] : null,
     });
   });
@@ -6753,6 +6977,7 @@ const MODE_OPERATOR_SUBMENU_CATALOG = {
     { key:'ambang-batas', label:'⏰ Ambang Batas Notifikasi' },
     { key:'alert-kecepatan', label:'🚨 Alert Kecepatan Berlebih' },
     { key:'kalibrasi-gps', label:'🛰️ Kalibrasi Odometer GPS.id' },
+    { key:'rute-menyimpang', label:'🧭 Peringatan Rute Menyimpang' },
     { key:'jam-sunyi', label:'🌙 Jam Sunyi' },
     { key:'admin-notifikasi', label:'👤 Admin Penerima Notifikasi' },
     { key:'admin-finance', label:'🧑\u200d💼 Admin Finance' },
@@ -7157,10 +7382,25 @@ function enhanceSelectAsDropdown(select){
   select.classList.add('cdd-native-select');
   select.setAttribute('tabindex', '-1'); // fokus keyboard lewat .cdd-control, bukan select aslinya
 
+  // v3.224.0 -- BARU: mode "sheet" (dipicu lewat select.dataset.sheet==='1')
+  // membuat dropdown ini tampil sebagai bottom sheet bergaya Gojek/Grab
+  // (kartu besar, ikon, judul + subjudul, baris pilihan lebih lega)
+  // alih-alih panel kecil menempel di bawah kotak. Dipakai KHUSUS field
+  // yang butuh perhatian ekstra (mis. Mobil & Sopir di Catat Perjalanan) --
+  // dropdown lain tidak berubah sama sekali.
+  const isSheet = select.dataset.sheet === '1';
+  if(isSheet) wrap.classList.add('cdd-sheet');
+
   const control = document.createElement('div');
   control.className = 'cdd-control';
   control.tabIndex = 0;
   control.setAttribute('role', 'button');
+  if(select.dataset.icon){
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'cdd-icon';
+    iconSpan.textContent = select.dataset.icon;
+    control.appendChild(iconSpan);
+  }
   const labelSpan = document.createElement('span');
   labelSpan.className = 'cdd-control-label';
   control.appendChild(labelSpan);
@@ -7177,11 +7417,31 @@ function enhanceSelectAsDropdown(select){
 
   function renderOptions(){
     panel.innerHTML = '';
+    if(isSheet){
+      const header = document.createElement('div');
+      header.className = 'cdd-sheet-header';
+      header.innerHTML = '<div class="cdd-sheet-handle"></div>'
+        + (select.dataset.sheetTitle ? `<div class="cdd-sheet-title">${select.dataset.sheetTitle}</div>` : '')
+        + (select.dataset.sheetSubtitle ? `<div class="cdd-sheet-subtitle">${select.dataset.sheetSubtitle}</div>` : '');
+      panel.appendChild(header);
+    }
     Array.from(select.options).forEach((opt, i)=>{
       const row = document.createElement('div');
       row.className = 'cdd-option' + (opt.value===select.value?' selected':'') + (opt.disabled?' disabled':'');
       row.dataset.idx = i;
-      row.innerHTML = `<span>${opt.textContent}</span><span class="check">✓</span>`;
+      row.dataset.value = opt.value;
+      if(isSheet){
+        row.classList.add('cdd-sheet-row');
+        const label = opt.textContent.replace(' (sedang dipakai)', '');
+        const isAddNew = opt.value === '__new__';
+        const statusText = isAddNew ? '' : (opt.disabled ? 'Sedang dipakai' : (opt.value ? 'Tersedia' : ''));
+        row.innerHTML = `<span class="cdd-sheet-row-ic">${isAddNew ? '➕' : (select.dataset.icon||'')}</span>`
+          + `<span class="cdd-sheet-row-txt"><span class="cdd-sheet-row-primary">${label}</span>`
+          + (statusText ? `<span class="cdd-sheet-row-sub${opt.disabled?' busy':''}">${statusText}</span>` : '')
+          + `</span><span class="check">✓</span>`;
+      } else {
+        row.innerHTML = `<span>${opt.textContent}</span><span class="check">✓</span>`;
+      }
       if(!opt.disabled){
         row.addEventListener('click', ()=> choose(i));
         row.addEventListener('mouseenter', ()=> setActive(optionRows().indexOf(row)));
@@ -7409,7 +7669,7 @@ function openEditChoiceMenu(usageId, anchorEl){
   menu.className = 'trip-action-menu';
   menu.innerHTML = `
     <div class="trip-action-item" data-act="edit-berangkat">✏️ Edit Data Berangkat</div>
-    <div class="trip-action-item" data-act="edit-tiba">✏️ Edit Data Tiba</div>
+    <div class="trip-action-item" data-act="edit-tiba">✏️ Edit Data Akhiri Trip</div>
   `;
   document.body.appendChild(menu);
 
@@ -7465,11 +7725,11 @@ function openGapInfoModal(gapKm, isOverlap, isTolerated){
     catatan = 'Jarak & estimasi BBM-nya SUDAH otomatis ikut dihitung ke Efisiensi trip ini -- tidak perlu tindakan apa pun. Batas toleransi ini bisa diubah di menu Pengaturan.';
   } else if(isOverlap){
     judul = 'Odometer Tumpang Tindih'; ikon = '⚠️';
-    isi = `Odometer Berangkat trip ini lebih kecil <b>${gapAbs} KM</b> dari Odometer Tiba trip sebelumnya (mobil yang sama).`;
+    isi = `Odometer Berangkat trip ini lebih kecil <b>${gapAbs} KM</b> dari Odometer Akhiri Trip trip sebelumnya (mobil yang sama).`;
     catatan = 'Odometer tidak mungkin mundur secara fisik -- kemungkinan ada angka yang salah ketik. Perlu dicek & diperbaiki manual (buka Edit trip ini atau trip sebelumnya). Data lain tidak berubah otomatis.';
   } else {
     judul = 'Jarak Belum Teralokasi'; ikon = '⚠️';
-    isi = `Ada selisih <b>${gapAbs} KM</b> antara Odometer Tiba trip sebelumnya dan Odometer Berangkat trip ini (mobil yang sama), melebihi batas toleransi.`;
+    isi = `Ada selisih <b>${gapAbs} KM</b> antara Odometer Akhiri Trip trip sebelumnya dan Odometer Berangkat trip ini (mobil yang sama), melebihi batas toleransi.`;
     catatan = 'Kemungkinan ada perjalanan yang belum tercatat. Perlu dicek manual -- data lain tidak berubah otomatis. Batas toleransi ini bisa diubah di menu Pengaturan.';
   }
   openBadgeExplainModal(ikon, judul, isi, catatan);
@@ -7546,7 +7806,7 @@ function openTripActionMenu(usageId, anchorEl){
     </div>` : ''}
     <div class="trip-action-item" data-act="edit">✏️ Edit</div>
     <div class="trip-action-item" data-act="biayaop">${isOperasional ? '🧾 Biaya Operasional' : '🏠 Biaya Pribadi'}</div>
-    <div class="trip-action-item" data-act="return">✅ Tiba</div>
+    <div class="trip-action-item" data-act="return">✅ Akhiri Trip</div>
     <div class="trip-action-item" data-act="copykode" data-copy-code="${escapeHtml(u.kode||'')}">📋 Salin Kode Perjalanan</div>
   `;
   document.body.appendChild(menu);
@@ -7718,7 +7978,7 @@ function openListActionMenu(usageId, anchorEl){
     // u.jenisPenggunaan) -- sebelumnya trip Pribadi TIDAK dapat menu ini
     // sama sekali, jadi tidak ada cara mencatat biaya selama trip pribadi.
     {act:'biayaop', label: isOperasional ? '🧾 Biaya Operasional' : '🏠 Biaya Pribadi'},
-    {act:'return', label: u.status==='digunakan' ? '✅ Tiba' : '✏️ Edit Data Tiba'},
+    {act:'return', label: u.status==='digunakan' ? '✅ Akhiri Trip' : '✏️ Edit Data Akhiri Trip'},
     {act:'copykode', label:'📋 Salin Kode Perjalanan', copyCode: u.kode||''},
   ];
 
@@ -8285,6 +8545,7 @@ function renderCars(){
     );
     renderTable(filtered);
   });
+  wireSearchClear('car-search');
 }
 
 function deleteCar(id, onDeleted){
@@ -8745,6 +9006,7 @@ function renderDrivers(){
       d.nama.toLowerCase().includes(q) || (d.noSim||'').toLowerCase().includes(q) || (d.noHp||'').toLowerCase().includes(q)
     ));
   });
+  wireSearchClear('driver-search');
 }
 
 function deleteDriver(id, onDeleted){
@@ -9000,7 +9262,7 @@ function openDurasiAnomaliInfoModal(menit, rata2, jumlahSampel, lebihLama){
   if(lebihLama){
     judul = 'Lebih Lama dari Biasanya'; ikon = '⏱️';
     isi = `Durasi trip ini (<b>${menitLabel}</b>) jauh lebih lama dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${jumlahSampel} perjalanan lain).`;
-    catatan = 'Kemungkinan macet, ada singgah dulu, atau lupa langsung Tandai Tiba. Bukan otomatis salah -- cuma penanda untuk dicek kalau perlu.';
+    catatan = 'Kemungkinan macet, ada singgah dulu, atau lupa langsung Akhiri Trip. Bukan otomatis salah -- cuma penanda untuk dicek kalau perlu.';
   } else {
     judul = 'Lebih Cepat dari Biasanya'; ikon = '⏱️';
     isi = `Durasi trip ini (<b>${menitLabel}</b>) jauh lebih cepat dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${jumlahSampel} perjalanan lain).`;
@@ -9019,13 +9281,13 @@ function openJarakAnomaliInfoModal(jarak, rata2, jumlahSampel, lebihBesar){
   } else {
     judul = 'Jarak Tidak Wajar'; ikon = '📏';
     isi = `Jarak trip ini (<b>${jarakLabel}</b>) jauh lebih kecil dari rata-rata ke tujuan yang sama (${rata2Label}, dari ${jumlahSampel} perjalanan lain).`;
-    catatan = 'Cek lagi Odometer Berangkat/Tiba yang diisi -- kemungkinan salah ketik.';
+    catatan = 'Cek lagi Odometer Berangkat/Akhiri Trip yang diisi -- kemungkinan salah ketik.';
   }
   openBadgeExplainModal(ikon, judul, isi, catatan);
 }
 function openEtollAkurasiInfoModal(isEstimasi){
   if(isEstimasi){
-    openBadgeExplainModal('📊', 'Estimasi', 'Saldo E-Toll Saat Berangkat trip ini tidak diisi -- sistem otomatis memakai Saldo E-Toll Saat Tiba dari trip sebelumnya (kartu yang sama) sebagai gantinya.', 'Tetap dari data nyata (bukan tebakan kasar), cuma titik awalnya "dipinjam" dari trip lain, bukan langsung diisi di trip ini.');
+    openBadgeExplainModal('📊', 'Estimasi', 'Saldo E-Toll Saat Berangkat trip ini tidak diisi -- sistem otomatis memakai Saldo E-Toll Saat Akhiri Trip dari trip sebelumnya (kartu yang sama) sebagai gantinya.', 'Tetap dari data nyata (bukan tebakan kasar), cuma titik awalnya "dipinjam" dari trip lain, bukan langsung diisi di trip ini.');
   } else {
     openBadgeExplainModal('✅', 'Akurat', 'Dihitung langsung dari Saldo E-Toll Saat Berangkat yang diisi di trip ini sendiri.', 'Tidak ada data "pinjaman" dari trip lain -- ini perhitungan paling akurat.');
   }
@@ -9104,6 +9366,7 @@ function renderDestinations(){
     const q = e.target.value.trim().toLowerCase();
     renderTable(allItems.filter(d => d.nama.toLowerCase().includes(q)));
   });
+  wireSearchClear('destination-search');
 }
 
 function deleteDestination(id, onDeleted){
@@ -9499,7 +9762,7 @@ function renderUsage(){
         Kode: u.kode||'', Mobil: carLabel(u.carId), Driver: driverLabel(u.driverId,u.driver),
         'Jenis Perjalanan': u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman', Tujuan: u.tujuan||'',
         'Tujuan Tambahan': Array.isArray(u.tujuanTambahan)&&u.tujuanTambahan.length ? u.tujuanTambahan.join('; ') : '',
-        Berangkat: u.tglKeluar||'', 'Jam Berangkat': u.jamKeluar||'', Tiba: u.tglKembali||'', 'Jam Tiba': u.jamKembali||'',
+        Berangkat: u.tglKeluar||'', 'Jam Berangkat': u.jamKeluar||'', 'Akhiri Trip': u.tglKembali||'', 'Jam Akhiri Trip': u.jamKembali||'',
         'Jarak (KM)': jarak, 'Liter BBM': u.literBensin||'', 'Biaya BBM': u.biayaBensin||'',
         Status: u.status==='digunakan'?'Digunakan':'Selesai',
       };
@@ -9810,7 +10073,7 @@ function renderUsage(){
         ? `<button class="btn btn-ghost btn-sm" data-edit="${u.id}">✏️ Edit</button>`
         : `<button class="btn btn-ghost btn-sm" data-edit-choice="${u.id}">✏️ Edit ▾</button>`}
       <button class="btn btn-ghost btn-sm" data-biayaop="${u.id}">${isOperasional ? '🧾 Biaya Operasional' : '🏠 Biaya Pribadi'}</button>
-      ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Tiba</button>` : ''}
+      ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Akhiri Trip</button>` : ''}
     `;
     return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, biayaTolInfo, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, etollBiayaTotal, isOperasional, durationLabel, actionButtonsHtml };
   }
@@ -10402,6 +10665,7 @@ function renderUsage(){
     viewMode = 'list'; setActiveToggleButtons(); renderCurrentView();
   });
   document.getElementById('usage-search').addEventListener('input', renderCurrentView);
+  wireSearchClear('usage-search');
 
   setActiveToggleButtons();
   renderCurrentView();
@@ -10414,11 +10678,17 @@ function markReturned(id){
   const linkedCard = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
   const carForFuel = state.cars.find(c=>c.id===u.carId); // mobil sudah tetap di form ini, tidak perlu reaktif
   const body = `
-    <p style="font-size:13px;color:var(--muted);margin-top:0;">Perbarui kondisi mobil saat kembali (opsional).</p>
-    <div class="grid-2">
-      <div class="field" id="f-odo-kembali">
+    <div class="tf-card tem-info-card">
+      <div class="tem-info-ic">🚗</div>
+      <div>
+        <div class="tem-info-title">${escapeHtml(carLabel(u.carId))}</div>
+        <div class="tem-info-sub">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${escapeHtml(u.tujuan||'-')}</div>
+      </div>
+    </div>
+    <div class="tf-card">
+      <div class="field" id="f-odo-kembali" style="margin-bottom:0;">
         <label style="display:flex;align-items:center;justify-content:space-between;">
-          <span>Odometer Saat Tiba (KM)</span>
+          <span>Odometer Saat Akhiri Trip (KM)</span>
           <span id="odo-kembali-est-badge"></span>
         </label>
         <div class="gps-est-input-wrap">
@@ -10428,34 +10698,41 @@ function markReturned(id){
         <div class="err-msg">Odometer tiba tidak boleh lebih kecil dari odometer berangkat (${u.odoKeluar!=null ? Number(u.odoKeluar).toLocaleString('id-ID') : '-'} KM).</div>
         <div class="hint" id="odo-kembali-gps-hint" style="display:none;"></div>
       </div>
-      <div class="field">
-        <label>Jam Tiba</label>
+    </div>
+    <div class="tf-card">
+      <div class="field" style="margin-bottom:0;">
+        <label>Jam Akhiri Trip</label>
         <input type="time" id="in-jam-kembali" value="${u.jamKembali||''}">
       </div>
     </div>
-    <div class="grid-2">
-      <div class="field" id="box-bensin-kembali">
-        ${renderFuelFieldHTML('in-bensin-kembali', 'Sisa Bensin', getBensinKembali(u), carForFuel)}
-      </div>
-      <div class="field">
+    <div class="field" id="box-bensin-kembali" style="margin-bottom:10px;">
+      ${renderFuelFieldHTML('in-bensin-kembali', 'Sisa Bensin', getBensinKembali(u), carForFuel)}
+    </div>
+    <div class="tf-card">
+      <div class="field" style="margin-bottom:0;">
         <label>Saldo E-Toll (Rp)</label>
         <input type="text" inputmode="numeric" id="in-etoll-kembali" placeholder="Contoh: 50.000" value="${fmtRibuanInitial(u.saldoEtoll)}">
         <div class="hint">${linkedCard ? `Terhubung ke kartu ${escapeHtml(linkedCard.nomorKartu)} — saldo di sini akan otomatis memperbarui saldo kartu tersebut.` : 'Perjalanan ini tidak terhubung ke kartu E-Toll manapun.'}</div>
       </div>
     </div>
-    <div class="grid-2">
-      <div class="field">
-        <label>Jumlah BBM (Liter)</label>
-        <input type="text" inputmode="numeric" id="in-liter-bensin" placeholder="Contoh: 20" value="${u.literBensin ?? ''}">
-      </div>
-      <div class="field">
-        <label>Biaya BBM (Rp)</label>
-        <input type="text" inputmode="numeric" id="in-biaya-bensin" placeholder="Contoh: 200.000" value="${fmtRibuanInitial(u.biayaBensin)}">
+    <div class="tf-card">
+      <div class="tem-card-title">⛽ Isi BBM (opsional)</div>
+      <div class="grid-2">
+        <div class="field" style="margin-bottom:0;">
+          <label>Jumlah BBM (Liter)</label>
+          <input type="text" inputmode="numeric" id="in-liter-bensin" placeholder="Contoh: 20" value="${u.literBensin ?? ''}">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Biaya BBM (Rp)</label>
+          <input type="text" inputmode="numeric" id="in-biaya-bensin" placeholder="Contoh: 200.000" value="${fmtRibuanInitial(u.biayaBensin)}">
+        </div>
       </div>
     </div>
   `;
   openModal({
-    title: u.status==='digunakan' ? 'Tandai Mobil Telah Tiba' : 'Edit Data Tiba',
+    title: u.status==='digunakan' ? 'Konfirmasi Akhiri Trip' : 'Edit Data Akhiri Trip',
+    modalClass: 'trip-end-modal',
+    saveLabel: u.status==='digunakan' ? 'Akhiri Trip' : 'Simpan',
     body,
     onSave: () => {
       const bensin = getPercentValue('in-bensin-kembali');
@@ -10565,8 +10842,8 @@ function markReturned(id){
       // yang paling perlu jejak, karena mengubah data yang tadinya sudah
       // dianggap final.
       if(before.status==='selesai'){
-        logFieldChanges('penggunaan', `Edit Data Tiba — ${carLabel(u.carId)}`, before, u, [
-          ['odoKembali', 'Odometer Tiba', v=> v==null?'-':Number(v).toLocaleString('id-ID')+' KM'],
+        logFieldChanges('penggunaan', `Edit Data Akhiri Trip — ${carLabel(u.carId)}`, before, u, [
+          ['odoKembali', 'Odometer Akhiri Trip', v=> v==null?'-':Number(v).toLocaleString('id-ID')+' KM'],
           ['bensinKembali', 'BBM Akhir', v=> v==null?'-':formatBensinDisplay(v, carForFuel)],
           ['literBensin', 'Liter BBM', v=> v==null?'-':v+' L'],
           ['biayaBensin', 'Biaya BBM', v=> v==null?'-':fmtMoney(v)],
@@ -11025,7 +11302,7 @@ function buildReceiptElement(u){
       <div><b>Jenis:</b> ${u.jenisPenggunaan==='pribadi' ? '🏠 Pribadi' : '🧾 Operasional'}</div>
       <div><b>Tujuan:</b> ${escapeHtml(u.tujuan||'-')}</div>
       <div><b>Berangkat:</b> ${fmtDate(u.tglKeluar)}${u.jamKeluar ? ', '+u.jamKeluar : ''}</div>
-      <div><b>Tiba:</b> ${u.tglKembali ? fmtDate(u.tglKembali)+(u.jamKembali?', '+u.jamKembali:'') : '-'}</div>
+      <div><b>Akhiri Trip:</b> ${u.tglKembali ? fmtDate(u.tglKembali)+(u.jamKembali?', '+u.jamKembali:'') : '-'}</div>
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px;">
       ${items.map(it=>`
@@ -11259,7 +11536,7 @@ async function sendInstantNotaConfirmAsk(u){
       // di atas) yang melakukan hal PERSIS sama (mengirim Tanda Terima +
       // nota yang sudah dilampirkan ke Admin Finance) -- cukup 1 jalur kirim,
       // tidak perlu tombol Telegram duplikat.
-      'Untuk meneruskan Tanda Terima Perjalanan ini ke Admin Finance, buka aplikasi FleetOps -- di popup "Tanda Terima Perjalanan" yang otomatis muncul setelah Tandai Tiba, tekan tombol 📨 Kirim ke Finance.',
+      'Untuk meneruskan Tanda Terima Perjalanan ini ke Admin Finance, buka aplikasi FleetOps -- di popup "Tanda Terima Perjalanan" yang otomatis muncul setelah Akhiri Trip, tekan tombol 📨 Kirim ke Finance.',
     ].join('\n');
     const bodyStr = JSON.stringify({ chatId, text });
     const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai`, {
@@ -11543,7 +11820,7 @@ function buildTripReceiptElement(u){
       <div><b>Sopir:</b> ${escapeHtml(driverLabel(u.driverId, u.driver))}</div>
       <div><b>Tujuan:</b> ${escapeHtml(u.tujuan||'-')}</div>
       <div><b>Berangkat:</b> ${fmtDate(u.tglKeluar)}${u.jamKeluar ? ', '+u.jamKeluar : ''}</div>
-      <div><b>Tiba:</b> ${u.tglKembali ? fmtDate(u.tglKembali)+(u.jamKembali?', '+u.jamKembali:'') : '-'}</div>
+      <div><b>Akhiri Trip:</b> ${u.tglKembali ? fmtDate(u.tglKembali)+(u.jamKembali?', '+u.jamKembali:'') : '-'}</div>
       <div><b>Durasi:</b> ${fmtDuration(u)}</div>
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px;">
@@ -12050,112 +12327,133 @@ function openUsageModal(editId, presetCarId){
   }
 
   const body = `
-    <div class="field" id="f-car">
-      <label>Mobil *</label>
-      <select id="in-car"><option value="">— pilih mobil —</option>${carOptions}</select>
-      <div class="err-msg">Pilih mobil yang tersedia.</div>
-    </div>
-    <div class="field" id="f-driver">
-      <label>Sopir *</label>
-      <select id="in-driver"><option value="">— pilih sopir —</option>${buildDriverOptions(editing?editing.driverId:null)}</select>
-      <div class="err-msg">Pilih sopir.</div>
-    </div>
-    <div class="field" id="f-jenis-pakai">
-      <label>Jenis Perjalanan *</label>
-      <select id="in-jenis-pakai">
-        <option value="pengiriman" ${editing&&editing.jenisPenggunaan==='pengiriman'?'selected':''}>Pengiriman (operasional)</option>
-        <option value="pribadi" ${editing&&editing.jenisPenggunaan==='pribadi'?'selected':''}>Pribadi</option>
-      </select>
-    </div>
-    <div class="field" id="f-tujuan">
-      <label>Tujuan / Keperluan *</label>
-      <input type="text" id="in-tujuan" placeholder="Contoh: Gudang Surabaya - Toko A" autocomplete="off" value="${editing?escapeHtml(editing.tujuan||''):''}">
-      <div class="err-msg">Tujuan wajib diisi.</div>
-      <div class="hint" id="tujuan-ref-hint" style="display:none;"></div>
-    </div>
-    <div class="field">
-      <label>Tujuan Tambahan (opsional)</label>
-      <div id="tujuan-tambahan-wrap"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px;">
-        <div class="hint" style="margin:0;">Kalau trip ini mampir ke lebih dari 1 tempat (mis. antar barang ke beberapa gudang sekaligus), tambahkan di sini -- Odometer & BBM tetap dicatat 1 kali untuk SELURUH trip, bukan per titik.</div>
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-optimalkan-urutan" style="white-space:nowrap;flex-shrink:0;">🔀 Optimalkan Urutan</button>
+    <div class="tf-card">
+      <div class="field" id="f-car" style="margin-bottom:0;">
+        <label>Mobil *</label>
+        <select id="in-car" data-sheet="1" data-icon="🚗" data-sheet-title="Pilih mobil" data-sheet-subtitle="Mobil yang sedang dipakai tidak bisa dipilih"><option value="">— pilih mobil —</option>${carOptions}</select>
+        <div class="err-msg">Pilih mobil yang tersedia.</div>
       </div>
-      <div id="optimalkan-urutan-hasil" class="hint" style="display:none;"></div>
-    </div>
-    <div class="field">
-      <label>Link Google Maps Tujuan (opsional)</label>
-      <input type="text" id="in-maps-link" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
-      <div id="maps-link-preview" style="margin-top:6px;"></div>
-      <div class="hint">Terisi otomatis kalau tujuan ini sudah pernah dicatat. Klik "Rute" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- otomatis ikut memperbarui Data Tujuan supaya perjalanan berikutnya ke tujuan ini pakai link terbaru juga. Bisa juga diperbarui langsung lewat menu Data Tujuan.</div>
-    </div>
-    <div class="grid-2">
-      <div class="field">
-        <label>Tanggal Berangkat</label>
-        ${editing ? `
-        <input type="date" id="in-tglkeluar" value="${editing.tglKeluar}">
-        ` : `
-        <!-- v3.130.0 -- SENGAJA disembunyikan (bukan cuma dropdown pilihan)
-             KHUSUS trip BARU -- tanggal SELALU otomatis "hari ini", tidak
-             bisa diubah manual sama sekali, TIDAK PEDULI Mode Sopir
-             terkunci/terbuka atau PIN mana yang dipakai (Mode Sopir/Super Akses) --
-             ini pengaman integritas data, bukan soal level akses. Kalau
-             memang perlu DIKOREKSI (bukan dimanipulasi saat input), pakai
-             menu Edit trip yang sudah tercatat (mis. lewat "Pemeriksaan
-             Tanggal" di Pengaturan) -- field tanggal MASIH bisa diubah di
-             situ, cuma tidak di form catat trip baru ini. -->
-        <input type="hidden" id="in-tglkeluar" value="${today()}">
-        <div style="border:1px solid var(--line);border-radius:7px;padding:8px 10px;font-size:12.5px;color:var(--muted);background:var(--hover-bg);">🔒 Otomatis: hari ini</div>
-        `}
-      </div>
-      <div class="field">
-        <label>Jam Berangkat</label>
-        <input type="time" id="in-jam-keluar" value="${editing&&editing.jamKeluar?editing.jamKeluar:new Date().toTimeString().slice(0,5)}">
+      <div class="tf-row-divider"></div>
+      <div class="field" id="f-driver" style="margin-bottom:0;">
+        <label>Sopir *</label>
+        <select id="in-driver" data-sheet="1" data-icon="🧑‍✈️" data-sheet-title="Pilih sopir"><option value="">— pilih sopir —</option>${buildDriverOptions(editing?editing.driverId:null)}</select>
+        <div class="err-msg">Pilih sopir.</div>
       </div>
     </div>
-    <div class="field" id="f-odo-keluar">
-      <label style="display:flex;align-items:center;justify-content:space-between;">
-        <span>Odometer Saat Berangkat (KM)</span>
-        <span id="odo-keluar-est-badge"></span>
-      </label>
-      <div class="gps-est-input-wrap">
-        <span class="gps-est-icon" id="odo-keluar-est-icon" style="display:none;">🛰️</span>
-        <input type="text" inputmode="numeric" id="in-odo-keluar" placeholder="Contoh: 45.000" value="${editing?fmtRibuanInitial(editing.odoKeluar):''}">
+    <div class="tf-card">
+      <div class="field" id="f-jenis-pakai" style="margin-bottom:0;">
+        <label>Jenis Perjalanan *</label>
+        <div class="tf-chip-group" id="jenis-pakai-chips">
+          <div class="tf-chip${(!editing || editing.jenisPenggunaan!=='pribadi')?' active':''}" data-val="pengiriman">Pengiriman (operasional)</div>
+          <div class="tf-chip${(editing && editing.jenisPenggunaan==='pribadi')?' active':''}" data-val="pribadi">Pribadi</div>
+        </div>
+        <input type="hidden" id="in-jenis-pakai" value="${editing ? editing.jenisPenggunaan : 'pengiriman'}">
       </div>
-      <div class="hint">Diisi supaya jarak tempuh perjalanan ini bisa dihitung otomatis.</div>
-      <div class="hint" id="odo-keluar-gps-hint" style="display:none;"></div>
     </div>
-    <div class="field" id="box-bensin-keluar">
+    <div class="tf-card">
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="display:flex;flex-direction:column;align-items:center;padding-top:34px;flex-shrink:0;">
+          <span style="width:9px;height:9px;border-radius:50%;background:var(--green);flex-shrink:0;"></span>
+          <span style="width:1.5px;height:34px;background:var(--line);margin:2px 0;"></span>
+          <span style="width:9px;height:9px;border-radius:3px;background:var(--blue);flex-shrink:0;"></span>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div class="field" id="f-tujuan" style="margin-bottom:10px;">
+            <label>Tujuan / Keperluan *</label>
+            <input type="text" id="in-tujuan" placeholder="Contoh: Gudang Surabaya - Toko A" autocomplete="off" value="${editing?escapeHtml(editing.tujuan||''):''}">
+            <div class="err-msg">Tujuan wajib diisi.</div>
+            <div class="hint" id="tujuan-ref-hint" style="display:none;"></div>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Tujuan Tambahan (opsional)</label>
+            <div id="tujuan-tambahan-wrap"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px;">
+              <div class="hint" style="margin:0;">Kalau trip ini mampir ke lebih dari 1 tempat (mis. antar barang ke beberapa gudang sekaligus), tambahkan di sini -- Odometer & BBM tetap dicatat 1 kali untuk SELURUH trip, bukan per titik.</div>
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-optimalkan-urutan" style="white-space:nowrap;flex-shrink:0;">🔀 Optimalkan Urutan</button>
+            </div>
+            <div id="optimalkan-urutan-hasil" class="hint" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">
+        <label>Link Google Maps Tujuan (opsional)</label>
+        <input type="text" id="in-maps-link" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
+        <div id="maps-link-preview" style="margin-top:6px;"></div>
+        <div class="hint">Terisi otomatis kalau tujuan ini sudah pernah dicatat. Klik "Rute" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- otomatis ikut memperbarui Data Tujuan supaya perjalanan berikutnya ke tujuan ini pakai link terbaru juga. Bisa juga diperbarui langsung lewat menu Data Tujuan.</div>
+      </div>
+    </div>
+    <div class="tf-card">
+      <div class="grid-2">
+        <div class="field" style="margin-bottom:0;">
+          <label>Tanggal Berangkat</label>
+          ${editing ? `
+          <input type="date" id="in-tglkeluar" value="${editing.tglKeluar}">
+          ` : `
+          <!-- v3.130.0 -- SENGAJA disembunyikan (bukan cuma dropdown pilihan)
+               KHUSUS trip BARU -- tanggal SELALU otomatis "hari ini", tidak
+               bisa diubah manual sama sekali, TIDAK PEDULI Mode Sopir
+               terkunci/terbuka atau PIN mana yang dipakai (Mode Sopir/Super Akses) --
+               ini pengaman integritas data, bukan soal level akses. Kalau
+               memang perlu DIKOREKSI (bukan dimanipulasi saat input), pakai
+               menu Edit trip yang sudah tercatat (mis. lewat "Pemeriksaan
+               Tanggal" di Pengaturan) -- field tanggal MASIH bisa diubah di
+               situ, cuma tidak di form catat trip baru ini. -->
+          <input type="hidden" id="in-tglkeluar" value="${today()}">
+          <div style="border:1px solid var(--line);border-radius:7px;padding:8px 10px;font-size:12.5px;color:var(--muted);background:var(--hover-bg);">🔒 Otomatis: hari ini</div>
+          `}
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Jam Berangkat</label>
+          <input type="time" id="in-jam-keluar" value="${editing&&editing.jamKeluar?editing.jamKeluar:new Date().toTimeString().slice(0,5)}">
+        </div>
+      </div>
+    </div>
+    <div class="tf-card">
+      <div class="field" id="f-odo-keluar" style="margin-bottom:0;">
+        <label style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Odometer Saat Berangkat (KM)</span>
+          <span id="odo-keluar-est-badge"></span>
+        </label>
+        <div class="gps-est-input-wrap">
+          <span class="gps-est-icon" id="odo-keluar-est-icon" style="display:none;">🛰️</span>
+          <input type="text" inputmode="numeric" id="in-odo-keluar" placeholder="Contoh: 45.000" value="${editing?fmtRibuanInitial(editing.odoKeluar):''}">
+        </div>
+        <div class="hint">Diisi supaya jarak tempuh perjalanan ini bisa dihitung otomatis.</div>
+        <div class="hint" id="odo-keluar-gps-hint" style="display:none;"></div>
+      </div>
+    </div>
+    <div class="field" id="box-bensin-keluar" style="margin-bottom:10px;">
       ${renderFuelFieldHTML('in-bensin', 'Sisa Bensin Saat Berangkat', editing?getBensinKeluar(editing):null, editing?state.cars.find(c=>c.id===editing.carId):null)}
     </div>
-    <div class="field" id="f-etoll-card">
-      <label>Kartu E-Toll Dipakai</label>
-      <select id="in-etoll-card">
-        <!-- v3.73.1 -- field ini DIPINDAH keluar dari grid-2 (dulu
-             berdampingan dgn box-bensin-keluar). Akar masalah "sempit"
-             ternyata BUKAN soal dropdown-nya (sudah diverifikasi 2 lapis
-             pengaman di v3.73.0), tapi field BBM di sebelahnya memang lebar
-             (9 tombol), jadi memaksa kolom 50% ini ikut sempit apa pun
-             isinya. Sekarang jadi baris penuh sendiri -- JANGAN dikembalikan
-             ke dalam grid-2 berdampingan dgn box-bensin-keluar lagi. -->
-        <option value="">— tidak pakai kartu / isi manual —</option>
-        ${state.etollCards.map(card=>{
-          const nomor = String(card.nomorKartu||'');
-          // v3.73.2 -- nomor kartu ditampilkan PENUH (tidak lagi
-          // dipotong "•••• XXXX"), konsisten dengan etollCardPreviewHtml()
-          // yang dari awal sudah menampilkan nomor penuh. Aman dicoba
-          // karena Dropdown Kustom SUDAH punya jaring pengaman ellipsis
-          // (lihat catatan v3.61.0 di atas): kotak tertutup memotong teks
-          // panjang dengan "..." kalau perlu, panel pilihan boleh melebar
-          // supaya tetap 1 baris utuh & terbaca. Kalau nanti ternyata masih
-          // terlihat kurang rapi di device tertentu, tinggal ganti baris di
-          // bawah balik ke versi ringkas (kode lama dikomentari di sini):
-          // const nomorRingkas = nomor.length>4 ? '•••• '+nomor.slice(-4) : nomor;
-          const nomorRingkas = nomor;
-          return `<option value="${card.id}" ${editing&&editing.etollCardId===card.id?'selected':''}>${escapeHtml(nomorRingkas)}${card.mobilId?' — '+escapeHtml(carLabel(card.mobilId)):''}</option>`;
-        }).join('')}
-      </select>
-    </div>
-    <div class="field">
+    <div class="tf-card">
+      <div class="field" id="f-etoll-card" style="margin-bottom:10px;">
+        <label>Kartu E-Toll Dipakai</label>
+        <select id="in-etoll-card">
+          <!-- v3.73.1 -- field ini DIPINDAH keluar dari grid-2 (dulu
+               berdampingan dgn box-bensin-keluar). Akar masalah "sempit"
+               ternyata BUKAN soal dropdown-nya (sudah diverifikasi 2 lapis
+               pengaman di v3.73.0), tapi field BBM di sebelahnya memang lebar
+               (9 tombol), jadi memaksa kolom 50% ini ikut sempit apa pun
+               isinya. Sekarang jadi baris penuh sendiri -- JANGAN dikembalikan
+               ke dalam grid-2 berdampingan dgn box-bensin-keluar lagi. -->
+          <option value="">— tidak pakai kartu / isi manual —</option>
+          ${state.etollCards.map(card=>{
+            const nomor = String(card.nomorKartu||'');
+            // v3.73.2 -- nomor kartu ditampilkan PENUH (tidak lagi
+            // dipotong "•••• XXXX"), konsisten dengan etollCardPreviewHtml()
+            // yang dari awal sudah menampilkan nomor penuh. Aman dicoba
+            // karena Dropdown Kustom SUDAH punya jaring pengaman ellipsis
+            // (lihat catatan v3.61.0 di atas): kotak tertutup memotong teks
+            // panjang dengan "..." kalau perlu, panel pilihan boleh melebar
+            // supaya tetap 1 baris utuh & terbaca. Kalau nanti ternyata masih
+            // terlihat kurang rapi di device tertentu, tinggal ganti baris di
+            // bawah balik ke versi ringkas (kode lama dikomentari di sini):
+            // const nomorRingkas = nomor.length>4 ? '•••• '+nomor.slice(-4) : nomor;
+            const nomorRingkas = nomor;
+            return `<option value="${card.id}" ${editing&&editing.etollCardId===card.id?'selected':''}>${escapeHtml(nomorRingkas)}${card.mobilId?' — '+escapeHtml(carLabel(card.mobilId)):''}</option>`;
+          }).join('')}
+        </select>
+      </div>
       <div class="etoll-merged-wrap">
         <div id="etoll-card-preview">${editing && editing.etollCardId ? etollCardPreviewHtml(state.etollCards.find(c=>c.id===editing.etollCardId)) : ''}</div>
         <div class="etoll-saldo-label-row"><span>Saldo E-Toll Saat Berangkat</span><span class="tag">Bisa diedit</span></div>
@@ -12271,6 +12569,13 @@ function openUsageModal(editId, presetCarId){
     }
   });
   attachRibuanInput('in-etoll');
+  document.querySelectorAll('#jenis-pakai-chips .tf-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      document.querySelectorAll('#jenis-pakai-chips .tf-chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      document.getElementById('in-jenis-pakai').value = chip.dataset.val;
+    });
+  });
   attachAutocomplete('in-tujuan', () => state.destinations.map(d=>d.nama));
   wireMapsAutofill('in-tujuan', 'in-maps-link', editing ? editing.id : null, 'maps-link-preview');
   wireDestinationRefHint('in-tujuan', 'tujuan-ref-hint');
@@ -12539,6 +12844,7 @@ function renderBookings(){
       (b.tglMulai||'').includes(q)
     ));
   });
+  wireSearchClear('booking-search');
 }
 
 // v3.212.0 -- BARU: tampilan kalender bulanan Booking Mobil (alternatif dari
@@ -12720,7 +13026,11 @@ function openBookingModal(editId){
     <div class="field">
       <label>Tujuan Tambahan (opsional)</label>
       <div id="tujuan-tambahan-wrap"></div>
-      <div class="hint">Kalau booking ini bakal mampir ke lebih dari 1 tempat, tambahkan di sini.</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px;">
+        <div class="hint" style="margin:0;">Kalau booking ini bakal mampir ke lebih dari 1 tempat, tambahkan di sini.</div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-optimalkan-urutan" style="white-space:nowrap;flex-shrink:0;">🔀 Optimalkan Urutan</button>
+      </div>
+      <div id="optimalkan-urutan-hasil" class="hint" style="display:none;"></div>
     </div>
     <div class="field">
       <label>Link Google Maps Tujuan (opsional)</label>
@@ -12851,8 +13161,62 @@ function openBookingModal(editId){
   wireMapsAutofill('in-tujuan', 'in-maps-link', editing ? editing.id : null, 'maps-link-preview');
   wireDestinationRefHint('in-tujuan', 'tujuan-ref-hint');
   tujuanTambahanHandle = wireTujuanTambahanInput('tujuan-tambahan-wrap', editing ? editing.tujuanTambahan : null);
-
-  // Wiring checklist "Kirim Reminder Telegram Ke" -- Pilih Semua <-> individual.
+  // v3.222.0 -- BARU: "Optimalkan Urutan" diperluas ke Booking Mobil --
+  // logikanya SENGAJA disalin persis dari openUsageModal (Catat Perjalanan,
+  // lihat komentar v3.217.0 di sana) karena struktur data tujuan (tujuan +
+  // tujuanTambahan + mapsLink) sama persis di kedua form, dan endpoint
+  // worker.js /optimize-route (termasuk batas pemakaian harian 100x/hari)
+  // sudah generik, tidak spesifik Catat Perjalanan -- TIDAK perlu perubahan
+  // apa pun di worker.js untuk ini.
+  document.getElementById('btn-optimalkan-urutan').onclick = async () => {
+    const tujuanUtama = document.getElementById('in-tujuan').value.trim();
+    const tambahanList = tujuanTambahanHandle ? tujuanTambahanHandle.get() : [];
+    const semuaNama = [tujuanUtama, ...tambahanList].filter(Boolean);
+    const hasilEl = document.getElementById('optimalkan-urutan-hasil');
+    hasilEl.style.display = 'block';
+    if(semuaNama.length < 2){
+      hasilEl.textContent = '⚠️ Minimal 2 tujuan (isi dulu Tujuan Tambahan) untuk bisa dioptimalkan urutannya.';
+      return;
+    }
+    if(!isGhConnected() || !ghConfig.notifySecret){
+      hasilEl.textContent = '⚠️ Fitur ini butuh koneksi Worker & Notify Secret -- cek dulu di Pengaturan → Koneksi GitHub/Worker.';
+      return;
+    }
+    const mapsLinkUtama = document.getElementById('in-maps-link').value.trim();
+    const poin = [];
+    const belumAdaKoordinat = [];
+    semuaNama.forEach((nama, i)=>{
+      let link = (i===0 && mapsLinkUtama) ? mapsLinkUtama : null;
+      if(!link){
+        const dest = findDestinationByName(nama);
+        link = dest ? dest.mapsLink : null;
+      }
+      const koor = link ? extractLatLng(link) : null;
+      if(koor) poin.push({ nama, lat: koor.lat, lon: koor.lon });
+      else belumAdaKoordinat.push(nama);
+    });
+    if(belumAdaKoordinat.length > 0){
+      hasilEl.innerHTML = `⚠️ Tujuan ini belum punya link Maps tersimpan, jadi belum bisa dioptimalkan: <b>${belumAdaKoordinat.map(escapeHtml).join(', ')}</b>. Tambahkan link Maps-nya dulu di Data Tujuan.`;
+      return;
+    }
+    hasilEl.textContent = '⏳ Menghitung urutan paling efisien...';
+    try{
+      const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/optimize-route`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+        body: JSON.stringify({ points: poin.map(p=>({lat:p.lat, lon:p.lon})) }),
+      });
+      const data = await res.json();
+      if(!res.ok || !data.ok){ hasilEl.textContent = `❌ ${data.error || 'Gagal menghitung urutan.'}`; return; }
+      const urutanBaru = data.order.map(idx => poin[idx].nama);
+      document.getElementById('in-tujuan').value = urutanBaru[0];
+      tujuanTambahanHandle.set(urutanBaru.slice(1));
+      const jarakInfo = data.jarakMeter!=null ? ` (~${(data.jarakMeter/1000).toLocaleString('id-ID',{maximumFractionDigits:1})} KM total)` : '';
+      hasilEl.innerHTML = `✅ Urutan diperbarui${jarakInfo}: ${urutanBaru.map(escapeHtml).join(' → ')}`;
+    }catch(e){
+      hasilEl.textContent = '❌ Gagal terhubung ke server untuk menghitung urutan.';
+    }
+  };
   const pilihSemuaCb = document.getElementById('in-notif-pilih-semua');
   if(pilihSemuaCb){
     const individualCbs = Array.from(document.querySelectorAll('.in-notif-driver-cb'));
@@ -13315,6 +13679,7 @@ function renderService(){
     renderTable(filtered);
   }
   document.getElementById('service-search').addEventListener('input', applyFilter);
+  wireSearchClear('service-search');
   document.getElementById('service-filter-kategori').addEventListener('change', applyFilter);
 }
 
@@ -13686,6 +14051,7 @@ function renderDocs(){
       docOwnerSearchText(d).includes(q) || d.jenis.toLowerCase().includes(q) || (d.nomor||'').toLowerCase().includes(q)
     ));
   });
+  wireSearchClear('doc-search');
 }
 
 function deleteDocument(id, onDeleted){
@@ -14872,6 +15238,7 @@ function renderBBM(){
       carLabel(u.carId).toLowerCase().includes(q) || driverLabel(u.driverId, u.driver).toLowerCase().includes(q)
     ));
   });
+  wireSearchClear('bbm-search');
 }
 
 function renderEtollCards(){
@@ -14986,6 +15353,7 @@ function renderEtollCards(){
       card.nomorKartu.toLowerCase().includes(q) || (card.mobilId ? carLabel(card.mobilId).toLowerCase().includes(q) : false)
     ));
   });
+  wireSearchClear('etoll-search');
 }
 
 // v3.143.0 -- Helper dipakai di form "Catat Perjalanan" & "Tandai Kembali":
@@ -17361,11 +17729,11 @@ function toggleFieldError(fieldId, hasError){
   if(el) el.classList.toggle('error', !!hasError);
 }
 
-function openModal({title, body, onSave, saveLabel, footerNote}){
+function openModal({title, body, onSave, saveLabel, footerNote, modalClass}){
   const root = document.getElementById('modal-root');
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay">
-      <div class="modal">
+      <div class="modal${modalClass ? ' '+modalClass : ''}">
         <div class="modal-head">
           <h3>${escapeHtml(title)}</h3>
           <button class="modal-close" id="modal-close">✕</button>
@@ -17414,6 +17782,80 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.225.0',
+    date: '02 Agu 2026',
+    notes: [
+      '🎨 Desain ulang form <b>Akhiri Trip</b> (tombol "✅ Akhiri Trip") -- terinspirasi tampilan Gojek/Grab, senada dengan redesain Catat Perjalanan sebelumnya. Field dikelompokkan jadi kartu-kartu terpisah (info mobil & sopir, Odometer, Jam, Sisa Bensin, Saldo E-Toll, Isi BBM opsional), header modal jadi gelap, tombol simpan jadi hijau penuh 1 baris.',
+      '🔧 MURNI perubahan tampilan -- semua id field, urutan validasi, dan logika `onSave` (termasuk sinkron Odometer Mobil, Kartu E-Toll, rata-rata kecepatan GPS.id, dan pengiriman Resi/notifikasi Telegram) TIDAK disentuh sama sekali.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.224.0',
+    date: '02 Agu 2026',
+    notes: [
+      '🎨 Desain ulang form <b>Catat Perjalanan</b> -- terinspirasi tampilan Gojek/Grab supaya lebih terbaca & profesional. Field dikelompokkan jadi kartu-kartu terpisah (Mobil & Sopir, Jenis Perjalanan, Rute/Tujuan, Tanggal & Jam, Odometer, Bensin, E-Toll) alih-alih 1 daftar panjang menerus.',
+      '📱 Field <b>Mobil</b> & <b>Sopir</b> sekarang dipilih lewat bottom sheet (kartu besar + ikon, mobil yang sedang dipakai otomatis pudar & tidak bisa dipilih) alih-alih dropdown kecil biasa. Field <b>Jenis Perjalanan</b> jadi 2 tombol pil (chip) yang bisa langsung disentuh.',
+      '🔧 Semua id/logic field TIDAK berubah (Mobil/Sopir/Jenis Perjalanan tetap disimpan lewat elemen yang sama seperti sebelumnya) -- ini murni perubahan tampilan, bukan perubahan cara data disimpan atau divalidasi.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.223.0',
+    date: '02 Agu 2026',
+    notes: [
+      '🧭 Fitur baru: <b>Peringatan Rute Menyimpang</b> -- khusus trip yang punya lebih dari 1 tujuan (Tujuan Tambahan). Tiap siklus cron (5 menit), posisi GPS.id mobil dibandingkan jaraknya ke titik tujuan berikutnya dengan siklus sebelumnya -- kalau jaraknya <b>konsisten membesar</b> (bukan mendekat) beberapa siklus berturut-turut, Operator dapat notifikasi Telegram ringan. Info saja, bukan larangan -- banyak alasan sah kenapa mobil menyimpang (macet, keperluan mendadak, jalan ditutup, dst).',
+      '⚙️ Bisa diatur lewat kartu baru <b>"🧭 Peringatan Rute Menyimpang"</b> di Pengaturan: aktif/nonaktif, jeda antar-alert, minimal berapa kali cron berturut-turut, dan minimal kenaikan jarak per siklus (meter) -- supaya tidak salah tangkap gara-gara ketidakakuratan GPS kecil atau mobil sekadar berhenti istirahat.',
+      '📍 Jarak dihitung garis lurus (bukan mengikuti bentuk jalan sungguhan seperti Optimalkan Urutan/ORS Directions), jadi ada margin toleransi wajar -- bukan deteksi presisi tinggi.',
+      '🔒 Cuma jalan untuk mobil yang IMEI GPS.id-nya terhubung & tujuan yang sudah punya koordinat tersimpan di Data Tujuan (lookup sama persis dengan cara kerja tombol "Optimalkan Urutan"). Kalau belum lengkap, trip itu dilewati diam-diam (fail-open), tidak pernah memblokir apa pun.',
+      '🔔 Kategori notifikasi baru juga muncul di menu "Notifikasi Telegram per Peran" -- default hanya Operator (Admin/Super Admin) yang menerima, tidak dikirim ke sopir.',
+    ]
+  },
+  {
+    v: '3.222.0',
+    date: '02 Agu 2026',
+    notes: [
+      '🔀 Tombol <b>Optimalkan Urutan</b> (sebelumnya cuma ada di Catat Perjalanan) sekarang juga tersedia di form <b>Booking Mobil</b> -- kalau booking punya lebih dari 1 Tujuan Tambahan, admin bisa langsung hitung urutan kunjungan paling efisien lewat OpenRouteService sebelum booking diajukan.',
+      '📍 Sama seperti di Catat Perjalanan: cuma bekerja kalau SEMUA tujuan sudah punya link Maps tersimpan di Data Tujuan, dan berbagi batas pemakaian harian internal (100x/hari) yang SAMA dengan Catat Perjalanan (bukan kuota terpisah).',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang -- endpoint /optimize-route sudah generik sejak awal.',
+    ]
+  },
+  {
+    v: '3.221.0',
+    date: '02 Agu 2026',
+    notes: [
+      '⚠️ Fitur baru: peringatan <b>"ada tujuan terlewat"</b> -- kalau sopir ketik <b>akhiri trip</b> padahal trip ini punya lebih dari 1 Tujuan Tambahan dan masih ada yang belum ditandai <b>sampai</b>, bot Telegram tanya konfirmasi dulu (daftar tujuan mana saja yang belum ditandai, plus tombol "Ya, akhiri saja" / "Belum, tandai dulu"). Jaring pengaman kecil, bukan larangan -- sopir tetap bisa lanjut akhiri trip kalau memang sengaja.',
+      '📍 Trip dengan cuma 1 tujuan (mayoritas kasus) TIDAK terpengaruh sama sekali -- peringatan ini murni khusus trip multi-tujuan.',
+      '🔧 Perubahan CUMA di worker.js -- WAJIB upload ulang ke Cloudflare Worker.',
+    ]
+  },
+  {
+    v: '3.220.0',
+    date: '02 Agu 2026',
+    notes: [
+      '✕ Tombol clear ditambahkan di semua 10 field pencarian di seluruh app (Notifikasi Telegram, Data Mobil, Data Sopir, Data Tujuan, Catat Perjalanan, Booking Mobil, Servis, Dokumen, Isi BBM, Kartu E-Toll) -- klik ✕ langsung mengosongkan isi & fokus balik ke field, tidak perlu hapus per-karakter lagi.',
+      '👥 Badge "Diterima peran" sekarang tampil di SEMUA kategori/perintah di panel Notifikasi Telegram per Peran, termasuk perintah command murni yang sebelumnya tidak menampilkan info ini sama sekali (mis. /cek, /oli, /lokasi) -- ditampilkan baca-saja dari akses yang sudah ditentukan (bukan togel), karena command jenis ini belum punya mekanisme pembatasan per peran yang nyata di worker.js.',
+      '🏁 Istilah "Tiba" di menu Catat Perjalanan (tombol aksi, judul modal, label field, header Export Excel, log aktivitas) diseragamkan jadi "Akhiri Trip" -- konsisten dengan sisi bot Telegram yang sudah lebih dulu berubah. Teks resi/notifikasi Telegram yang disinkron manual dengan worker.js & telegram-notify.mjs SENGAJA belum disentuh di rilis ini.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.219.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🔄 Daftar perintah "/" di Telegram (yang muncul sbg saran otomatis saat sopir/admin mengetik "/") sekarang di-refresh OTOMATIS sekali untuk setiap chat -- sebelumnya cuma ter-refresh kalau mereka ketik "rekomendasi" manual, jadi sempat ada yang masih lihat "/tiba" walau sistemnya sendiri sudah pakai "/akhiritrip" sejak v3.216.0. Berlaku juga otomatis untuk perubahan nama perintah berikutnya di masa depan -- tidak perlu tambahan kerja manual tiap kali ganti nama perintah lagi.',
+      '🔧 Perubahan CUMA di worker.js -- WAJIB upload ulang ke Cloudflare Worker.',
+    ]
+  },
+  {
+    v: '3.218.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🎨 Tampilan field Tujuan & Tujuan Tambahan di Catat Perjalanan dirapikan -- sekarang pakai indikator titik hijau (berangkat) → kotak biru (tujuan) dengan garis penghubung, pola yang sudah dikenal dari aplikasi ojek online, supaya sopir langsung paham maksudnya tanpa perlu baca keterangan panjang. Murni perubahan tampilan -- cara isi & simpan datanya SAMA PERSIS seperti sebelumnya, tidak ada perubahan alur.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.217.1',
     date: '01 Agu 2026',
