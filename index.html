@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.226.0">
+<meta name="app-version" content="3.229.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1306,9 +1306,17 @@
   .search-row{display:flex;gap:8px;margin-bottom:14px;}
   /* Wrapper tombol clear (✕) universal di semua field pencarian -- lihat
      wireSearchClear(). flex:1 + min-width:0 supaya tetap pas di layout flex
-     yang sudah ada (.search-row, atau berdampingan dgn elemen lain). */
-  .search-clear-wrap{position:relative;display:flex;flex:1;min-width:0;}
-  .search-clear-wrap input{width:100%;padding-right:30px !important;}
+     yang sudah ada (.search-row, atau berdampingan dgn elemen lain).
+     v3.229.0 -- PERBAIKAN BUG: ditambah max-width:100% + box-sizing:border-box
+     -- SEBELUMNYA di konteks flex KOLOM (mis. sidebar panel "Notifikasi
+     Telegram per Peran", bukan .search-row yg flex BARIS), wrapper ini bisa
+     melebar jauh melampaui kontainernya (kotak pencarian jadi sangat lebar,
+     nutupin panel detail di sebelahnya). max-width:100% memaksa wrapper
+     TIDAK PERNAH melebihi lebar induknya brp pun arah flex-nya -- aman di
+     kedua konteks (baris maupun kolom), tanpa perlu ubah wireSearchClear()
+     itu sendiri atau kode pemanggilnya di 9 tempat berbeda. */
+  .search-clear-wrap{position:relative;display:flex;flex:1;min-width:0;max-width:100%;box-sizing:border-box;}
+  .search-clear-wrap input{width:100%;max-width:100%;box-sizing:border-box;padding-right:30px !important;}
   .search-clear-btn{
     display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);
     background:none;border:none;color:var(--muted);font-size:14px;line-height:1;
@@ -1631,7 +1639,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.228.0';
+const APP_VERSION = '3.229.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -2105,6 +2113,13 @@ const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDe
   // minimal per siklus supaya tidak salah tangkap gara-gara ketidakakuratan
   // GPS kecil.
   routeDeviationEnabled: true, routeDeviationCooldownMinutes: 30, routeDeviationMinCyclesStreak: 3, routeDeviationMinIncreaseMeters: 200,
+  // v3.229.0 -- BARU: Auto-deteksi Sampai. SALINAN PERSIS dari
+  // NOTIF_SETTINGS_DEFAULT di worker.js -- lihat catatan lengkap
+  // (computeGeofenceArrivalCandidates()) di sana. Beda dari Rute Menyimpang:
+  // ini kirim konfirmasi LANGSUNG ke sopir (bukan alert ke admin), begitu
+  // posisi GPS masuk radiusMeters dari tujuan berikutnya DAN kecepatannya
+  // <= maxSpeedKmh (nampak berhenti, bukan cuma lewat).
+  geofenceArrivalEnabled: true, geofenceArrivalRadiusMeters: 300, geofenceArrivalMaxSpeedKmh: 5,
   // v3.183.0 -- Cegah Approve Booking Sendiri: kalau pengaju booking (yang
   // membuatnya di aplikasi) kebetulan JUGA salah satu admin penerima
   // notifikasi Telegram, dia TIDAK BOLEH menyetujui/menolak booking
@@ -2574,7 +2589,7 @@ function renderNotifTelegramRoles(){
           <button type="button" class="btn btn-ghost btn-sm" id="ntr-open-log" style="font-size:14px;">📋 Cek log notifikasi</button>
         </div>
         <div style="display:flex;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;">
-          <div style="width:270px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;">
+          <div style="width:270px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;">
             <input type="text" id="ntr-search" placeholder="🔎 Cari kategori/perintah..." style="border:none;border-bottom:1px solid var(--line);border-radius:0;padding:11px 14px;font-size:15px;">
             <div id="ntr-master" style="max-height:520px;overflow-y:auto;"></div>
           </div>
@@ -5408,6 +5423,12 @@ function getSettingsCategories(){
   // status/lock SAMA PERSIS dgn Kalibrasi Odometer GPS.id di atas.
   { key:'rute-menyimpang', icon:'🧭', title:'Peringatan Rute Menyimpang', desc:'Info kalau posisi GPS menjauh dari urutan', hasLock:true,
     status: () => getNotifSettings().routeDeviationEnabled ? `🟢 Aktif · ${getNotifSettings().routeDeviationMinCyclesStreak}x cron berturut-turut` : '⚪ Nonaktif' },
+  // v3.229.0 -- BARU: Auto-deteksi Sampai. Pola status/lock SAMA PERSIS dgn
+  // Peringatan Rute Menyimpang di atas (fitur "sepupu"-nya, sama-sama
+  // pakai posisi GPS.id + koordinat tujuan tersimpan, cuma arah deteksinya
+  // kebalikan: ini "sudah dekat & berhenti", bukan "konsisten menjauh").
+  { key:'auto-sampai', icon:'📍', title:'Auto-deteksi Sampai', desc:'Tanya sopir otomatis kalau sudah dekat tujuan', hasLock:true,
+    status: () => getNotifSettings().geofenceArrivalEnabled ? `🟢 Aktif · radius ${getNotifSettings().geofenceArrivalRadiusMeters}m` : '⚪ Nonaktif' },
   { key:'jam-sunyi', icon:'🌙', title:'Jam Sunyi', desc:'Tunda notifikasi level "Perlu Diperhatikan"', hasLock:true,
     status: () => getNotifSettings().quietHoursEnabled ? `🟢 ${getNotifSettings().quietHoursStart}–${getNotifSettings().quietHoursEnd}` : '⚪ Nonaktif' },
   { key:'admin-notifikasi', icon:'👤', title:'Admin Penerima Notifikasi', desc:'Daftar admin & preferensi resi', hasLock:true,
@@ -5732,6 +5753,36 @@ function renderSettingsDetailNotifGabungan(){
         </div>
         </div>
         ${settingsEditBarHtml('rute-menyimpang','btn-edit-rute-menyimpang','btn-save-rute-menyimpang','btn-cancel-rute-menyimpang')}
+      </div>
+    </div>
+    ` : ''}
+    ${settingsView==='auto-sampai' && insightUnlocked ? `
+    <div class="panel">
+      <div class="panel-head"><h2>📍 Auto-deteksi Sampai</h2></div>
+      <div class="panel-body">
+        <div class="field-locked" id="lock-auto-sampai">
+        <div style="padding-top:0;">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="in-notif-geoarrival-enabled" ${getNotifSettings().geofenceArrivalEnabled?'checked':''} style="width:16px;height:16px;">
+            📍 Auto-deteksi Sampai
+            ${toggleStatusBadgeHtml('notif-geoarrival-status-badge', getNotifSettings().geofenceArrivalEnabled)}
+          </label>
+          <div class="hint" style="margin:4px 0 10px;">Khusus trip yang punya lebih dari 1 tujuan (Tujuan Tambahan) -- kalau posisi GPS.id mobil masuk radius kecil dari titik tujuan berikutnya (yang belum ditandai "sampai") DAN kecepatannya rendah (nampak berhenti, bukan cuma lewat), bot Telegram <b>langsung tanya sopir</b> "Sudah sampai?" lengkap dengan tombol Ya/Tidak -- mengurangi kasus sopir lupa ketik "sampai" manual. Cuma ditanya <b>1 kali</b> per titik tujuan, tidak diulang-ulang tiap siklus cron.</div>
+          <div class="grid-2" id="notif-geoarrival-fields" style="${getNotifSettings().geofenceArrivalEnabled?'':'opacity:0.5;pointer-events:none;'}">
+            <div class="field">
+              <label>Radius dianggap "dekat" (meter)</label>
+              <input type="text" inputmode="numeric" id="in-notif-geoarrival-radius" value="${getNotifSettings().geofenceArrivalRadiusMeters}">
+              <div class="hint">Jarak garis lurus dari posisi GPS ke tujuan berikutnya. Mis. 300 = ditanya kalau sudah dalam radius 300 meter.</div>
+            </div>
+            <div class="field">
+              <label>Kecepatan maksimal dianggap "berhenti" (km/jam)</label>
+              <input type="text" inputmode="numeric" id="in-notif-geoarrival-speed" value="${getNotifSettings().geofenceArrivalMaxSpeedKmh}">
+              <div class="hint">Mis. 5 = kecepatan GPS.id harus &le;5 km/jam. Mencegah "ditanya" padahal mobil cuma lewat dekat tujuan sambil jalan.</div>
+            </div>
+          </div>
+        </div>
+        </div>
+        ${settingsEditBarHtml('auto-sampai','btn-edit-auto-sampai','btn-save-auto-sampai','btn-cancel-auto-sampai')}
       </div>
     </div>
     ` : ''}
@@ -6106,6 +6157,32 @@ function renderSettingsDetailNotifGabungan(){
       showToast('Peringatan Rute Menyimpang disimpan.');
       renderNotifBell();
       lockSettingsPanelAfterSave('rute-menyimpang');
+      renderSettings();
+    };
+  }
+  if(settingsView==='auto-sampai' && insightUnlocked){
+    ['in-notif-geoarrival-radius','in-notif-geoarrival-speed'].forEach(id=> attachIntegerOnlyInput(id));
+    wireSettingsLockButtons('auto-sampai','lock-auto-sampai','btn-edit-auto-sampai','btn-cancel-auto-sampai');
+    document.getElementById('in-notif-geoarrival-enabled').addEventListener('change', function(){
+      const fieldsWrap = document.getElementById('notif-geoarrival-fields');
+      if(fieldsWrap) fieldsWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
+      updateToggleStatusBadge('notif-geoarrival-status-badge', this.checked);
+    });
+    const btnSaveAutoSampai = document.getElementById('btn-save-auto-sampai');
+    if(btnSaveAutoSampai) btnSaveAutoSampai.onclick = () => {
+      const geofenceArrivalEnabled = document.getElementById('in-notif-geoarrival-enabled').checked;
+      const geofenceArrivalRadiusMeters = Number(document.getElementById('in-notif-geoarrival-radius').value || 0);
+      const geofenceArrivalMaxSpeedKmh = Number(document.getElementById('in-notif-geoarrival-speed').value || 0);
+      state.notifSettings = {
+        ...getNotifSettings(),
+        geofenceArrivalEnabled,
+        geofenceArrivalRadiusMeters: geofenceArrivalRadiusMeters>0 ? geofenceArrivalRadiusMeters : NOTIF_SETTINGS_DEFAULT.geofenceArrivalRadiusMeters,
+        geofenceArrivalMaxSpeedKmh: geofenceArrivalMaxSpeedKmh>0 ? geofenceArrivalMaxSpeedKmh : NOTIF_SETTINGS_DEFAULT.geofenceArrivalMaxSpeedKmh,
+      };
+      saveData();
+      showToast('Auto-deteksi Sampai disimpan.');
+      renderNotifBell();
+      lockSettingsPanelAfterSave('auto-sampai');
       renderSettings();
     };
   }
@@ -7073,6 +7150,7 @@ const MODE_OPERATOR_SUBMENU_CATALOG = {
     { key:'alert-kecepatan', label:'🚨 Alert Kecepatan Berlebih' },
     { key:'kalibrasi-gps', label:'🛰️ Kalibrasi Odometer GPS.id' },
     { key:'rute-menyimpang', label:'🧭 Peringatan Rute Menyimpang' },
+    { key:'auto-sampai', label:'📍 Auto-deteksi Sampai' },
     { key:'jam-sunyi', label:'🌙 Jam Sunyi' },
     { key:'admin-notifikasi', label:'👤 Admin Penerima Notifikasi' },
     { key:'admin-finance', label:'🧑\u200d💼 Admin Finance' },
@@ -9757,6 +9835,15 @@ function migrateRemovePribadiOnlyDestinations(){
 // u.tujuanTambahan (array nama, TANPA link Maps per-titik dulu di v1 ini --
 // menyusul kalau dibutuhkan). Return {get} supaya nilainya bisa diambil
 // saat Simpan, closure atas array `items` lokal (bukan baca ulang DOM).
+// v3.229.0 -- DIPERKUAT: Tujuan Tambahan sekarang punya "peran" yang SAMA
+// dengan field Tujuan utama -- (1) autocomplete dari Data Tujuan saat
+// mengetik, (2) kalau nama yang sudah ditambahkan cocok dgn Data Tujuan yg
+// punya Link Maps tersimpan, langsung tampil ikon "🧭 Rute" di chip itu yg
+// BISA DIKLIK LANGSUNG ke Google Maps (findMapsLinkForTujuan() -- fungsi
+// SAMA yg dipakai field Tujuan utama, bukan logika baru terpisah). Sebelum
+// ini, Tujuan Tambahan cuma teks bebas polos tanpa autocomplete/link sama
+// sekali. Data yang DISIMPAN tetap sama persis (array nama string) -- ini
+// MURNI pengayaan tampilan+kemudahan input, bukan perubahan struktur data.
 function wireTujuanTambahanInput(wrapId, initial){
   const wrap = document.getElementById(wrapId);
   if(!wrap) return { get: () => [] };
@@ -9765,7 +9852,11 @@ function wireTujuanTambahanInput(wrapId, initial){
     const focusAfter = document.activeElement && document.activeElement.id === wrapId+'-input';
     wrap.innerHTML = `
       <div class="tujuan-chip-box">
-        ${items.map((t,i)=>`<span class="tujuan-chip">${escapeHtml(t)}<b data-remove-chip="${i}">✕</b></span>`).join('')}
+        ${items.map((t,i)=>{
+          const link = findMapsLinkForTujuan(t);
+          const linkHtml = link ? `<span style="display:inline-flex;transform:scale(0.7);margin:0 -3px;">${mapsNavButtonCompactHtml(link)}</span>` : '';
+          return `<span class="tujuan-chip">${escapeHtml(t)}${linkHtml}<b data-remove-chip="${i}">✕</b></span>`;
+        }).join('')}
         <input type="text" id="${wrapId}-input" placeholder="${items.length===0?'Ketik tujuan ke-2, lalu Enter...':'Tambah lagi...'}" autocomplete="off">
       </div>
     `;
@@ -9774,18 +9865,25 @@ function wireTujuanTambahanInput(wrapId, initial){
     });
     const inp = document.getElementById(wrapId+'-input');
     if(focusAfter) inp.focus();
+    attachAutocomplete(wrapId+'-input', () => state.destinations.map(d=>d.nama));
     inp.addEventListener('keydown', (e)=>{
       if(e.key==='Enter'){
         e.preventDefault();
         const v = inp.value.trim();
-        if(v){ items.push(v); render(); }
+        if(!v) return;
+        const sudahAda = items.some(t => t.toLowerCase()===v.toLowerCase()) || (document.getElementById('in-tujuan')?.value||'').trim().toLowerCase()===v.toLowerCase();
+        if(sudahAda){ inp.value=''; return; } // v3.229.0 -- cegah duplikat, sama pola dgn bot Telegram
+        items.push(v); render();
       } else if(e.key==='Backspace' && !inp.value && items.length>0){
         items.pop(); render();
       }
     });
     inp.addEventListener('blur', ()=>{
       const v = inp.value.trim();
-      if(v){ items.push(v); inp.value=''; render(); }
+      if(!v) return;
+      const sudahAda = items.some(t => t.toLowerCase()===v.toLowerCase()) || (document.getElementById('in-tujuan')?.value||'').trim().toLowerCase()===v.toLowerCase();
+      if(sudahAda){ inp.value=''; return; }
+      items.push(v); inp.value=''; render();
     });
   }
   render();
@@ -17936,6 +18034,17 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.229.0',
+    date: '02 Agu 2026',
+    notes: [
+      '🐛 <b>Perbaikan bug:</b> kotak pencarian di panel "🔔 Notifikasi Telegram per Peran" melebar jauh melampaui panelnya sendiri. Penyebabnya: pembungkus tombol ✕ universal (`wireSearchClear`) didesain untuk konteks flex BARIS (`.search-row`), tapi di panel ini dipasang di konteks flex KOLOM yang berbeda arah. Ditambal dengan `max-width:100%` yang aman di konteks flex apa pun -- sudah dicek, 8 kotak pencarian lain di app tidak terdampak (semuanya memang di konteks `.search-row`).',
+      '📍 <b>Tujuan Tambahan</b> (Catat Perjalanan) sekarang punya "peran" yang SAMA dengan field Tujuan utama: autocomplete dari Data Tujuan saat mengetik, dan kalau nama yang ditambahkan sudah punya Link Maps tersimpan, langsung tampil ikon "Rute" kecil yang bisa diklik ke Google Maps. Ditambahkan juga pengaman anti-duplikat (web & bot Telegram) supaya tujuan yang sama tidak bisa ditambahkan dobel.',
+      '📍 Fitur baru: <b>Auto-deteksi Sampai</b> -- perluasan dari Peringatan Rute Menyimpang yang sudah ada. Untuk trip multi-tujuan, begitu posisi GPS.id mobil masuk radius dekat (default 300m) dari tujuan berikutnya DAN kecepatannya rendah (nampak berhenti), bot Telegram <b>proaktif tanya sopir</b> "Sudah sampai?" lengkap tombol Ya/Tidak -- tombol Ya langsung menandai otomatis. Cuma ditanya 1x per titik tujuan. Bisa diatur/dimatikan lewat kartu baru "📍 Auto-deteksi Sampai" di Pengaturan.',
+      '🔧 Sekalian diperbaiki: <code>APP_VERSION</code> & tag <code>&lt;meta name="app-version"&gt;</code> sempat tidak sinkron lagi (3.228.0 vs 3.226.0) -- persis bug yang sudah pernah dicatat di SOP, ketahuan & dibetulkan lagi.',
+      '🔧 Perubahan di index.html DAN worker.js -- WAJIB upload ulang KEDUANYA.',
+    ]
+  },
   {
     v: '3.228.0',
     date: '02 Agu 2026',
