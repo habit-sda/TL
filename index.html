@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.211.2">
+<meta name="app-version" content="3.217.1">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -751,6 +751,22 @@
   /* ---------------- Kartu data GENERIK (dipakai semua menu di HP) ---------------- */
   .data-card-list{display:none;}
   .data-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--card);}
+  /* v3.212.0 -- BARU: grid kalender bulanan Booking Mobil (lihat
+     renderBookingCalendarGrid()) -- SEMUA warna pakai var(--...), dipelajari
+     dari perbaikan mode gelap sebelumnya (jangan hardcode #fff/#hex lagi). */
+  .booking-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .booking-cal-head{font-size:10.5px;font-weight:700;color:var(--muted);text-align:center;padding:4px 0;text-transform:uppercase;}
+  .booking-cal-cell{min-height:76px;border:1px solid var(--line);border-radius:8px;padding:4px;background:var(--card);display:flex;flex-direction:column;gap:2px;overflow:hidden;}
+  .booking-cal-cell.empty{border:none;background:transparent;}
+  .booking-cal-cell.is-today{border-color:var(--blue);border-width:1.5px;}
+  .booking-cal-daynum{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:2px;}
+  .booking-cal-cell.is-today .booking-cal-daynum{color:var(--blue);}
+  .booking-cal-chip{font-size:9.5px;font-weight:600;padding:2px 4px;border-radius:4px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .booking-cal-more{font-size:9.5px;color:var(--blue);cursor:pointer;padding:1px 4px;}
+  @media (max-width:640px){
+    .booking-cal-cell{min-height:58px;}
+    .booking-cal-chip{font-size:8.5px;}
+  }
   .etoll-history-cards{max-height:60vh;overflow-y:auto;overflow-x:hidden;}
   .data-card-title{font-weight:800;font-size:13.5px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   .data-card-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;}
@@ -965,6 +981,12 @@
 
   .field{margin-bottom:13px;}
   .field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:5px;color:var(--text);}
+  /* v3.214.0 -- BARU: input "Tujuan Tambahan" (multi-tujuan 1 trip, lihat
+     wireTujuanTambahanInput()) -- SEMUA warna pakai var(--...) dari awal. */
+  .tujuan-chip-box{border:1px solid var(--line);border-radius:8px;padding:7px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--card);}
+  .tujuan-chip{background:var(--blue-bg);color:var(--blue-dark);font-size:12.5px;font-weight:600;padding:5px 6px 5px 10px;border-radius:16px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+  .tujuan-chip b{cursor:pointer;opacity:.65;font-weight:700;}
+  .tujuan-chip-box input{flex:1;min-width:120px;border:none;outline:none;font-size:12.5px;font-family:inherit;padding:5px 2px;background:transparent;color:var(--text);}
   .field .hint{font-size:11px;color:var(--muted);margin-top:4px;}
   /* v3.60.0 -- reset tampilan bawaan OS/browser utk SEMUA <select> (panah
      kotak dropdown-nya SELALU beda tiap OS/browser & sering terlihat kasar/
@@ -1429,7 +1451,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.211.2';
+const APP_VERSION = '3.217.1';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -2071,6 +2093,8 @@ const ALIAS_KATEGORI_CATALOG = [
   { key:'lokasi', label:'📍 /lokasi — lokasi terkini mobil (Operator & Administrator)', defaults:['lokasi','lokasi mobil','posisi','posisi mobil','lacak','lacak mobil'] },
   { key:'service', label:'🔧 /service — 3 data servis terbaru (Operator/Administrator/Finance)', defaults:['service','servis','maintenance'] },
   { key:'kecepatan', label:'⚡ /kecepatan 🔒 — ranking kecepatan (Administrator, tersembunyi)', defaults:['kecepatan','speed','laju'] },
+  { key:'qrpertamina', label:'⛽ Barcode MyPertamina — lihat lagi barcode QR mobil (Sopir, Operator & Administrator)', defaults:['barcode','code','bar','my','pertamina','my pertamina','spbu','bahlil','bensin'] },
+  { key:'aturbarcode', label:'🔧 Atur Barcode MyPertamina — tambah/ganti barcode per mobil (Operator & Administrator)', defaults:['atur barcode','atur'] },
   { key:'notiflog', label:'📋 log/notifikasi/cek notif 🔒 — 7 Log Notifikasi terakhir (Administrator, tersembunyi)', defaults:['log','notifikasi','cek notif'] },
   { key:'saldo:et', label:'💳 Pintasan Saldo — E-Toll', defaults:['etoll'] },
   { key:'saldo:tk', label:'⛽ Pintasan Saldo — Sisa BBM (Tangki)', defaults:['bbm','tangki'] },
@@ -2083,7 +2107,8 @@ const ALIAS_KATEGORI_CATALOG = [
   { key:'menu', label:'🏠 menu — kembali ke Menu Utama', defaults:['menu'] },
   { key:'rekomendasi', label:'📋 rekomendasi — daftar perintah lengkap', defaults:['rekomendasi'] },
   { key:'batal', label:'🚫 batal — batalkan alur/percakapan berjalan', defaults:['batal'] },
-  { key:'tiba', label:'🏁 tiba — tutup trip yang sedang jalan (Sopir)', defaults:['tiba'] },
+  { key:'tiba', label:'🏁 akhiri trip — akhiri trip yang sedang jalan (Sopir)', defaults:['akhiri trip','akhiritrip','selesai trip','selesaitrip'] },
+  { key:'sampai', label:'📍 tiba / sampai — tandai 1 titik tujuan sudah dikunjungi, khusus trip multi-tujuan (Sopir)', defaults:['tiba','sampai'] },
   { key:'biaya', label:'🧾 biaya — catat biaya operasional/pribadi (Sopir)', defaults:['biaya','operasional','pribadi'] },
   { key:'booking', label:'📅 booking — ajukan booking/pesan mobil (Sopir & Operator)', defaults:['booking','pesan','boking','keep'] },
   { key:'mulaitrip', label:'🚗 mulai trip — mulai trip baru (Sopir)', defaults:['mulai trip','mulai','jalan','berangkat','catat perjalanan'] },
@@ -2136,6 +2161,9 @@ const SETTINGS_ITEM_CATALOG = [
   { id:'budget', icon:'💰', label:'Budget Bulanan', desc:'Notifikasi budget bulanan mendekati/lewat batas, dan pintasan Saldo.', notifKey:'budget', aliasKey:'saldo:bg', akses:'Operator & Administrator' },
   { id:'kalibrasi', icon:'🛰️', label:'Kalibrasi Odometer GPS.id', desc:'Notifikasi selisih odometer GPS.id vs dashboard.', notifKey:'kalibrasi', akses:'Operator & Administrator' },
   { id:'speed', icon:'⚡', label:'Kecepatan Berlebih', desc:'Notifikasi & ranking kecepatan sopir -- perintah tersembunyi, khusus Administrator.', notifKey:'speed', aliasKey:'kecepatan', hiddenKey:'kecepatanCommand', akses:'Administrator (tersembunyi)' },
+  { id:'qrpertamina', icon:'⛽', label:'Barcode MyPertamina', desc:'Kirim ulang foto barcode QR MyPertamina mobil yang sudah tersimpan -- pilih mobil dulu kalau lebih dari 1 punya barcode.', aliasKey:'qrpertamina', akses:'Sopir, Operator & Administrator' },
+  { id:'aturbarcode', icon:'🔧', label:'Atur Barcode MyPertamina', desc:'Tambah/ganti foto barcode QR MyPertamina per mobil -- kirim foto baru setelah pilih mobil.', aliasKey:'aturbarcode', akses:'Operator & Administrator' },
+  { id:'cekkodetrip', icon:'📎', label:'cek [kode trip]', desc:'Cth: "cek PJL-00007" -- status kirim & kirim ulang foto nota/tanda terima 1 trip tertentu (aktif maupun sudah selesai). Bukan alias biasa (kodenya berubah-ubah per trip, bukan kata kunci tetap), jadi tidak bisa diatur alias custom di sini.', akses:'Sopir (trip sendiri), Operator, Finance & Administrator (trip siapa saja)' },
   { id:'notifLog', icon:'📋', label:'Log Notifikasi (chat)', desc:'7 pengiriman notifikasi Telegram terakhir langsung lewat chat, dikelompokkan gagal/berhasil -- perintah tersembunyi, khusus Administrator.', aliasKey:'notiflog', hiddenKey:'notifLogCommand', akses:'Administrator (tersembunyi)' },
   { id:'resi', icon:'🧾', label:'Resi Perjalanan', desc:'Kartu Tanda Terima trip yang dikirim ke sopir/admin.', notifKey:'resi', akses:'Sopir, Admin, Administrator (opsional)' },
   { id:'bookingApproval', icon:'✅', label:'Approval Booking', desc:'Notifikasi booking yang perlu disetujui/ditolak.', notifKey:'bookingApproval', akses:'Admin (Administrator selalu dapat)' },
@@ -2150,7 +2178,8 @@ const SETTINGS_ITEM_CATALOG = [
   { id:'menu', icon:'🏠', label:'menu', desc:'Kembali ke Menu Utama bot.', aliasKey:'menu', akses:'Semua pengguna terdaftar' },
   { id:'rekomendasi', icon:'📋', label:'rekomendasi', desc:'Daftar perintah lengkap sesuai peran.', aliasKey:'rekomendasi', akses:'Semua pengguna terdaftar' },
   { id:'batal', icon:'🚫', label:'batal', desc:'Batalkan alur/percakapan yang sedang berjalan.', aliasKey:'batal', akses:'Semua pengguna terdaftar' },
-  { id:'tiba', icon:'🏁', label:'tiba', desc:'Tutup trip yang sedang berjalan, khusus Sopir.', aliasKey:'tiba', akses:'Sopir' },
+  { id:'tiba', icon:'🏁', label:'akhiri trip', desc:'Akhiri trip yang sedang berjalan, khusus Sopir. Sebelumnya bernama "tiba" -- SEKARANG kata "tiba" tidak lagi menutup trip (lihat fitur "tiba / sampai" di bawah), diganti "akhiri trip" supaya tidak ambigu dengan penanda sampai di 1 titik tujuan.', aliasKey:'tiba', akses:'Sopir' },
+  { id:'sampai', icon:'📍', label:'tiba / sampai', desc:'Tandai 1 titik tujuan sudah dikunjungi -- KHUSUS trip yang punya lebih dari 1 tujuan (Tujuan Tambahan). Kalau trip cuma 1 tujuan, sopir yang ketik ini akan diarahkan ke "akhiri trip".', aliasKey:'sampai', akses:'Sopir' },
   { id:'biaya', icon:'🧾', label:'biaya', desc:'Catat biaya operasional/pribadi, khusus Sopir.', aliasKey:'biaya', akses:'Sopir' },
   { id:'mulaitrip', icon:'🚗', label:'mulai trip', desc:'Mulai trip baru, khusus Sopir.', aliasKey:'mulaitrip', akses:'Sopir' },
   { id:'ya', icon:'✅', label:'ya', desc:'Jawaban konfirmasi Ya.', aliasKey:'ya', akses:'Semua pengguna terdaftar' },
@@ -6112,6 +6141,7 @@ function navigate(route, opts){
   // sempat dibuka (field yang sempat kebuka lewat Edit juga ikut terkunci
   // lagi, bukan kebawa ke sesi berikutnya).
   if(route !== 'settings'){ settingsView = null; settingsUnlockedPanels.clear(); modeOperatorMenuCategoryOpen = null; }
+  if(route !== 'bookings'){ bookingViewMode = 'list'; bookingCalMonth = null; }
   // PENTING: pakai sessionStorage (bukan localStorage). sessionStorage ikut
   // hilang begitu aplikasi BENAR-BENAR ditutup (proses/tab dimatikan), tapi
   // TETAP ada kalau HP cuma dikunci/layar dimatikan (proses tetap hidup di
@@ -9335,6 +9365,95 @@ function migrateRemovePribadiOnlyDestinations(){
 // Tampilkan referensi Jarak/BBM dari Daftar Tujuan (kalau ada datanya) di
 // bawah field Tujuan -- murni informasi untuk bantu admin, TIDAK mengubah
 // field lain secara otomatis.
+// v3.214.0 -- BARU: input chip "Tujuan Tambahan" (multi-tujuan 1 trip --
+// tujuan PERTAMA tetap pakai field/autocomplete/maps-link/estimasi biaya
+// yang SUDAH ADA & TIDAK disentuh sama sekali di sini, supaya nol risiko ke
+// alur yang sudah jalan. Ini KHUSUS tujuan ke-2 dst -- disimpan sbg
+// u.tujuanTambahan (array nama, TANPA link Maps per-titik dulu di v1 ini --
+// menyusul kalau dibutuhkan). Return {get} supaya nilainya bisa diambil
+// saat Simpan, closure atas array `items` lokal (bukan baca ulang DOM).
+function wireTujuanTambahanInput(wrapId, initial){
+  const wrap = document.getElementById(wrapId);
+  if(!wrap) return { get: () => [] };
+  let items = Array.isArray(initial) ? initial.filter(Boolean).slice() : [];
+  function render(){
+    const focusAfter = document.activeElement && document.activeElement.id === wrapId+'-input';
+    wrap.innerHTML = `
+      <div class="tujuan-chip-box">
+        ${items.map((t,i)=>`<span class="tujuan-chip">${escapeHtml(t)}<b data-remove-chip="${i}">✕</b></span>`).join('')}
+        <input type="text" id="${wrapId}-input" placeholder="${items.length===0?'Ketik tujuan ke-2, lalu Enter...':'Tambah lagi...'}" autocomplete="off">
+      </div>
+    `;
+    wrap.querySelectorAll('[data-remove-chip]').forEach(b=>{
+      b.onclick = () => { items.splice(Number(b.dataset.removeChip),1); render(); };
+    });
+    const inp = document.getElementById(wrapId+'-input');
+    if(focusAfter) inp.focus();
+    inp.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        const v = inp.value.trim();
+        if(v){ items.push(v); render(); }
+      } else if(e.key==='Backspace' && !inp.value && items.length>0){
+        items.pop(); render();
+      }
+    });
+    inp.addEventListener('blur', ()=>{
+      const v = inp.value.trim();
+      if(v){ items.push(v); inp.value=''; render(); }
+    });
+  }
+  render();
+  // v3.217.0 -- BARU: set() ditambahkan utk fitur "Optimalkan Urutan" --
+  // ganti isi & urutan chip TANPA perlu re-wire ulang dari nol.
+  return { get: () => items.slice(), set: (newItems) => { items = Array.isArray(newItems) ? newItems.filter(Boolean).slice() : []; render(); } };
+}
+// v3.214.0 -- BARU: tampilan ringkas nama tujuan utk trip yang punya
+// Tujuan Tambahan (lihat wireTujuanTambahanInput di atas) -- tujuan pertama
+// tetap ditampilkan polos + badge "+N lainnya" (hover utk lihat semua nama).
+// Kalau trip cuma 1 tujuan (mayoritas), balik ke tampilan lama PERSIS TANPA
+// PERUBAHAN sama sekali -- supaya tidak ada regresi visual di kasus normal.
+function tujuanRingkasHtml(u){
+  if(!Array.isArray(u.tujuanTambahan) || u.tujuanTambahan.length===0){
+    return escapeHtml(u.tujuan||'-');
+  }
+  const semua = [u.tujuan, ...u.tujuanTambahan].filter(Boolean);
+  const total = semua.length;
+  // v3.216.0 -- BARU: kalau ada tujuanSelesaiAt (diisi lewat perintah bot
+  // "tiba"/"sampai", lihat worker.js), tampilkan progres kunjungan & tujuan
+  // yang SEDANG dituju (titik pertama yang belum ditandai selesai) --
+  // kalau tidak ada sama sekali (trip lama/belum pernah ditandai), balik ke
+  // tampilan "+N lainnya" polos seperti sebelumnya.
+  const selesaiMap = u.tujuanSelesaiAt || {};
+  const selesaiCount = Object.keys(selesaiMap).length;
+  if(selesaiCount === 0 || u.status !== 'digunakan'){
+    return `${escapeHtml(u.tujuan||'-')} <span class="badge neutral" style="font-size:10px;" title="${escapeHtml(semua.join(' • '))}">+${u.tujuanTambahan.length} lainnya</span>`;
+  }
+  let sedangMenujuIdx = semua.findIndex((_,i)=> !selesaiMap[i+1]);
+  const sedangMenuju = sedangMenujuIdx===-1 ? null : semua[sedangMenujuIdx];
+  const label = sedangMenuju ? `Menuju: ${escapeHtml(sedangMenuju)}` : 'Semua tujuan selesai';
+  return `${label} <span class="badge ${sedangMenuju?'warn':'ok'}" style="font-size:10px;" title="${escapeHtml(semua.join(' • '))}">${selesaiCount}/${total} selesai</span>`;
+}
+
+// yang punya literBensin & biayaBensin lengkap (maks 90 hari terakhir, atau
+// 30 trip terakhir kalau lebih cepat lengkap 30 -- supaya tetap relevan
+// walau armada jarang isi BBM). Dipakai HANYA untuk estimasi kasar "biaya
+// sebelum berangkat" (lihat wireDestinationRefHint di bawah) -- BUKAN utk
+// Deteksi Anomali BBM yang sudah ada (itu tetap pakai rata-rata PER MOBIL,
+// sengaja tidak disatukan supaya tidak mengubah perilaku fitur lama).
+function estimateAvgHargaPerLiter(){
+  const cutoff = Date.now() - 90*86400000;
+  const valid = state.usage.filter(u =>
+    u.literBensin > 0 && u.biayaBensin > 0 &&
+    (u.tglKeluar ? new Date(u.tglKeluar).getTime() >= cutoff : true)
+  );
+  const pool = (valid.length >= 5 ? valid : state.usage.filter(u => u.literBensin>0 && u.biayaBensin>0))
+    .sort((a,b)=> (b.tglKeluar||'').localeCompare(a.tglKeluar||''))
+    .slice(0, 30);
+  if(pool.length === 0) return null;
+  const total = pool.reduce((s,u)=> s + (u.biayaBensin/u.literBensin), 0);
+  return total / pool.length;
+}
 function wireDestinationRefHint(tujuanInputId, hintElId){
   const tujuanEl = document.getElementById(tujuanInputId);
   const hintEl = document.getElementById(hintElId);
@@ -9345,7 +9464,18 @@ function wireDestinationRefHint(tujuanInputId, hintElId){
       const parts = [];
       if(dest.jarakKm!=null) parts.push(`~${Number(dest.jarakKm).toLocaleString('id-ID')} KM`);
       if(dest.bbmLiter!=null) parts.push(`~${Number(dest.bbmLiter).toLocaleString('id-ID')} L BBM`);
-      hintEl.innerHTML = `${tujuanPinIconHtml()} Referensi tujuan ini (dari Data Tujuan): <b>${parts.join(' · ')}</b>`;
+      // v3.212.0 -- BARU: perkiraan biaya BBM (Rp), dari Liter BBM di Data
+      // Tujuan dikali rata-rata harga/liter riwayat 90 hari terakhir. SENGAJA
+      // dilabeli "perkiraan kasar" & TIDAK termasuk tol/parkir/dll -- supaya
+      // tidak disalahartikan sebagai angka final, cuma bantu keputusan
+      // sebelum berangkat (approve booking, dsb).
+      if(dest.bbmLiter!=null){
+        const avgHarga = estimateAvgHargaPerLiter();
+        if(avgHarga!=null){
+          parts.push(`~${fmtMoney(Math.round(dest.bbmLiter*avgHarga))} BBM`);
+        }
+      }
+      hintEl.innerHTML = `${tujuanPinIconHtml()} Referensi tujuan ini (dari Data Tujuan): <b>${parts.join(' · ')}</b>${dest.bbmLiter!=null?' <span class="hint" style="display:inline;margin:0;">(perkiraan kasar, belum termasuk tol/parkir/dll)</span>':''}`;
       hintEl.style.display = 'block';
     } else {
       hintEl.style.display = 'none';
@@ -9368,6 +9498,7 @@ function renderUsage(){
       return {
         Kode: u.kode||'', Mobil: carLabel(u.carId), Driver: driverLabel(u.driverId,u.driver),
         'Jenis Perjalanan': u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman', Tujuan: u.tujuan||'',
+        'Tujuan Tambahan': Array.isArray(u.tujuanTambahan)&&u.tujuanTambahan.length ? u.tujuanTambahan.join('; ') : '',
         Berangkat: u.tglKeluar||'', 'Jam Berangkat': u.jamKeluar||'', Tiba: u.tglKembali||'', 'Jam Tiba': u.jamKembali||'',
         'Jarak (KM)': jarak, 'Liter BBM': u.literBensin||'', 'Biaya BBM': u.biayaBensin||'',
         Status: u.status==='digunakan'?'Digunakan':'Selesai',
@@ -9726,7 +9857,7 @@ function renderUsage(){
           <div class="triprow">
             <div class="triprow-top">
               <div>
-                <div class="triprow-dest">${codeBadgeHtml(u.kode)} ${tujuanPinIconHtml()} ${escapeHtml(u.tujuan)}${mapsNavButtonCompactHtml(u.mapsLink)}</div>
+                <div class="triprow-dest">${codeBadgeHtml(u.kode)} ${tujuanPinIconHtml()} ${tujuanRingkasHtml(u)}${mapsNavButtonCompactHtml(u.mapsLink)}</div>
                 <div class="triprow-meta">${escapeHtml(carLabel(u.carId))} · ${escapeHtml(driverLabel(u.driverId,u.driver))} · ${u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman'} · ${fmtDate(u.tglKeluar)} ${u.jamKeluar||''} → ${u.tglKembali?fmtDate(u.tglKembali):'-'} ${u.jamKembali||''}</div>
               </div>
               <div class="triprow-right">
@@ -9758,7 +9889,7 @@ function renderUsage(){
               <span class="usage-card-mobil car-with-thumb-sm">${carPhotoHtml(r.carForRow,'car-thumb-sm')}<span>${escapeHtml(carLabel(u.carId))}</span></span>
               ${u.status==='digunakan' ? `<span class="badge warn">Digunakan</span>` : `<span class="badge ok">Selesai</span>`}
             </div>
-            <div class="usage-card-tujuan">${tujuanPinIconHtml()} ${escapeHtml(u.tujuan)} ${mapsNavButtonHtml(u.mapsLink)}</div>
+            <div class="usage-card-tujuan">${tujuanPinIconHtml()} ${tujuanRingkasHtml(u)} ${mapsNavButtonHtml(u.mapsLink)}</div>
             <div class="usage-card-meta">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${fmtDate(u.tglKeluar)}${u.tglKembali?' → '+fmtDate(u.tglKembali):''}</div>
             <div style="margin-top:6px;">${codeBadgeHtml(u.kode)}</div>
             <div class="usage-card-detail-toggle" data-toggle="${idx}">▾ Lihat detail (Jarak, BBM, Efisiensi, dst)</div>
@@ -10252,7 +10383,8 @@ function renderUsage(){
     return allItems.filter(u =>
       carLabel(u.carId).toLowerCase().includes(q) ||
       driverLabel(u.driverId, u.driver).toLowerCase().includes(q) ||
-      (u.tujuan||'').toLowerCase().includes(q)
+      (u.tujuan||'').toLowerCase().includes(q) ||
+      (Array.isArray(u.tujuanTambahan) && u.tujuanTambahan.some(t => (t||'').toLowerCase().includes(q)))
     );
   }
   function renderCurrentView(){
@@ -11942,6 +12074,15 @@ function openUsageModal(editId, presetCarId){
       <div class="hint" id="tujuan-ref-hint" style="display:none;"></div>
     </div>
     <div class="field">
+      <label>Tujuan Tambahan (opsional)</label>
+      <div id="tujuan-tambahan-wrap"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px;">
+        <div class="hint" style="margin:0;">Kalau trip ini mampir ke lebih dari 1 tempat (mis. antar barang ke beberapa gudang sekaligus), tambahkan di sini -- Odometer & BBM tetap dicatat 1 kali untuk SELURUH trip, bukan per titik.</div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-optimalkan-urutan" style="white-space:nowrap;flex-shrink:0;">🔀 Optimalkan Urutan</button>
+      </div>
+      <div id="optimalkan-urutan-hasil" class="hint" style="display:none;"></div>
+    </div>
+    <div class="field">
       <label>Link Google Maps Tujuan (opsional)</label>
       <input type="text" id="in-maps-link" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
       <div id="maps-link-preview" style="margin-top:6px;"></div>
@@ -12027,6 +12168,7 @@ function openUsageModal(editId, presetCarId){
     </div>
     <div id="fuel-range-insight"></div>
   `;
+  let tujuanTambahanHandle;
   openModal({
     title: editing ? 'Edit Perjalanan' : 'Catat Perjalanan',
     body,
@@ -12042,6 +12184,7 @@ function openUsageModal(editId, presetCarId){
       const driverId = document.getElementById('in-driver').value;
       const jenisPenggunaan = document.getElementById('in-jenis-pakai').value;
       const tujuan = document.getElementById('in-tujuan').value.trim();
+      const tujuanTambahan = tujuanTambahanHandle ? tujuanTambahanHandle.get() : [];
       const mapsLink = document.getElementById('in-maps-link').value.trim();
       const tglKeluar = document.getElementById('in-tglkeluar').value || today();
       const jamKeluar = document.getElementById('in-jam-keluar').value || null;
@@ -12059,7 +12202,7 @@ function openUsageModal(editId, presetCarId){
       if(editing){
         const before = {...editing}; // salinan dangkal SEBELUM ditimpa -- utk audit trail di bawah
         Object.assign(editing, {
-          carId, driverId, jenisPenggunaan, tujuan, mapsLink: mapsLink || null, tglKeluar, jamKeluar,
+          carId, driverId, jenisPenggunaan, tujuan, tujuanTambahan: tujuanTambahan.length ? tujuanTambahan : null, mapsLink: mapsLink || null, tglKeluar, jamKeluar,
           odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
           bensinKeluar: bensinVal === '' ? null : Number(bensinVal),
           etollCardId,
@@ -12086,7 +12229,7 @@ function openUsageModal(editId, presetCarId){
         showToast('Perubahan disimpan.');
       } else {
         state.usage.push(touch({
-          id: uid(), kode: nextUsageCode(), carId, driverId, jenisPenggunaan, tujuan, mapsLink: mapsLink || null, tglKeluar, tglKembali:null,
+          id: uid(), kode: nextUsageCode(), carId, driverId, jenisPenggunaan, tujuan, tujuanTambahan: tujuanTambahan.length ? tujuanTambahan : null, mapsLink: mapsLink || null, tglKeluar, tglKembali:null,
           jamKeluar, jamKembali: null,
           status:'digunakan',
           odoKeluar: odoKeluarVal === '' ? null : Number(odoKeluarVal),
@@ -12131,6 +12274,62 @@ function openUsageModal(editId, presetCarId){
   attachAutocomplete('in-tujuan', () => state.destinations.map(d=>d.nama));
   wireMapsAutofill('in-tujuan', 'in-maps-link', editing ? editing.id : null, 'maps-link-preview');
   wireDestinationRefHint('in-tujuan', 'tujuan-ref-hint');
+  tujuanTambahanHandle = wireTujuanTambahanInput('tujuan-tambahan-wrap', editing ? editing.tujuanTambahan : null);
+  document.getElementById('btn-optimalkan-urutan').onclick = async () => {
+    const tujuanUtama = document.getElementById('in-tujuan').value.trim();
+    const tambahanList = tujuanTambahanHandle ? tujuanTambahanHandle.get() : [];
+    const semuaNama = [tujuanUtama, ...tambahanList].filter(Boolean);
+    const hasilEl = document.getElementById('optimalkan-urutan-hasil');
+    hasilEl.style.display = 'block';
+    if(semuaNama.length < 2){
+      hasilEl.textContent = '⚠️ Minimal 2 tujuan (isi dulu Tujuan Tambahan) untuk bisa dioptimalkan urutannya.';
+      return;
+    }
+    if(!isGhConnected() || !ghConfig.notifySecret){
+      hasilEl.textContent = '⚠️ Fitur ini butuh koneksi Worker & Notify Secret -- cek dulu di Pengaturan → Koneksi GitHub/Worker.';
+      return;
+    }
+    // v3.217.0 -- BARU: cari koordinat tiap nama tujuan dari link Maps di
+    // Data Tujuan (tujuan pertama bisa juga dari field in-maps-link yang
+    // baru diketik, belum tentu tersimpan). SENGAJA TIDAK menebak/geocode
+    // dari nama teks bebas -- kalau ada yang belum punya koordinat
+    // tersimpan, optimasi ditolak & user diberi tahu PERSIS yang mana,
+    // supaya tidak pernah kasih saran urutan dari lokasi yang salah tebak.
+    const mapsLinkUtama = document.getElementById('in-maps-link').value.trim();
+    const poin = [];
+    const belumAdaKoordinat = [];
+    semuaNama.forEach((nama, i)=>{
+      let link = (i===0 && mapsLinkUtama) ? mapsLinkUtama : null;
+      if(!link){
+        const dest = findDestinationByName(nama);
+        link = dest ? dest.mapsLink : null;
+      }
+      const koor = link ? extractLatLng(link) : null;
+      if(koor) poin.push({ nama, lat: koor.lat, lon: koor.lon });
+      else belumAdaKoordinat.push(nama);
+    });
+    if(belumAdaKoordinat.length > 0){
+      hasilEl.innerHTML = `⚠️ Tujuan ini belum punya link Maps tersimpan, jadi belum bisa dioptimalkan: <b>${belumAdaKoordinat.map(escapeHtml).join(', ')}</b>. Tambahkan link Maps-nya dulu di Data Tujuan.`;
+      return;
+    }
+    hasilEl.textContent = '⏳ Menghitung urutan paling efisien...';
+    try{
+      const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/optimize-route`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+        body: JSON.stringify({ points: poin.map(p=>({lat:p.lat, lon:p.lon})) }),
+      });
+      const data = await res.json();
+      if(!res.ok || !data.ok){ hasilEl.textContent = `❌ ${data.error || 'Gagal menghitung urutan.'}`; return; }
+      const urutanBaru = data.order.map(idx => poin[idx].nama);
+      document.getElementById('in-tujuan').value = urutanBaru[0];
+      tujuanTambahanHandle.set(urutanBaru.slice(1));
+      const jarakInfo = data.jarakMeter!=null ? ` (~${(data.jarakMeter/1000).toLocaleString('id-ID',{maximumFractionDigits:1})} KM total)` : '';
+      hasilEl.innerHTML = `✅ Urutan diperbarui${jarakInfo}: ${urutanBaru.map(escapeHtml).join(' → ')}`;
+    }catch(e){
+      hasilEl.textContent = '❌ Gagal terhubung ke server untuk menghitung urutan.';
+    }
+  };
   attachRibuanInput('in-odo-keluar');
 
   // Field bensin menyesuaikan otomatis (Persen <-> Bar) setiap kali pilihan
@@ -12239,6 +12438,12 @@ function bookingStatusBadge(b){
   return `<span class="badge neutral">Dijadwalkan</span>`;
 }
 
+// v3.212.0 -- BARU: toggle tampilan Booking Mobil antara daftar (lama) dan
+// kalender bulanan (baru, lihat renderBookingCalendarGrid()). Diingat lintas
+// re-render selama masih di halaman ini, direset ke 'list' tiap masuk ulang
+// ke menu Booking Mobil (bagian dari renderBookings() itu sendiri).
+let bookingViewMode = 'list';
+let bookingCalMonth = null; // 'YYYY-MM', null = bulan berjalan
 function renderBookings(){
   document.getElementById('header-actions').innerHTML =
     `${isModeOperatorSubmenuVisible('bookings','tambah') ? '<button class="btn btn-primary" id="btn-add-booking">+ Buat Booking</button>' : ''}${exportBtnHtml('btn-export-booking')}`;
@@ -12254,10 +12459,20 @@ function renderBookings(){
 
   const allItems = [...state.bookings].sort((a,b)=> bookingDT(a.tglMulai,a.jamMulai).localeCompare(bookingDT(b.tglMulai,b.jamMulai)));
   const html = `<div class="panel"><div class="panel-body">
-    <div class="search-row"><input type="text" id="booking-search" placeholder="Cari mobil, sopir, atau tujuan..."></div>
-    <div id="booking-table-wrap"></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+      <div style="display:flex;background:var(--neutral-bg);border-radius:8px;padding:3px;">
+        <button id="booking-view-list" class="btn btn-sm" style="border:none;background:${bookingViewMode==='list'?'var(--card)':'transparent'};box-shadow:${bookingViewMode==='list'?'0 1px 2px rgba(0,0,0,.08)':'none'};">📋 Daftar</button>
+        <button id="booking-view-cal" class="btn btn-sm" style="border:none;background:${bookingViewMode==='calendar'?'var(--card)':'transparent'};box-shadow:${bookingViewMode==='calendar'?'0 1px 2px rgba(0,0,0,.08)':'none'};">📅 Kalender</button>
+      </div>
+      <input type="text" id="booking-search" placeholder="Cari mobil, sopir, atau tujuan..." style="flex:1;min-width:160px;display:${bookingViewMode==='list'?'block':'none'};">
+    </div>
+    <div id="booking-table-wrap" style="display:${bookingViewMode==='list'?'block':'none'};"></div>
+    <div id="booking-calendar-wrap" style="display:${bookingViewMode==='calendar'?'block':'none'};"></div>
   </div></div>`;
   document.getElementById('content').innerHTML = html;
+  document.getElementById('booking-view-list').onclick = () => { bookingViewMode = 'list'; renderBookings(); };
+  document.getElementById('booking-view-cal').onclick = () => { bookingViewMode = 'calendar'; renderBookings(); };
+  if(bookingViewMode==='calendar') renderBookingCalendarGrid(allItems);
 
   function renderTable(items){
     const wrap = document.getElementById('booking-table-wrap');
@@ -12275,7 +12490,7 @@ function renderBookings(){
               <td>${escapeHtml(carLabel(b.carId))}</td>
               <td>${b.driverId ? escapeHtml(driverLabel(b.driverId)) : '-'}</td>
               <td>${b.jenisPenggunaan==='pribadi' ? `<span class="badge neutral">Pribadi</span>` : `<span class="badge ok">Pengiriman</span>`}</td>
-              <td>${escapeHtml(b.tujuan)} ${mapsNavButtonHtml(b.mapsLink)}</td>
+              <td>${tujuanRingkasHtml(b)} ${mapsNavButtonHtml(b.mapsLink)}</td>
               <td>${fmtDate(b.tglMulai)} ${b.jamMulai||''}</td>
               <td>${fmtDate(b.tglSelesai)} ${b.jamSelesai||''}</td>
               <td>${bookingStatusBadge(b)}</td>
@@ -12294,7 +12509,7 @@ function renderBookings(){
             <div class="data-card-row"><span class="k">Kode</span><span class="v">${codeBadgeHtml(b.kode)}</span></div>
             <div class="data-card-row"><span class="k">Sopir</span><span class="v">${b.driverId ? escapeHtml(driverLabel(b.driverId)) : '-'}</span></div>
             <div class="data-card-row"><span class="k">Jenis</span><span class="v">${b.jenisPenggunaan==='pribadi' ? `<span class="badge neutral">Pribadi</span>` : `<span class="badge ok">Pengiriman</span>`}</span></div>
-            <div class="data-card-row"><span class="k">Tujuan</span><span class="v">${escapeHtml(b.tujuan)} ${mapsNavButtonHtml(b.mapsLink)}</span></div>
+            <div class="data-card-row"><span class="k">Tujuan</span><span class="v">${tujuanRingkasHtml(b)} ${mapsNavButtonHtml(b.mapsLink)}</span></div>
             <div class="data-card-row"><span class="k">Mulai</span><span class="v">${fmtDate(b.tglMulai)} ${b.jamMulai||''}</span></div>
             <div class="data-card-row"><span class="k">Selesai</span><span class="v">${fmtDate(b.tglSelesai)} ${b.jamSelesai||''}</span></div>
             <div class="data-card-actions">
@@ -12316,11 +12531,107 @@ function renderBookings(){
     renderTable(allItems.filter(b =>
       carLabel(b.carId).toLowerCase().includes(q) ||
       (b.driverId ? driverLabel(b.driverId).toLowerCase().includes(q) : false) ||
-      (b.tujuan||'').toLowerCase().includes(q)
+      (b.tujuan||'').toLowerCase().includes(q) ||
+      // v3.212.0 -- BARU: cocokkan tanggal juga (format tampilan "02 Agu
+      // 2026" MAUPUN mentah "2026-08-02") -- dipakai tautan "+N lainnya" di
+      // tampilan Kalender untuk lompat ke Daftar ter-filter 1 hari itu.
+      fmtDate(b.tglMulai).toLowerCase().includes(q) ||
+      (b.tglMulai||'').includes(q)
     ));
   });
 }
 
+// v3.212.0 -- BARU: tampilan kalender bulanan Booking Mobil (alternatif dari
+// daftar memanjang yang sudah ada) -- tiap booking ditampilkan sbg chip
+// kecil di kotak TANGGAL MULAI-nya (bukan dibentang ke semua tanggal antara
+// mulai-selesai, supaya grid tetap sederhana; kalau perlu detail durasi
+// penuh, klik chip-nya -> buka Edit Booking yang sudah ada). Warna chip
+// ikut status yang SAMA dengan bookingStatusBadge() supaya konsisten dengan
+// tampilan Daftar.
+function bookingCalChipColor(b){
+  if(b.status==='menunggu') return {bg:'var(--amber-bg)', fg:'var(--amber)'};
+  if(b.status==='ditolak') return {bg:'var(--red-bg)', fg:'var(--red)'};
+  if(b.status==='dibatalkan') return {bg:'var(--neutral-bg)', fg:'var(--muted)'};
+  if(b.status==='selesai') return {bg:'var(--green-bg)', fg:'var(--green)'};
+  return {bg:'var(--blue-bg)', fg:'var(--blue)'};
+}
+function renderBookingCalendarGrid(allItems){
+  const wrap = document.getElementById('booking-calendar-wrap');
+  if(!wrap) return;
+  const ym = bookingCalMonth || today().slice(0,7);
+  const [yy, mm] = ym.split('-').map(Number);
+  const firstOfMonth = new Date(yy, mm-1, 1);
+  const daysInMonth = new Date(yy, mm, 0).getDate();
+  // Senin sebagai kolom pertama (konvensi Indonesia) -- getDay() Minggu=0.
+  const startOffset = (firstOfMonth.getDay() + 6) % 7;
+  const monthLabel = firstOfMonth.toLocaleDateString('id-ID', {month:'long', year:'numeric'});
+  const byDate = {};
+  allItems.forEach(b=>{
+    if(!b.tglMulai) return;
+    (byDate[b.tglMulai] = byDate[b.tglMulai] || []).push(b);
+  });
+  const todayStr = today();
+  let cells = '';
+  for(let i=0; i<startOffset; i++) cells += `<div class="booking-cal-cell empty"></div>`;
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr = `${yy}-${String(mm).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const items = (byDate[dateStr]||[]).sort((a,b2)=>(a.jamMulai||'').localeCompare(b2.jamMulai||''));
+    const isToday = dateStr===todayStr;
+    const shown = items.slice(0,3);
+    const overflow = items.length - shown.length;
+    cells += `
+      <div class="booking-cal-cell${isToday?' is-today':''}">
+        <div class="booking-cal-daynum">${d}</div>
+        ${shown.map(b=>{
+          const c = bookingCalChipColor(b);
+          return `<div class="booking-cal-chip" data-edit-cal="${b.id}" style="background:${c.bg};color:${c.fg};" title="${escapeHtml(carLabel(b.carId))} — ${escapeHtml(b.tujuan||'')}">${b.jamMulai?escapeHtml(b.jamMulai)+' ':''}${escapeHtml(carLabel(b.carId))}</div>`;
+        }).join('')}
+        ${overflow>0?`<div class="booking-cal-more" data-day-more="${dateStr}">+${overflow} lainnya</div>`:''}
+      </div>`;
+  }
+  const dayHeaders = ['Sen','Sel','Rab','Kam','Jum','Sab','Min'];
+  wrap.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <button class="btn btn-ghost btn-sm" id="booking-cal-prev">← Bulan Lalu</button>
+      <div style="font-weight:700;font-size:14px;text-transform:capitalize;">${monthLabel}</div>
+      <button class="btn btn-ghost btn-sm" id="booking-cal-next">Bulan Depan →</button>
+    </div>
+    <div class="booking-cal-grid">
+      ${dayHeaders.map(h=>`<div class="booking-cal-head">${h}</div>`).join('')}
+      ${cells}
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:11px;color:var(--muted);">
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--blue);margin-right:4px;"></span>Dijadwalkan</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--amber);margin-right:4px;"></span>Menunggu Persetujuan</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--green);margin-right:4px;"></span>Sudah Jalan</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--red);margin-right:4px;"></span>Ditolak</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--muted);margin-right:4px;"></span>Dibatalkan</span>
+    </div>
+  `;
+  document.getElementById('booking-cal-prev').onclick = () => {
+    const d = new Date(yy, mm-2, 1);
+    bookingCalMonth = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    renderBookingCalendarGrid(allItems);
+  };
+  document.getElementById('booking-cal-next').onclick = () => {
+    const d = new Date(yy, mm, 1);
+    bookingCalMonth = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    renderBookingCalendarGrid(allItems);
+  };
+  wrap.querySelectorAll('[data-edit-cal]').forEach(el=> el.onclick = ()=> openBookingModal(el.dataset.editCal));
+  // v3.212.0 -- klik "+N lainnya" -> pindah sementara ke tampilan Daftar
+  // dgn kata kunci tanggal itu di kotak pencarian, supaya tidak perlu bikin
+  // popup mini-daftar baru cuma untuk overflow harian (jarang kejadian,
+  // armada kecil) -- pola paling sederhana yang tetap kepakai.
+  wrap.querySelectorAll('[data-day-more]').forEach(el=> el.onclick = ()=>{
+    bookingViewMode = 'list';
+    renderBookings();
+    setTimeout(()=>{
+      const s = document.getElementById('booking-search');
+      if(s){ s.value = fmtDate(el.dataset.dayMore); s.dispatchEvent(new Event('input')); }
+    }, 0);
+  });
+}
 function startTripFromBooking(id){
   const b = state.bookings.find(x=>x.id===id);
   if(!b) return;
@@ -12333,7 +12644,7 @@ function startTripFromBooking(id){
 
   state.usage.push(touch({
     id: uid(), kode: nextUsageCode(), carId: b.carId, driverId: b.driverId||null, jenisPenggunaan: b.jenisPenggunaan || 'pengiriman',
-    tujuan: b.tujuan, tglKeluar: today(), tglKembali: null,
+    tujuan: b.tujuan, tujuanTambahan: b.tujuanTambahan || null, tglKeluar: today(), tglKembali: null,
     jamKeluar: new Date().toTimeString().slice(0,5), jamKembali: null,
     status:'digunakan', odoKeluar:null, odoKembali:null, bensinKeluar:null, bensinKembali:null,
     literBensin:null, biayaBensin:null, etollCardId:null, saldoEtoll:null, saldoEtollAwal:null,
@@ -12407,6 +12718,11 @@ function openBookingModal(editId){
       <div class="hint" id="tujuan-ref-hint" style="display:none;"></div>
     </div>
     <div class="field">
+      <label>Tujuan Tambahan (opsional)</label>
+      <div id="tujuan-tambahan-wrap"></div>
+      <div class="hint">Kalau booking ini bakal mampir ke lebih dari 1 tempat, tambahkan di sini.</div>
+    </div>
+    <div class="field">
       <label>Link Google Maps Tujuan (opsional)</label>
       <input type="text" id="in-maps-link" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
       <div id="maps-link-preview" style="margin-top:6px;"></div>
@@ -12448,6 +12764,7 @@ function openBookingModal(editId){
     <div id="booking-conflict-warning"></div>
   `;
 
+  let tujuanTambahanHandle;
   openModal({
     title: editing ? 'Edit Booking' : 'Buat Booking Mobil',
     body,
@@ -12456,6 +12773,7 @@ function openBookingModal(editId){
       const driverId = document.getElementById('in-driver').value || null;
       const jenisPenggunaan = document.getElementById('in-jenis-booking').value;
       const tujuan = document.getElementById('in-tujuan').value.trim();
+      const tujuanTambahan = tujuanTambahanHandle ? tujuanTambahanHandle.get() : [];
       const mapsLink = document.getElementById('in-maps-link').value.trim();
       const tglMulai = document.getElementById('in-tgl-mulai').value;
       const jamMulai = document.getElementById('in-jam-mulai').value || '00:00';
@@ -12494,7 +12812,7 @@ function openBookingModal(editId){
       }
 
       if(editing){
-        Object.assign(editing, {carId, driverId, jenisPenggunaan, tujuan, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai, catatan: document.getElementById('in-catatan').value.trim(), notifDriverIds});
+        Object.assign(editing, {carId, driverId, jenisPenggunaan, tujuan, tujuanTambahan: tujuanTambahan.length ? tujuanTambahan : null, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai, catatan: document.getElementById('in-catatan').value.trim(), notifDriverIds});
         touch(editing);
         if(jenisPenggunaan !== 'pribadi'){
           ensureDestinationFromTujuan(tujuan, mapsLink);
@@ -12503,7 +12821,7 @@ function openBookingModal(editId){
         showToast('Booking diperbarui.');
       } else {
         const bookingBaru = touch({
-          id: uid(), kode: nextBookingCode(), carId, driverId, jenisPenggunaan, tujuan, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai,
+          id: uid(), kode: nextBookingCode(), carId, driverId, jenisPenggunaan, tujuan, tujuanTambahan: tujuanTambahan.length ? tujuanTambahan : null, mapsLink: mapsLink || null, tglMulai, jamMulai, tglSelesai, jamSelesai,
           // v3.166.0 -- booking baru SELALU mulai dari "menunggu" (perlu
           // Approval admin lewat Telegram), bukan langsung aktif seperti
           // sebelumnya ("dipesan"). Baru jadi 'dipesan' (aktif) begitu salah
@@ -12532,6 +12850,7 @@ function openBookingModal(editId){
   attachAutocomplete('in-tujuan', () => state.destinations.map(d=>d.nama));
   wireMapsAutofill('in-tujuan', 'in-maps-link', editing ? editing.id : null, 'maps-link-preview');
   wireDestinationRefHint('in-tujuan', 'tujuan-ref-hint');
+  tujuanTambahanHandle = wireTujuanTambahanInput('tujuan-tambahan-wrap', editing ? editing.tujuanTambahan : null);
 
   // Wiring checklist "Kirim Reminder Telegram Ke" -- Pilih Semua <-> individual.
   const pilihSemuaCb = document.getElementById('in-notif-pilih-semua');
@@ -16479,6 +16798,15 @@ function openTestFinanceModal(financeAdminId){
 // (yang terjadi kalau link mentah dibuka apa adanya di sebagian browser/
 // WebView PWA). Kalau polanya tidak dikenali, link dipakai APA ADANYA --
 // tidak dipaksa ubah, supaya tidak merusak link yang formatnya lain.
+// v3.217.0 -- BARU: sama persis pola regex dgn normalizeMapsUrl() di atas,
+// cuma balikin {lat,lon} sbg angka (bukan link) -- dipakai fitur "Optimalkan
+// Urutan" (butuh koordinat mentah utk dikirim ke endpoint /optimize-route).
+function extractLatLng(url){
+  if(!url) return null;
+  const match = url.match(/(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/);
+  if(!match) return null;
+  return { lat: Number(match[1]), lon: Number(match[2]) };
+}
 function normalizeMapsUrl(url){
   if(!url) return url;
   const match = url.match(/(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/);
@@ -17086,6 +17414,101 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.217.1',
+    date: '01 Agu 2026',
+    notes: [
+      '🛡️ Ditambahkan pengaman batas pemakaian harian INTERNAL FleetOps (100x/hari) untuk fitur Optimalkan Urutan -- jauh di bawah kuota gratis OpenRouteService (2.000+/hari), supaya pemakaian FleetOps tidak akan pernah mendekati batas asli mereka sama sekali, walau dipakai rame-rame. Kalau tersentuh, tombolnya kasih pesan jelas "coba lagi besok" -- BUKAN tagihan apa pun, cuma jeda.',
+      '💡 Konfirmasi resmi dari Syarat & Ketentuan OpenRouteService: kelebihan kuota gratis mereka hanya menyebabkan error/blokir sementara, TIDAK PERNAH auto-charge/tagihan. Pengaman internal ini murni lapisan tambahan supaya lebih aman lagi, bukan karena ada risiko tagihan yang perlu dihindari.',
+      '🔧 Perubahan CUMA di worker.js -- WAJIB upload ulang ke Cloudflare Worker.',
+    ]
+  },
+  {
+    v: '3.217.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🔀 Fitur baru: <b>Optimalkan Urutan</b> di form Catat Perjalanan -- kalau trip punya lebih dari 1 Tujuan Tambahan, tombol ini menghitung urutan kunjungan yang PALING EFISIEN (jarak paling pendek) lewat OpenRouteService (layanan gratis berbasis OpenStreetMap, bukan Google Maps).',
+      '📍 Cuma bekerja kalau SEMUA tujuan yang mau dioptimalkan sudah punya link Maps tersimpan di Data Tujuan -- kalau ada yang belum, ditolak dengan jelas (nama tujuan mana yang belum punya link) daripada menebak-nebak lokasi dari nama teks bebas & berisiko kasih saran urutan yang salah.',
+      '⚠️ <b>WAJIB dilakukan setelah upload worker.js ini</b>: daftar GRATIS di openrouteservice.org, ambil API key, lalu isi Secret baru <code>ORS_API_KEY</code> di Cloudflare Variables/Secrets. Kalau belum diisi, tombol "Optimalkan Urutan" akan menampilkan pesan error yang jelas (bukan diam/rusak).',
+      '💡 Layanan ini punya kuota gratis 2.000+ permintaan/hari, jauh lebih dari cukup untuk armada kecil -- TIDAK ada biaya sama sekali untuk pemakaian normal. Beda dari Google Maps Platform yang berbayar untuk fitur setara.',
+      '🔧 Perubahan di index.html DAN worker.js -- WAJIB upload ulang KEDUANYA.',
+    ]
+  },
+  {
+    v: '3.216.0',
+    date: '01 Agu 2026',
+    notes: [
+      '🏁 <b>PERUBAHAN PENTING: kata "tiba" TIDAK LAGI mengakhiri trip.</b> Sekarang pakai <b>akhiri trip</b> (atau <code>selesai trip</code>) -- sengaja diganti supaya tidak ambigu dengan fitur baru di bawah. Tombol menu, perintah "/", dan semua pesan bot yang dulu menyebut "tiba" sudah ikut diperbarui semuanya.',
+      '📍 Kata <b>tiba</b> / <b>sampai</b> sekarang punya arti baru: menandai sudah SAMPAI di 1 TITIK tujuan tertentu -- khusus trip yang punya lebih dari 1 tujuan (Tujuan Tambahan). Ketik "sampai" saja untuk munculkan menu tombol pilih tujuan mana yang baru dicapai, atau langsung ketik "sampai 2" dst. Kalau trip Anda cuma 1 tujuan (mayoritas), ketik "tiba"/"sampai" akan diarahkan otomatis ke instruksi "akhiri trip" -- BUKAN dibiarkan diam, supaya tidak terkesan bot rusak buat yang masih kebiasaan lama.',
+      '👀 Web: daftar Catat Perjalanan/Booking sekarang menampilkan "Menuju: [tujuan]" + progres ("2/4 selesai") begitu ada tujuan yang ditandai lewat bot -- sebelum ada yang ditandai, tampilannya tetap seperti biasa ("+N lainnya").',
+      '⚠️ <b>WAJIB baca sebelum deploy</b>: ini perubahan PERILAKU, bukan cuma nama. Sopir yang refleks ketik "tiba" untuk MENGAKHIRI trip 1-tujuan akan mendapat pesan pengalihan (bukan trip tertutup otomatis seperti dulu) -- pertimbangkan info singkat ke tim sopir sebelum/segera setelah upload.',
+      '🔧 Perubahan di index.html DAN worker.js -- WAJIB upload ulang KEDUANYA.',
+    ]
+  },
+  {
+    v: '3.215.0',
+    date: '01 Agu 2026',
+    notes: [
+      '📍 <b>Tujuan Tambahan</b> sekarang didukung juga di alur bot Telegram (<code>berangkat</code>) -- begitu tujuan pertama diisi (persis seperti biasa, termasuk deteksi typo/kemiripan dari Data Tujuan), bot akan tanya "Ada tujuan lain?". Ketik nama tujuan berikutnya untuk tambah (bisa berkali-kali), atau ketik <b>lanjut</b> untuk terus ke Odometer seperti biasa. Tujuan tambahan ini SENGAJA tidak pakai deteksi typo/kemiripan (biar cepat diketik di lapangan) -- beda dari tujuan pertama yang tetap harus akurat karena jadi rujukan utama Data Tujuan & estimasi biaya.',
+      '🧾 Tanda Terima Perjalanan (resi) ikut menyebutkan tujuan tambahan kalau ada, mis. "Gudang A + 2 tujuan lainnya (Gudang B, Toko C)".',
+      '⚠️ <b>Belum dibangun</b>: perintah "sampai [nomor]" untuk menandai 1 tujuan sudah dikunjungi, status "sedang menuju [tujuan]" real-time, dan link Maps per-titik -- ini lapisan pelacakan tambahan yang menyusul terpisah, bukan bagian rilis ini.',
+      '⚠️ Perubahan CUMA di worker.js -- WAJIB upload ulang ke Cloudflare Worker.',
+    ]
+  },
+  {
+    v: '3.214.1',
+    date: '01 Agu 2026',
+    notes: [
+      '📍 <b>Tujuan Tambahan</b> (dari rilis 3.214.0 kemarin) sekarang tersedia juga di <b>Booking Mobil</b>, bukan cuma Catat Perjalanan -- form, daftar (tabel & kartu), dan kalender booking semua sudah mendukung. Kalau booking dengan Tujuan Tambahan "dimulai" jadi trip beneran (tombol "Mulai Perjalanan"), Tujuan Tambahan-nya ikut terbawa otomatis ke Catat Perjalanan.',
+      '⚠️ Alur bot Telegram (berangkat/tiba), link Maps per-titik, dan status "sedang menuju [tujuan]" masih BELUM ikut dibangun -- masih di rencana rilis berikutnya.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.214.0',
+    date: '01 Agu 2026',
+    notes: [
+      '📍 Fitur baru: <b>Tujuan Tambahan</b> di form Catat Perjalanan -- kalau 1 trip mampir ke lebih dari 1 tempat (mis. antar barang ke beberapa gudang sekaligus), sekarang bisa dicatat semuanya dalam 1 trip yang sama (ketik tujuan ke-2/dst, Enter untuk tambah sbg chip) -- Odometer & BBM tetap dicatat 1 kali untuk SELURUH trip (bukan per titik), sesuai kenyataannya cuma 1 kali jalan/1 kali isi tangki.',
+      '👀 Di daftar Catat Perjalanan (tabel & kartu), trip dengan Tujuan Tambahan tampil sbg "[Tujuan pertama] +N lainnya" -- arahkan kursor/tap lama ke badge-nya utk lihat semua nama tujuan.',
+      '⚠️ <b>Cakupan rilis ini TERBATAS ke Catat Perjalanan saja</b> -- Booking Mobil, alur bot Telegram (berangkat/tiba), link Maps per-titik, dan penanda "sudah dikunjungi" per tujuan BELUM ikut dibangun, menyusul di rilis berikutnya. Field tujuan PERTAMA (autocomplete, auto-isi link Maps, estimasi biaya) tidak berubah sama sekali dari sebelumnya.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.213.1',
+    date: '01 Agu 2026',
+    notes: [
+      '🔧 Perintah <code>cek [kode trip]</code> (dari rilis 3.213.0 kemarin) sempat kelewat didaftarkan ke menu "🔔 Notifikasi Telegram per Peran" -- sekarang sudah muncul di situ sbg entri referensi (tanpa alias custom, karena kodenya berubah-ubah per trip, bukan kata kunci tetap seperti perintah lain).',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang lagi (fiturnya sendiri sudah aktif sejak 3.213.0).',
+    ]
+  },
+  {
+    v: '3.213.0',
+    date: '01 Agu 2026',
+    notes: [
+      '📎 Fitur baru di bot Telegram: ketik <code>cek [kode trip]</code> (contoh: <code>cek PJL-00007</code>) untuk lihat status kirim & KIRIM ULANG semua foto nota/tanda terima trip itu -- termasuk yang SUDAH dikirim ke Admin Finance maupun yang BELUM. Terbuka untuk Operator, Finance, dan Administrator (bisa cek trip siapa saja) serta Sopir (HANYA bisa cek trip miliknya sendiri -- kalau kode trip sopir lain diketik, dibalas "tidak ditemukan" supaya tidak bocor data sopir lain).',
+      '🔧 Beda dari perintah <code>cek</code>/<code>cek mobil</code> yang sudah ada (itu ringkasan trip yang SEDANG BERJALAN, khusus Admin Notifikasi) -- <code>cek [kode]</code> baru ini bisa mencari trip APA SAJA (aktif maupun sudah selesai) selama kodenya persis, dan hanya aktif kalau formatnya benar-benar terlihat seperti kode (huruf-angka, mis. PJL-00007) supaya tidak pernah tertukar dengan perintah lain.',
+      '⚠️ Perubahan CUMA di worker.js -- WAJIB upload ulang ke Cloudflare Worker. index.html tidak berubah secara fungsional.',
+    ]
+  },
+  {
+    v: '3.212.1',
+    date: '01 Agu 2026',
+    notes: [
+      '⛽ Fitur baru: <b>Barcode MyPertamina per mobil</b>, lewat bot Telegram. Ketik <code>barcode</code>/<code>code</code>/<code>bar</code>/<code>my</code>/<code>pertamina</code>/<code>my pertamina</code>/<code>spbu</code>/<code>bahlil</code>/<code>bensin</code> untuk lihat lagi foto barcode QR MyPertamina mobil (langsung tampil kalau cuma 1 mobil punya, pilih dulu kalau lebih dari 1) -- terbuka untuk Sopir, Operator & Administrator. Fotonya disimpan lewat <code>file_id</code> Telegram (bukan upload ulang bytes), jadi TIDAK menambah beban GitHub API sama sekali.',
+      '🔧 Perintah <b>atur barcode</b>/<code>atur</code> (khusus Operator & Administrator) -- pilih mobil, lalu kirim foto barcode baru untuk mobil itu (menggantikan yang lama kalau sudah ada).',
+      '⚠️ Perubahan di index.html DAN worker.js -- WAJIB upload ulang KEDUANYA supaya fitur ini aktif.',
+    ]
+  },
+  {
+    v: '3.212.0',
+    date: '01 Agu 2026',
+    notes: [
+      '💰 Fitur baru: <b>Perkiraan Biaya BBM</b> di form Booking Mobil & Catat Perjalanan -- kalau tujuan yang diketik sudah pernah dicatat di Data Tujuan (punya Liter BBM), sekarang langsung tampil perkiraan biayanya dalam Rupiah, dihitung dari rata-rata harga BBM/liter 90 hari terakhir. Ditandai jelas sebagai "perkiraan kasar" & belum termasuk tol/parkir/dll -- bantu keputusan sebelum berangkat/approve booking, bukan angka final.',
+      '📅 Fitur baru: <b>Tampilan Kalender</b> di menu Booking Mobil -- toggle "📋 Daftar" / "📅 Kalender" di atas daftar booking. Kalender bulanan menampilkan tiap booking sebagai chip berwarna sesuai status (biru=dijadwalkan, kuning=menunggu persetujuan, hijau=sudah jalan, merah=ditolak, abu=dibatalkan) di kotak tanggal mulainya, klik chip untuk langsung Edit Booking itu.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.211.2',
     date: '01 Agu 2026',
