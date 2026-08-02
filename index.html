@@ -1076,8 +1076,13 @@
   .cdd-icon{
     width:34px;height:34px;border-radius:9px;background:var(--blue-bg);
     display:flex;align-items:center;justify-content:center;font-size:16px;
-    flex-shrink:0;
+    flex-shrink:0;overflow:hidden;
   }
+  /* BARU -- dipakai saat kotak ikon berisi FOTO ASLI (mobil/sopir), bukan
+     emoji generik -- lihat sheetIconHtml()/data-icon-mode di JS. Mengisi
+     penuh kotak induknya (34px di .cdd-icon, 36px di .cdd-sheet-row-ic)
+     & ikut membulat sesuai induk (border-radius:inherit) apa pun ukurannya. */
+  .cdd-photo-icon{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;}
   .cdd-sheet .cdd-control{padding:11px 12px;border-radius:12px;gap:10px;}
   .cdd-sheet .cdd-chevron{transform:rotate(-90deg);}
   .cdd-sheet.open .cdd-chevron{transform:rotate(-90deg);}
@@ -1099,6 +1104,7 @@
   .cdd-sheet-row-ic{
     width:36px;height:36px;border-radius:9px;background:var(--hover-bg);
     display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;
+    overflow:hidden;
   }
   .cdd-option.disabled .cdd-sheet-row-ic{background:var(--neutral-bg);}
   .cdd-sheet-row-txt{display:flex;flex-direction:column;flex:1;min-width:0;}
@@ -1107,6 +1113,27 @@
   .cdd-sheet-row-sub{font-size:11px;color:var(--green);margin-top:1px;}
   .cdd-sheet-row-sub.busy{color:var(--red);}
   .cdd-sheet-row .check{font-size:15px;}
+  /* BARU -- FIX bug lebar: style di atas (position:fixed;left:0;right:0)
+     SENGAJA dipakai di layar sempit (HP) supaya sheet tampil edge-to-edge
+     mengikuti lebar layar, gaya Gojek/Grab. Tapi di layar lebar (desktop),
+     "layar" jauh lebih lebar dari box aslinya (mis. field di dalam modal
+     lebar 480px) -- akibatnya sheet melebar penuh ke tepi BROWSER, jauh
+     melampaui batas modal/kotaknya sendiri (bug yang dilaporkan). Mulai
+     641px, sheet dikembalikan ke perilaku dropdown biasa (position:absolute,
+     menempel & SAMA LEBAR dgn kotak induknya, lihat komentar v3.70.0 di
+     .cdd-panel) -- backdrop gelap layar-penuh & handle drag ala bottom
+     sheet juga dimatikan karena tidak relevan lagi untuk pola non-fullscreen
+     ini. */
+  @media(min-width:641px){
+    .cdd-sheet.open::after{display:none;}
+    .cdd-sheet.open .cdd-panel{
+      position:absolute;top:calc(100% + 5px);left:0;right:0;bottom:auto;
+      max-height:320px;border-radius:10px;
+      padding:5px;box-shadow:0 14px 34px rgba(16,24,40,0.16);
+    }
+    .cdd-sheet-header{position:static;padding:8px 6px 6px;}
+    .cdd-sheet-handle{display:none;}
+  }
 
   /* ---------------- Kartu pengelompok form (v3.224.0) ----------------
      Bungkus sekelompok field terkait jadi 1 kartu putih terpisah -- gaya
@@ -1604,7 +1631,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.226.0';
+const APP_VERSION = '3.228.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -2351,6 +2378,15 @@ const SETTINGS_ITEM_CATALOG = [
   { id:'namaSopirLookup', icon:'👤', label:'Ketik nama sopir persis', desc:'Detail statistik 1 sopir -- perintah tersembunyi, khusus Administrator.', hiddenKey:'namaSopirLookup', akses:'Administrator (tersembunyi)' },
   { id:'simGps', icon:'📶', label:'Masa Aktif SIM GPS Tracker', desc:'Notifikasi berkala kalau pulsa/masa aktif kartu SIM di alat GPS mendekati/sudah habis -- beda dari Dokumen Kadaluarsa (itu dokumen fisik kendaraan).', notifKey:'simGps', akses:'Operator & Administrator' },
   { id:'gpsAlert', icon:'🚨', label:'Alert Bawaan GPS.id', desc:'Teruskan alert tingkat perangkat GPS.id (SOS/rem mendadak/dst) ke Telegram -- pilih kode yang relevan di panel di bawah, default tidak ada yang diteruskan.', notifKey:'gpsAlert', akses:'Operator & Administrator' },
+  // BARU -- FIX: entri ini sebelumnya lupa ditambahkan padahal notifKey
+  // 'routeDeviation' sudah ada di NOTIF_ROLE_CATEGORIES & worker.js sejak
+  // fitur "Peringatan Rute Menyimpang" dibuat -- akibatnya togel per peran
+  // untuk kategori ini "yatim": tidak muncul sama sekali di daftar
+  // kiri/pencarian panel Notifikasi Telegram per Peran (SETTINGS_ITEM_
+  // CATALOG adalah sumber data daftar itu, bukan NOTIF_ROLE_CATEGORIES
+  // langsung). Default togel meniru pola Kalibrasi Odometer GPS.id (cuma
+  // Operator & Administrator, lihat NOTIF_ROLE_PREFS_DEFAULT).
+  { id:'routeDeviation', icon:'🧭', label:'Peringatan Rute Menyimpang', desc:'Info kalau posisi GPS.id trip (>1 tujuan) konsisten menjauh dari titik tujuan berikutnya beberapa siklus cron berturut-turut.', notifKey:'routeDeviation', akses:'Operator & Administrator' },
 ];
 const NTR_ROLE_COLS = [
   { key:'sopir', label:'Sopir' },
@@ -7429,6 +7465,29 @@ function refreshInsightPanels(){
    KEYBOARD: kotak bisa difokus (Tab), Enter/Spasi/Panah Bawah buka panel,
    Panah Atas/Bawah pindah sorotan, Enter pilih yang disorot, Esc tutup.
    ======================================================================== */
+// BARU -- dipakai KHUSUS dropdown mode "sheet" yang diberi atribut
+// data-icon-mode="car" / "driver" (lihat openUsageModal, select #in-car &
+// #in-driver) supaya ikon generik 🚗/🧑‍✈️ diganti FOTO MOBIL ASLI
+// (carPhotoHtml/car.fotoUrl, sumber sama dgn Data Mobil & modal Akhiri
+// Trip) dan ikon sopir yang sama dgn menu Data Sopir (driverIconHtml).
+// Dipakai ulang di 2 tempat: baris pilihan di dalam sheet (row) DAN kotak
+// trigger yang tampil saat sheet tertutup (control) -- opt null/kosong
+// (mis. belum ada yang dipilih) otomatis jatuh ke foto/ikon generik lewat
+// carPhotoHtml(null,...) yang sudah menangani fallback itu sendiri.
+// data-icon-mode kosong/tidak diisi -> tetap emoji statis (data-icon),
+// SAMA PERSIS seperti sebelumnya -- dropdown sheet lain tidak terdampak.
+function sheetIconHtml(select, opt, cls, isAddNewRow){
+  if(isAddNewRow) return '➕';
+  const mode = select.dataset.iconMode;
+  if(mode === 'car'){
+    const car = (opt && opt.value) ? state.cars.find(c=>c.id===opt.value) : null;
+    return carPhotoHtml(car, cls);
+  }
+  if(mode === 'driver'){
+    return driverIconHtml(cls);
+  }
+  return select.dataset.icon || '';
+}
 function enhanceSelectAsDropdown(select){
   if(!select || select.dataset.cddEnhanced) return;
   if(select.multiple) return; // di luar cakupan -- tidak ada <select multiple> di app ini saat ini
@@ -7454,8 +7513,9 @@ function enhanceSelectAsDropdown(select){
   control.className = 'cdd-control';
   control.tabIndex = 0;
   control.setAttribute('role', 'button');
+  let iconSpan = null;
   if(select.dataset.icon){
-    const iconSpan = document.createElement('span');
+    iconSpan = document.createElement('span');
     iconSpan.className = 'cdd-icon';
     iconSpan.textContent = select.dataset.icon;
     control.appendChild(iconSpan);
@@ -7494,7 +7554,7 @@ function enhanceSelectAsDropdown(select){
         const label = opt.textContent.replace(' (sedang dipakai)', '');
         const isAddNew = opt.value === '__new__';
         const statusText = isAddNew ? '' : (opt.disabled ? 'Sedang dipakai' : (opt.value ? 'Tersedia' : ''));
-        row.innerHTML = `<span class="cdd-sheet-row-ic">${isAddNew ? '➕' : (select.dataset.icon||'')}</span>`
+        row.innerHTML = `<span class="cdd-sheet-row-ic">${sheetIconHtml(select, opt, 'cdd-photo-icon', isAddNew)}</span>`
           + `<span class="cdd-sheet-row-txt"><span class="cdd-sheet-row-primary">${label}</span>`
           + (statusText ? `<span class="cdd-sheet-row-sub${opt.disabled?' busy':''}">${statusText}</span>` : '')
           + `</span><span class="check">✓</span>`;
@@ -7536,6 +7596,9 @@ function enhanceSelectAsDropdown(select){
     const opt = select.options[select.selectedIndex];
     labelSpan.textContent = opt ? opt.textContent : '';
     labelSpan.classList.toggle('placeholder', !!(opt && opt.value===''));
+    if(iconSpan && select.dataset.iconMode){
+      iconSpan.innerHTML = sheetIconHtml(select, opt, 'cdd-photo-icon', false);
+    }
   }
 
   function openPanel(){
@@ -12416,13 +12479,13 @@ function openUsageModal(editId, presetCarId){
     <div class="tf-card">
       <div class="field" id="f-car" style="margin-bottom:0;">
         <label>Mobil *</label>
-        <select id="in-car" data-sheet="1" data-icon="🚗" data-sheet-title="Pilih mobil" data-sheet-subtitle="Mobil yang sedang dipakai tidak bisa dipilih"><option value="">— pilih mobil —</option>${carOptions}</select>
+        <select id="in-car" data-sheet="1" data-icon="🚗" data-icon-mode="car" data-sheet-title="Pilih mobil" data-sheet-subtitle="Mobil yang sedang dipakai tidak bisa dipilih"><option value="">— pilih mobil —</option>${carOptions}</select>
         <div class="err-msg">Pilih mobil yang tersedia.</div>
       </div>
       <div class="tf-row-divider"></div>
       <div class="field" id="f-driver" style="margin-bottom:0;">
         <label>Sopir *</label>
-        <select id="in-driver" data-sheet="1" data-icon="🧑‍✈️" data-sheet-title="Pilih sopir"><option value="">— pilih sopir —</option>${buildDriverOptions(editing?editing.driverId:null)}</select>
+        <select id="in-driver" data-sheet="1" data-icon="🧑‍✈️" data-icon-mode="driver" data-sheet-title="Pilih sopir"><option value="">— pilih sopir —</option>${buildDriverOptions(editing?editing.driverId:null)}</select>
         <div class="err-msg">Pilih sopir.</div>
       </div>
     </div>
@@ -17873,6 +17936,26 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.228.0',
+    date: '02 Agu 2026',
+    notes: [
+      '🎨 Modal <b>Catat Perjalanan</b>: ikon generik 🚗 di kotak "Mobil" (baik kotak trigger maupun tiap baris pilihan di bottom sheet) diganti <b>foto mobil asli</b> (field "Foto Kendaraan (Image URL)" di Data Mobil -- sumber sama dgn Data Mobil & modal Akhiri Trip, otomatis jatuh ke ikon generik kalau foto kosong/gagal dimuat). Ikon kotak "Mobil" ikut update LIVE mengikuti mobil yang sedang dipilih.',
+      '🎨 Ikon generik 🧑‍✈️ di kotak "Sopir" diganti ikon sopir yang SAMA PERSIS dgn menu "Data Sopir" di sidebar (sopir belum punya foto per-orang sendiri, jadi tetap 1 ikon yang sama untuk semua, bukan lagi emoji).',
+      '🐛 <b>Perbaikan bug:</b> panel bottom sheet "Pilih Mobil"/"Pilih Sopir" melebar sampai ke tepi BROWSER di layar lebar (desktop) -- jauh melampaui batas modal/kotak field-nya sendiri. Penyebabnya gaya bottom-sheet edge-to-edge (position:fixed penuh layar) yang seharusnya cuma dipakai di HP, ikut terpakai di desktop. Sekarang mulai lebar layar 641px ke atas, panel kembali jadi dropdown biasa yang menempel & SAMA LEBAR dengan kotaknya sendiri -- perilaku di HP TIDAK berubah sama sekali.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.227.0',
+    date: '02 Agu 2026',
+    notes: [
+      '🐛 <b>Perbaikan bug:</b> kategori <b>"🧭 Peringatan Rute Menyimpang"</b> tidak muncul sama sekali di daftar/pencarian panel <b>"🔔 Notifikasi Telegram per Peran"</b> -- togel per peran (Sopir/Finance/Operator/Administrator) untuk kategori ini sebenarnya sudah aktif & berjalan di balik layar sejak fitur ini dibuat, tapi lupa didaftarkan ke katalog tampilan panel tsb sehingga jadi "yatim" (tidak bisa dicari/ditemukan/diedit lewat panel itu).',
+      '✅ Sekarang "Peringatan Rute Menyimpang" sudah muncul di daftar kiri & pencarian panel Notifikasi Telegram per Peran, dengan togel default sama seperti sebelumnya (Operator & Administrator aktif; Sopir & Finance nonaktif) -- tidak ada perubahan pada siapa yang benar-benar menerima notifikasi, cuma sekarang bisa dilihat/diubah lewat panel.',
+      '🔍 Sudah dicek: semua kotak pencarian lain di aplikasi (Data Mobil, Data Sopir, Tujuan, Riwayat Perjalanan, Booking, Servis, Dokumen, BBM, E-Toll, Pengaturan) berfungsi normal -- bug ini spesifik cuma di 1 kategori yang lupa didaftarkan, bukan bug umum di semua kolom pencarian.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.226.0',
     date: '02 Agu 2026',
