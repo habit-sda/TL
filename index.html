@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.229.0">
+<meta name="app-version" content="3.231.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1639,7 +1639,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.229.0';
+const APP_VERSION = '3.231.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -2301,6 +2301,7 @@ const ALIAS_KATEGORI_CATALOG = [
   { key:'kecepatan', label:'⚡ /kecepatan 🔒 — ranking kecepatan (Administrator, tersembunyi)', defaults:['kecepatan','speed','laju'] },
   { key:'qrpertamina', label:'⛽ Barcode MyPertamina — lihat lagi barcode QR mobil (Sopir, Operator & Administrator)', defaults:['barcode','code','bar','my','pertamina','my pertamina','spbu','bahlil','bensin'] },
   { key:'aturbarcode', label:'🔧 Atur Barcode MyPertamina — tambah/ganti barcode per mobil (Operator & Administrator)', defaults:['atur barcode','atur'] },
+  { key:'kalibrasi', label:'🛰️ /kalibrasi — tandai 1 mobil baru saja dikalibrasi odometer GPS.id, reset pengingat (Operator & Administrator)', defaults:['kalibrasi','sudah kalibrasi','sudah dikalibrasi'] },
   { key:'notiflog', label:'📋 log/notifikasi/cek notif 🔒 — 7 Log Notifikasi terakhir (Administrator, tersembunyi)', defaults:['log','notifikasi','cek notif'] },
   { key:'saldo:et', label:'💳 Pintasan Saldo — E-Toll', defaults:['etoll'] },
   { key:'saldo:tk', label:'⛽ Pintasan Saldo — Sisa BBM (Tangki)', defaults:['bbm','tangki'] },
@@ -2365,7 +2366,7 @@ const SETTINGS_ITEM_CATALOG = [
   { id:'booking', icon:'📅', label:'Booking Mobil', desc:'Reminder booking mendatang, dan perintah booking/pesan/keep.', notifKey:'booking', aliasKey:'booking', akses:'Sopir & Operator' },
   { id:'tripLama', icon:'⏰', label:'Trip Kelamaan Belum Diakhiri', desc:'Notifikasi trip yang sudah lama belum ditutup.', notifKey:'tripLama', akses:'Sopir, Admin, Administrator' },
   { id:'budget', icon:'💰', label:'Budget Bulanan', desc:'Notifikasi budget bulanan mendekati/lewat batas, dan pintasan Saldo.', notifKey:'budget', aliasKey:'saldo:bg', akses:'Operator & Administrator' },
-  { id:'kalibrasi', icon:'🛰️', label:'Kalibrasi Odometer GPS.id', desc:'Notifikasi selisih odometer GPS.id vs dashboard.', notifKey:'kalibrasi', akses:'Operator & Administrator' },
+  { id:'kalibrasi', icon:'🛰️', label:'Kalibrasi Odometer GPS.id', desc:'Notifikasi selisih odometer GPS.id vs dashboard, dan perintah "kalibrasi" untuk menandai mobil baru saja dikalibrasi (reset pengingat, per-mobil).', notifKey:'kalibrasi', aliasKey:'kalibrasi', akses:'Operator & Administrator' },
   { id:'speed', icon:'⚡', label:'Kecepatan Berlebih', desc:'Notifikasi & ranking kecepatan sopir -- perintah tersembunyi, khusus Administrator.', notifKey:'speed', aliasKey:'kecepatan', hiddenKey:'kecepatanCommand', akses:'Administrator (tersembunyi)' },
   { id:'qrpertamina', icon:'⛽', label:'Barcode MyPertamina', desc:'Kirim ulang foto barcode QR MyPertamina mobil yang sudah tersimpan -- pilih mobil dulu kalau lebih dari 1 punya barcode.', aliasKey:'qrpertamina', akses:'Sopir, Operator & Administrator' },
   { id:'aturbarcode', icon:'🔧', label:'Atur Barcode MyPertamina', desc:'Tambah/ganti foto barcode QR MyPertamina per mobil -- kirim foto baru setelah pilih mobil.', aliasKey:'aturbarcode', akses:'Operator & Administrator' },
@@ -9844,9 +9845,17 @@ function migrateRemovePribadiOnlyDestinations(){
 // ini, Tujuan Tambahan cuma teks bebas polos tanpa autocomplete/link sama
 // sekali. Data yang DISIMPAN tetap sama persis (array nama string) -- ini
 // MURNI pengayaan tampilan+kemudahan input, bukan perubahan struktur data.
-function wireTujuanTambahanInput(wrapId, initial){
+// v3.230.0 -- BARU: parameter ke-3 `lockedCount` (default 0) -- untuk trip
+// AKTIF yang SEBAGIAN tujuannya sudah ditandai "sampai" (posisinya dipakai
+// sbg indeks oleh tracking Peringatan Rute Menyimpang/Auto-deteksi Sampai,
+// lihat SOP), N chip PERTAMA dikunci: tidak ada tombol ✕, dan Backspace
+// tidak bisa menghapusnya -- supaya penandaan lama tidak rusak kalau
+// urutannya digeser. Dipanggil dgn lockedCount=0 (default, perilaku PERSIS
+// sama seperti sebelum ini) di semua tempat lain yg belum butuh penguncian.
+function wireTujuanTambahanInput(wrapId, initial, lockedCount){
   const wrap = document.getElementById(wrapId);
   if(!wrap) return { get: () => [] };
+  const locked = Math.max(0, Number(lockedCount) || 0);
   let items = Array.isArray(initial) ? initial.filter(Boolean).slice() : [];
   function render(){
     const focusAfter = document.activeElement && document.activeElement.id === wrapId+'-input';
@@ -9855,7 +9864,9 @@ function wireTujuanTambahanInput(wrapId, initial){
         ${items.map((t,i)=>{
           const link = findMapsLinkForTujuan(t);
           const linkHtml = link ? `<span style="display:inline-flex;transform:scale(0.7);margin:0 -3px;">${mapsNavButtonCompactHtml(link)}</span>` : '';
-          return `<span class="tujuan-chip">${escapeHtml(t)}${linkHtml}<b data-remove-chip="${i}">✕</b></span>`;
+          const isLocked = i < locked;
+          const removeBtn = isLocked ? `<span title="Sudah ditandai sampai -- dikunci" style="opacity:.6;">🔒</span>` : `<b data-remove-chip="${i}">✕</b>`;
+          return `<span class="tujuan-chip"${isLocked?' style="opacity:.75;"':''}>${escapeHtml(t)}${linkHtml}${removeBtn}</span>`;
         }).join('')}
         <input type="text" id="${wrapId}-input" placeholder="${items.length===0?'Ketik tujuan ke-2, lalu Enter...':'Tambah lagi...'}" autocomplete="off">
       </div>
@@ -9874,7 +9885,7 @@ function wireTujuanTambahanInput(wrapId, initial){
         const sudahAda = items.some(t => t.toLowerCase()===v.toLowerCase()) || (document.getElementById('in-tujuan')?.value||'').trim().toLowerCase()===v.toLowerCase();
         if(sudahAda){ inp.value=''; return; } // v3.229.0 -- cegah duplikat, sama pola dgn bot Telegram
         items.push(v); render();
-      } else if(e.key==='Backspace' && !inp.value && items.length>0){
+      } else if(e.key==='Backspace' && !inp.value && items.length>locked){
         items.pop(); render();
       }
     });
@@ -12610,6 +12621,7 @@ function openUsageModal(editId, presetCarId){
             <input type="text" id="in-tujuan" placeholder="Contoh: Gudang Surabaya - Toko A" autocomplete="off" value="${editing?escapeHtml(editing.tujuan||''):''}">
             <div class="err-msg">Tujuan wajib diisi.</div>
             <div class="hint" id="tujuan-ref-hint" style="display:none;"></div>
+            <div class="hint" id="tujuan-locked-hint" style="display:none;"></div>
           </div>
           <div class="field" style="margin-bottom:0;">
             <label>Tujuan Tambahan (opsional)</label>
@@ -12831,7 +12843,27 @@ function openUsageModal(editId, presetCarId){
   attachAutocomplete('in-tujuan', () => state.destinations.map(d=>d.nama));
   wireMapsAutofill('in-tujuan', 'in-maps-link', editing ? editing.id : null, 'maps-link-preview');
   wireDestinationRefHint('in-tujuan', 'tujuan-ref-hint');
-  tujuanTambahanHandle = wireTujuanTambahanInput('tujuan-tambahan-wrap', editing ? editing.tujuanTambahan : null);
+  // v3.230.0 -- BARU: kalau ini Edit Perjalanan utk trip AKTIF yang SEBAGIAN
+  // tujuannya sudah ditandai "sampai" (posisinya dipakai sbg indeks oleh
+  // tracking Peringatan Rute Menyimpang/Auto-deteksi Sampai, lihat SOP),
+  // tujuan yang sudah dikunjungi WAJIB dikunci -- baik field Tujuan utama
+  // (kalau tujuan ke-1 sudah "sampai") maupun chip Tujuan Tambahan terkait
+  // -- supaya penandaan lama tidak jadi menunjuk ke tujuan yang salah kalau
+  // urutannya digeser. completedCount=0 (trip baru/booking/trip aktif yg
+  // belum ada yg "sampai") -> perilaku PERSIS sama seperti sebelum ini.
+  const completedCount = (editing && editing.status === 'digunakan') ? Object.keys(editing.tujuanSelesaiAt || {}).length : 0;
+  if(completedCount > 0){
+    const inTujuanEl = document.getElementById('in-tujuan');
+    const inMapsEl = document.getElementById('in-maps-link');
+    if(inTujuanEl){ inTujuanEl.readOnly = true; inTujuanEl.style.background = '#f1f2f4'; inTujuanEl.title = 'Sudah ditandai "sampai" -- dikunci supaya penandaan lama tidak rusak.'; }
+    if(inMapsEl){ inMapsEl.readOnly = true; inMapsEl.style.background = '#f1f2f4'; }
+    const lockedHintEl = document.getElementById('tujuan-locked-hint');
+    if(lockedHintEl){
+      lockedHintEl.style.display = 'block';
+      lockedHintEl.innerHTML = `🔒 Tujuan ke-1 sudah ditandai "sampai" & dikunci (tidak bisa diubah). ${completedCount>1?`${completedCount-1} Tujuan Tambahan berikutnya yang sudah "sampai" juga dikunci.`:''}`;
+    }
+  }
+  tujuanTambahanHandle = wireTujuanTambahanInput('tujuan-tambahan-wrap', editing ? editing.tujuanTambahan : null, completedCount>0 ? completedCount-1 : 0);
   document.getElementById('btn-optimalkan-urutan').onclick = async () => {
     const tujuanUtama = document.getElementById('in-tujuan').value.trim();
     const tambahanList = tujuanTambahanHandle ? tujuanTambahanHandle.get() : [];
@@ -12846,6 +12878,15 @@ function openUsageModal(editId, presetCarId){
       hasilEl.textContent = '⚠️ Fitur ini butuh koneksi Worker & Notify Secret -- cek dulu di Pengaturan → Koneksi GitHub/Worker.';
       return;
     }
+    // v3.230.0 -- BARU: tujuan yang sudah ditandai "sampai" (completedCount,
+    // lihat catatan penguncian di atas) TIDAK ikut dikirim ke optimasi --
+    // cuma SISA tujuan yang belum "sampai" yang diurutkan ulang.
+    const lockedNama = completedCount > 0 ? semuaNama.slice(0, completedCount) : [];
+    const sisaNama = completedCount > 0 ? semuaNama.slice(completedCount) : semuaNama;
+    if(completedCount > 0 && sisaNama.length < 2){
+      hasilEl.textContent = `⚠️ Tujuan yang belum "sampai" tinggal ${sisaNama.length} -- tidak ada lagi yang perlu diurutkan ulang. (${completedCount} tujuan awal sudah dikunjungi & dikunci.)`;
+      return;
+    }
     // v3.217.0 -- BARU: cari koordinat tiap nama tujuan dari link Maps di
     // Data Tujuan (tujuan pertama bisa juga dari field in-maps-link yang
     // baru diketik, belum tentu tersimpan). SENGAJA TIDAK menebak/geocode
@@ -12855,8 +12896,9 @@ function openUsageModal(editId, presetCarId){
     const mapsLinkUtama = document.getElementById('in-maps-link').value.trim();
     const poin = [];
     const belumAdaKoordinat = [];
-    semuaNama.forEach((nama, i)=>{
-      let link = (i===0 && mapsLinkUtama) ? mapsLinkUtama : null;
+    sisaNama.forEach((nama, iSisa)=>{
+      const iAsli = completedCount + iSisa; // indeks asli di semuaNama -- mapsLinkUtama cuma valid utk tujuan ke-1 (indeks 0), yang kalau completedCount>0 sudah pasti terkunci & tidak masuk sisaNama
+      let link = (iAsli===0 && mapsLinkUtama) ? mapsLinkUtama : null;
       if(!link){
         const dest = findDestinationByName(nama);
         link = dest ? dest.mapsLink : null;
@@ -12869,20 +12911,40 @@ function openUsageModal(editId, presetCarId){
       hasilEl.innerHTML = `⚠️ Tujuan ini belum punya link Maps tersimpan, jadi belum bisa dioptimalkan: <b>${belumAdaKoordinat.map(escapeHtml).join(', ')}</b>. Tambahkan link Maps-nya dulu di Data Tujuan.`;
       return;
     }
+    // v3.230.0 -- BARU: kalau ada tujuan terkunci (trip aktif), pakai posisi
+    // GPS.id mobil SEKARANG sbg titik start optimasi (bukan titik sisa
+    // pertama spt versi lama) -- fallback diam-diam (fail-open) ke perilaku
+    // lama kalau mobil belum terhubung IMEI GPS.id/posisi gagal diambil,
+    // supaya fitur tetap jalan walau kurang akurat.
+    let startAnchor = null;
+    if(completedCount > 0 && editing){
+      const carForAnchor = state.cars.find(c=>c.id===editing.carId);
+      if(carForAnchor && carForAnchor.imeiGps){
+        startAnchor = await fetchGpsLatLon(carForAnchor.imeiGps);
+      }
+    }
     hasilEl.textContent = '⏳ Menghitung urutan paling efisien...';
     try{
       const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/optimize-route`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
-        body: JSON.stringify({ points: poin.map(p=>({lat:p.lat, lon:p.lon})) }),
+        body: JSON.stringify(startAnchor ? { points: poin.map(p=>({lat:p.lat, lon:p.lon})), start: startAnchor } : { points: poin.map(p=>({lat:p.lat, lon:p.lon})) }),
       });
       const data = await res.json();
       if(!res.ok || !data.ok){ hasilEl.textContent = `❌ ${data.error || 'Gagal menghitung urutan.'}`; return; }
-      const urutanBaru = data.order.map(idx => poin[idx].nama);
-      document.getElementById('in-tujuan').value = urutanBaru[0];
-      tujuanTambahanHandle.set(urutanBaru.slice(1));
+      const urutanSisaBaru = data.order.map(idx => poin[idx].nama);
+      const urutanBaru = [...lockedNama, ...urutanSisaBaru];
+      if(completedCount === 0){
+        document.getElementById('in-tujuan').value = urutanBaru[0];
+        tujuanTambahanHandle.set(urutanBaru.slice(1));
+      } else {
+        // Tujuan yang terkunci (termasuk field Tujuan utama) TIDAK disentuh --
+        // cuma bagian Tujuan Tambahan yang belum "sampai" yang diperbarui.
+        tujuanTambahanHandle.set([...tambahanList.slice(0, completedCount-1), ...urutanSisaBaru]);
+      }
       const jarakInfo = data.jarakMeter!=null ? ` (~${(data.jarakMeter/1000).toLocaleString('id-ID',{maximumFractionDigits:1})} KM total)` : '';
-      hasilEl.innerHTML = `✅ Urutan diperbarui${jarakInfo}: ${urutanBaru.map(escapeHtml).join(' → ')}`;
+      const anchorInfo = startAnchor ? ' dari posisi mobil sekarang' : '';
+      hasilEl.innerHTML = `✅ Urutan${completedCount>0?' sisa tujuan':''} diperbarui${anchorInfo}${jarakInfo}: ${urutanBaru.map(escapeHtml).join(' → ')}`;
     }catch(e){
       hasilEl.textContent = '❌ Gagal terhubung ke server untuk menghitung urutan.';
     }
@@ -15633,6 +15695,33 @@ async function fetchOdoFromGpsId(imei){
     return Math.round(m/1000); // asumsi field "mileage" GPS.id dalam meter
   } catch(e){ return null; }
 }
+// v3.230.0 -- BARU: sama pola dgn fetchOdoFromGpsId() di atas, tapi ambil
+// posisi (lat/lon) alih-alih odometer -- dipakai fitur sinkron ulang
+// "Optimalkan Urutan" pada trip AKTIF (Edit Perjalanan), supaya urutan sisa
+// tujuan dioptimalkan dari POSISI MOBIL SEKARANG, bukan dari titik tujuan
+// pertama spt versi lama. Fail-open (null) kalau IMEI kosong/GPS.id
+// bermasalah -- pemanggil WAJIB anggap ini opsional (fallback ke perilaku
+// lama), bukan syarat wajib.
+async function fetchGpsLatLon(imei){
+  if(!imei || !isGhConnected()) return null;
+  try{
+    const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/gpsid/vehicles`, { headers: { 'accept':'application/json' } });
+    const data = await res.json().catch(()=>null);
+    if(!res.ok || !data) return null;
+    let list = null;
+    if(Array.isArray(data)) list = data;
+    else if(Array.isArray(data?.message?.data)) list = data.message.data;
+    else if(Array.isArray(data?.data)) list = data.data;
+    else if(Array.isArray(data?.message)) list = data.message;
+    if(!list) return null;
+    const v = list.find(x => String(x.imei ?? x.IMEI ?? '') === String(imei));
+    if(!v) return null;
+    const lat = Number(v.latitude ?? v.lat);
+    const lon = Number(v.longitude ?? v.lon);
+    if(isNaN(lat) || isNaN(lon)) return null;
+    return { lat, lon };
+  } catch(e){ return null; }
+}
 
 // ============================================================================
 // Insight GPS per Trip -- kombinasi gap odometer (Berangkat -> Tiba) dgn
@@ -18034,6 +18123,22 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.231.0',
+    date: '02 Agu 2026',
+    notes: [
+      '🛰️ Fitur baru: <b>tandai "Sudah Dikalibrasi" langsung dari Telegram</b>. Sebelumnya Pengingat Kalibrasi Odometer GPS.id murni berbasis waktu global (sama rata utk semua mobil, tidak tahu kapan mobil itu SUNGGUHAN terakhir dikalibrasi) -- satu-satunya cara "reset" adalah menunggu. Sekarang Operator/Administrator bisa ketik <b>kalibrasi</b> di chat Telegram, pilih mobilnya, dan pengingat untuk mobil itu otomatis reset dari SEKARANG (per-mobil, bukan lagi global). Mobil yang belum pernah ditandai lewat perintah ini tetap berperilaku PERSIS seperti sebelumnya.',
+      '🔧 Perubahan di index.html DAN worker.js -- WAJIB upload ulang KEDUANYA.',
+    ]
+  },
+  {
+    v: '3.230.0',
+    date: '02 Agu 2026',
+    notes: [
+      '🔀 Fitur baru: <b>sinkron ulang Optimalkan Urutan</b> untuk trip yang sedang berjalan. Sebelumnya urutan cuma dihitung sekali di awal -- kalau sopir dapat tujuan tambahan mendadak setelah berangkat, tidak ada cara re-optimasi tanpa mulai dari form baru. Sekarang tombol "✏️ Edit" pada trip aktif bisa dipakai menambah Tujuan Tambahan baru lalu klik "🔀 Optimalkan Urutan" lagi -- tujuan yang SUDAH ditandai "sampai" otomatis dikunci (tidak ikut digeser, supaya penandaan lama tidak rusak), cuma sisa tujuan yang diurutkan ulang, dan sbg titik awal dipakai posisi GPS.id mobil SEKARANG (bukan lagi tujuan pertama) supaya sarannya lebih akurat.',
+      '🔧 Perubahan di index.html DAN worker.js -- WAJIB upload ulang KEDUANYA.',
+    ]
+  },
   {
     v: '3.229.0',
     date: '02 Agu 2026',
