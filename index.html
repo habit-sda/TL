@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.249.0">
+<meta name="app-version" content="3.251.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -250,7 +250,7 @@
   /* v3.236.0 -- default disembunyikan (desktop) -- dimunculkan lewat
      override display:block di dalam @media(max-width:768px). */
   .mobile-hero-only{ display:none; }
-  /* v3.240.0 -- PERBAIKAN BUG PENTING: elemen <nav> ini TIDAK PERNAH diberi
+  /* v3.251.0 -- PERBAIKAN BUG PENTING: elemen <nav> ini TIDAK PERNAH diberi
      aturan display:none default (beda dari .mobile-hero-only di atas yang
      sudah benar) -- karena <nav> defaultnya display:block di semua browser,
      elemen ini SELALU TERLIHAT di ukuran layar APA PUN (termasuk desktop),
@@ -258,7 +258,7 @@
      kelihatan seperti "sidebar kedua" tanpa ikon rapi). Ini yang menjelaskan
      laporan "tampilan desktop dobel" -- BUKAN soal alat preview. */
   #mobile-bottom-nav{ display:none; }
-  /* v3.241.0 -- WAJIB (pelajaran dari bug v3.240.0): SETIAP elemen baru yang
+  /* v3.241.0 -- WAJIB (pelajaran dari bug v3.251.0): SETIAP elemen baru yang
      cuma boleh tampil di kondisi tertentu (HP+terkunci) HARUS diberi aturan
      sembunyikan default di SINI (luar media query) dulu -- baru DIIZINKAN
      tampil lewat override di dalam @media. Kalau lupa, elemen <div>/<nav>
@@ -855,19 +855,19 @@
 
   /* ---------------- Bubble melayang: indikator mobil sedang dalam perjalanan ---------------- */
   #trip-bubble{position:fixed;bottom:20px;right:20px;z-index:150;}
-  /* v3.249.0 -- SEBELUMNYA tema charcoal hangat + aksen tembaga (coklat,
-     #231F1C + #C97B4A) -- diganti user jadi biru brand Payment Blue
-     (#00AED6), berlaku di tombol bubble & header panel "Mobil Sedang
-     Jalan" (pop up awal). Badge angka (count-badge) dipakai warna biru yang
-     SEDIKIT lebih gelap (#0088A8, ujung gelap gradasi biru yang SUDAH
-     dipakai di header app) -- BUKAN warna baru -- supaya angkanya tetap
-     kontras/kebaca di atas tombol yang sekarang sama-sama biru (kalau
-     dipaksa sama persis #00AED6, badge-nya jadi nyaris tak terlihat
-     menyatu ke tombol). State "overdue" (trip >=3x24 jam belum Tiba)
-     SENGAJA TETAP merah (#7A2320) -- itu bukan bagian tema coklat, tapi
-     warna peringatan/urgensi yang berbeda maknanya, jadi tidak diubah. */
+  /* v3.250.0 -- SEBELUMNYA biru brand Payment Blue (#00AED6) -- diganti
+     user jadi hijau "Gojek Green" (#00AA13), berlaku di tombol bubble &
+     header panel "Mobil Sedang Jalan" (pop up awal) MAUPUN kartu trip di
+     dalamnya tempat user memilih mobil. Badge angka (count-badge) dipakai
+     warna hijau yang SEDIKIT lebih gelap (#00860F) -- BUKAN warna baru yg
+     lepas dari tema -- supaya angkanya tetap kontras/kebaca di atas tombol
+     yang sekarang sama-sama hijau (kalau dipaksa sama persis #00AA13,
+     badge-nya jadi nyaris tak terlihat menyatu ke tombol). State "overdue"
+     (trip >=3x24 jam belum Tiba) SENGAJA TETAP merah (#7A2320) -- itu
+     bukan bagian tema yang diganti, tapi warna peringatan/urgensi yang
+     berbeda maknanya. */
   .trip-bubble-btn{
-    background:#00AED6;color:#fff;border:none;border-radius:26px;
+    background:#00AA13;color:#fff;border:none;border-radius:26px;
     padding:11px 16px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px;
     box-shadow:0 10px 24px rgba(0,0,0,0.22);cursor:grab;font-family:inherit;touch-action:none;user-select:none;
     transition:background-color .3s ease;
@@ -885,7 +885,7 @@
   #trip-bubble.dragging .trip-bubble-btn{cursor:grabbing;}
   #trip-bubble.dragging{transition:none !important;}
   .trip-bubble-btn .count-badge{
-    background:#0088A8;color:#fff;min-width:18px;height:18px;border-radius:50%;
+    background:#00860F;color:#fff;min-width:18px;height:18px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;padding:0 4px;
   }
   .trip-bubble-panel{
@@ -893,7 +893,7 @@
     background:var(--card);border:1px solid var(--line);border-radius:14px;
     box-shadow:0 18px 44px rgba(0,0,0,0.22);overflow-y:auto;overflow-x:hidden;
   }
-  .trip-bubble-head{padding:16px 18px;font-weight:800;font-size:15px;background:#00AED6;color:#fff;}
+  .trip-bubble-head{padding:16px 18px;font-weight:800;font-size:15px;background:#00AA13;color:#fff;}
   .trip-card{padding:16px 18px;border-bottom:1px solid var(--line);cursor:pointer;}
   .trip-card:last-child{border-bottom:none;}
   .trip-card:hover{background:var(--hover-bg);}
@@ -975,10 +975,19 @@
        (CSS bottom kalah sama inline style.top yg dipakai utk posisi
        custom). */
     body.mobile-nav-locked #trip-bubble{ bottom:calc(76px + env(safe-area-inset-bottom) + 14px); }
-    .trip-action-menu{width:88vw;max-width:280px;}
-    .trip-action-item{padding:16px 18px;font-size:15px;}
-    .trip-action-distance{padding:14px 18px;}
-    .trip-action-distance-value{font-size:18px;}
+    /* v3.250.0 -- DIPERKECIL sesuai permintaan user: popup ini SEBELUMNYA
+       88vw/max-width 280px dgn padding & font sebesar versi desktop yg
+       diperbesar lagi -- di HP kelihatan berlebihan (melebar sampai nyaris
+       nutup separuh layar & tumpang tindih kartu di belakangnya). Sekarang
+       diciutkan ke 72vw/max-width 220px, padding & font item ikut diciutkan
+       proporsional -- teks tetap FULL terbaca (tidak ada yg kepotong),
+       cuma kotaknya lebih ringkas/pas. */
+    .trip-action-menu{width:72vw;max-width:220px;}
+    .trip-action-item{padding:12px 14px;font-size:13.5px;}
+    .trip-action-distance{padding:10px 14px;}
+    .trip-action-distance-label{font-size:12px;}
+    .trip-action-distance-sub{font-size:10px;}
+    .trip-action-distance-value{font-size:15px;}
     /* Khusus layar sempit: tampilkan kartu Catat Perjalanan, sembunyikan
        tabel lebar (yang butuh geser kanan-kiri). Desktop tidak terpengaruh. */
     .desktop-usage-table{display:none;}
@@ -1566,7 +1575,7 @@
        CSS-nya sengaja 2 class + 1 id (lebih tinggi dari aturan display:flex
        di atas) supaya PASTI menang urutan berapa pun taruhannya di file. */
     body.mobile-nav-locked.modal-open #mobile-bottom-nav{ display:none; }
-    /* v3.240.0 -- BARU: latar body diputihkan bersih KHUSUS HP terkunci
+    /* v3.251.0 -- BARU: latar body diputihkan bersih KHUSUS HP terkunci
        (sebelumnya abu-abu var(--bg) mengintip di sela-sela panel) --
        supaya sesuai referensi Gojek yang latarnya putih polos, tidak ada
        abu-abu sama sekali. Di luar kondisi ini TIDAK berubah. */
@@ -1663,13 +1672,24 @@
     .mdh-summary-label{ font-size:11px; color:var(--muted); }
     .mdh-summary-right{ display:flex; gap:20px; }
     .mdh-wallet-btn{ text-align:center; cursor:pointer; user-select:none; background:none; border:none; padding:0; gap:0; }
-    .mdh-wallet-btn .ic{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 5px; }
+    .mdh-wallet-btn .ic{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 5px; font-size:18px; line-height:1; }
     .mdh-wallet-btn .ic svg, .mdh-wallet-btn .ic img{ width:19px !important; height:19px !important; object-fit:contain; }
     .mdh-wallet-btn .lbl{ font-size:10.5px; color:var(--text); display:block; }
     .mdh-menu-grid{ padding:0; display:grid; grid-template-columns:repeat(4,1fr); gap:18px 10px; margin-bottom:16px; }
     .mdh-menu-item{ text-align:center; cursor:pointer; user-select:none; text-decoration:none; display:block; background:none; border:none; padding:0; }
-    .mdh-menu-item .ic{ width:74px; height:74px; border-radius:18px; margin:0 auto 7px; display:flex; align-items:center; justify-content:center; }
+    .mdh-menu-item .ic{ width:74px; height:74px; border-radius:18px; margin:0 auto 7px; display:flex; align-items:center; justify-content:center; font-size:32px; line-height:1; }
     .mdh-menu-item .ic svg, .mdh-menu-item .ic img{ width:38px !important; height:38px !important; object-fit:contain; }
+    /* v3.250.0 -- BARU: ikon "Tambah Sopir" & "Dokumen" pakai gambar PNG
+       hasil upload/asset lama yang latarnya putih solid (bukan transparan),
+       jadi di atas lingkaran warna baru malah kelihatan ada kotak putih di
+       tengahnya. mix-blend-mode:multiply bikin area PUTIH gambar menyatu
+       tembus ke warna lingkaran di belakangnya (putih dilipat-kali =
+       tidak mengubah warna dasar), sementara garis/isi ikon yang gelap
+       tetap kelihatan -- tanpa perlu edit ulang gambar aslinya. Discope
+       KHUSUS ke 2 ikon ini di grid mobile ini saja, ikon lain (Catat
+       Trip, Rute Pulang, dst) & tempat lain di app TIDAK terpengaruh. */
+    .mdh-menu-grid [data-icon-src="driver"] img,
+    .mdh-menu-grid [data-icon-src="doc"] img{ mix-blend-mode:multiply; }
     .mdh-menu-item .lbl{ font-size:11.5px; color:var(--text); display:block; line-height:1.25; }
     .mdh-chips{ padding:0; display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
     .mdh-chips::-webkit-scrollbar{ display:none; }
@@ -1933,7 +1953,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.249.0';
+const APP_VERSION = '3.251.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -5696,18 +5716,35 @@ function lockSettingsPanelAfterSave(panelKey){
 // -- titik itu `insightUnlocked` sudah pasti terisi), bukan lagi const
 // yang dievaluasi langsung di urutan baca script dari atas ke bawah.
 function getSettingsCategories(){
-  // CATATAN -- 3 kartu (Admin Finance, Admin Penerima Notifikasi,
-  // Notifikasi Telegram per Peran) TIDAK pakai filter modeOperatorUnlocked
-  // terpisah: mereka sudah digerbang insightUnlocked di dalam blok di
-  // bawah. Sebelum menambah filter modeOperatorUnlocked di sini (atau di
-  // mana pun), WAJIB baca aturan lengkap di deklarasi `modeOperatorUnlocked`
-  // (cari komentar "⚠️ ATURAN WAJIB BACA") -- ada jebakan Super Akses.
+  // v3.251.0 -- PERUBAHAN DESAIN (atas permintaan Administrator): dulu 12
+  // kartu di bawah ini (izin-notif s/d menu-mode-operator) HANYA muncul kalau
+  // insightUnlocked (Super Akses) -- checkbox per-item di panel "🧭 Menu Mode
+  // Sopir dan Operator" (MODE_OPERATOR_SUBMENU_CATALOG.settings) SAMA SEKALI
+  // tidak berpengaruh ke kartu-kartu ini, jadi centang kolom Sopir/Operator
+  // di panel itu untuk item-item ini tidak pernah "kena". Itu bukan bug --
+  // memang sengaja dirancang begitu -- tapi Administrator memutuskan
+  // mekanismenya harus SAMA seperti "Notifikasi Telegram per Peran" (checkbox
+  // benar-benar menentukan tampil/sembunyi, bukan hardcode di kode).
+  // SEKARANG: array ini dibangun FLAT (tanpa gerbang insightUnlocked di
+  // tengah), lalu di akhir fungsi difilter satu-per-satu lewat
+  // isModeOperatorSubmenuVisible('settings', key) -- fungsi itu SUDAH
+  // otomatis meloloskan semua tanpa syarat kalau insightUnlocked true (Super
+  // Akses tetap melihat semua, apa pun isi centang), dan kalau tidak,
+  // memakai centang Sopir/Operator yang tersimpan di panel itu -- PERSIS
+  // pola Notifikasi Telegram per Peran yang diminta.
+  // PENGECUALIAN SADAR: kartu 'menu-mode-operator' ("Setting Menu") TETAP
+  // dikunci insightUnlocked SAJA, TIDAK ikut sistem checkbox ini -- karena
+  // panel itu SENDIRI isinya checkbox untuk membuka kartu-kartu lain. Kalau
+  // ikut dibuka lewat centang, Operator (PIN level normal, bukan Super
+  // Akses) yang kebetulan dicentang boleh lihat kartu ini bisa membuka
+  // panelnya sendiri dan mencentang bebas semua menu lain untuk kolom
+  // Operator -- celah "self-upgrade akses" tanpa PIN Super Akses. Sudah
+  // dikonfirmasi ke Administrator dan sengaja dikecualikan.
   const categories = [
   { key:'tampilan', icon:'🎨', title:'Tampilan', desc:'Mode gelap/terang', hasLock:true,
     status: () => localStorage.getItem('fleetops_theme')==='dark' ? 'Mode Gelap' : 'Mode Terang' },
   { key:'backup', icon:'💾', title:'Backup & Pulihkan', desc:'Cadangan data mandiri (file JSON)', hasLock:false,
     status: () => { try{ const raw = localStorage.getItem(BACKUP_TRACKING_KEY); return raw ? 'Terakhir '+new Date(raw).toLocaleDateString('id-ID') : 'Belum pernah backup'; }catch(e){ return '-'; } } },
-  ...(insightUnlocked ? [
   { key:'izin-notif', icon:'🔔', title:'Izin Notifikasi Browser', desc:'Notifikasi HP saat app di background', hasLock:false,
     status: () => (typeof Notification!=='undefined' && Notification.permission==='granted') ? '🟢 Diizinkan' : '⚪ Belum diizinkan' },
   { key:'ambang-batas', icon:'⏰', title:'Ambang Batas Notifikasi', desc:'Servis, BBM, E-Toll, Budget, Trip Lama', hasLock:true,
@@ -5737,12 +5774,13 @@ function getSettingsCategories(){
   { key:'pemeriksaan-tanggal', icon:'🕐', title:'Pemeriksaan Tanggal', desc:'Cek trip rawan bug zona waktu', hasLock:false,
     status: () => { const n = computeSuspiciousDateTrips().length; return n>0 ? `${n} perlu dicek` : 'Semua aman'; } },
   // v3.178.0 -- "Notifikasi Telegram per Peran" SEBELUMNYA cuma bisa
-  // diakses lewat menu sidebar tersembunyi terpisah (muncul sendiri begitu
-  // insightUnlocked, tidak pernah tampil di Pengaturan sama sekali) --
-  // sekarang JUGA muncul sbg kartu di sini demi kelengkapan/penemuan yang
-  // lebih mudah, TANPA menghapus akses lewat sidebar (2 jalan ke tempat yang
-  // sama). externalRoute -> klik kartu ini NAVIGATE ke rute terpisah
-  // 'notiftelegram' (render function sendiri), BUKAN masuk settingsView.
+  // diakses lewat menu sidebar tersembunyi terpisah -- sekarang JUGA muncul
+  // sbg kartu di sini demi kelengkapan/penemuan yang lebih mudah, TANPA
+  // menghapus akses lewat sidebar (2 jalan ke tempat yang sama). externalRoute
+  // -> klik kartu ini NAVIGATE ke rute terpisah 'notiftelegram' (render
+  // function sendiri), BUKAN masuk settingsView. Visibilitasnya (kartu di
+  // sini MAUPUN item sidebar-nya) sekarang SAMA-SAMA mengikuti checkbox
+  // 'notiftelegram-peran' -- lihat applyModeOperatorVisibility() & navigate().
   { key:'notiftelegram-peran', icon:'🔔', title:'Notifikasi Telegram per Peran', desc:'Kategori default per Sopir/Finance/Operator/Administrator', hasLock:false, externalRoute:'notiftelegram',
     status: () => 'Khusus Administrator' },
   // v3.204.0 -- BARU: atur menu apa saja yang tampil di tampilan Mode
@@ -5752,15 +5790,20 @@ function getSettingsCategories(){
   // menu apa pun isi pengaturan ini (lihat applyModeOperatorVisibility() --
   // modeOperatorUnlocked jadi true begitu PIN Super Akses benar, tidak
   // bergantung ke daftar ini sama sekali).
-  { key:'menu-mode-operator', icon:'🧭', title:'Menu Mode Sopir dan Operator', desc:'Menu & fitur apa saja yang tampil sebelum PIN dibuka', hasLock:false,
+  // v3.251.0 -- kartu ini SENGAJA DIKECUALIKAN dari filter checkbox di bawah
+  // (lihat catatan panjang di atas fungsi ini) -- tetap Super Akses-only.
+  { key:'menu-mode-operator', icon:'📋', title:'Setting Menu', desc:'Menu & fitur apa saja yang tampil sebelum PIN dibuka', hasLock:false,
     status: () => `Sopir ${getModeOperatorAllowedRoutes('sopir').length}/${MODE_OPERATOR_MENU_CATALOG.length} · Operator ${getModeOperatorAllowedRoutes('operator').length}/${MODE_OPERATOR_MENU_CATALOG.length}` },
-  ] : []),
   { key:'toleransi-gap', icon:'📏', title:'Toleransi Gap Odometer', desc:'Batas jarak antar-trip tak tercatat', hasLock:true,
     status: () => `${state.toleransiGapKm} KM` },
   { key:'nama-petugas', icon:'🧑\u200d🔧', title:'Nama Petugas / Admin', desc:'Kelola daftar petugas aplikasi', hasLock:false,
     status: () => `${state.admins.length} petugas` },
   ];
-  return categories;
+  // v3.251.0 -- gerbang akhir: 'menu-mode-operator' Super Akses-only mutlak
+  // (lihat catatan di atas); sisanya lewat isModeOperatorSubmenuVisible()
+  // yang SUDAH otomatis true tanpa syarat kalau insightUnlocked (Super Akses
+  // tetap lihat semua kartu apa pun isi centang-nya di panel Setting Menu).
+  return categories.filter(c => c.key==='menu-mode-operator' ? insightUnlocked : isModeOperatorSubmenuVisible('settings', c.key));
 }
 
 function renderSettingsGrid(){
@@ -5902,7 +5945,7 @@ function renderSettingsDetailNotifGabungan(){
       </div>
     </div>
     ` : ''}
-    ${settingsView==='izin-notif' && insightUnlocked ? `
+    ${settingsView==='izin-notif' && isModeOperatorSubmenuVisible('settings','izin-notif') ? `
     <div class="panel">
       <div class="panel-head"><h2>🔔 Notifikasi</h2></div>
       <div class="panel-body">
@@ -5922,7 +5965,7 @@ function renderSettingsDetailNotifGabungan(){
       </div>
     </div>
     ` : ''}
-    ${settingsView==='ambang-batas' && insightUnlocked ? `
+    ${settingsView==='ambang-batas' && isModeOperatorSubmenuVisible('settings','ambang-batas') ? `
     <div class="panel">
       <div class="panel-head"><h2>⏰ Ambang Batas Notifikasi</h2></div>
       <div class="panel-body">
@@ -5965,7 +6008,7 @@ function renderSettingsDetailNotifGabungan(){
       </div>
     </div>
     ` : ''}
-    ${settingsView==='alert-kecepatan' && insightUnlocked ? `
+    ${settingsView==='alert-kecepatan' && isModeOperatorSubmenuVisible('settings','alert-kecepatan') ? `
     <div class="panel">
       <div class="panel-head"><h2>🚨 Alert Kecepatan Berlebih</h2></div>
       <div class="panel-body">
@@ -5995,7 +6038,7 @@ function renderSettingsDetailNotifGabungan(){
       </div>
     </div>
     ` : ''}
-    ${settingsView==='kalibrasi-gps' && insightUnlocked ? `
+    ${settingsView==='kalibrasi-gps' && isModeOperatorSubmenuVisible('settings','kalibrasi-gps') ? `
     <div class="panel">
       <div class="panel-head"><h2>🛰️ Pengingat Kalibrasi Odometer GPS.id</h2></div>
       <div class="panel-body">
@@ -6020,7 +6063,7 @@ function renderSettingsDetailNotifGabungan(){
       </div>
     </div>
     ` : ''}
-    ${settingsView==='rute-menyimpang' && insightUnlocked ? `
+    ${settingsView==='rute-menyimpang' && isModeOperatorSubmenuVisible('settings','rute-menyimpang') ? `
     <div class="panel">
       <div class="panel-head"><h2>🧭 Peringatan Rute Menyimpang</h2></div>
       <div class="panel-body">
@@ -6055,7 +6098,7 @@ function renderSettingsDetailNotifGabungan(){
       </div>
     </div>
     ` : ''}
-    ${settingsView==='auto-sampai' && insightUnlocked ? `
+    ${settingsView==='auto-sampai' && isModeOperatorSubmenuVisible('settings','auto-sampai') ? `
     <div class="panel">
       <div class="panel-head"><h2>📍 Auto-deteksi Sampai</h2></div>
       <div class="panel-body">
@@ -6085,7 +6128,7 @@ function renderSettingsDetailNotifGabungan(){
       </div>
     </div>
     ` : ''}
-    ${settingsView==='jam-sunyi' && insightUnlocked ? `
+    ${settingsView==='jam-sunyi' && isModeOperatorSubmenuVisible('settings','jam-sunyi') ? `
     <div class="panel">
       <div class="panel-head"><h2>🌙 Jam Sunyi &amp; Jadwal Pengecekan</h2></div>
       <div class="panel-body">
@@ -6137,7 +6180,7 @@ function renderSettingsDetailNotifGabungan(){
       </div>
     </div>
     ` : ''}
-    ${settingsView==='admin-notifikasi' && insightUnlocked ? `
+    ${settingsView==='admin-notifikasi' && isModeOperatorSubmenuVisible('settings','admin-notifikasi') ? `
     <div class="panel">
       <div class="panel-head"><h2>👤 Admin Penerima Notifikasi Telegram</h2></div>
       <div class="panel-body">
@@ -6218,7 +6261,7 @@ function renderSettingsDetailNotifGabungan(){
       </div>
     </div>
     ` : ''}
-    ${settingsView==='admin-finance' && insightUnlocked ? `
+    ${settingsView==='admin-finance' && isModeOperatorSubmenuVisible('settings','admin-finance') ? `
     <div class="panel">
       <div class="panel-head"><h2>🧑‍💼 Admin Finance (Penerima Nota &amp; Tanda Terima)</h2></div>
       <div class="panel-body">
@@ -6234,14 +6277,14 @@ function renderSettingsDetailNotifGabungan(){
     ` : ''}
     ${settingsView==='menu-mode-operator' && insightUnlocked ? `
     <div class="panel">
-      <div class="panel-head"><h2>🧭 Menu Mode Sopir dan Operator</h2></div>
+      <div class="panel-head"><h2>📋 Setting Menu</h2></div>
       <div class="panel-body">
         ${modeOperatorMenuCategoryOpen===null ? modeOperatorMenuOverviewHtml() : modeOperatorMenuDetailHtml(modeOperatorMenuCategoryOpen)}
       </div>
     </div>
     ` : ''}
     ${settingsView==='pemeriksaan-tanggal' ? (() => {
-      if(!insightUnlocked) return '';
+      if(!isModeOperatorSubmenuVisible('settings','pemeriksaan-tanggal')) return '';
       const suspek = computeSuspiciousDateTrips();
       return `
     <div class="panel">
@@ -6336,10 +6379,10 @@ function renderSettingsDetailNotifGabungan(){
     this.value = ''; // reset supaya bisa pilih file yang sama lagi kalau perlu
   });
   }
-  if(settingsView==='izin-notif' && insightUnlocked){
+  if(settingsView==='izin-notif' && isModeOperatorSubmenuVisible('settings','izin-notif')){
     renderNotifPermissionStatus();
   }
-  if(settingsView==='ambang-batas' && insightUnlocked){
+  if(settingsView==='ambang-batas' && isModeOperatorSubmenuVisible('settings','ambang-batas')){
     ['in-notif-service-pct','in-notif-bbm-min','in-notif-budget-pct','in-notif-trip-lama'].forEach(id=> attachIntegerOnlyInput(id));
     attachRibuanInput('in-notif-etoll-min');
     wireSettingsLockButtons('ambang-batas','lock-ambang-batas','btn-edit-ambang-batas','btn-cancel-ambang-batas');
@@ -6374,7 +6417,7 @@ function renderSettingsDetailNotifGabungan(){
       renderSettings();
     };
   }
-  if(settingsView==='alert-kecepatan' && insightUnlocked){
+  if(settingsView==='alert-kecepatan' && isModeOperatorSubmenuVisible('settings','alert-kecepatan')){
     ['in-notif-speed-limit','in-notif-speed-cooldown'].forEach(id=> attachIntegerOnlyInput(id));
     wireSettingsLockButtons('alert-kecepatan','lock-alert-kecepatan','btn-edit-alert-kecepatan','btn-cancel-alert-kecepatan');
     document.getElementById('in-notif-speed-enabled').addEventListener('change', function(){
@@ -6407,7 +6450,7 @@ function renderSettingsDetailNotifGabungan(){
       renderSettings();
     };
   }
-  if(settingsView==='kalibrasi-gps' && insightUnlocked){
+  if(settingsView==='kalibrasi-gps' && isModeOperatorSubmenuVisible('settings','kalibrasi-gps')){
     attachIntegerOnlyInput('in-notif-kalibrasi-interval');
     wireSettingsLockButtons('kalibrasi-gps','lock-kalibrasi-gps','btn-edit-kalibrasi-gps','btn-cancel-kalibrasi-gps');
     document.getElementById('in-notif-kalibrasi-enabled').addEventListener('change', function(){
@@ -6431,7 +6474,7 @@ function renderSettingsDetailNotifGabungan(){
       renderSettings();
     };
   }
-  if(settingsView==='rute-menyimpang' && insightUnlocked){
+  if(settingsView==='rute-menyimpang' && isModeOperatorSubmenuVisible('settings','rute-menyimpang')){
     ['in-notif-rutedev-cooldown','in-notif-rutedev-streak','in-notif-rutedev-mindist'].forEach(id=> attachIntegerOnlyInput(id));
     wireSettingsLockButtons('rute-menyimpang','lock-rute-menyimpang','btn-edit-rute-menyimpang','btn-cancel-rute-menyimpang');
     document.getElementById('in-notif-rutedev-enabled').addEventListener('change', function(){
@@ -6459,7 +6502,7 @@ function renderSettingsDetailNotifGabungan(){
       renderSettings();
     };
   }
-  if(settingsView==='auto-sampai' && insightUnlocked){
+  if(settingsView==='auto-sampai' && isModeOperatorSubmenuVisible('settings','auto-sampai')){
     ['in-notif-geoarrival-radius','in-notif-geoarrival-speed'].forEach(id=> attachIntegerOnlyInput(id));
     wireSettingsLockButtons('auto-sampai','lock-auto-sampai','btn-edit-auto-sampai','btn-cancel-auto-sampai');
     document.getElementById('in-notif-geoarrival-enabled').addEventListener('change', function(){
@@ -6485,7 +6528,7 @@ function renderSettingsDetailNotifGabungan(){
       renderSettings();
     };
   }
-  if(settingsView==='jam-sunyi' && insightUnlocked){
+  if(settingsView==='jam-sunyi' && isModeOperatorSubmenuVisible('settings','jam-sunyi')){
     wireSettingsLockButtons('jam-sunyi','lock-jam-sunyi','btn-edit-jam-sunyi','btn-cancel-jam-sunyi');
     document.getElementById('in-notif-quiethours').addEventListener('change', function(){
       const timesWrap = document.getElementById('notif-quiethours-times');
@@ -6513,10 +6556,10 @@ function renderSettingsDetailNotifGabungan(){
     document.getElementById('btn-refresh-notif-history').onclick = renderNotifHistory;
     renderNotifHistory();
   }
-  if(settingsView==='admin-notifikasi' && insightUnlocked){
+  if(settingsView==='admin-notifikasi' && isModeOperatorSubmenuVisible('settings','admin-notifikasi')){
     wireNotifAdminsSection();
   }
-  if(settingsView==='admin-finance' && insightUnlocked){
+  if(settingsView==='admin-finance' && isModeOperatorSubmenuVisible('settings','admin-finance')){
     wireFinanceAdminsSection();
   }
   if(settingsView==='menu-mode-operator' && insightUnlocked){
@@ -6843,9 +6886,21 @@ function navigate(route, opts){
   // Sopir/Operator -- paling sering dialami di HP karena itu kondisi default
   // sebelum PIN dibuka. Exempt 'panduan' di sini juga, simetris dgn
   // applyModeOperatorVisibility() yang sudah benar dari awal.
+  // v3.251.0 -- 'notiftelegram' JUGA dikecualikan dari gerbang allowed-routes
+  // umum di bawah (sama alasan seperti 'panduan': rute ini SENGAJA tidak
+  // pernah dimasukkan ke MODE_OPERATOR_MENU_CATALOG -- lihat komentar di
+  // deklarasinya -- jadi getModeOperatorAllowedRoutes() TIDAK PERNAH berisi
+  // 'notiftelegram' apa pun isi prefs-nya, dan tanpa pengecualian ini rute
+  // itu akan SELALU dialihkan ke Dashboard). Dicek terpisah lewat
+  // isModeOperatorSubmenuVisible() (checkbox 'notiftelegram-peran'), simetris
+  // dengan applyModeOperatorVisibility().
   if(!insightUnlocked && route !== 'panduan'){
-    const navGateRole = modeOperatorUnlocked ? 'operator' : 'sopir';
-    if(!getModeOperatorAllowedRoutes(navGateRole).includes(route)) route = 'dashboard';
+    if(route === 'notiftelegram'){
+      if(!isModeOperatorSubmenuVisible('settings','notiftelegram-peran')) route = 'dashboard';
+    } else {
+      const navGateRole = modeOperatorUnlocked ? 'operator' : 'sopir';
+      if(!getModeOperatorAllowedRoutes(navGateRole).includes(route)) route = 'dashboard';
+    }
   }
   // Catat route SEBELUMNYA ke stack -- KECUALI kalau navigasi ini dipicu oleh
   // tombol Kembali (fromBack) atau route-nya sama dengan yang sekarang (mis.
@@ -7377,8 +7432,10 @@ const MODE_OPERATOR_SESSION_KEY = 'fleetops_mode_sopir_unlocked';
 // array lama di atas supaya pengguna yang BELUM PERNAH membuka panel
 // pengaturan ini sama sekali TIDAK MENGALAMI PERUBAHAN PERILAKU apa pun.
 // 'notiftelegram' SENGAJA TIDAK dimasukkan ke katalog ini -- menu itu
-// digerbang insightUnlocked secara terpisah (lihat applyModeOperatorVisibility()),
-// bukan bagian dari sistem izin Mode Sopir sama sekali.
+// digerbang terpisah lewat checkbox 'notiftelegram-peran' di
+// MODE_OPERATOR_SUBMENU_CATALOG.settings (lihat isModeOperatorSubmenuVisible(),
+// applyModeOperatorVisibility() & navigate()), bukan bagian dari sistem
+// allowed-routes top-level Mode Sopir/Operator di sini sama sekali.
 const MODE_OPERATOR_MENU_CATALOG = [
   { key:'dashboard', label:'Dashboard' },
   { key:'usage', label:'Catat Perjalanan' },
@@ -7460,12 +7517,24 @@ const MODE_OPERATOR_SUBMENU_CATALOG = {
   etoll:         [{ key:'tambah', label:'+ Tambah Kartu' }],
   monthlyreport: [{ key:'exportpdf', label:'📄 Export PDF' }, { key:'exportexcel', label:'📊 Export Excel' }],
   // v3.207.0 -- BARU: submenu utk menu "Pengaturan" itu sendiri, 1 entri per
-  // kartu di getSettingsCategories() (SENGAJA disalin utuh 14 kartu, bukan
-  // cuma yang tidak digerbang insightUnlocked -- kartu yang sudah digerbang
-  // Insight tetap tidak akan pernah muncul buat role Sopir/Operator biasa
-  // apa pun isi centangnya di sini, checkbox-nya cuma tidak akan pernah
-  // "kena" -- ini pilihan sadar demi katalog lengkap/konsisten, lihat
-  // diskusi saat fitur ini dibuat).
+  // kartu di getSettingsCategories().
+  // v3.251.0 -- SEBELUMNYA (v3.207.0-v3.239.x) checkbox di daftar ini untuk
+  // sebagian besar kartu (izin-notif s/d notiftelegram-peran) SAMA SEKALI
+  // tidak berpengaruh -- kartu-kartu itu digerbang insightUnlocked langsung
+  // di getSettingsCategories(), tidak baca centang di sini sama sekali
+  // ("pilihan sadar" versi lama, sengaja disalin utuh demi katalog lengkap).
+  // Atas permintaan Administrator, SEKARANG centang di sini benar-benar
+  // menentukan tampil/sembunyi untuk kartu-kartu itu (lihat
+  // getSettingsCategories(), isModeOperatorSubmenuVisible(), dan gerbang
+  // route 'notiftelegram' di navigate()/applyModeOperatorVisibility()) --
+  // PERSIS pola "Notifikasi Telegram per Peran" yang diminta.
+  // PENGECUALIAN: 'menu-mode-operator' ("Setting Menu") TETAP Super
+  // Akses-only mutlak, TIDAK ikut sistem checkbox ini -- karena panel itu
+  // SENDIRI isinya checkbox untuk kartu-kartu lain; kalau ikut dibuka lewat
+  // centang, Operator (PIN normal) yang dicentang boleh lihat kartu ini bisa
+  // membuka panelnya sendiri & mencentang bebas semua menu lain untuk
+  // kolom Operator -- celah "self-upgrade akses" tanpa PIN Super Akses.
+  // Disetujui & sengaja dikecualikan, lihat getSettingsCategories().
   settings: [
     { key:'tampilan', label:'🎨 Tampilan' },
     { key:'backup', label:'💾 Backup & Pulihkan' },
@@ -7480,7 +7549,7 @@ const MODE_OPERATOR_SUBMENU_CATALOG = {
     { key:'admin-finance', label:'🧑\u200d💼 Admin Finance' },
     { key:'pemeriksaan-tanggal', label:'🕐 Pemeriksaan Tanggal' },
     { key:'notiftelegram-peran', label:'🔔 Notifikasi Telegram per Peran' },
-    { key:'menu-mode-operator', label:'🧭 Menu Mode Sopir dan Operator' },
+    { key:'menu-mode-operator', label:'📋 Setting Menu' },
     { key:'toleransi-gap', label:'📏 Toleransi Gap Odometer' },
     { key:'nama-petugas', label:'🧑\u200d🔧 Nama Petugas / Admin' },
   ],
@@ -7681,11 +7750,16 @@ function renderMobileBottomNav(){
 function applyModeOperatorVisibility(){
   document.querySelectorAll('.menu-item[data-route]').forEach(el=>{
     const route = el.dataset.route;
-    // BARU -- 'notiftelegram' SENGAJA digerbang insightUnlocked di sini
-    // (BUKAN modeOperatorUnlocked seperti menu lain) -- PIN Operator saja HARUS
-    // TETAP menyembunyikan menu ini total, cuma PIN Insight/Super Akses yang
-    // boleh memunculkannya. Ini beda dari SEMUA menu lain, yang memang
-    // sengaja terbuka begitu Operator saja terbuka (operasional harian).
+    // v3.251.0 -- 'notiftelegram' SEBELUMNYA digerbang insightUnlocked SAJA
+    // di sini (hardcode, mengabaikan checkbox 'notiftelegram-peran' di panel
+    // "🧭 Menu Mode Sopir dan Operator" sama sekali). Atas permintaan
+    // Administrator, sekarang dibuka lewat isModeOperatorSubmenuVisible()
+    // (menu 'settings', sub-item 'notiftelegram-peran') -- fungsi itu SUDAH
+    // otomatis meloloskan tanpa syarat kalau insightUnlocked (Super Akses
+    // tetap selalu lihat menu ini apa pun isi centang), dan kalau tidak,
+    // memakai centang Sopir/Operator yang tersimpan -- simetris dengan kartu
+    // "Notifikasi Telegram per Peran" di getSettingsCategories() (lihat juga
+    // gerbang route senada di navigate()).
     // BARU (v3.206.0) -- 'panduan' KEBALIKANNYA: SELALU tampil ke SIAPA PUN,
     // di kondisi apa pun (Mode Sopir/Operator/Super Akses) -- halaman itu
     // sendiri yang menyaring PDF mana yang boleh didownload sesuai level
@@ -7701,7 +7775,7 @@ function applyModeOperatorVisibility(){
     const diizinkan = route === 'panduan'
       ? true
       : route === 'notiftelegram'
-      ? insightUnlocked
+      ? isModeOperatorSubmenuVisible('settings','notiftelegram-peran')
       : insightUnlocked
       ? true
       : modeOperatorUnlocked
@@ -8801,20 +8875,20 @@ function renderDashboard(){
           </div>
         </div>
         <div class="mdh-summary-right">
-          <div class="mdh-wallet-btn quick-action-btn" data-action="bbmluar"><span class="ic" data-icon-src="bbmluar" style="background:#E4F6EC;"></span><span class="lbl">Isi BBM</span></div>
-          <div class="mdh-wallet-btn quick-action-btn" data-action="etollluar"><span class="ic" data-icon-src="etollluar" style="background:#E0F7FC;"></span><span class="lbl">E-Toll</span></div>
+          <div class="mdh-wallet-btn quick-action-btn" data-action="bbmluar"><span class="ic" data-icon-src="bbmluar" style="background:#FCE0BF;"></span><span class="lbl">Isi BBM</span></div>
+          <div class="mdh-wallet-btn quick-action-btn" data-action="etollluar"><span class="ic" data-icon-src="etollluar" style="background:#C7E8FB;"></span><span class="lbl">E-Toll</span></div>
           <div class="mdh-wallet-btn" id="mdh-lainnya-btn"><span class="ic" style="background:#F5F6F8;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="12" r="1.6" fill="#6B7280"/><circle cx="12" cy="12" r="1.6" fill="#6B7280"/><circle cx="18" cy="12" r="1.6" fill="#6B7280"/></svg></span><span class="lbl">Lainnya</span></div>
         </div>
       </div>
 
       <div class="mdh-menu-grid">
-        <div class="mdh-menu-item quick-action-btn" data-action="usage"><span class="ic" data-icon-src="usage" style="background:#FEF3DC;"></span><span class="lbl">Catat Trip</span></div>
-        <div class="mdh-menu-item quick-action-btn" data-action="driver"><span class="ic" data-icon-src="driver" style="background:#E4F6EC;"></span><span class="lbl">Tambah Sopir</span></div>
+        <div class="mdh-menu-item quick-action-btn" data-action="usage"><span class="ic" data-icon-src="usage" style="background:#FCE0BF;"></span><span class="lbl">Catat Trip</span></div>
+        <div class="mdh-menu-item quick-action-btn" data-action="driver"><span class="ic" data-icon-src="driver" style="background:#CFF3D6;"></span><span class="lbl">Tambah Sopir</span></div>
         <a class="mdh-menu-item" href="https://t.me/toyyiblogistik_bot" target="_blank" rel="noopener"><span class="ic" style="background:linear-gradient(135deg,#37AEE2,#1E96C8);"><svg width="30" height="30" viewBox="0 0 240 240" fill="none"><path d="M180 60L45 112c-9 3-9 9-2 11l35 11 13 42c2 5 4 7 8 7 5 0 7-2 9-4l17-17 35 26c6 4 11 2 13-6l24-113c3-10-4-15-13-11z" fill="#fff"/></svg></span><span class="lbl">Bot Telegram</span></a>
-        <div class="mdh-menu-item quick-action-btn" data-action="service"><span class="ic" data-icon-src="service" style="background:#F1EBFC;"></span><span class="lbl">Catat Servis</span></div>
-        <div class="mdh-menu-item quick-action-btn" data-action="doc"><span class="ic" data-icon-src="doc" style="background:#FEEBDC;"></span><span class="lbl">Dokumen</span></div>
-        <div class="mdh-menu-item quick-action-btn" data-action="booking"><span class="ic" data-icon-src="booking" style="background:#FCE8E7;"></span><span class="lbl">Booking</span></div>
-        <div class="mdh-menu-item quick-action-btn" data-action="rutepulang"><span class="ic" data-icon-src="rutepulang" style="background:#DFF5F2;"></span><span class="lbl">Rute Pulang</span></div>
+        <div class="mdh-menu-item quick-action-btn" data-action="service"><span class="ic" data-icon-src="service" style="background:#E3D6F7;"></span><span class="lbl">Catat Servis</span></div>
+        <div class="mdh-menu-item quick-action-btn" data-action="doc"><span class="ic" data-icon-src="doc" style="background:#F6D2E8;"></span><span class="lbl">Dokumen</span></div>
+        <div class="mdh-menu-item quick-action-btn" data-action="booking"><span class="ic" data-icon-src="booking" style="background:#FBD4D1;"></span><span class="lbl">Booking</span></div>
+        <div class="mdh-menu-item quick-action-btn" data-action="rutepulang"><span class="ic" data-icon-src="rutepulang" style="background:#CFF3D6;"></span><span class="lbl">Rute Pulang</span></div>
         <div class="mdh-menu-item" id="mdh-lainnya-btn2"><span class="ic" style="background:#EEF0F3;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="12" r="1.6" fill="#6B7280"/><circle cx="12" cy="12" r="1.6" fill="#6B7280"/><circle cx="18" cy="12" r="1.6" fill="#6B7280"/></svg></span><span class="lbl">Lainnya</span></div>
       </div>
 
@@ -8980,7 +9054,7 @@ function renderDashboard(){
   // ikon Aksi Cepat versi web (bukan digambar ulang terpisah) -- supaya
   // ikonnya identik 1:1 dgn versi web, tidak ada 2 gaya ikon berbeda utk
   // aksi yang sama. Dicari lewat data-action yg cocok di #qa-panel asli.
-  // v3.240.0 -- PERBAIKAN: beberapa tombol di #qa-panel asli (driver, doc)
+  // v3.251.0 -- PERBAIKAN: beberapa tombol di #qa-panel asli (driver, doc)
   // HANYA dirender kalau modeOperatorUnlocked -- di HP TERKUNCI (justru
   // saat hero ini tampil), sumbernya TIDAK ADA di DOM sama sekali.
   // v3.242.0 -- DIPERBAIKI: "driver" sekarang jatuh ke ikon "Data Sopir" di
@@ -18691,6 +18765,24 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.251.0',
+    date: '03 Agu 2026',
+    notes: [
+      '🔓 Perubahan desain atas permintaan Administrator: 11 kartu Pengaturan (Izin Notifikasi Browser, Ambang Batas Notifikasi, Alert Kecepatan Berlebih, Kalibrasi Odometer GPS.id, Peringatan Rute Menyimpang, Auto-deteksi Sampai, Jam Sunyi, Admin Penerima Notifikasi, Admin Finance, Pemeriksaan Tanggal, Notifikasi Telegram per Peran) SEBELUMNYA hanya muncul untuk PIN Super Akses -- centang kolom Sopir/Operator di panel "📋 Setting Menu" untuk item-item ini tidak pernah berpengaruh. Sekarang benar-benar dikendalikan centang itu (centang = tampil untuk level tersebut, tidak dicentang = sembunyi), sama seperti mekanisme "Notifikasi Telegram per Peran" yang sudah ada. Super Akses TETAP selalu melihat semua kartu ini apa pun isi centangnya.',
+      '🔒 Kartu "📋 Setting Menu" itu sendiri SENGAJA DIKECUALIKAN dari perubahan di atas -- tetap Super Akses-only mutlak. Alasan: panel itu SENDIRI isinya checkbox untuk kartu-kartu lain; kalau ikut dibuka lewat centang, Operator (PIN level normal) yang dicentang boleh lihat kartu ini bisa membuka panelnya sendiri & mencentang bebas semua menu lain untuk kolom Operator -- celah "self-upgrade akses" tanpa PIN Super Akses. Sudah dikonfirmasi ke Administrator sebelum dikerjakan.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.250.0',
+    date: '03 Agu 2026',
+    notes: [
+      '📋 Panel Pengaturan → "🧭 Menu Mode Sopir dan Operator" berganti nama jadi <b>"📋 Setting Menu"</b> (icon juga diganti), sesuai permintaan user. Cuma penamaan yang berubah -- data/logika izin (getModeOperatorMenuPrefs, getModeOperatorSubmenuPrefs) SAMA PERSIS dengan sebelumnya.',
+      '❌ Fitur baru bot Telegram: <b>/batalbooking</b> (atau ketik "batalkan booking") -- menampilkan daftar booking aktif (status "menunggu"/"dipesan") lalu tap salah satu utk langsung membatalkannya. Sopir hanya melihat booking miliknya sendiri; Admin/Administrator melihat & bisa membatalkan booking siapa pun. Pihak terkait (sopir/admin pembuat) dikabari otomatis. Perlu worker.js diupload ulang.',
+      '🔧 worker.js JUGA perlu diupload ulang kali ini (bukan cuma index.html).',
+    ]
+  },
   {
     v: '3.249.0',
     date: '03 Agu 2026',
