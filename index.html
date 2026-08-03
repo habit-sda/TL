@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.237.0">
+<meta name="app-version" content="3.238.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1442,6 +1442,33 @@
     }
     body.mobile-nav-locked #header-dua .txt{ color:#fff; }
     body.mobile-nav-locked #header-dua .arti{ color:rgba(255,255,255,0.9); }
+    /* v3.238.0 -- BARU: baris topbar lama (hamburger, judul "Dashboard",
+       lonceng lama) disembunyikan KHUSUS saat hero aktif -- hero punya
+       kotak pencarian + lonceng sendiri yg menggantikan fungsi ini. #header-
+       dua (doa) TIDAK ikut tersembunyi krn itu elemen SAUDARA (sibling)
+       terpisah di dalam <header> yg sama, bukan bagian dari .topbar-row ini. */
+    body.mobile-nav-locked .topbar-row{ display:none; }
+    body.mobile-nav-locked header.topbar{ padding:0; border:none; }
+    /* v3.238.0 -- BARU (dipasang ulang): bar navigasi bawah geser. */
+    body.mobile-nav-locked #mobile-bottom-nav{
+      display:flex; position:fixed; left:0; right:0; bottom:0; z-index:140;
+      background:var(--card); border-top:1px solid var(--line);
+      overflow-x:auto; overflow-y:hidden; gap:6px;
+      padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+      -webkit-overflow-scrolling:touch; scrollbar-width:none;
+    }
+    body.mobile-nav-locked #mobile-bottom-nav::-webkit-scrollbar{ display:none; }
+    body.mobile-nav-locked #main{ padding-bottom:76px; }
+    #mobile-bottom-nav .menu-item{
+      flex-direction:column; align-items:center; justify-content:center;
+      gap:3px; flex-shrink:0; width:58px; padding:6px 2px; margin-bottom:0;
+      border-radius:12px; text-align:center;
+    }
+    #mobile-bottom-nav .menu-item .ic{ width:auto; font-size:20px; }
+    #mobile-bottom-nav .menu-item .ic svg{ width:20px; height:20px; }
+    #mobile-bottom-nav .menu-item span:not(.ic){ display:block; }
+    #mobile-bottom-nav .menu-item{ font-size:9.5px; line-height:1.2; white-space:normal; }
+    #mobile-bottom-nav .menu-item.active{ background:var(--blue-bg); }
     .mdh-summary{
       margin:-12px 14px 14px; background:#fff; border:1px solid var(--line); border-radius:16px;
       padding:14px 16px; display:flex; align-items:center; justify-content:space-between;
@@ -1543,6 +1570,12 @@
     <div id="storage-detail" style="display:none;font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5;"></div>
   </div>
 </aside>
+
+<!-- v3.238.0 -- BARU (dipasang ulang -- sempat dihapus total saat
+     pembatalan beberapa putaran lalu): navigasi bar-bawah-geser khusus HP
+     TERKUNCI. Isinya di-generate dari KLON .menu-item sidebar (lihat
+     renderMobileBottomNav()) supaya ikon/label selalu sinkron. -->
+<nav id="mobile-bottom-nav"></nav>
 
 <div id="main">
   <header class="topbar">
@@ -1714,7 +1747,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.237.0';
+const APP_VERSION = '3.238.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -7403,6 +7436,33 @@ try{ modeOperatorUnlocked = localStorage.getItem(MODE_OPERATOR_SESSION_KEY) === 
 // tersembunyi lewat gerbang insightUnlocked. Sudah dibatalkan.)
 // ============================================================
 
+// v3.238.0 -- BARU (dipasang ulang): generate ulang isi bar-bawah-geser dari
+// KLON .menu-item yang SEDANG TAMPIL di sidebar (mengikuti visibility yg
+// baru diterapkan applyModeOperatorVisibility() di bawah -- dipanggil
+// SETELAHNYA). Label dibungkus <span class="lbl"> (aslinya teks polos di
+// sidebar) supaya bisa ditata terpisah dari ikon di tampilan vertikal ini.
+function renderMobileBottomNav(){
+  const wrap = document.getElementById('mobile-bottom-nav');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  document.querySelectorAll('#sidebar .menu-item[data-route]').forEach(orig=>{
+    if(orig.style.display === 'none') return;
+    const route = orig.dataset.route;
+    const icSpan = orig.querySelector('.ic');
+    const labelText = orig.textContent.trim();
+    const item = document.createElement('div');
+    item.className = 'menu-item' + (route===currentRoute ? ' active' : '');
+    item.dataset.route = route;
+    if(icSpan) item.appendChild(icSpan.cloneNode(true));
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = labelText;
+    item.appendChild(lbl);
+    item.addEventListener('click', ()=> navigate(route));
+    wrap.appendChild(item);
+  });
+}
+
 function applyModeOperatorVisibility(){
   document.querySelectorAll('.menu-item[data-route]').forEach(el=>{
     const route = el.dataset.route;
@@ -7440,6 +7500,7 @@ function applyModeOperatorVisibility(){
   // (#qa-panel) -- lihat @media(max-width:768px) di atas. TANPA baris ini,
   // hero TIDAK PERNAH muncul (selalu ter-override display:none default).
   document.body.classList.toggle('mobile-nav-locked', !insightUnlocked && !modeOperatorUnlocked);
+  renderMobileBottomNav();
 }
 
 function openModeOperatorPinModal(){
@@ -8691,6 +8752,21 @@ function renderDashboard(){
   // OTOMATIS kepasang lewat wiring QUICK_ACTION_MAP di atas (elemen sama
   // persis, class sama, tidak perlu wiring terpisah). Yang perlu di-wire
   // manual cuma elemen KHUSUS milik hero ini sendiri:
+  // v3.238.0 -- BARU: pengaman TAMBAHAN (di luar CSS body.mobile-nav-locked
+  // #qa-panel{display:none}) -- style INLINE lewat JS di sini DIJAMIN
+  // menang atas ATURAN CSS APAPUN (inline selalu menang, ini bukan soal
+  // spesifisitas lagi). Ditambahkan setelah laporan "Aksi Cepat tampil
+  // dobel" di HP terkunci -- walau kode CSS sudah diperiksa berkali-kali
+  // dan seharusnya benar, baris ini memastikan hasilnya BENAR secara
+  // paksa, apa pun penyebab pastinya.
+  const qaPanelEl = document.getElementById('qa-panel');
+  if(qaPanelEl){
+    if(document.body.classList.contains('mobile-nav-locked') && !qaPanelEl.classList.contains('mdh-qa-revealed')){
+      qaPanelEl.style.display = 'none';
+    } else {
+      qaPanelEl.style.display = '';
+    }
+  }
   const mdhBell = document.getElementById('mdh-bell-btn');
   if(mdhBell) mdhBell.addEventListener('click', toggleNotifDropdown);
   // "Lainnya" (di baris ringkasan MAUPUN di grid) -- buka #qa-panel asli yg
@@ -8699,7 +8775,7 @@ function renderDashboard(){
   // E-Toll, Lacak Mobil Jalan) TETAP bisa diakses, tidak hilang fungsinya.
   const showQaPanel = () => {
     const qa = document.getElementById('qa-panel');
-    if(qa){ qa.classList.add('mdh-qa-revealed'); qa.scrollIntoView({behavior:'smooth', block:'start'}); }
+    if(qa){ qa.classList.add('mdh-qa-revealed'); qa.style.display = 'block'; qa.scrollIntoView({behavior:'smooth', block:'start'}); }
   };
   const mdhLainnya1 = document.getElementById('mdh-lainnya-btn');
   const mdhLainnya2 = document.getElementById('mdh-lainnya-btn2');
@@ -18304,6 +18380,19 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.238.0',
+    date: '02 Agu 2026',
+    notes: [
+      '🛠️ <b>Perbaikan atas 4 laporan langsung dari pengujian nyata</b> (bukan cuma dugaan di meja) untuk hero Dashboard mobile:',
+      '1️⃣ <b>Aksi Cepat dobel</b>: ditambahkan pengaman TAMBAHAN lewat JavaScript (bukan cuma CSS) yang DIJAMIN bekerja terlepas dari penyebab pastinya -- style disembunyikan langsung lewat kode, bukan cuma aturan tampilan yang bisa "kalah" oleh aturan lain.',
+      '2️⃣ <b>Topbar lama masih tampil</b> (hamburger, tulisan "Dashboard", lonceng lama): sekarang disembunyikan otomatis saat hero aktif -- kotak pencarian & lonceng baru di hero menggantikan fungsinya. Header doa TIDAK ikut hilang (elemen terpisah, cuma jadi tetangga sebaris).',
+      '3️⃣ <b>Bar navigasi bawah hilang</b>: dibangun ulang (sempat terhapus total saat pembatalan beberapa putaran lalu, belum sempat dipasang ulang) -- menu berjajar bisa digeser, "Beranda" di depan, ikon diklon dari sidebar (otomatis sinkron).',
+      '4️⃣ <b>Warna belum sesuai</b>: karena topbar putih lama sekarang tersembunyi, tampilan atas jadi biru menyatu dari ujung ke ujung tanpa potongan putih di tengah.',
+      '⚠️ Semua perbaikan ini TETAP cuma berlaku di kondisi HP TERKUNCI (Mode Sopir/Operator, belum ada PIN) -- begitu PIN Operator/Administrator dibuka, semuanya otomatis kembali ke tampilan normal seperti sebelum ada hero ini sama sekali.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.237.0',
     date: '02 Agu 2026',
