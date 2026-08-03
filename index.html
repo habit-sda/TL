@@ -1597,7 +1597,19 @@
        kontennya) jadi tidak kena potong overflow:hidden apa pun, dan
        BENAR-BENAR menumpuk visual di atas header (karena urutan render
        #content datang SETELAH header, otomatis tergambar di atasnya). */
-    body.mobile-nav-locked .mobile-hero-only{ display:block; order:-2; background:#fff; border:none; border-radius:16px; overflow:hidden; margin:-38px 0 20px; position:relative; z-index:2; }
+    /* v3.286.0 -- PERBAIKAN: SEBELUMNYA .mobile-hero-only sendiri diberi
+       background:#fff + border-radius:16px + overflow:hidden -- akibatnya
+       kontainer ini jadi "kotak putih besar" TERSENDIRI yang menumpang di
+       atas header biru (krn margin-top negatif), dan sudut2 kotak putih itu
+       kelihatan sebagai lapisan/pebalan putih ekstra di LUAR kartu ringkasan
+       (.mdh-summary) yang sebenarnya -- beda dari referensi yang birunya
+       langsung nempel bersih ke sudut bulat kartu, tanpa kotak putih
+       pembungkus. Diperbaiki: kontainer dibuat TRANSPARAN (tanpa background/
+       radius/clip sendiri) -- warna putih & bentuk bulat SEKARANG murni
+       datang dari .mdh-summary (kartu ringkasan) itu sendiri, jadi biru
+       header langsung terlihat menempel di sekitar sudut kartu, senada
+       referensi. */
+    body.mobile-nav-locked .mobile-hero-only{ display:block; order:-2; background:transparent; border:none; margin:-38px 0 20px; position:relative; z-index:2; }
     /* v3.241.0 -- BARU: kotak pencarian + lonceng DIPINDAH ke sini (elemen
        header BERSAMA #mdh-header-search, SEBELUM #header-dua di DOM) --
        supaya urutan di layar: pencarian dulu, doa di bawahnya (sesuai
