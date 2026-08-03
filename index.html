@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.253.0">
+<meta name="app-version" content="3.252.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1583,7 +1583,21 @@
        ketemu di tengah. Diganti WARNA RATA (bukan gradasi) yang SAMA
        PERSIS di keduanya -- dijamin menyatu mulus krn tidak ada
        "restart" arah warna sama sekali. */
-    body.mobile-nav-locked .mobile-hero-only{ display:block; order:-2; background:#fff; border:none; border-radius:16px; overflow:hidden; margin-bottom:20px; }
+    /* v3.254.0 -- PERBAIKAN AKAR MASALAH overlap header biru: sebelumnya
+       negative margin-top dipasang di .mdh-summary (anak di dalam
+       .panel-body di dalam .mobile-hero-only) -- tapi .mobile-hero-only
+       punya overflow:hidden, jadi bagian yang "nongol" ke atas gara-gara
+       negative margin itu ke-CLIP/hilang duluan SEBELUM sempat kelihatan
+       menumpang ke header (dan .mobile-hero-only sendiri baru mulai 14px
+       di bawah header, akibat padding #content) -- makanya walau
+       margin-nya sudah dibuat makin negatif, hasilnya tetap TIDAK kelihatan
+       ada overlap sama sekali.
+       Perbaikannya: pindahkan negative margin ke .mobile-hero-only ITU
+       SENDIRI (bukan ke anaknya) -- menggeser seluruh panel (bukan cuma
+       kontennya) jadi tidak kena potong overflow:hidden apa pun, dan
+       BENAR-BENAR menumpuk visual di atas header (karena urutan render
+       #content datang SETELAH header, otomatis tergambar di atasnya). */
+    body.mobile-nav-locked .mobile-hero-only{ display:block; order:-2; background:#fff; border:none; border-radius:16px; overflow:hidden; margin:-38px 0 20px; position:relative; z-index:2; }
     /* v3.241.0 -- BARU: kotak pencarian + lonceng DIPINDAH ke sini (elemen
        header BERSAMA #mdh-header-search, SEBELUM #header-dua di DOM) --
        supaya urutan di layar: pencarian dulu, doa di bawahnya (sesuai
@@ -1610,9 +1624,9 @@
        kontras & tetap terbaca jelas di atas latar biru (prioritas
        keterbacaan). */
     /* v3.252.0 -- padding-bawah diperbesar (20px -> 36px) supaya header biru
-       punya ruang ekstra yang nanti "ditumpangi" kartu ringkasan .mdh-summary
-       di bawahnya (lihat margin-top negatif .mdh-summary) -- efeknya warna
-       biru header melebar sampai ~1/3 tinggi kartu, senada referensi Gojek. */
+       punya ruang ekstra yang nanti "ditumpangi" panel hero (.mobile-hero-only,
+       lihat margin-top negatif di bawah) -- efeknya warna biru header melebar
+       sampai ~1/3 tinggi kartu ringkasan, senada referensi Gojek. */
     body.mobile-nav-locked #header-dua{
       background:transparent;
       margin:0; padding:6px 16px 36px;
@@ -1687,16 +1701,21 @@
     body.mobile-nav-locked .kpi:has(.icon-badge.green) .value{ color:#1B7A3D; }
     body.mobile-nav-locked .kpi:has(.icon-badge.red) .value{ color:#B5342A; }
     body.mobile-nav-locked .kpi .label{ opacity:.8; }
+    /* v3.254.0 -- BARU: bar navigasi bawah (side menu HP) diperbesar sesuai
+       permintaan user -- kotak tombol 72px->80px, ikon 22px->27px, label
+       10.5px->11px. Grid Aksi Cepat di body (mdh-menu-grid) SENGAJA TIDAK
+       disentuh (dikembalikan ke ukuran semula) -- permintaan user KHUSUS
+       bar bawah ini, bukan tombol di body. */
     #mobile-bottom-nav .menu-item{
       flex-direction:column; align-items:center; justify-content:center;
-      gap:4px; flex-shrink:0; width:72px; padding:7px 3px; margin-bottom:0;
-      border-radius:12px; text-align:center;
+      gap:5px; flex-shrink:0; width:80px; padding:9px 4px; margin-bottom:0;
+      border-radius:14px; text-align:center;
     }
-    #mobile-bottom-nav .menu-item .ic{ width:auto; font-size:20px; }
-    #mobile-bottom-nav .menu-item .ic svg{ width:22px; height:22px; }
+    #mobile-bottom-nav .menu-item .ic{ width:auto; font-size:24px; }
+    #mobile-bottom-nav .menu-item .ic svg{ width:27px; height:27px; }
     #mobile-bottom-nav .menu-item span:not(.ic){ display:block; }
     #mobile-bottom-nav .menu-item{
-      font-size:10.5px; line-height:1.25; white-space:normal; color:var(--text); font-weight:500;
+      font-size:11px; line-height:1.25; white-space:normal; color:var(--text); font-weight:500;
     }
     /* v3.239.0 -- BARU: batasi label max 2 baris + "..." kalau kepanjangan
        (mis. "Servis & Maintenance") -- supaya tidak jadi 3-4 baris
@@ -1733,7 +1752,7 @@
           supaya lebih mudah dibaca/disentuh, senada Gojek/Grab. Struktur
           HTML & data TIDAK diubah, murni CSS. */
     .mdh-summary{
-      margin:-26px 0 14px; background:#fff; border:none; border-radius:16px;
+      margin:0 0 14px; background:#fff; border:none; border-radius:16px;
       padding:16px 18px; display:flex; align-items:center; justify-content:space-between;
       box-shadow:0 4px 14px rgba(16,24,40,0.08); position:relative; z-index:2;
     }
@@ -1744,17 +1763,13 @@
     .mdh-summary-label{ font-size:11px; color:var(--muted); }
     .mdh-summary-right{ display:flex; gap:20px; }
     .mdh-wallet-btn{ text-align:center; cursor:pointer; user-select:none; background:none; border:none; padding:0; gap:0; }
-    .mdh-wallet-btn .ic{ width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 5px; font-size:19px; line-height:1; }
-    .mdh-wallet-btn .ic svg, .mdh-wallet-btn .ic img{ width:21px !important; height:21px !important; object-fit:contain; }
-    .mdh-wallet-btn .lbl{ font-size:11px; color:var(--text); display:block; }
-    /* v3.252.0 -- ikon menu diperbesar (74px -> 82px, isi 38px -> 44px) supaya
-       lebih terlihat jelas/mudah disentuh, sesuai permintaan user. Gap
-       horizontal dikecilkan sedikit (10px -> 6px) supaya 4 kolom tetap muat
-       rapi di layar sempit meski ikonnya lebih besar. */
-    .mdh-menu-grid{ padding:0; display:grid; grid-template-columns:repeat(4,1fr); gap:18px 6px; margin-bottom:16px; }
+    .mdh-wallet-btn .ic{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 5px; font-size:18px; line-height:1; }
+    .mdh-wallet-btn .ic svg, .mdh-wallet-btn .ic img{ width:19px !important; height:19px !important; object-fit:contain; }
+    .mdh-wallet-btn .lbl{ font-size:10.5px; color:var(--text); display:block; }
+    .mdh-menu-grid{ padding:0; display:grid; grid-template-columns:repeat(4,1fr); gap:18px 10px; margin-bottom:16px; }
     .mdh-menu-item{ text-align:center; cursor:pointer; user-select:none; text-decoration:none; display:block; background:none; border:none; padding:0; }
-    .mdh-menu-item .ic{ width:82px; height:82px; max-width:100%; border-radius:20px; margin:0 auto 7px; display:flex; align-items:center; justify-content:center; font-size:36px; line-height:1; }
-    .mdh-menu-item .ic svg, .mdh-menu-item .ic img{ width:44px !important; height:44px !important; object-fit:contain; }
+    .mdh-menu-item .ic{ width:74px; height:74px; border-radius:18px; margin:0 auto 7px; display:flex; align-items:center; justify-content:center; font-size:32px; line-height:1; }
+    .mdh-menu-item .ic svg, .mdh-menu-item .ic img{ width:38px !important; height:38px !important; object-fit:contain; }
     /* v3.250.0 -- BARU: ikon "Tambah Sopir" & "Dokumen" pakai gambar PNG
        hasil upload/asset lama yang latarnya putih solid (bukan transparan),
        jadi di atas lingkaran warna baru malah kelihatan ada kotak putih di
@@ -2041,7 +2056,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.253.0';
+const APP_VERSION = '3.252.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -18919,20 +18934,13 @@ function wirePinEnterKey(inputId){
    ======================================================================== */
 const CHANGELOG = [
   {
-    v: '3.253.0',
-    date: '03 Agu 2026',
-    notes: [
-      '🗑️ Baris "chip" ringkasan alert di hero Dashboard HP (kondisi terkunci) -- contoh "🔧 1 Data Mobil" -- dihilangkan atas permintaan user, dirasa membingungkan tanpa penjelasan fungsinya. Pintasan ke alert servis/oli jatuh tempo dkk itu tetap bisa diakses lewat menu Data Mobil / notifikasi Telegram seperti biasa, cuma tidak lagi muncul sebagai chip di hero ini.',
-      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
-    ]
-  },
-  {
     v: '3.252.0',
     date: '03 Agu 2026',
     notes: [
-      '🎨 Tampilan hero Dashboard HP (kondisi terkunci) dipoles: ikon grid menu cepat (Catat Trip, Tambah Sopir, Bot Telegram, dst) diperbesar (74px → 82px) supaya lebih terlihat jelas & mudah disentuh; ikon baris atas (Isi BBM, E-Toll, Lainnya) ikut diperbesar tipis biar proporsinya senada.',
-      '🎨 Latar biru header dilebarkan turun sampai menumpangi ±1/3 tinggi kartu ringkasan "X/Y mobil aktif hari ini", senada referensi tampilan Gojek yang diminta Administrator.',
-      '🔧 Perubahan cuma di index.html (murni CSS), worker.js TIDAK perlu diupload ulang.',
+      '🎨 PERBAIKAN: latar biru header Dashboard HP (kondisi terkunci) SEBELUMNYA sudah coba dilebarkan tapi hasilnya tidak kelihatan sama sekali -- penyebabnya negative margin yang dipasang sempat ke-clip oleh overflow:hidden panel hero-nya sendiri sebelum sempat menumpang ke header. Sekarang diperbaiki dengan cara berbeda (negative margin dipindah ke panel hero-nya langsung, bukan ke kontennya) -- kartu ringkasan "X/Y mobil" sekarang benar-benar menumpang ±1/3 tingginya ke warna biru header, senada referensi Gojek.',
+      '📏 Bar navigasi bawah HP (Dashboard/Riwayat Perjalanan/Booking Mobil/Servis & Maintenance/Panduan Pengguna) diperbesar (kotak 72px→80px, ikon 22px→27px, label 10.5px→11px) sesuai permintaan user -- klarifikasi: BUKAN grid Aksi Cepat di body, itu dikembalikan ke ukuran semula.',
+      '🗑️ Baris "chip" ringkasan alert di hero (mis. "🔧 1 Data Mobil") dihilangkan -- dirasa membingungkan tanpa penjelasan fungsinya. Pintasan ke alert servis/oli jatuh tempo dkk tetap bisa diakses lewat menu Data Mobil / notifikasi Telegram seperti biasa.',
+      '🔧 Perubahan cuma di index.html (murni CSS + sedikit template hero), worker.js TIDAK perlu diupload ulang.',
     ]
   },
   {
