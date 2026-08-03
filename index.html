@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.243.0">
+<meta name="app-version" content="3.245.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -591,8 +591,33 @@
   .modal-overlay{
     position:fixed;inset:0;background:rgba(15,20,28,0.5);
     display:flex;align-items:center;justify-content:center;
-    z-index:100;padding:20px;
+    /* v3.244.0 -- SEBELUMNYA z-index:100. Ini akar bug "modal (mis. Catat
+       Perjalanan) tidak bisa dipakai di HP": karena .modal-overlay adalah
+       position:fixed + z-index (jadi bikin stacking context SENDIRI), SEMUA
+       elemen di dalamnya -- termasuk sheet "Pilih mobil/sopir" yang
+       z-index-nya sendiri 150 -- ikut TERKUNCI di dalam context 100 itu,
+       tidak pernah benar-benar "keluar" ke level global. Akibatnya elemen
+       lain di document root dgn z-index > 100 SELALU menang, khususnya
+       #mobile-bottom-nav (140, KHUSUS HP + peran Sopir/`mobile-nav-locked`)
+       -- menutupi/menangkap tap di bagian bawah modal (list sheet, tombol
+       Simpan) walau kelihatannya modal "di atas". Dinaikkan ke atas 140
+       (nav) & 141/#drawer-overlay, tapi tetap DI BAWAH elemen mengambang
+       lain yg memang harus selalu menang atas modal apa pun (sidebar 150,
+       trip-bubble 151/250, toast 200, popup "Lainnya" 200, gps-engine-popup
+       160) -- supaya urutan itu tidak berubah. */
+    z-index:145;padding:20px;
   }
+  /* v3.245.0 -- BARU: saat modal (mis. Catat Perjalanan) terbuka, bar
+     navigasi bawah geser (#mobile-bottom-nav, KHUSUS HP + peran Sopir)
+     disembunyikan total -- sebelumnya (v3.244.0) cuma dipastikan TIDAK
+     MENUTUPI modal (z-index), tapi bar itu tetap kelihatan mengintip di
+     sekeliling/bawah modal, secara visual berantakan (2 lapisan navigasi
+     sekaligus). document.body diberi class 'modal-open' oleh openModal()
+     (lihat fungsi openModal, ditambah/dilepas di situ) -- !important dipakai
+     krn aturan asli #mobile-bottom-nav pakai display:flex di dalam
+     @media(max-width:768px){body.mobile-nav-locked ...}, spesifisitasnya
+     lebih tinggi dari aturan biasa. */
+  body.modal-open #mobile-bottom-nav{ display:none !important; }
   .modal{
     background:var(--card);border-radius:12px;max-width:480px;width:100%;
     max-height:88vh;overflow-y:auto;overflow-x:hidden;
@@ -1510,6 +1535,14 @@
     }
     body.mobile-nav-locked #mobile-bottom-nav::-webkit-scrollbar{ display:none; }
     body.mobile-nav-locked #main{ padding-bottom:76px; }
+    /* v3.245.0 -- BARU: sembunyikan bar navigasi bawah ini TOTAL selama ada
+       modal/form terbuka (body.modal-open, dipasang otomatis oleh
+       openModal()/closeModal() & modal statis lain -- lihat komentar di
+       openModal()) -- supaya tampilan form (mis. Catat Perjalanan) tidak
+       "diganggu" bar navigasi yang ikut kelihatan di baliknya. Spesifisitas
+       CSS-nya sengaja 2 class + 1 id (lebih tinggi dari aturan display:flex
+       di atas) supaya PASTI menang urutan berapa pun taruhannya di file. */
+    body.mobile-nav-locked.modal-open #mobile-bottom-nav{ display:none; }
     /* v3.240.0 -- BARU: latar body diputihkan bersih KHUSUS HP terkunci
        (sebelumnya abu-abu var(--bg) mengintip di sela-sela panel) --
        supaya sesuai referensi Gojek yang latarnya putih polos, tidak ada
@@ -1825,7 +1858,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.243.0';
+const APP_VERSION = '3.245.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -4004,9 +4037,11 @@ function openGhModal(){
   statusEl.textContent = '';
   statusEl.className = 'hint';
   document.getElementById('gh-modal-overlay').style.display = 'flex';
+  markModalOpen();
 }
 function closeGhModal(){
   document.getElementById('gh-modal-overlay').style.display = 'none';
+  markModalClosed();
 }
 async function connectGithub(){
   const workerUrl = document.getElementById('gh-modal-workerurl').value.trim().replace(/\/+$/,'');
@@ -8017,7 +8052,8 @@ function openConfirmModal(message, onConfirm){
     </div>
   `;
   document.body.appendChild(overlay);
-  const close = ()=> overlay.remove();
+  markModalOpen();
+  const close = ()=> { overlay.remove(); markModalClosed(); };
   document.getElementById('confirm-no-btn').addEventListener('click', close);
   overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
   document.getElementById('confirm-yes-btn').addEventListener('click', ()=>{ close(); onConfirm(); });
@@ -8930,6 +8966,15 @@ function renderDashboard(){
       });
     }
     document.body.appendChild(popup);
+    // v3.245.0 -- BARU: kalau memang tidak ada menu tambahan (kondisi
+    // "kosong" di atas), popup ini cuma pemberitahuan sekilas -- tidak
+    // perlu ditutup manual, otomatis hilang sendiri setelah 2 detik.
+    // Kalau BERISI daftar menu (ada yang bisa diklik), tetap harus ditutup
+    // manual seperti biasa (✕ / klik di luar) supaya tidak keburu hilang
+    // saat pengguna masih mau memilih.
+    if(extraBtns.length === 0){
+      setTimeout(()=>{ if(document.body.contains(popup)) popup.remove(); }, 2000);
+    }
     setTimeout(()=>{
       const closeOnOutside = (e) => { if(!popup.contains(e.target)){ popup.remove(); document.removeEventListener('click', closeOnOutside); } };
       document.addEventListener('click', closeOnOutside);
@@ -18480,6 +18525,24 @@ async function exportMonthlyReportPdf(r){
 /* ========================================================================
    Modal engine (dipakai bersama oleh semua modul)
    ======================================================================== */
+// v3.245.0 -- BARU: helper bersama tandai/lepas body.modal-open (lihat CSS
+// body.mobile-nav-locked.modal-open #mobile-bottom-nav) -- dipakai SEMUA
+// jenis modal (openModal() utama, openConfirmModal(), modal "Hubungkan
+// Sinkronisasi GitHub", popup "Versi Baru Tersedia"). Sengaja pakai
+// PENGHITUNG (bukan boolean langsung) supaya aman kalau ada modal
+// bertumpuk (mis. confirm "Hapus?" muncul di atas form yang sudah
+// terbuka) -- class cuma benar-benar dilepas kalau SEMUA modal sudah
+// tertutup, tidak keburu dilepas cuma krn modal ATAS-nya ditutup duluan.
+function markModalOpen(){
+  const n = (parseInt(document.body.dataset.modalOpenCount || '0', 10) || 0) + 1;
+  document.body.dataset.modalOpenCount = String(n);
+  document.body.classList.add('modal-open');
+}
+function markModalClosed(){
+  const n = Math.max(0, (parseInt(document.body.dataset.modalOpenCount || '0', 10) || 0) - 1);
+  document.body.dataset.modalOpenCount = String(n);
+  if(n === 0) document.body.classList.remove('modal-open');
+}
 function toggleFieldError(fieldId, hasError){
   const el = document.getElementById(fieldId);
   if(el) el.classList.toggle('error', !!hasError);
@@ -18503,7 +18566,12 @@ function openModal({title, body, onSave, saveLabel, footerNote, modalClass}){
       </div>
     </div>
   `;
-  const close = () => { root.innerHTML = ''; };
+  // v3.245.0 -- BARU: tandai body sedang ada modal terbuka (lihat CSS
+  // body.mobile-nav-locked.modal-open #mobile-bottom-nav) -- supaya bar
+  // navigasi bawah HP (khusus peran Sopir) otomatis sembunyi selama form
+  // ini terbuka, dilepas lagi begitu modal ditutup lewat close() di bawah.
+  markModalOpen();
+  const close = () => { root.innerHTML = ''; markModalClosed(); };
   document.getElementById('modal-close').onclick = close;
   document.getElementById('modal-cancel').onclick = close;
   enhanceAllSelects(root);
@@ -18538,6 +18606,23 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.245.0',
+    date: '03 Agu 2026',
+    notes: [
+      '📱 <b>Bar navigasi bawah (HP, peran Sopir) sekarang otomatis sembunyi total selama ada form/modal terbuka</b> (mis. Catat Perjalanan) -- sebelumnya (v3.244.0) sudah diperbaiki supaya tidak lagi MENGHALANGI tap di modal, tapi masih ikut kelihatan di balik/sekitar form yang mengganggu tampilan. Sekarang benar-benar disembunyikan selama form terbuka, muncul lagi otomatis begitu form ditutup -- berlaku ke semua jenis modal di aplikasi (form Tambah/Edit, konfirmasi Hapus, dst), bukan cuma Catat Perjalanan.',
+      '⏱️ Popup "Menu Lainnya" di Aksi Cepat (HP, peran Sopir) sekarang otomatis tertutup sendiri setelah 2 detik KHUSUS kalau memang tidak ada menu tambahan ("Semua menu utama sudah tampil di atas..") -- kalau popup-nya BERISI daftar menu yang bisa dipilih, tetap harus ditutup manual seperti biasa supaya tidak keburu hilang saat masih mau dipilih.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.244.0',
+    date: '03 Agu 2026',
+    notes: [
+      '🐛 <b>PERBAIKAN BUG PENTING: modal (mis. "Catat Perjalanan") tidak bisa dipakai di HP</b> -- di HP dgn peran Sopir (belum buka PIN Operator/Super Akses), bar navigasi bawah geser (`#mobile-bottom-nav`) ternyata "menang" tampil di atas modal apa pun walau modal terlihat sudah di depan -- akibatnya sheet "Pilih mobil"/"Pilih sopir" tidak bisa dipilih & tombol Simpan tidak bisa ditekan. Akar masalahnya `.modal-overlay` (dipakai SEMUA modal di aplikasi lewat `openModal()`) posisinya `fixed` + ada z-index sendiri, yang bikin SEMUA isi modal ikut "terkunci" di lapisan itu, tidak pernah benar-benar mengalahkan elemen lain di luar modal yang angka z-index-nya lebih tinggi. Sekarang `.modal-overlay` dinaikkan di atas bar navigasi tsb -- berlaku otomatis ke SEMUA modal di aplikasi, bukan cuma Catat Perjalanan.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.243.0',
     date: '02 Agu 2026',
@@ -21526,7 +21611,7 @@ if ('serviceWorker' in navigator) {
     showUpdatingOverlay('Memperbarui ke versi terbaru...').then(()=> location.reload());
   });
 
-  function closeUpdatePopup(){ updateOverlay.style.display = 'none'; }
+  function closeUpdatePopup(){ updateOverlay.style.display = 'none'; markModalClosed(); }
   btnClose.addEventListener('click', closeUpdatePopup);
   btnLater.addEventListener('click', closeUpdatePopup);
   updateOverlay.addEventListener('click', (e)=>{ if(e.target===updateOverlay) closeUpdatePopup(); });
@@ -21641,6 +21726,7 @@ if ('serviceWorker' in navigator) {
     versionLabelEl.textContent = versionKey ? ('v'+versionKey) : 'Versi terbaru';
     featureListEl.innerHTML = featureListHtml(items);
     updateOverlay.style.display = 'flex';
+    markModalOpen();
   }
   // Dipakai saat ternyata sudah otomatis di versi terbaru (lihat
   // checkStartupVersionChange) -> tidak ada aksi reload, cuma pemberitahuan.
@@ -21650,6 +21736,7 @@ if ('serviceWorker' in navigator) {
     versionLabelEl.textContent = versionKey ? ('v'+versionKey) : 'Versi terbaru';
     featureListEl.innerHTML = featureListHtml(items);
     updateOverlay.style.display = 'flex';
+    markModalOpen();
   }
 
   async function handleNewWorkerInstalled(newWorker){
