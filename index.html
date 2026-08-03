@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.245.0">
+<meta name="app-version" content="3.249.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -855,8 +855,19 @@
 
   /* ---------------- Bubble melayang: indikator mobil sedang dalam perjalanan ---------------- */
   #trip-bubble{position:fixed;bottom:20px;right:20px;z-index:150;}
+  /* v3.249.0 -- SEBELUMNYA tema charcoal hangat + aksen tembaga (coklat,
+     #231F1C + #C97B4A) -- diganti user jadi biru brand Payment Blue
+     (#00AED6), berlaku di tombol bubble & header panel "Mobil Sedang
+     Jalan" (pop up awal). Badge angka (count-badge) dipakai warna biru yang
+     SEDIKIT lebih gelap (#0088A8, ujung gelap gradasi biru yang SUDAH
+     dipakai di header app) -- BUKAN warna baru -- supaya angkanya tetap
+     kontras/kebaca di atas tombol yang sekarang sama-sama biru (kalau
+     dipaksa sama persis #00AED6, badge-nya jadi nyaris tak terlihat
+     menyatu ke tombol). State "overdue" (trip >=3x24 jam belum Tiba)
+     SENGAJA TETAP merah (#7A2320) -- itu bukan bagian tema coklat, tapi
+     warna peringatan/urgensi yang berbeda maknanya, jadi tidak diubah. */
   .trip-bubble-btn{
-    background:#231F1C;color:#fff;border:none;border-radius:26px;
+    background:#00AED6;color:#fff;border:none;border-radius:26px;
     padding:11px 16px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px;
     box-shadow:0 10px 24px rgba(0,0,0,0.22);cursor:grab;font-family:inherit;touch-action:none;user-select:none;
     transition:background-color .3s ease;
@@ -874,7 +885,7 @@
   #trip-bubble.dragging .trip-bubble-btn{cursor:grabbing;}
   #trip-bubble.dragging{transition:none !important;}
   .trip-bubble-btn .count-badge{
-    background:#C97B4A;color:#fff;min-width:18px;height:18px;border-radius:50%;
+    background:#0088A8;color:#fff;min-width:18px;height:18px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;padding:0 4px;
   }
   .trip-bubble-panel{
@@ -882,7 +893,7 @@
     background:var(--card);border:1px solid var(--line);border-radius:14px;
     box-shadow:0 18px 44px rgba(0,0,0,0.22);overflow-y:auto;overflow-x:hidden;
   }
-  .trip-bubble-head{padding:16px 18px;font-weight:800;font-size:15px;background:#231F1C;color:#fff;}
+  .trip-bubble-head{padding:16px 18px;font-weight:800;font-size:15px;background:#00AED6;color:#fff;}
   .trip-card{padding:16px 18px;border-bottom:1px solid var(--line);cursor:pointer;}
   .trip-card:last-child{border-bottom:none;}
   .trip-card:hover{background:var(--hover-bg);}
@@ -952,6 +963,18 @@
   }
   @media(max-width:768px){
     #trip-bubble{bottom:16px;right:16px;}
+    /* v3.248.0 -- BARU: KHUSUS saat bar navigasi bawah geser aktif
+       (body.mobile-nav-locked, peran Sopir) -- bubble "Mobil Jalan" default
+       (belum pernah digeser manual) dinaikkan supaya TIDAK tumpang tindih
+       dengan bar navigasi tsb (tinggi ±76px + safe-area). Sebelumnya bubble
+       ada di bottom:16px, tepat di ZONA yang sama dengan bar navigasi --
+       walau masih bisa diklik (z-index bubble lebih tinggi), tumpang
+       tindihnya bikin sulit disentuh & terlihat berantakan. Kalau posisi
+       SUDAH pernah digeser manual (localStorage tripBubblePos, applyPos()
+       set style.bottom='auto'), aturan ini otomatis tidak berlaku lagi
+       (CSS bottom kalah sama inline style.top yg dipakai utk posisi
+       custom). */
+    body.mobile-nav-locked #trip-bubble{ bottom:calc(76px + env(safe-area-inset-bottom) + 14px); }
     .trip-action-menu{width:88vw;max-width:280px;}
     .trip-action-item{padding:16px 18px;font-size:15px;}
     .trip-action-distance{padding:14px 18px;}
@@ -1500,9 +1523,9 @@
       background:transparent; display:flex; gap:10px; align-items:center;
       padding:14px 14px 10px;
     }
-    .mdh-search{ flex:1; background:#fff; border-radius:14px; padding:11px 13px; display:flex; align-items:center; gap:8px; }
-    .mdh-search span{ font-size:12.5px; color:#9199A8; }
-    .mdh-bell{ width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,0.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; cursor:pointer; }
+    .mdh-search{ flex:1; background:#fff; border-radius:14px; padding:13px 15px; display:flex; align-items:center; gap:8px; }
+    .mdh-search span{ font-size:13.5px; color:#9199A8; }
+    .mdh-bell{ width:44px; height:44px; border-radius:50%; background:rgba(255,255,255,0.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; cursor:pointer; }
     /* v3.237.0 -- BARU: doa Dashboard (#header-dua, elemen BERSAMA, dipakai
        di semua kondisi) diberi latar biru KHUSUS saat HP terkunci -- di luar
        kondisi ini (desktop / HP sudah buka PIN) TIDAK terpengaruh sama
@@ -1554,13 +1577,35 @@
        diulang & bikin scroll kepanjangan. Di desktop/HP tidak terkunci,
        ketiganya TETAP tampil normal seperti biasa. */
     body.mobile-nav-locked .mdh-hide-on-mobile-lock{ display:none; }
-    /* v3.243.0 -- BARU: kartu Total Mobil/Sedang Digunakan/Tersedia/Perlu
-       Perhatian direstyle KHUSUS HP terkunci (Referensi A yang disepakati)
-       -- ikon persegi jadi BULAT (senada Aksi Cepat di atasnya), border kiri
-       tebal berwarna dihilangkan (diganti border tipis biasa spt kartu
-       lain). Struktur HTML & datanya TIDAK diubah sama sekali, murni CSS. */
-    body.mobile-nav-locked .kpi{ border-left:1px solid var(--line); border-radius:14px; padding:12px 14px; }
-    body.mobile-nav-locked .icon-badge{ border-radius:50%; width:38px; height:38px; font-size:17px; }
+    /* v3.247.0 -- GANTI dari Referensi A (kartu putih persegi bulat) ke
+       Referensi C usulan user: strip CHIP berwarna yang bisa digeser
+       horizontal, gaya Gojek/Grab. KHUSUS HP terkunci. Struktur HTML &
+       datanya TIDAK diubah sama sekali, murni CSS (flex + overflow-x +
+       scroll-snap) -- .kpi-grid dari grid 2 kolom jadi flex row scroll,
+       tiap .kpi diberi warna latar pastel sesuai kategori (dicocokkan ke
+       kelas .icon-badge yang sudah ada di HTML-nya: blue/amber/green/red)
+       + warna teks angka yang lebih gelap/kontras di atas latarnya. */
+    body.mobile-nav-locked .kpi-grid{
+      display:flex; flex-wrap:nowrap; overflow-x:auto; gap:10px;
+      margin:0 -14px 22px; padding:2px 14px 6px;
+      scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; scrollbar-width:none;
+    }
+    body.mobile-nav-locked .kpi-grid::-webkit-scrollbar{ display:none; }
+    body.mobile-nav-locked .kpi{
+      flex:0 0 130px; scroll-snap-align:start;
+      border:none; border-radius:16px; padding:14px 16px;
+    }
+    body.mobile-nav-locked .kpi-v2{ flex-direction:column; align-items:flex-start; gap:10px; }
+    body.mobile-nav-locked .icon-badge{ background:rgba(255,255,255,.65); border-radius:10px; width:34px; height:34px; font-size:16px; }
+    body.mobile-nav-locked .kpi:has(.icon-badge.blue){ background:#E3F5FC; }
+    body.mobile-nav-locked .kpi:has(.icon-badge.amber){ background:#FCF1D9; }
+    body.mobile-nav-locked .kpi:has(.icon-badge.green){ background:#E1F5E5; }
+    body.mobile-nav-locked .kpi:has(.icon-badge.red){ background:#FBE6E4; }
+    body.mobile-nav-locked .kpi:has(.icon-badge.blue) .value{ color:#0B6FA3; }
+    body.mobile-nav-locked .kpi:has(.icon-badge.amber) .value{ color:#8A6100; }
+    body.mobile-nav-locked .kpi:has(.icon-badge.green) .value{ color:#1B7A3D; }
+    body.mobile-nav-locked .kpi:has(.icon-badge.red) .value{ color:#B5342A; }
+    body.mobile-nav-locked .kpi .label{ opacity:.8; }
     #mobile-bottom-nav .menu-item{
       flex-direction:column; align-items:center; justify-content:center;
       gap:4px; flex-shrink:0; width:72px; padding:7px 3px; margin-bottom:0;
@@ -1576,42 +1621,72 @@
        (mis. "Servis & Maintenance") -- supaya tidak jadi 3-4 baris
        berantakan yg bikin susah dibaca sambil buru-buru/di jalan. */
     #mobile-bottom-nav .menu-item .lbl{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-    #mobile-bottom-nav .menu-item.active{ background:var(--blue-bg); color:var(--blue); font-weight:700; }
+    /* v3.246.0 -- SEBELUMNYA pakai var(--blue) (#2F6FED, biru indigo umum
+       yg sama dipakai di SELURUH app -- tombol, link, dst). Diganti warna
+       biru brand khusus tema mobile (#00AED6, "Payment Blue") -- SENGAJA
+       cuma di sini (bar navigasi bawah HP peran Sopir), TIDAK mengubah
+       var(--blue) global, supaya tombol/link di bagian lain aplikasi
+       (termasuk desktop) tidak ikut berubah warnanya. */
+    #mobile-bottom-nav .menu-item.active{ background:#E3F7FC; color:#00AED6; font-weight:700; }
+    /* v3.247.0 -- BARU: label/teks item aktif sudah #00AED6 (lihat komentar
+       v3.246.0 di atas), TAPI sebagian ikon SVG-nya (dicontek apa adanya
+       dari sidebar) punya warna hardcode #2F6FED (var(--blue) biasa) di
+       sebagian path/line-nya -- jadi ikon masih kelihatan biru tua walau
+       label & latarnya sudah Payment Blue. Override warna path/stroke
+       tsb KHUSUS saat item aktif di bar-bawah supaya ikon & teks
+       konsisten. Discope ke #mobile-bottom-nav SAJA -- ikon di sidebar
+       asli (desktop) & warna --blue global di seluruh app TIDAK berubah. */
+    #mobile-bottom-nav .menu-item.active svg [fill="#2F6FED"]{ fill:#00AED6; }
+    #mobile-bottom-nav .menu-item.active svg [stroke="#2F6FED"]{ stroke:#00AED6; }
+    /* v3.248.0 -- PERBESAR & LEBARKAN sesuai referensi Gojek yang dikonfirmasi
+       user:
+       1) LEBAR: .mdh-summary/.mdh-menu-grid/.mdh-chips/.mdh-section-title/
+          .mdh-trip-aktif SEBELUMNYA punya margin/padding 14px SENDIRI DI ATAS
+          padding #content yang sudah 14px juga -- total jadi 28px per sisi,
+          jadi lebih SEMPIT dari kartu KPI lama ("Total Mobil" dkk, yang cuma
+          mengandalkan padding #content, 14px per sisi). Sekarang margin/
+          padding sendiri itu dihapus (jadi 0) supaya lebarnya PAS SAMA
+          dengan kartu KPI lama -- "ambil lebarnya saja" sesuai permintaan.
+       2) UKURAN: ikon, teks, dan padding semua elemen hero diperbesar
+          (search bar, kartu ringkasan mobil, grid menu, kartu trip aktif)
+          supaya lebih mudah dibaca/disentuh, senada Gojek/Grab. Struktur
+          HTML & data TIDAK diubah, murni CSS. */
     .mdh-summary{
-      margin:-12px 14px 14px; background:#fff; border:none; border-radius:16px;
-      padding:14px 16px; display:flex; align-items:center; justify-content:space-between;
+      margin:-12px 0 14px; background:#fff; border:none; border-radius:16px;
+      padding:16px 18px; display:flex; align-items:center; justify-content:space-between;
       box-shadow:0 4px 14px rgba(16,24,40,0.08); position:relative; z-index:2;
     }
-    .mdh-summary-left{ display:flex; align-items:center; gap:8px; }
-    .mdh-summary-ic{ width:30px; height:30px; border-radius:9px; background:#E0F7FC; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-    .mdh-summary-value{ font-size:14px; font-weight:700; color:var(--text); }
-    .mdh-summary-label{ font-size:9px; color:var(--muted); }
-    .mdh-summary-right{ display:flex; gap:16px; }
+    .mdh-summary-left{ display:flex; align-items:center; gap:10px; }
+    .mdh-summary-ic{ width:38px; height:38px; border-radius:11px; background:#E0F7FC; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .mdh-summary-ic svg, .mdh-summary-ic img{ width:20px !important; height:20px !important; }
+    .mdh-summary-value{ font-size:16.5px; font-weight:700; color:var(--text); }
+    .mdh-summary-label{ font-size:11px; color:var(--muted); }
+    .mdh-summary-right{ display:flex; gap:20px; }
     .mdh-wallet-btn{ text-align:center; cursor:pointer; user-select:none; background:none; border:none; padding:0; gap:0; }
-    .mdh-wallet-btn .ic{ width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 4px; }
-    .mdh-wallet-btn .ic svg, .mdh-wallet-btn .ic img{ width:16px !important; height:16px !important; object-fit:contain; }
-    .mdh-wallet-btn .lbl{ font-size:9px; color:var(--text); display:block; }
-    .mdh-menu-grid{ padding:0 14px; display:grid; grid-template-columns:repeat(4,1fr); gap:16px 10px; margin-bottom:14px; }
+    .mdh-wallet-btn .ic{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 5px; }
+    .mdh-wallet-btn .ic svg, .mdh-wallet-btn .ic img{ width:19px !important; height:19px !important; object-fit:contain; }
+    .mdh-wallet-btn .lbl{ font-size:10.5px; color:var(--text); display:block; }
+    .mdh-menu-grid{ padding:0; display:grid; grid-template-columns:repeat(4,1fr); gap:18px 10px; margin-bottom:16px; }
     .mdh-menu-item{ text-align:center; cursor:pointer; user-select:none; text-decoration:none; display:block; background:none; border:none; padding:0; }
-    .mdh-menu-item .ic{ width:64px; height:64px; border-radius:16px; margin:0 auto 6px; display:flex; align-items:center; justify-content:center; }
-    .mdh-menu-item .ic svg, .mdh-menu-item .ic img{ width:32px !important; height:32px !important; object-fit:contain; }
-    .mdh-menu-item .lbl{ font-size:10px; color:var(--text); display:block; line-height:1.2; }
-    .mdh-chips{ padding:0 14px; display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    .mdh-menu-item .ic{ width:74px; height:74px; border-radius:18px; margin:0 auto 7px; display:flex; align-items:center; justify-content:center; }
+    .mdh-menu-item .ic svg, .mdh-menu-item .ic img{ width:38px !important; height:38px !important; object-fit:contain; }
+    .mdh-menu-item .lbl{ font-size:11.5px; color:var(--text); display:block; line-height:1.25; }
+    .mdh-chips{ padding:0; display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
     .mdh-chips::-webkit-scrollbar{ display:none; }
     .mdh-chip{
-      background:var(--amber-bg); color:var(--amber); border-radius:12px; padding:8px 12px;
-      font-size:10.5px; font-weight:600; white-space:nowrap; flex-shrink:0; cursor:pointer;
+      background:var(--amber-bg); color:var(--amber); border-radius:12px; padding:9px 13px;
+      font-size:11.5px; font-weight:600; white-space:nowrap; flex-shrink:0; cursor:pointer;
       display:flex; align-items:center; gap:5px;
     }
-    .mdh-section-title{ padding:0 14px; font-size:12.5px; font-weight:700; color:var(--text); margin-bottom:8px; }
+    .mdh-section-title{ padding:0; font-size:13.5px; font-weight:700; color:var(--text); margin-bottom:9px; }
     .mdh-trip-aktif{
-      margin:0 14px 16px; border:1px solid var(--line); border-radius:14px; padding:12px 14px;
+      margin:0 0 16px; border:1px solid var(--line); border-radius:14px; padding:14px 16px;
       display:flex; align-items:center; justify-content:space-between; cursor:pointer;
     }
-    .mdh-trip-aktif .lbl{ font-size:9px; color:#00AA13; font-weight:700; }
-    .mdh-trip-aktif .ttl{ font-size:12.5px; font-weight:700; color:var(--text); margin-top:2px; }
-    .mdh-trip-aktif .sub{ font-size:9.5px; color:var(--muted); }
-    .mdh-trip-aktif span:last-child{ font-size:12px; color:#00AA13; font-weight:600; }
+    .mdh-trip-aktif .lbl{ font-size:10.5px; color:#00AA13; font-weight:700; }
+    .mdh-trip-aktif .ttl{ font-size:14px; font-weight:700; color:var(--text); margin-top:3px; }
+    .mdh-trip-aktif .sub{ font-size:11px; color:var(--muted); margin-top:1px; }
+    .mdh-trip-aktif span:last-child{ font-size:13px; color:#00AA13; font-weight:600; }
     footer.appfoot{padding:10px 14px;flex-direction:column;gap:4px;text-align:center;font-size:10.5px;}
     .modal{max-width:100%;}
     .grid-2{grid-template-columns:1fr;}
@@ -1858,7 +1933,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.245.0';
+const APP_VERSION = '3.249.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -8533,12 +8608,22 @@ function openListActionMenu(usageId, anchorEl){
     startX = e.clientX; startY = e.clientY;
     startLeft = rect.left; startTop = rect.top;
     dragging = true; moved = false;
-    btn.setPointerCapture(e.pointerId);
+    try{ btn.setPointerCapture(e.pointerId); }catch(err){}
   });
   btn.addEventListener('pointermove', (e)=>{
     if(!dragging) return;
     const dx = e.clientX - startX, dy = e.clientY - startY;
-    if(!moved && (Math.abs(dx)>4 || Math.abs(dy)>4)){
+    // v3.248.0 -- PERBAIKAN BUG "tombol Mobil Jalan tidak bisa diklik":
+    // ambang deteksi geser SEBELUMNYA cuma 4px -- di layar sentuh, jari
+    // manusia hampir selalu bergerak beberapa pixel walau niatnya cuma TAP
+    // biasa (bukan menggeser), jadi tap itu keliru dianggap "sudah mulai
+    // digeser" (moved=true) dan handler klik di bawah (if(moved){moved=
+    // false;return;}) SENGAJA membatalkan buka-panel supaya geser tidak
+    // ikut membuka panel -- akibatnya tap yang sebenarnya murni SERING
+    // gagal membuka panel. Ambang dinaikkan ke 10px (masih cukup ketat utk
+    // tetap membedakan geser sungguhan), supaya jitter tap normal tidak lagi
+    // salah terdeteksi sebagai drag.
+    if(!moved && (Math.abs(dx)>10 || Math.abs(dy)>10)){
       moved = true;
       wrap.classList.add('dragging');
       // Tutup panel begitu mulai digeser, supaya panel tidak ikut
@@ -18606,6 +18691,40 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.249.0',
+    date: '03 Agu 2026',
+    notes: [
+      '🎨 Warna tema popup "Mobil Sedang Jalan" (tombol bubble melayang & panel yang terbuka darinya) diganti dari charcoal + aksen tembaga (coklat) menjadi biru brand Payment Blue (#00AED6), sesuai permintaan user. Badge angka jumlah mobil jalan pakai biru yang sedikit lebih gelap (#0088A8, dari gradasi biru yang sudah dipakai di header app) supaya tetap kontras terbaca. State "overdue" (trip >=3x24 jam belum ditandai Tiba) SENGAJA tetap merah -- itu warna peringatan, bukan bagian tema coklat yang diganti.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.248.0',
+    date: '03 Agu 2026',
+    notes: [
+      '📱 Tampilan hero Dashboard HP (peran Sopir) diperbesar & dilebarkan supaya lebih mudah dibaca, senada referensi Gojek/Grab: kartu ringkasan "X/Y mobil aktif", grid menu, dan kartu "Trip Aktif" sekarang selebar kartu KPI lama (sebelumnya lebih sempit krn kelebihan padding ganda), ikon & teks di grid menu diperbesar. Data & fungsinya sama persis, murni tampilan.',
+      '🐛 PERBAIKAN BUG: tombol bubble "Mobil Jalan" kadang tidak merespons tap di HP -- penyebabnya ambang deteksi geser (drag) di kode cuma 4px, jadi getaran jari sedikit saja saat tap sering keliru dianggap "mulai menggeser" & tap-nya dibatalkan. Ambang dinaikkan ke 10px. Sekalian posisi default bubble (yang belum pernah digeser manual) dinaikkan supaya tidak tumpang tindih dengan bar navigasi bawah saat HP terkunci.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.247.0',
+    date: '03 Agu 2026',
+    notes: [
+      '🎨 Ikon menu aktif di bar navigasi bawah HP (peran Sopir) sekarang ikut biru brand Payment Blue (#00AED6) -- sebelumnya cuma teks/labelnya yang berubah warna, ikonnya masih kelihatan biru tua krn warnanya dicontek apa adanya dari sidebar. Tidak mengubah warna ikon di sidebar desktop atau bagian lain aplikasi.',
+      '📱 Kartu ringkasan Total Mobil/Sedang Digunakan/Tersedia/Perlu Perhatian di HP (peran Sopir) diubah jadi strip CHIP berwarna yang bisa digeser horizontal, gaya Gojek/Grab (Referensi C usulan pengguna) -- menggantikan tampilan kartu putih grid 2 kolom sebelumnya. Data & angkanya sama persis, murni perubahan tampilan.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.246.0',
+    date: '03 Agu 2026',
+    notes: [
+      '🎨 Warna menu aktif di bar navigasi bawah HP (peran Sopir) diganti dari biru indigo umum menjadi biru brand khusus tema mobile (#00AED6, senada gradasi header) -- cuma di bar navigasi ini, warna biru di bagian lain aplikasi (tombol, link, dst) tidak berubah.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.245.0',
     date: '03 Agu 2026',
