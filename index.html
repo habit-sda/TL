@@ -1018,6 +1018,74 @@
   #updating-overlay .msg{color:#fff;font-size:13.5px;font-weight:600;}
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
+  /* ---------------- Banner kunci Desktop (BARU) ----------------
+     Tampil PENUH LAYAR menggantikan seluruh aplikasi (sidebar, bottom-nav,
+     konten) khusus saat: (a) perangkat terdeteksi desktop (lihat
+     isDesktopViewport() di script bawah), DAN (b) belum ada PIN Operator/
+     Super Akses yang terbuka di sesi ini (modeOperatorUnlocked masih
+     false). Sopir TIDAK PERNAH buka PIN, jadi di desktop mereka SELALU
+     cuma melihat banner ini -- akses Sopir sehari-hari sengaja dibatasi
+     HP saja. Trigger tersembunyi (titik "·" setelah tagline, sama persis
+     polanya dgn #insight-pin-trigger di footer) memanggil LANGSUNG
+     openModeOperatorPinModal() yang SUDAH ADA -- sengaja tidak dibuatkan
+     PIN/keypad terpisah, supaya cuma ada SATU sumber logika verifikasi
+     PIN (server /verify-pin) utk seluruh aplikasi. 1 PIN Operator & 1 PIN
+     Super Akses (Administrator) SAMA-SAMA dicek lewat 1 trigger yang
+     sama ini -- persis seperti perilaku modal itu di tempat lain.
+     z-index 130: di ATAS konten biasa, tapi di BAWAH .modal-overlay (145)
+     supaya modal PIN yang dipicu trigger ini tetap tampil menimpanya. */
+  #desktop-lock-banner{
+    display:none;
+    position:fixed;inset:0;z-index:130;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, var(--card) 0%, var(--bg) 55%),
+      var(--bg);
+    align-items:center;justify-content:center;
+    overflow:hidden;
+  }
+  #desktop-lock-banner .dlb-grid{
+    position:absolute;inset:0;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:64px 64px;
+    opacity:.5;
+    mask-image:radial-gradient(circle at 50% 40%, black 0%, transparent 70%);
+    -webkit-mask-image:radial-gradient(circle at 50% 40%, black 0%, transparent 70%);
+  }
+  #desktop-lock-banner .dlb-scan{
+    position:absolute;left:0;right:0;height:140px;
+    background:linear-gradient(180deg, transparent, rgba(47,111,237,.08), transparent);
+    animation:dlb-sweep 7s linear infinite;
+  }
+  @keyframes dlb-sweep{ 0%{top:-140px;} 100%{top:110%;} }
+  #desktop-lock-banner .dlb-center{position:relative;z-index:2;text-align:center;}
+  #desktop-lock-banner .dlb-mark{
+    width:84px;height:84px;border-radius:20px;
+    background:var(--card);border:1px solid var(--line);
+    margin:0 auto 24px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 10px 30px rgba(26,33,48,.08);
+  }
+  #desktop-lock-banner .dlb-mark img{width:56px;height:56px;display:block;}
+  #desktop-lock-banner h1{
+    font-size:34px;font-weight:800;letter-spacing:-.5px;margin:0 0 8px;color:var(--navy);
+  }
+  #desktop-lock-banner .dlb-tagline{font-size:15px;color:var(--muted);letter-spacing:.2px;}
+  #desktop-lock-banner .dlb-trigger{
+    cursor:pointer;opacity:.4;
+    padding:10px 12px;margin:-10px -4px;
+    display:inline-block;font-size:20px;font-weight:800;color:var(--navy);
+    -webkit-tap-highlight-color:transparent;
+  }
+  #desktop-lock-banner .dlb-trigger:hover{opacity:.8;}
+  /* Sembunyikan SELURUH aplikasi (sidebar, bottom-nav, area utama) selama
+     banner ini aktif -- body diberi class 'desktop-locked' oleh
+     applyDesktopLockBanner() di script bawah. */
+  body.desktop-locked #sidebar,
+  body.desktop-locked #mobile-bottom-nav,
+  body.desktop-locked #main{display:none !important;}
+
   /* ---------------- Ikon bulat berwarna (badge KPI ala mockup) ---------------- */
   .icon-badge{
     width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;
@@ -1731,6 +1799,18 @@
 </style>
 </head>
 <body>
+
+<!-- BARU -- Banner kunci Desktop, lihat catatan lengkap di blok CSS
+     #desktop-lock-banner & fungsi applyDesktopLockBanner() di script. -->
+<div id="desktop-lock-banner">
+  <div class="dlb-grid"></div>
+  <div class="dlb-scan"></div>
+  <div class="dlb-center">
+    <div class="dlb-mark"><img src="icons/icon-192.png" alt="FleetOps"></div>
+    <h1>FleetOps</h1>
+    <div class="dlb-tagline">Stay in Control <span class="dlb-trigger" id="desktop-lock-trigger" title="">&middot;</span></div>
+  </div>
+</div>
 
 <div id="drawer-overlay"></div>
 
@@ -7774,6 +7854,41 @@ function renderMobileBottomNav(){
   });
 }
 
+// BARU -- deteksi desktop vs HP utk Banner kunci Desktop (lihat CSS
+// #desktop-lock-banner). Patokan lebar layar 900px: HP/tablet potret
+// SELALU di bawah ini, laptop/desktop paling sempit SELALU di atasnya.
+// SENGAJA hanya 1 patokan sederhana (bukan deteksi user-agent) -- kondisi
+// abu-abu (tablet lanskap lebar, jendela desktop di-resize sangat sempit)
+// memang bisa salah kategori, tapi itu kasus langka & risikonya kecil
+// (paling buruk sopir kebetulan lihat banner di tablet lanskap, atau
+// Operator/Administrator harus lebarkan jendela browser dulu). Kalau ke
+// depannya ambang batas ini perlu diubah, cukup ganti angka 900 di sini.
+function isDesktopViewport(){
+  return window.matchMedia('(min-width: 900px)').matches;
+}
+// BARU -- tampilkan/sembunyikan Banner kunci Desktop. Dipanggil di akhir
+// applyModeOperatorVisibility() (jadi otomatis ikut jalan tiap kali PIN
+// dibuka/ditutup DAN saat load pertama, lihat pemanggilan
+// applyModeOperatorVisibility() paling bawah file) & lewat listener
+// 'resize' di bawah (supaya jendela yang di-resize melewati ambang batas
+// langsung bereaksi tanpa perlu reload).
+function applyDesktopLockBanner(){
+  const kunci = isDesktopViewport() && !modeOperatorUnlocked;
+  document.body.classList.toggle('desktop-locked', kunci);
+  const banner = document.getElementById('desktop-lock-banner');
+  if(banner) banner.style.display = kunci ? 'flex' : 'none';
+}
+window.addEventListener('resize', ()=>{
+  clearTimeout(window.__dlbResizeTimer);
+  window.__dlbResizeTimer = setTimeout(applyDesktopLockBanner, 150);
+});
+document.getElementById('desktop-lock-trigger').addEventListener('click', ()=>{
+  // Reuse LANGSUNG modal PIN Operator/Super Akses yang sudah ada -- tidak
+  // ada logika PIN terpisah dibuat khusus utk banner ini, lihat catatan
+  // di blok CSS #desktop-lock-banner.
+  openModeOperatorPinModal();
+});
+
 function applyModeOperatorVisibility(){
   document.querySelectorAll('.menu-item[data-route]').forEach(el=>{
     const route = el.dataset.route;
@@ -7817,6 +7932,7 @@ function applyModeOperatorVisibility(){
   // hero TIDAK PERNAH muncul (selalu ter-override display:none default).
   document.body.classList.toggle('mobile-nav-locked', !insightUnlocked && !modeOperatorUnlocked);
   renderMobileBottomNav();
+  applyDesktopLockBanner();
 }
 
 function openModeOperatorPinModal(){
