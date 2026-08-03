@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.255.0">
+<meta name="app-version" content="3.257.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1820,7 +1820,27 @@
     .mdh-trip-aktif .sub{ font-size:11px; color:var(--muted); margin-top:1px; }
     .mdh-trip-aktif span:last-child{ font-size:13px; color:#00AA13; font-weight:600; }
     footer.appfoot{padding:10px 14px;flex-direction:column;gap:4px;text-align:center;font-size:10.5px;}
-    .modal{max-width:100%;}
+    /* v3.257.0 -- BARU: modal (mis. Catat Perjalanan dari Aksi Cepat) di HP
+       SEBELUMNYA tampil sbg kartu mengambang di tengah layar (max-width:480px
+       tapi tetap dipaksa max-width:100% di breakpoint ini, padding 20px di
+       overlay, border-radius, max-height:88vh) -- kelihatan seperti "kotak
+       kecil menimpa" konten di belakangnya, bukan berasa layar tersendiri.
+       Sekarang KHUSUS di HP, modal mengisi PENUH layar (edge-to-edge, tanpa
+       radius/padding sekeliling) -- terasa seperti berpindah ke halaman baru
+       ala app native, bukan overlay yang "mengecilkan" tampilan. Header &
+       footer (tombol Batal/Simpan) dibuat TETAP (sticky) di atas & bawah,
+       cuma modal-body-nya yang scroll -- supaya tombol aksi selalu terjangkau
+       tanpa perlu scroll ke bawah dulu, meniru pola halaman native. TIDAK
+       mengubah apa pun di desktop (>768px, aturan asli .modal di luar media
+       query ini tetap berlaku apa adanya). */
+    .modal-overlay{ padding:0; align-items:stretch; }
+    .modal{
+      max-width:100%; width:100%; height:100%; max-height:100%;
+      border-radius:0; display:flex; flex-direction:column;
+    }
+    .modal-head{ flex-shrink:0; }
+    .modal-body{ flex:1; overflow-y:auto; }
+    .modal-foot{ flex-shrink:0; }
     .grid-2{grid-template-columns:1fr;}
   }
   @media(max-width:420px){
@@ -2077,7 +2097,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.255.0';
+const APP_VERSION = '3.257.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -19183,6 +19203,21 @@ async function exportMonthlyReportPdf(r){
 // bertumpuk (mis. confirm "Hapus?" muncul di atas form yang sudah
 // terbuka) -- class cuma benar-benar dilepas kalau SEMUA modal sudah
 // tertutup, tidak keburu dilepas cuma krn modal ATAS-nya ditutup duluan.
+// v3.257.0 -- BARU: integrasi tombol "Kembali" fisik/browser dengan modal
+// (openModal()) -- SEBELUMNYA modal sama sekali tidak "tercatat" di riwayat
+// navigasi browser, jadi tombol Kembali saat modal terbuka bisa langsung
+// menavigasi HALAMAN di belakangnya secara tidak beraturan (modal tetap
+// nyangkut kebuka, atau lompat ke menu yang salah), bukan menutup modal itu
+// dulu. Sekarang modal ikut menambah 1 "langkah" ke riwayat browser (lewat
+// pushNavGuard() yang sudah ada, dipakai bareng sistem anti-keluar-app) --
+// popstate (dipicu tombol Kembali) MEMPRIORITASKAN menutup modal yang
+// sedang terbuka DULU, baru kalau tidak ada modal, jatuh ke navigasi
+// antar-menu spt biasa (navHistory) -- urutannya jadi: modal -> menu
+// sebelumnya -> menu sebelumnya lagi -> dst, PERSIS langkah yang dilalui
+// utk sampai ke situ. Lihat pemakaian di openModal() & popstate handler
+// (dekat akhir file).
+let modalHistoryGuardActive = false;
+let suppressNextPopstate = false;
 function markModalOpen(){
   const n = (parseInt(document.body.dataset.modalOpenCount || '0', 10) || 0) + 1;
   document.body.dataset.modalOpenCount = String(n);
@@ -19221,7 +19256,27 @@ function openModal({title, body, onSave, saveLabel, footerNote, modalClass}){
   // navigasi bawah HP (khusus peran Sopir) otomatis sembunyi selama form
   // ini terbuka, dilepas lagi begitu modal ditutup lewat close() di bawah.
   markModalOpen();
-  const close = () => { root.innerHTML = ''; markModalClosed(); };
+  // v3.257.0 -- BARU: lihat komentar lengkap di deklarasi modalHistoryGuardActive
+  // (dekat markModalOpen()) & di popstate handler.
+  pushNavGuard();
+  modalHistoryGuardActive = true;
+  const close = () => {
+    root.innerHTML = '';
+    markModalClosed();
+    // v3.257.0 -- kalau modal ini yang menambah langkah riwayat tadi (BUKAN
+    // ditutup lewat tombol Kembali, yang sudah menangani riwayatnya sendiri
+    // di popstate handler & sudah mematikan flag ini duluan) -- "konsumsi"
+    // langkah tsb lewat history.back(), supaya tombol Kembali BERIKUTNYA
+    // tidak nyangkut di langkah kosong bekas modal ini. suppressNextPopstate
+    // mencegah popstate hasil history.back() INI diproses ulang seolah-olah
+    // pengguna menekan Kembali lagi (yang salah akan coba menutup modal yang
+    // sudah tertutup / salah menavigasi halaman).
+    if(modalHistoryGuardActive){
+      modalHistoryGuardActive = false;
+      suppressNextPopstate = true;
+      history.back();
+    }
+  };
   document.getElementById('modal-close').onclick = close;
   document.getElementById('modal-cancel').onclick = close;
   enhanceAllSelects(root);
@@ -19256,6 +19311,24 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.257.0',
+    date: '03 Agu 2026',
+    notes: [
+      '📱 Tampilan form (Catat Perjalanan, Tambah Mobil, dst -- SEMUA modal di aplikasi) khusus di HP diubah dari kartu mengambang di tengah layar menjadi PENUH LAYAR (edge-to-edge) -- terasa seperti berpindah ke halaman baru, bukan lagi kotak kecil yang "menimpa" & mengecilkan tampilan. Header judul & tombol Batal/Simpan dibuat tetap (sticky) di atas & bawah layar, cuma isi formnya yang scroll. Tampilan desktop TIDAK berubah sama sekali.',
+      '⬅️ Tombol Kembali (fisik HP maupun browser) sekarang terintegrasi dengan modal -- kalau ada form yang sedang terbuka, tombol Kembali menutup form itu DULU (bukan langsung berpindah menu di belakangnya secara tidak beraturan). Urutannya sekarang teratur: form -> menu sebelumnya -> menu sebelumnya lagi -> dst, persis langkah yang dilalui untuk sampai ke situ.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.256.0',
+    date: '03 Agu 2026',
+    notes: [
+      '🚗 Pengaturan "auto-pilih mobil kalau cuma 1" (rilis 3.253.0, sebelumnya baru jalan di alur bot "Mulai Trip") sekarang diperluas ke SEMUA alur bot Telegram yang punya langkah "pilih mobil": <b>Isi BBM (Luar Trip)</b>, <b>Booking</b>, <b>Atur Barcode MyPertamina</b>, dan <b>Kalibrasi Odometer GPS.id</b>. Kalau armada cuma 1 mobil (atau 1 mobil ber-GPS.id khusus utk Kalibrasi), langkah pilih mobilnya dilewati otomatis -- langsung lanjut ke pertanyaan berikutnya. Kalau lebih dari 1 mobil, perilaku sama seperti sebelumnya.',
+      '🔍 Diverifikasi ulang lewat simulasi terisolasi (bukan cuma baca kode) bahwa logika `autoSelectSingleCar()` di aplikasi web sudah benar untuk semua kasus (1 mobil tersedia, 1 mobil sedang dipakai, 2+ mobil, mode Edit) -- kalau di perangkat masih belum terlihat jalan, kemungkinan besar sebabnya file belum ter-upload ulang/cache lama, bukan bug logika.',
+      '🔧 worker.js JUGA perlu diupload ulang kali ini, bukan cuma index.html.',
+    ]
+  },
   {
     v: '3.255.0',
     date: '03 Agu 2026',
@@ -22266,8 +22339,33 @@ function pushNavGuard(){
 }
 pushNavGuard();
 window.addEventListener('popstate', ()=>{
+  // v3.257.0 -- BARU: kalau history.back() ini dipicu KODE KITA SENDIRI
+  // (lihat close() di openModal()) buat "konsumsi" langkah riwayat bekas
+  // modal yang baru saja ditutup lewat tombol Batal/Simpan/✕/tap di luar --
+  // jangan diproses lagi seolah-olah pengguna menekan Kembali sungguhan.
+  if(suppressNextPopstate){ suppressNextPopstate = false; return; }
   if(exitConfirmed) return; // user sudah pilih "Iya" -> biarkan browser keluar secara alami
   pushNavGuard();
+  // v3.257.0 -- BARU: kalau ada modal (openModal()) sedang terbuka SAAT
+  // tombol Kembali ditekan -- tutup modal itu DULU, JANGAN navigasi
+  // halaman. Ini yang membuat urutan Kembali teratur sesuai langkah yang
+  // dilalui: modal -> menu sebelumnya -> menu sebelumnya lagi -> dst.
+  if(modalHistoryGuardActive){
+    modalHistoryGuardActive = false;
+    const modalRootEl = document.getElementById('modal-root');
+    if(modalRootEl) modalRootEl.innerHTML = '';
+    // Turut bersihkan dialog konfirmasi kecil (openConfirmModal(), mis.
+    // "Yakin hapus?") yang mungkin sedang bertumpuk DI ATAS modal ini --
+    // itu elemen overlay TERPISAH yang ditempel langsung ke <body> (bukan
+    // di dalam #modal-root), jadi tidak ikut terhapus oleh innerHTML=''
+    // di atas. Reset counter modal-open ke 0 sekaligus (bukan cuma
+    // markModalClosed() 1x) karena kita SENGAJA menutup SEMUA lapisan
+    // modal yang lagi terbuka, bukan cuma 1 lapisan teratas.
+    document.querySelectorAll('body > .modal-overlay').forEach(el=>el.remove());
+    document.body.dataset.modalOpenCount = '0';
+    document.body.classList.remove('modal-open');
+    return;
+  }
   if(navHistory.length > 0){
     // Ada menu sebelumnya yang tercatat dalam sesi ini -> kembali ke situ,
     // persis seperti tombol Kembali di kebanyakan aplikasi lain.
