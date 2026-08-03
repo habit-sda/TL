@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.240.0">
+<meta name="app-version" content="3.241.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -258,6 +258,12 @@
      kelihatan seperti "sidebar kedua" tanpa ikon rapi). Ini yang menjelaskan
      laporan "tampilan desktop dobel" -- BUKAN soal alat preview. */
   #mobile-bottom-nav{ display:none; }
+  /* v3.241.0 -- WAJIB (pelajaran dari bug v3.240.0): SETIAP elemen baru yang
+     cuma boleh tampil di kondisi tertentu (HP+terkunci) HARUS diberi aturan
+     sembunyikan default di SINI (luar media query) dulu -- baru DIIZINKAN
+     tampil lewat override di dalam @media. Kalau lupa, elemen <div>/<nav>
+     defaultnya display:block/flex di SEMUA ukuran layar termasuk desktop. */
+  #mdh-header-search{ display:none; }
   .kpi{
     background:var(--card);
     border:1px solid var(--line);
@@ -1436,6 +1442,10 @@
     .mdh-lainnya-row:hover{ background:var(--hover-bg); }
     .mdh-lainnya-row .ic{ width:30px; height:30px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
     .mdh-lainnya-empty{ padding:14px 10px; font-size:12px; color:var(--muted); text-align:center; }
+    .mdh-lainnya-head{ display:flex; align-items:center; justify-content:space-between; padding:8px 8px 10px; border-bottom:1px solid var(--line); margin-bottom:4px; }
+    .mdh-lainnya-head span:first-child{ font-size:12.5px; font-weight:700; color:var(--text); }
+    .mdh-lainnya-close{ cursor:pointer; color:var(--muted); font-size:15px; padding:4px 8px; border-radius:6px; }
+    .mdh-lainnya-close:hover{ background:var(--hover-bg); color:var(--text); }
     /* v3.237.0 -- BARU (percobaan ke-3): hero gaya Gojek/Grab sesuai
        referensi yang dikonfirmasi user. order:-2 supaya PALING DEPAN.
        PENTING: discope ke body.mobile-nav-locked (BUKAN ke seluruh media
@@ -1449,9 +1459,14 @@
        PERSIS di keduanya -- dijamin menyatu mulus krn tidak ada
        "restart" arah warna sama sekali. */
     body.mobile-nav-locked .mobile-hero-only{ display:block; order:-2; background:#fff; border:none; border-radius:16px; overflow:hidden; margin-bottom:20px; }
-    .mdh-topbar{
-      background:#00AED6;
-      padding:14px 14px 20px; display:flex; gap:10px; align-items:center;
+    /* v3.241.0 -- BARU: kotak pencarian + lonceng DIPINDAH ke sini (elemen
+       header BERSAMA #mdh-header-search, SEBELUM #header-dua di DOM) --
+       supaya urutan di layar: pencarian dulu, doa di bawahnya (sesuai
+       referensi Gojek). Default disembunyikan (match pola .mobile-hero-only
+       di atas), cuma dimunculkan saat HP terkunci. */
+    body.mobile-nav-locked #mdh-header-search{
+      background:#00AED6; display:flex; gap:10px; align-items:center;
+      padding:14px 14px 10px;
     }
     .mdh-search{ flex:1; background:#fff; border-radius:14px; padding:11px 13px; display:flex; align-items:center; gap:8px; }
     .mdh-search span{ font-size:12.5px; color:#9199A8; }
@@ -1464,7 +1479,7 @@
        keterbacaan). */
     body.mobile-nav-locked #header-dua{
       background:#00AED6;
-      margin:0; padding:16px 16px 20px; margin-top:-1px;
+      margin:0; padding:6px 16px 20px;
     }
     body.mobile-nav-locked #header-dua .txt{ color:#fff; }
     body.mobile-nav-locked #header-dua .arti{ color:rgba(255,255,255,0.9); }
@@ -1526,10 +1541,10 @@
     .mdh-wallet-btn .ic{ width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 4px; }
     .mdh-wallet-btn .ic svg, .mdh-wallet-btn .ic img{ width:16px !important; height:16px !important; object-fit:contain; }
     .mdh-wallet-btn .lbl{ font-size:9px; color:var(--text); display:block; }
-    .mdh-menu-grid{ padding:0 14px; display:grid; grid-template-columns:repeat(4,1fr); gap:12px 6px; margin-bottom:14px; }
+    .mdh-menu-grid{ padding:0 14px; display:grid; grid-template-columns:repeat(4,1fr); gap:16px 10px; margin-bottom:14px; }
     .mdh-menu-item{ text-align:center; cursor:pointer; user-select:none; text-decoration:none; display:block; background:none; border:none; padding:0; }
-    .mdh-menu-item .ic{ width:60px; height:60px; border-radius:16px; margin:0 auto 6px; display:flex; align-items:center; justify-content:center; }
-    .mdh-menu-item .ic svg, .mdh-menu-item .ic img{ width:28px !important; height:28px !important; object-fit:contain; }
+    .mdh-menu-item .ic{ width:64px; height:64px; border-radius:16px; margin:0 auto 6px; display:flex; align-items:center; justify-content:center; }
+    .mdh-menu-item .ic svg, .mdh-menu-item .ic img{ width:32px !important; height:32px !important; object-fit:contain; }
     .mdh-menu-item .lbl{ font-size:10px; color:var(--text); display:block; line-height:1.2; }
     .mdh-chips{ padding:0 14px; display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
     .mdh-chips::-webkit-scrollbar{ display:none; }
@@ -1640,6 +1655,7 @@
         <div id="header-actions"></div>
       </div>
     </div>
+    <div id="mdh-header-search" style="display:none;"></div>
     <div id="header-dua" style="display:none;"></div>
   </header>
 
@@ -1792,7 +1808,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.240.0';
+const APP_VERSION = '3.241.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -6639,6 +6655,31 @@ const NAV_HISTORY_MAX = 50; // jaga-jaga supaya tidak membengkak tanpa batas
 // terbaca rapi & tidak pecah di perangkat mana pun.
 function renderHeaderDua(route){
   const box = document.getElementById('header-dua');
+  // v3.241.0 -- BARU: kotak pencarian + lonceng notifikasi hero SEKARANG
+  // dipindah ke SINI (elemen header BERSAMA, SEBELUM #header-dua) --
+  // supaya urutannya di layar: pencarian dulu, BARU doa di bawahnya (sesuai
+  // referensi Gojek). SEBELUMNYA ini ada di dalam hero Dashboard sendiri
+  // (#content), yang membuatnya SELALU muncul SETELAH doa krn urutan DOM
+  // #header-dua lebih dulu. Ditampilkan/disembunyikan bareng #header-dua
+  // (kondisi SAMA: cuma rute Dashboard) lewat fungsi yang sama ini.
+  const searchBox = document.getElementById('mdh-header-search');
+  if(searchBox){
+    if(route !== 'dashboard'){ searchBox.style.display = 'none'; searchBox.innerHTML = ''; }
+    else {
+      searchBox.innerHTML = `
+        <div class="mdh-search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#9199A8" stroke-width="2"/><path d="M20 20l-4-4" stroke="#9199A8" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>Cari menu, mobil, sopir...</span>
+        </div>
+        <div class="mdh-bell" id="mdh-bell-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 4a5 5 0 015 5v4l2 3H5l2-3V9a5 5 0 015-5z" stroke="#fff" stroke-width="1.8"/><path d="M10 19a2 2 0 004 0" stroke="#fff" stroke-width="1.8"/></svg>
+        </div>
+      `;
+      searchBox.style.display = 'flex';
+      const bell = document.getElementById('mdh-bell-btn');
+      if(bell) bell.onclick = toggleNotifDropdown;
+    }
+  }
   if(!box) return;
   if(route !== 'dashboard'){ box.style.display = 'none'; box.innerHTML = ''; return; }
   box.innerHTML = `
@@ -8608,15 +8649,6 @@ function renderDashboard(){
       </div>` : '';
   const heroHtml = `
   <div class="mobile-hero-only" id="mobile-hero-panel">
-    <div class="mdh-topbar">
-      <div class="mdh-search">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#9199A8" stroke-width="2"/><path d="M20 20l-4-4" stroke="#9199A8" stroke-width="2" stroke-linecap="round"/></svg>
-        <span>Cari menu, mobil, sopir...</span>
-      </div>
-      <div class="mdh-bell" id="mdh-bell-btn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 4a5 5 0 015 5v4l2 3H5l2-3V9a5 5 0 015-5z" stroke="#fff" stroke-width="1.8"/><path d="M10 19a2 2 0 004 0" stroke="#fff" stroke-width="1.8"/></svg>
-      </div>
-    </div>
     <div class="panel-body">
       <div class="mdh-summary">
         <div class="mdh-summary-left">
@@ -8830,8 +8862,8 @@ function renderDashboard(){
       qaPanelEl.style.display = '';
     }
   }
-  const mdhBell = document.getElementById('mdh-bell-btn');
-  if(mdhBell) mdhBell.addEventListener('click', toggleNotifDropdown);
+  // v3.241.0 -- Kotak pencarian + lonceng sekarang di renderHeaderDua()
+  // (elemen header bersama, di ATAS doa) -- bukan di sini lagi.
   // v3.239.0 -- DIPERBAIKI: "Lainnya" SEBELUMNYA membuka #qa-panel PENUH
   // (isinya banyak yg SUDAH ada di grid 8-slot hero -- dobel/membingungkan).
   // Sekarang cuma tampilkan aksi yg BELUM ada di grid hero -- dicari dari
@@ -8847,8 +8879,22 @@ function renderDashboard(){
     const popup = document.createElement('div');
     popup.id = 'mdh-lainnya-popup';
     popup.className = 'mdh-lainnya-popup';
+    // v3.241.0 -- PERBAIKAN BUG: SEBELUMNYA cuma mengandalkan deteksi
+    // "klik di luar popup" utk menutup -- ternyata di sebagian kasus tidak
+    // bekerja (laporan: popup tidak bisa ditutup). Ditambah tombol ✕ EKSPLISIT
+    // yang DIJAMIN bekerja (langsung panggil .remove(), tidak bergantung
+    // deteksi klik di luar sama sekali) -- deteksi klik-di-luar TETAP ada
+    // sbg cara tambahan, bukan satu-satunya cara lagi.
+    const closeBtn = document.createElement('div');
+    closeBtn.className = 'mdh-lainnya-head';
+    closeBtn.innerHTML = `<span>Menu Lainnya</span><span class="mdh-lainnya-close">✕</span>`;
+    closeBtn.querySelector('.mdh-lainnya-close').addEventListener('click', ()=> popup.remove());
+    popup.appendChild(closeBtn);
     if(extraBtns.length === 0){
-      popup.innerHTML = `<div class="mdh-lainnya-empty">Semua menu utama sudah tampil di atas -- tidak ada menu tambahan lain saat ini.</div>`;
+      const empty = document.createElement('div');
+      empty.className = 'mdh-lainnya-empty';
+      empty.textContent = 'Semua menu utama sudah tampil di atas -- tidak ada menu tambahan lain saat ini.';
+      popup.appendChild(empty);
     } else {
       extraBtns.forEach(b=>{
         const row = document.createElement('div');
@@ -18467,6 +18513,17 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.241.0',
+    date: '02 Agu 2026',
+    notes: [
+      '📏 Ikon Aksi Cepat diperbesar (60px→64px, isi ikon 28px→32px) dan jarak antar-ikon dilebarkan (6px→10px) -- sudah dihitung supaya tetap muat rapi di HP paling sempit sekalipun (320px), tidak akan terpotong/berantakan.',
+      '🐛 <b>Bug popup "Lainnya" tidak bisa ditutup</b> -- ditambah tombol ✕ eksplisit di popup-nya (sebelumnya cuma andalkan deteksi "klik di luar" yang ternyata gagal di sebagian kondisi) -- sekarang dijamin bisa ditutup.',
+      '📱 <b>Kotak pencarian & lonceng notifikasi dipindah ke ATAS doa</b> (sesuai referensi Gojek) -- SEBELUMNYA tidak bisa dipindah pakai CSS biasa krn hidup di kontainer berbeda dgn doa; sekarang benar-benar dipindah jadi elemen baru di header bersama, sejajar & sebelum doa, supaya urutan tampil di layar: pencarian dulu, baru doa di bawahnya.',
+      '📚 SOP diperbarui dgn 4 pelajaran baru dari sesi perbaikan intensif ini -- termasuk checklist WAJIB baru: elemen kondisional baru harus selalu diberi `display:none` default dulu sebelum diizinkan tampil di kondisi tertentu, supaya bug "tampil di desktop" seperti kemarin tidak terulang.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.240.0',
     date: '02 Agu 2026',
