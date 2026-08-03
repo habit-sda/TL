@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.238.0">
+<meta name="app-version" content="3.239.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1416,15 +1416,33 @@
        makanya aturan hide ini discope ke body.mobile-nav-locked, BUKAN ke
        seluruh media query mobile. */
     body.mobile-nav-locked #qa-panel{ display:none; }
-    body.mobile-nav-locked #qa-panel.mdh-qa-revealed{ display:block; order:-1; }
+    /* v3.239.0 -- BARU: popup kecil "Lainnya" (menggantikan cara lama yg
+       membuka #qa-panel PENUH -- sekarang cuma tampilkan aksi yg BELUM ada
+       di grid hero, lihat showLainnyaPopup()). */
+    .mdh-lainnya-popup{
+      position:fixed; z-index:200; left:16px; right:16px; bottom:90px;
+      background:var(--card); border:1px solid var(--line); border-radius:14px;
+      box-shadow:0 8px 24px rgba(16,24,40,0.18); padding:8px; max-width:340px; margin:0 auto;
+    }
+    .mdh-lainnya-row{ display:flex; align-items:center; gap:10px; padding:10px 8px; cursor:pointer; border-radius:8px; font-size:13px; color:var(--text); }
+    .mdh-lainnya-row:hover{ background:var(--hover-bg); }
+    .mdh-lainnya-row .ic{ width:30px; height:30px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+    .mdh-lainnya-empty{ padding:14px 10px; font-size:12px; color:var(--muted); text-align:center; }
     /* v3.237.0 -- BARU (percobaan ke-3): hero gaya Gojek/Grab sesuai
        referensi yang dikonfirmasi user. order:-2 supaya PALING DEPAN.
        PENTING: discope ke body.mobile-nav-locked (BUKAN ke seluruh media
        query mobile) -- supaya di HP kondisi TIDAK terkunci, hero ini tetap
        tersembunyi & Aksi Cepat asli yang tampil normal (tidak dobel). */
+    /* v3.238.1 -- PERBAIKAN: SEBELUMNYA #header-dua & .mdh-topbar sama-sama
+       pakai gradasi 180deg #0088A8->#3FC9E8 SENDIRI-SENDIRI (2 elemen
+       terpisah) -- akibatnya tiap elemen "reset" balik ke gelap di
+       ujungnya sendiri, jadi kelihatan terputus/patah warnanya pas
+       ketemu di tengah. Diganti WARNA RATA (bukan gradasi) yang SAMA
+       PERSIS di keduanya -- dijamin menyatu mulus krn tidak ada
+       "restart" arah warna sama sekali. */
     body.mobile-nav-locked .mobile-hero-only{ display:block; order:-2; background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden; margin-bottom:20px; }
     .mdh-topbar{
-      background:linear-gradient(180deg,#0088A8 0%,#00AED6 55%,#3FC9E8 100%);
+      background:#00AED6;
       padding:14px 14px 20px; display:flex; gap:10px; align-items:center;
     }
     .mdh-search{ flex:1; background:#fff; border-radius:14px; padding:11px 13px; display:flex; align-items:center; gap:8px; }
@@ -1437,7 +1455,7 @@
        kontras & tetap terbaca jelas di atas latar biru (prioritas
        keterbacaan). */
     body.mobile-nav-locked #header-dua{
-      background:linear-gradient(180deg,#0088A8 0%,#00AED6 55%,#3FC9E8 100%);
+      background:#00AED6;
       margin:0; padding:16px 16px 20px; margin-top:-1px;
     }
     body.mobile-nav-locked #header-dua .txt{ color:#fff; }
@@ -1459,16 +1477,27 @@
     }
     body.mobile-nav-locked #mobile-bottom-nav::-webkit-scrollbar{ display:none; }
     body.mobile-nav-locked #main{ padding-bottom:76px; }
+    /* v3.239.0 -- BARU: sembunyikan 3 panel ini KHUSUS HP terkunci -- info
+       ringkasannya sudah tercakup di kartu hero di atas, jadi tidak perlu
+       diulang & bikin scroll kepanjangan. Di desktop/HP tidak terkunci,
+       ketiganya TETAP tampil normal seperti biasa. */
+    body.mobile-nav-locked .mdh-hide-on-mobile-lock{ display:none; }
     #mobile-bottom-nav .menu-item{
       flex-direction:column; align-items:center; justify-content:center;
-      gap:3px; flex-shrink:0; width:58px; padding:6px 2px; margin-bottom:0;
+      gap:4px; flex-shrink:0; width:72px; padding:7px 3px; margin-bottom:0;
       border-radius:12px; text-align:center;
     }
     #mobile-bottom-nav .menu-item .ic{ width:auto; font-size:20px; }
-    #mobile-bottom-nav .menu-item .ic svg{ width:20px; height:20px; }
+    #mobile-bottom-nav .menu-item .ic svg{ width:22px; height:22px; }
     #mobile-bottom-nav .menu-item span:not(.ic){ display:block; }
-    #mobile-bottom-nav .menu-item{ font-size:9.5px; line-height:1.2; white-space:normal; }
-    #mobile-bottom-nav .menu-item.active{ background:var(--blue-bg); }
+    #mobile-bottom-nav .menu-item{
+      font-size:10.5px; line-height:1.25; white-space:normal; color:var(--text); font-weight:500;
+    }
+    /* v3.239.0 -- BARU: batasi label max 2 baris + "..." kalau kepanjangan
+       (mis. "Servis & Maintenance") -- supaya tidak jadi 3-4 baris
+       berantakan yg bikin susah dibaca sambil buru-buru/di jalan. */
+    #mobile-bottom-nav .menu-item .lbl{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    #mobile-bottom-nav .menu-item.active{ background:var(--blue-bg); color:var(--blue); font-weight:700; }
     .mdh-summary{
       margin:-12px 14px 14px; background:#fff; border:1px solid var(--line); border-radius:16px;
       padding:14px 16px; display:flex; align-items:center; justify-content:space-between;
@@ -1481,10 +1510,12 @@
     .mdh-summary-right{ display:flex; gap:16px; }
     .mdh-wallet-btn{ text-align:center; cursor:pointer; user-select:none; background:none; border:none; padding:0; gap:0; }
     .mdh-wallet-btn .ic{ width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 4px; }
+    .mdh-wallet-btn .ic svg, .mdh-wallet-btn .ic img{ width:16px !important; height:16px !important; object-fit:contain; }
     .mdh-wallet-btn .lbl{ font-size:9px; color:var(--text); display:block; }
     .mdh-menu-grid{ padding:0 14px; display:grid; grid-template-columns:repeat(4,1fr); gap:12px 6px; margin-bottom:14px; }
     .mdh-menu-item{ text-align:center; cursor:pointer; user-select:none; text-decoration:none; display:block; background:none; border:none; padding:0; }
     .mdh-menu-item .ic{ width:60px; height:60px; border-radius:16px; margin:0 auto 6px; display:flex; align-items:center; justify-content:center; }
+    .mdh-menu-item .ic svg, .mdh-menu-item .ic img{ width:28px !important; height:28px !important; object-fit:contain; }
     .mdh-menu-item .lbl{ font-size:10px; color:var(--text); display:block; line-height:1.2; }
     .mdh-chips{ padding:0 14px; display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
     .mdh-chips::-webkit-scrollbar{ display:none; }
@@ -1747,7 +1778,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.238.0';
+const APP_VERSION = '3.239.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -8584,20 +8615,20 @@ function renderDashboard(){
           </div>
         </div>
         <div class="mdh-summary-right">
-          <div class="mdh-wallet-btn quick-action-btn" data-action="bbmluar"><span class="ic" style="background:#E4F6EC;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M8 7h5.5a2.5 2.5 0 010 5H8h6a2.5 2.5 0 010 5H8" stroke="#1F8A5A" stroke-width="1.8" stroke-linecap="round"/></svg></span><span class="lbl">Isi BBM</span></div>
-          <div class="mdh-wallet-btn quick-action-btn" data-action="etollluar"><span class="ic" style="background:#E0F7FC;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="#00AED6" stroke-width="1.8"/><path d="M3 10h18" stroke="#00AED6" stroke-width="1.8"/></svg></span><span class="lbl">E-Toll</span></div>
+          <div class="mdh-wallet-btn quick-action-btn" data-action="bbmluar"><span class="ic" data-icon-src="bbmluar" style="background:#E4F6EC;"></span><span class="lbl">Isi BBM</span></div>
+          <div class="mdh-wallet-btn quick-action-btn" data-action="etollluar"><span class="ic" data-icon-src="etollluar" style="background:#E0F7FC;"></span><span class="lbl">E-Toll</span></div>
           <div class="mdh-wallet-btn" id="mdh-lainnya-btn"><span class="ic" style="background:#F5F6F8;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="12" r="1.6" fill="#6B7280"/><circle cx="12" cy="12" r="1.6" fill="#6B7280"/><circle cx="18" cy="12" r="1.6" fill="#6B7280"/></svg></span><span class="lbl">Lainnya</span></div>
         </div>
       </div>
 
       <div class="mdh-menu-grid">
-        <div class="mdh-menu-item quick-action-btn" data-action="usage"><span class="ic" style="background:#FEF3DC;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M4 16V8l8-4 8 4v8l-8 4-8-4z" stroke="#B7791F" stroke-width="1.8"/></svg></span><span class="lbl">Catat Trip</span></div>
-        <div class="mdh-menu-item quick-action-btn" data-action="driver"><span class="ic" style="background:#E4F6EC;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="#1F8A5A" stroke-width="1.8"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="#1F8A5A" stroke-width="1.8"/></svg></span><span class="lbl">Tambah Sopir</span></div>
+        <div class="mdh-menu-item quick-action-btn" data-action="usage"><span class="ic" data-icon-src="usage" style="background:#FEF3DC;"></span><span class="lbl">Catat Trip</span></div>
+        <div class="mdh-menu-item quick-action-btn" data-action="driver"><span class="ic" data-icon-src="driver" style="background:#E4F6EC;"></span><span class="lbl">Tambah Sopir</span></div>
         <a class="mdh-menu-item" href="https://t.me/toyyiblogistik_bot" target="_blank" rel="noopener"><span class="ic" style="background:linear-gradient(135deg,#37AEE2,#1E96C8);"><svg width="30" height="30" viewBox="0 0 240 240" fill="none"><path d="M180 60L45 112c-9 3-9 9-2 11l35 11 13 42c2 5 4 7 8 7 5 0 7-2 9-4l17-17 35 26c6 4 11 2 13-6l24-113c3-10-4-15-13-11z" fill="#fff"/></svg></span><span class="lbl">Bot Telegram</span></a>
-        <div class="mdh-menu-item quick-action-btn" data-action="service"><span class="ic" style="background:#F1EBFC;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M6 6h12l-1 12H7L6 6z" stroke="#7C4FE0" stroke-width="1.8"/></svg></span><span class="lbl">Catat Servis</span></div>
-        <div class="mdh-menu-item quick-action-btn" data-action="doc"><span class="ic" style="background:#FEEBDC;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M6 20V10l6-6 6 6v10" stroke="#D85A30" stroke-width="1.8"/></svg></span><span class="lbl">Dokumen</span></div>
-        <div class="mdh-menu-item quick-action-btn" data-action="booking"><span class="ic" style="background:#FCE8E7;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="14" rx="2" stroke="#C4302B" stroke-width="1.8"/></svg></span><span class="lbl">Booking</span></div>
-        <div class="mdh-menu-item quick-action-btn" data-action="rutepulang"><span class="ic" style="background:#DFF5F2;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z" stroke="#0E9488" stroke-width="1.8"/></svg></span><span class="lbl">Rute Pulang</span></div>
+        <div class="mdh-menu-item quick-action-btn" data-action="service"><span class="ic" data-icon-src="service" style="background:#F1EBFC;"></span><span class="lbl">Catat Servis</span></div>
+        <div class="mdh-menu-item quick-action-btn" data-action="doc"><span class="ic" data-icon-src="doc" style="background:#FEEBDC;"></span><span class="lbl">Dokumen</span></div>
+        <div class="mdh-menu-item quick-action-btn" data-action="booking"><span class="ic" data-icon-src="booking" style="background:#FCE8E7;"></span><span class="lbl">Booking</span></div>
+        <div class="mdh-menu-item quick-action-btn" data-action="rutepulang"><span class="ic" data-icon-src="rutepulang" style="background:#DFF5F2;"></span><span class="lbl">Rute Pulang</span></div>
         <div class="mdh-menu-item" id="mdh-lainnya-btn2"><span class="ic" style="background:#EEF0F3;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="12" r="1.6" fill="#6B7280"/><circle cx="12" cy="12" r="1.6" fill="#6B7280"/><circle cx="18" cy="12" r="1.6" fill="#6B7280"/></svg></span><span class="lbl">Lainnya</span></div>
       </div>
 
@@ -8649,7 +8680,7 @@ function renderDashboard(){
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel mdh-hide-on-mobile-lock">
     <div class="panel-head"><h2>Statistik Bulan Ini</h2></div>
     <div class="panel-body">
       <div class="kpi-grid">
@@ -8677,12 +8708,12 @@ function renderDashboard(){
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel mdh-hide-on-mobile-lock">
     <div class="panel-head"><h2>Grafik Utilisasi Kendaraan (14 hari terakhir)</h2></div>
     <div class="panel-body">${renderTripSvgChart(buildTripTrendData(14))}</div>
   </div>
 
-  <div class="panel">
+  <div class="panel mdh-hide-on-mobile-lock">
     <div class="panel-head"><h2>Aktivitas Terbaru</h2></div>
     <div class="panel-body">
       ${recentActivity.length===0 ? emptyState('🕘','Belum ada aktivitas tercatat.') : recentActivity.map(a=>`
@@ -8759,9 +8790,18 @@ function renderDashboard(){
   // dobel" di HP terkunci -- walau kode CSS sudah diperiksa berkali-kali
   // dan seharusnya benar, baris ini memastikan hasilnya BENAR secara
   // paksa, apa pun penyebab pastinya.
+  // v3.239.0 -- BARU: ikon di hero mobile SEKARANG diklon LANGSUNG dari
+  // ikon Aksi Cepat versi web (bukan digambar ulang terpisah) -- supaya
+  // ikonnya identik 1:1 dgn versi web, tidak ada 2 gaya ikon berbeda utk
+  // aksi yang sama. Dicari lewat data-action yg cocok di #qa-panel asli.
+  document.querySelectorAll('.mdh-summary [data-icon-src], .mdh-menu-grid [data-icon-src]').forEach(placeholder=>{
+    const action = placeholder.dataset.iconSrc;
+    const sourceBtn = document.querySelector(`#qa-panel .quick-action-btn[data-action="${action}"] .ic`);
+    if(sourceBtn) placeholder.innerHTML = sourceBtn.innerHTML;
+  });
   const qaPanelEl = document.getElementById('qa-panel');
   if(qaPanelEl){
-    if(document.body.classList.contains('mobile-nav-locked') && !qaPanelEl.classList.contains('mdh-qa-revealed')){
+    if(document.body.classList.contains('mobile-nav-locked')){
       qaPanelEl.style.display = 'none';
     } else {
       qaPanelEl.style.display = '';
@@ -8769,18 +8809,42 @@ function renderDashboard(){
   }
   const mdhBell = document.getElementById('mdh-bell-btn');
   if(mdhBell) mdhBell.addEventListener('click', toggleNotifDropdown);
-  // "Lainnya" (di baris ringkasan MAUPUN di grid) -- buka #qa-panel asli yg
-  // TETAP ADA di DOM (cuma disembunyikan default di HP terkunci, lihat CSS)
-  // -- supaya aksi yg tidak muat di 8 slot utama (Tambah Mobil, Kartu
-  // E-Toll, Lacak Mobil Jalan) TETAP bisa diakses, tidak hilang fungsinya.
-  const showQaPanel = () => {
-    const qa = document.getElementById('qa-panel');
-    if(qa){ qa.classList.add('mdh-qa-revealed'); qa.style.display = 'block'; qa.scrollIntoView({behavior:'smooth', block:'start'}); }
+  // v3.239.0 -- DIPERBAIKI: "Lainnya" SEBELUMNYA membuka #qa-panel PENUH
+  // (isinya banyak yg SUDAH ada di grid 8-slot hero -- dobel/membingungkan).
+  // Sekarang cuma tampilkan aksi yg BELUM ada di grid hero -- dicari dari
+  // tombol #qa-panel yg SEDANG TAMPIL (mengikuti gerbang modeOperatorUnlocked
+  // yg sudah ada) TAPI actionnya belum dipakai di hero. Kalau kosong (semua
+  // sudah tercakup di 8 slot), kasih tahu apa adanya, bukan buka panel kosong.
+  const HERO_COVERED_ACTIONS = ['usage','driver','service','doc','booking','rutepulang','bbmluar','etollluar'];
+  const showLainnyaPopup = () => {
+    document.getElementById('mdh-lainnya-popup')?.remove();
+    const extraBtns = Array.from(document.querySelectorAll('#qa-panel .quick-action-btn')).filter(b=>{
+      return b.style.display !== 'none' && !HERO_COVERED_ACTIONS.includes(b.dataset.action);
+    });
+    const popup = document.createElement('div');
+    popup.id = 'mdh-lainnya-popup';
+    popup.className = 'mdh-lainnya-popup';
+    if(extraBtns.length === 0){
+      popup.innerHTML = `<div class="mdh-lainnya-empty">Semua menu utama sudah tampil di atas -- tidak ada menu tambahan lain saat ini.</div>`;
+    } else {
+      extraBtns.forEach(b=>{
+        const row = document.createElement('div');
+        row.className = 'mdh-lainnya-row';
+        row.innerHTML = `<span class="ic">${b.querySelector('.ic')?.innerHTML||''}</span><span>${b.textContent.trim()}</span>`;
+        row.addEventListener('click', ()=>{ popup.remove(); b.click(); });
+        popup.appendChild(row);
+      });
+    }
+    document.body.appendChild(popup);
+    setTimeout(()=>{
+      const closeOnOutside = (e) => { if(!popup.contains(e.target)){ popup.remove(); document.removeEventListener('click', closeOnOutside); } };
+      document.addEventListener('click', closeOnOutside);
+    }, 10);
   };
   const mdhLainnya1 = document.getElementById('mdh-lainnya-btn');
   const mdhLainnya2 = document.getElementById('mdh-lainnya-btn2');
-  if(mdhLainnya1) mdhLainnya1.addEventListener('click', showQaPanel);
-  if(mdhLainnya2) mdhLainnya2.addEventListener('click', showQaPanel);
+  if(mdhLainnya1) mdhLainnya1.addEventListener('click', (e)=>{ e.stopPropagation(); showLainnyaPopup(); });
+  if(mdhLainnya2) mdhLainnya2.addEventListener('click', (e)=>{ e.stopPropagation(); showLainnyaPopup(); });
   document.querySelectorAll('.mdh-chip[data-goto-route]').forEach(chip=>{
     chip.addEventListener('click', ()=> navigate(chip.dataset.gotoRoute));
   });
@@ -18380,6 +18444,18 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.239.0',
+    date: '02 Agu 2026',
+    notes: [
+      '🎨 <b>Warna terputus diperbaiki</b>: penyebabnya 2 gradasi terpisah yang sama-sama "reset" ke gelap di ujungnya sendiri-sendiri (doa & kotak pencarian). Diganti warna rata (bukan gradasi) yang sama persis di keduanya -- sekarang menyatu mulus tanpa patahan.',
+      '🖼️ <b>Ikon Aksi Cepat sekarang identik dengan versi web</b> -- SEBELUMNYA digambar ulang terpisah (beda gaya), SEKARANG diklon langsung dari ikon Aksi Cepat asli, jadi ikon utk aksi yang sama persis sama di HP maupun desktop.',
+      '📋 <b>"Lainnya" diperbaiki</b>: SEBELUMNYA membuka panel Aksi Cepat penuh (isinya banyak yang dobel dengan grid utama). SEKARANG cuma tampilkan menu yang BELUM ada di 8 slot utama, dalam popup kecil -- kalau semua sudah tercakup, dikasih tahu apa adanya.',
+      '📱 <b>Label bar bawah lebih terbaca</b>: lebar tiap menu diperbesar, ukuran huruf dinaikkan, dan dibatasi maksimal 2 baris (mis. "Servis & Maintenance" tidak lagi jadi 3-4 baris berantakan).',
+      '🧹 <b>Dashboard mobile lebih ringkas</b>: panel "Statistik Bulan Ini", "Grafik Utilisasi Kendaraan", dan "Aktivitas Terbaru" disembunyikan khusus HP terkunci (Mode Sopir) -- info pentingnya sudah tercakup di kartu ringkasan hero, jadi tidak perlu diulang & bikin scroll kepanjangan. Desktop & HP kondisi PIN terbuka TETAP menampilkan semuanya seperti biasa.',
+      '🔧 Perubahan cuma di index.html, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.238.0',
     date: '02 Agu 2026',
