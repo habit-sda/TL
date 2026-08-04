@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.268.0">
+<meta name="app-version" content="3.270.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2097,7 +2097,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.268.0';
+const APP_VERSION = '3.272.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -2668,6 +2668,11 @@ const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDe
   // minimal per siklus supaya tidak salah tangkap gara-gara ketidakakuratan
   // GPS kecil.
   routeDeviationEnabled: true, routeDeviationCooldownMinutes: 30, routeDeviationMinCyclesStreak: 3, routeDeviationMinIncreaseMeters: 200,
+  // BARU -- Notifikasi Mesin Dinyalakan: SALINAN PERSIS dari
+  // NOTIF_SETTINGS_DEFAULT di worker.js -- lihat catatan lengkap di sana.
+  // Pola cooldown SAMA dgn Alert Kecepatan (bucket waktu, alert BOLEH
+  // terkirim ULANG selama mesin masih menyala, bukan dedup permanen 1x).
+  engineOnAlertEnabled: true, engineOnCooldownMinutes: 30,
   // v3.229.0 -- BARU: Auto-deteksi Sampai. SALINAN PERSIS dari
   // NOTIF_SETTINGS_DEFAULT di worker.js -- lihat catatan lengkap
   // (computeGeofenceArrivalCandidates()) di sana. Beda dari Rute Menyimpang:
@@ -2794,6 +2799,10 @@ const NOTIF_ROLE_CATEGORIES = [
   // BARU -- Peringatan Rute Menyimpang (lihat panel "🧭 Peringatan Rute
   // Menyimpang" di Pengaturan).
   { key:'routeDeviation', label:'Peringatan Rute Menyimpang' },
+  // BARU -- Notifikasi Mesin Dinyalakan (lewat cron/worker, BEDA dari popup
+  // "Mesin Dinyalakan" di layar yang cuma tampil kalau aplikasi web sedang
+  // dibuka). Lihat panel "🔑 Notifikasi Mesin Dinyalakan" di Pengaturan.
+  { key:'engineOn', label:'Mesin Dinyalakan' },
   // v3.268.0 -- BARU: BEDA JENIS dari kategori lain di daftar ini -- semua
   // kategori DI ATAS mengatur notifikasi PUSH (bot -> user), sedangkan ini
   // mengatur AKSES command PULL (user -> bot, command "log"/Log Interaksi
@@ -2826,10 +2835,10 @@ const NOTIF_ROLE_PREFS_DEFAULT = {
   //   gpsAlert TETAP tidak akan pernah terkirim ke siapa pun sampai
   //   watchlist kode alert-nya diisi (lihat panel di bawah), apa pun
   //   togel di sini.
-  sopir:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:false, kalibrasi:false, speed:false, resi:true,  bookingApproval:false, laporanBulanan:false, simGps:false, gpsAlert:false, routeDeviation:false, botLog:false },
-  finance: { doc:true,  service:true,  etoll:false, bbm:false, booking:false, tripLama:false, budget:false, kalibrasi:false, speed:false, resi:false, bookingApproval:false, laporanBulanan:true,  simGps:false, gpsAlert:false, routeDeviation:false, botLog:false },
-  admin:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:true,  kalibrasi:true,  speed:true,  resi:true,  bookingApproval:true,  laporanBulanan:true,  simGps:true,  gpsAlert:true,  routeDeviation:true,  botLog:false },
-  superadmin: { doc:true, service:true, etoll:true, bbm:true, booking:true, tripLama:true, budget:true, kalibrasi:true, speed:true, resi:false, bookingApproval:false, laporanBulanan:false, simGps:true, gpsAlert:true, routeDeviation:true, botLog:true },
+  sopir:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:false, kalibrasi:false, speed:false, resi:true,  bookingApproval:false, laporanBulanan:false, simGps:false, gpsAlert:false, routeDeviation:false, botLog:false, engineOn:false },
+  finance: { doc:true,  service:true,  etoll:false, bbm:false, booking:false, tripLama:false, budget:false, kalibrasi:false, speed:false, resi:false, bookingApproval:false, laporanBulanan:true,  simGps:false, gpsAlert:false, routeDeviation:false, botLog:false, engineOn:false },
+  admin:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:true,  kalibrasi:true,  speed:true,  resi:true,  bookingApproval:true,  laporanBulanan:true,  simGps:true,  gpsAlert:true,  routeDeviation:true,  botLog:false, engineOn:true },
+  superadmin: { doc:true, service:true, etoll:true, bbm:true, booking:true, tripLama:true, budget:true, kalibrasi:true, speed:true, resi:false, bookingApproval:false, laporanBulanan:false, simGps:true, gpsAlert:true, routeDeviation:true, botLog:true, engineOn:true },
 };
 function getNotifRolePrefs(){
   const saved = (state.notifRolePrefs && typeof state.notifRolePrefs==='object') ? state.notifRolePrefs : {};
@@ -2994,6 +3003,12 @@ const SETTINGS_ITEM_CATALOG = [
   // langsung). Default togel meniru pola Kalibrasi Odometer GPS.id (cuma
   // Operator & Administrator, lihat NOTIF_ROLE_PREFS_DEFAULT).
   { id:'routeDeviation', icon:'🧭', label:'Peringatan Rute Menyimpang', desc:'Info kalau posisi GPS.id trip (>1 tujuan) konsisten menjauh dari titik tujuan berikutnya beberapa siklus cron berturut-turut.', notifKey:'routeDeviation', akses:'Operator & Administrator' },
+  // BARU -- Notifikasi Mesin Dinyalakan. Default togel meniru pola Kalibrasi
+  // Odometer GPS.id/Peringatan Rute Menyimpang (cuma Operator & Administrator,
+  // lihat NOTIF_ROLE_PREFS_DEFAULT). Beda dari popup "Mesin Dinyalakan" di
+  // Dashboard -- ini lewat Telegram & jalan via cron worker.js, jadi tetap
+  // terkirim walau tidak ada yang sedang buka aplikasi web.
+  { id:'engineOn', icon:'🔑', label:'Mesin Dinyalakan', desc:'Notifikasi Telegram persis saat kontak kendaraan BARU DIPUTAR ON (transisi OFF→ON, bukan berkala selama mesin menyala), dicek tiap siklus cron -- beda dari popup "Mesin Dinyalakan" di Dashboard yang cuma tampil di layar kalau aplikasi web sedang dibuka.', notifKey:'engineOn', akses:'Operator & Administrator' },
 ];
 const NTR_ROLE_COLS = [
   { key:'sopir', label:'Sopir' },
@@ -6175,6 +6190,11 @@ function getSettingsCategories(){
   // status/lock SAMA PERSIS dgn Kalibrasi Odometer GPS.id di atas.
   { key:'rute-menyimpang', icon:'🧭', title:'Peringatan Rute Menyimpang', desc:'Info kalau posisi GPS menjauh dari urutan', hasLock:true,
     status: () => getNotifSettings().routeDeviationEnabled ? `🟢 Aktif · ${getNotifSettings().routeDeviationMinCyclesStreak}x cron berturut-turut` : '⚪ Nonaktif' },
+  // BARU -- Notifikasi Mesin Dinyalakan: kirim notifikasi Telegram (lewat
+  // cron worker.js) selama mesin/kontak kendaraan menyala. Pola status/lock
+  // SAMA PERSIS dgn Alert Kecepatan Berlebih di atas (toggle + jeda menit).
+  { key:'engine-on', icon:'🔑', title:'Notifikasi Mesin Dinyalakan', desc:'Kirim ke Telegram saat kontak baru diputar ON', hasLock:true,
+    status: () => getNotifSettings().engineOnAlertEnabled ? `🟢 Aktif · jeda anti-ulang ${getNotifSettings().engineOnCooldownMinutes} menit` : '⚪ Nonaktif' },
   // v3.229.0 -- BARU: Auto-deteksi Sampai. Pola status/lock SAMA PERSIS dgn
   // Peringatan Rute Menyimpang di atas (fitur "sepupu"-nya, sama-sama
   // pakai posisi GPS.id + koordinat tujuan tersimpan, cuma arah deteksinya
@@ -6525,6 +6545,31 @@ function renderSettingsDetailNotifGabungan(){
         </div>
         </div>
         ${settingsEditBarHtml('rute-menyimpang','btn-edit-rute-menyimpang','btn-save-rute-menyimpang','btn-cancel-rute-menyimpang')}
+      </div>
+    </div>
+    ` : ''}
+    ${settingsView==='engine-on' && isModeOperatorSubmenuVisible('settings','engine-on') ? `
+    <div class="panel">
+      <div class="panel-head"><h2>🔑 Notifikasi Mesin Dinyalakan</h2></div>
+      <div class="panel-body">
+        <div class="field-locked" id="lock-engine-on">
+        <div style="padding-top:0;">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="in-notif-engineon-enabled" ${getNotifSettings().engineOnAlertEnabled?'checked':''} style="width:16px;height:16px;">
+            🔑 Notifikasi Mesin Dinyalakan
+            ${toggleStatusBadgeHtml('notif-engineon-status-badge', getNotifSettings().engineOnAlertEnabled)}
+          </label>
+          <div class="hint" style="margin:4px 0 10px;">Kirim notifikasi Telegram persis saat kontak kendaraan BARU DIPUTAR ON (transisi OFF→ON) -- dicek tiap siklus cron (5 menit) lewat field acc data GPS.id, independen dari mobil bergerak atau tidak -- <b>khusus mobil yang sudah diisi IMEI GPS.id</b>. Beda dari popup "Mesin Dinyalakan" di Dashboard (itu cuma tampil di layar kalau aplikasi web sedang dibuka) -- ini lewat Telegram, tetap terkirim walau tidak ada yang buka aplikasi. Karena lewat cron periodik (bukan real-time), transisinya baru "ketahuan" di siklus cron berikutnya (maks. beberapa menit setelah kontak diputar) -- tapi begitu ketahuan, notifikasi cuma dikirim SEKALI per transisi, tidak berulang selama mesin masih menyala. Default <b>hanya Operator &amp; Administrator</b>, bisa dibuka ke Sopir/Finance lewat menu "Notifikasi Telegram per Peran".</div>
+          <div class="grid-2" id="notif-engineon-fields" style="${getNotifSettings().engineOnAlertEnabled?'':'opacity:0.5;pointer-events:none;'}">
+            <div class="field">
+              <label>Jeda anti-ulang (menit)</label>
+              <input type="text" inputmode="numeric" id="in-notif-engineon-cooldown" value="${getNotifSettings().engineOnCooldownMinutes}">
+              <div class="hint">Jaga-jaga kalau kontak dimatikan-nyalakan cepat berkali-kali (mis. keperluan sesaat) -- mis. 30 = paling cepat 1 notifikasi transisi ON per 30 menit untuk mobil yang sama. Di luar situasi itu, notifikasi tetap cuma terkirim 1x tiap kali kontak benar-benar baru diputar.</div>
+            </div>
+          </div>
+        </div>
+        </div>
+        ${settingsEditBarHtml('engine-on','btn-edit-engine-on','btn-save-engine-on','btn-cancel-engine-on')}
       </div>
     </div>
     ` : ''}
@@ -7048,6 +7093,30 @@ function renderSettingsDetailNotifGabungan(){
       showToast('Peringatan Rute Menyimpang disimpan.');
       renderNotifBell();
       lockSettingsPanelAfterSave('rute-menyimpang');
+      renderSettings();
+    };
+  }
+  if(settingsView==='engine-on' && isModeOperatorSubmenuVisible('settings','engine-on')){
+    ['in-notif-engineon-cooldown'].forEach(id=> attachIntegerOnlyInput(id));
+    wireSettingsLockButtons('engine-on','lock-engine-on','btn-edit-engine-on','btn-cancel-engine-on');
+    document.getElementById('in-notif-engineon-enabled').addEventListener('change', function(){
+      const fieldsWrap = document.getElementById('notif-engineon-fields');
+      if(fieldsWrap) fieldsWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
+      updateToggleStatusBadge('notif-engineon-status-badge', this.checked);
+    });
+    const btnSaveEngineOn = document.getElementById('btn-save-engine-on');
+  if(btnSaveEngineOn) btnSaveEngineOn.onclick = () => {
+      const engineOnAlertEnabled = document.getElementById('in-notif-engineon-enabled').checked;
+      const engineOnCooldownMinutes = Number(document.getElementById('in-notif-engineon-cooldown').value || 0);
+      state.notifSettings = {
+        ...getNotifSettings(),
+        engineOnAlertEnabled,
+        engineOnCooldownMinutes: engineOnCooldownMinutes>0 ? engineOnCooldownMinutes : NOTIF_SETTINGS_DEFAULT.engineOnCooldownMinutes,
+      };
+      saveData();
+      showToast('Notifikasi Mesin Dinyalakan disimpan.');
+      renderNotifBell();
+      lockSettingsPanelAfterSave('engine-on');
       renderSettings();
     };
   }
@@ -8133,6 +8202,7 @@ const MODE_OPERATOR_SUBMENU_CATALOG = {
     { key:'alert-kecepatan', label:'🚨 Alert Kecepatan Berlebih' },
     { key:'kalibrasi-gps', label:'🛰️ Kalibrasi Odometer GPS.id' },
     { key:'rute-menyimpang', label:'🧭 Peringatan Rute Menyimpang' },
+    { key:'engine-on', label:'🔑 Notifikasi Mesin Dinyalakan' },
     { key:'auto-sampai', label:'📍 Auto-deteksi Sampai' },
     { key:'jam-sunyi', label:'🌙 Jam Sunyi' },
     { key:'admin-notifikasi', label:'👤 Admin Penerima Notifikasi' },
@@ -17492,7 +17562,7 @@ function renderGpsEnginePopup(car, gpsOdoKm){
       <div class="gps-engine-banner-row">
         <span class="gps-engine-banner-icon">🛰️</span>
         <div style="flex:1;">
-          <div class="gps-engine-banner-title">${escapeHtml(car.plat||carLabel(car.id))} baru dinyalakan</div>
+          <div class="gps-engine-banner-title">${escapeHtml(car.plat||carLabel(car.id))} — kunci baru diputar ON</div>
           <div class="gps-engine-banner-sub">Catat perjalanan sekarang?</div>
         </div>
         <button class="gps-engine-banner-x" id="gps-engine-popup-x" aria-label="Tutup">✕</button>
@@ -19681,6 +19751,40 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.272.0',
+    date: '05 Agu 2026',
+    notes: [
+      '🎨 Logo baru dipasang di SELURUH aplikasi: sidebar, favicon/tab browser, ikon PWA (install di HP/desktop, termasuk versi "maskable" Android), header Resi Perjalanan & Laporan Biaya Operasional (gambar yang dibagikan). Semua tempat memakai 1 sumber ikon yang sama (folder <code>icons/</code>) jadi otomatis konsisten begitu file ikon diganti.',
+      '📁 WAJIB: unggah ulang 4 file baru di <code>icons/icon-192.png</code>, <code>icons/icon-512.png</code>, <code>icons/icon-192-maskable.png</code>, <code>icons/icon-512-maskable.png</code> (timpa yang lama, nama file SENGAJA sama supaya tidak perlu ubah index.html/manifest.json/sw.js). Ikon shortcut menu (Catat Perjalanan, Rute Pulang, Dashboard, Lacak Mobil) TIDAK ikut berubah -- itu ikon fitur terpisah, bukan logo utama.',
+      '🔧 Perubahan cuma di index.html + file ikon di folder icons/, worker.js TIDAK perlu diupload ulang.',
+    ]
+  },
+  {
+    v: '3.271.0',
+    date: '05 Agu 2026',
+    notes: [
+      '🔑 Notifikasi Mesin Dinyalakan (Telegram) diubah jadi deteksi TRANSISI OFF→ON yang presisi -- sekarang cuma dikirim SEKALI persis saat kontak baru diputar, bukan lagi berulang tiap jeda selama mesin masih menyala. Tetap dibaca dari field acc GPS.id (BUKAN dari kecepatan/mobil bergerak), jadi tetap terdeteksi walau mobil diam di tempat, dan tetap lewat cron periodik (bukan real-time) -- transisinya baru "ketahuan" di siklus cron berikutnya, maks. beberapa menit setelah kontak diputar. Setting "Jeda antar-alert" di menu Pengaturan sekarang jadi "Jeda anti-ulang" -- jaga-jaga kalau kontak dimatikan-nyalakan cepat berkali-kali, bukan lagi interval pengulangan normal.',
+      '🛰️ Popup "[Plat] baru dinyalakan" di Dashboard (yang cuma tampil selagi aplikasi web dibuka) judulnya diganti jadi "[Plat] — kunci baru diputar ON" -- istilah lebih tepat & konsisten dgn Notifikasi Mesin Dinyalakan Telegram di atas (logika deteksi transisi OFF→ON-nya sendiri TIDAK berubah, sudah presisi dari v3.146.0).',
+      '🔧 Perubahan cuma di worker.js -- WAJIB upload ulang ke Cloudflare Worker supaya fitur ini aktif.',
+    ]
+  },
+  {
+    v: '3.270.0',
+    date: '05 Agu 2026',
+    notes: [
+      '🔔 Bot Telegram, khusus Administrator/Super Admin: sekarang bisa atur "🔔 Notifikasi Telegram per Peran" langsung dari chat, ketik bebas "nyalakan/matikan notifikasi &lt;kategori&gt; untuk &lt;peran&gt;" (mis. "matikan notifikasi mesin nyala untuk admin") -- berlaku utk SEMUA kategori yang ada di menu itu (17 kategori). Tetap minta konfirmasi tap "✅ Ya, terapkan" dulu sebelum tersimpan (bukan langsung eksekusi dari teks), supaya kalau bot salah tebak kategori/peran, admin masih sempat batalkan. Kata kunci dasar (ya/tidak/batal/kembali/dst) SENGAJA tidak pernah bentrok dgn fitur ini -- polanya wajib kalimat lengkap "&lt;aksi&gt; notifikasi ... untuk ...".',
+      '🔧 Perubahan cuma di worker.js -- WAJIB upload ulang ke Cloudflare Worker supaya fitur ini aktif. index.html tidak berubah secara fungsional, cuma entri changelog ini.',
+    ]
+  },
+  {
+    v: '3.269.0',
+    date: '05 Agu 2026',
+    notes: [
+      '🔑 BARU: Notifikasi Mesin Dinyalakan (Telegram) -- kirim notifikasi ke Telegram selama mesin/kontak kendaraan menyala (acc ON), dicek tiap siklus cron (5 menit) dari data GPS.id, khusus mobil yang sudah diisi IMEI GPS.id. Beda dari popup "Mesin Dinyalakan" di Dashboard (itu cuma tampil di layar kalau aplikasi web sedang dibuka) -- ini tetap terkirim walau tidak ada yang buka aplikasi. Diatur di menu Pengaturan baru "🔑 Notifikasi Mesin Dinyalakan" (toggle aktif/nonaktif + jeda antar-alert dalam menit, pola SAMA dgn Alert Kecepatan Berlebih), dan otomatis masuk sebagai kategori baru "Mesin Dinyalakan" di menu "🔔 Notifikasi Telegram per Peran" -- default HANYA Operator &amp; Administrator, bisa dibuka ke Sopir/Finance kapan saja tanpa perlu ubah kode.',
+      '🔧 worker.js JUGA perlu diupload ulang kali ini, bukan cuma index.html.',
+    ]
+  },
   {
     v: '3.268.0',
     date: '04 Agu 2026',
