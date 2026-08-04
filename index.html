@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.257.0">
+<meta name="app-version" content="3.264.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2097,7 +2097,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.257.0';
+const APP_VERSION = '3.266.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -2107,34 +2107,47 @@ const ICON_LACAK_MOBIL_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAqc0
 const ICON_DOKUMEN_CUSTOM_B64 = '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';
 
 // ============================================================
-// KONFIGURASI ICON AKSI CEPAT (mudah diubah)
+// KONFIGURASI ICON AKSI CEPAT
 // ============================================================
-// Isi field di bawah dengan URL gambar (https://... ATAU
-// data:image/...;base64,...) untuk mengganti ikon tombol "Aksi Cepat"
-// terkait. Cukup tempel link-nya di sini, tidak perlu ubah kode lain.
+// v3.258.0 -- PERUBAHAN: sebelumnya diedit lewat konstanta hardcode di sini
+// (QUICK_ACTION_ICON_URLS) -- sekarang dipindah jadi bagian data tersimpan
+// (state.quickActionIconUrls, ikut ter-backup & tersinkron cloud spt
+// pengaturan lain) supaya bisa diedit langsung dari menu Pengaturan -> "🎨
+// Ikon Aksi Cepat" (lihat getSettingsCategories() & panel HTML-nya di
+// renderSettingsDetailNotifGabungan()), TIDAK perlu edit kode lagi.
 //
-// KOSONGKAN (biarkan '') kalau mau tetap pakai ikon bawaan yang sudah
-// ada sekarang (emoji/SVG/gambar lama) -- otomatis fallback ke situ.
-// Kalau URL yang diisi ternyata gagal dimuat (link putus/404), sistem
-// JUGA otomatis balik ke ikon bawaan (lihat qaIcon() di bawah).
-const QUICK_ACTION_ICON_URLS = {
-  car:        '', // Tambah Mobil
-  driver:     '', // Tambah Sopir
-  usage:      '', // Catat Perjalanan
-  service:    '', // Catat Servis
-  doc:        '', // Tambah Dokumen
-  etoll:      '', // Kartu E-Toll
-  booking:    '', // Buat Booking
-  rutepulang: '', // Rute Pulang
-  lacakjalan: '', // Lacak Mobil Jalan
-  bbmluar:    '', // Beli BBM (Luar Trip)
-  etollluar:  '', // Isi E-Toll (Luar Trip)
+// QUICK_ACTION_ICON_LABELS di bawah cuma dipakai utk label field di panel
+// Pengaturan (nama tombol yang mana isi field yang mana) -- BUKAN tempat
+// isi URL lagi. Isi URL-nya ada di state.quickActionIconUrls, dibaca lewat
+// getQuickActionIconUrls().
+const QUICK_ACTION_ICON_LABELS = {
+  car:        'Tambah Mobil',
+  driver:     'Tambah Sopir',
+  usage:      'Catat Perjalanan',
+  service:    'Catat Servis',
+  doc:        'Tambah Dokumen',
+  etoll:      'Kartu E-Toll',
+  booking:    'Buat Booking',
+  rutepulang: 'Rute Pulang',
+  lacakjalan: 'Lacak Mobil Jalan',
+  bbmluar:    'Beli BBM (Luar Trip)',
+  etollluar:  'Isi E-Toll (Luar Trip)',
 };
+// Field kosong (''), sama seperti sebelumnya, berarti pakai ikon bawaan
+// (emoji/SVG/gambar lama) -- otomatis fallback ke situ. Kalau URL yang
+// diisi ternyata gagal dimuat (link putus/404), sistem JUGA otomatis balik
+// ke ikon bawaan (lihat qaIcon() di bawah).
+function getQuickActionIconUrls(){
+  const saved = (state.quickActionIconUrls && typeof state.quickActionIconUrls==='object') ? state.quickActionIconUrls : {};
+  const merged = {};
+  Object.keys(QUICK_ACTION_ICON_LABELS).forEach(key => { merged[key] = (saved[key] || '').trim(); });
+  return merged;
+}
 
-// Helper: pakai ikon dari QUICK_ACTION_ICON_URLS kalau diisi, kalau
+// Helper: pakai ikon dari getQuickActionIconUrls() kalau diisi, kalau
 // kosong (atau gambarnya gagal dimuat) pakai fallbackHtml (ikon lama).
 function qaIcon(action, fallbackHtml){
-  const url = (QUICK_ACTION_ICON_URLS[action] || '').trim();
+  const url = getQuickActionIconUrls()[action] || '';
   if(!url) return fallbackHtml;
   const fallbackEscaped = fallbackHtml.replace(/`/g, '\\`');
   return `<img src="${url}" style="width:20px;height:20px;object-fit:contain;" onerror="this.parentElement.innerHTML=\`${fallbackEscaped}\`;">`;
@@ -2555,6 +2568,18 @@ function loadData(){
       // Super Akses) -- lihat getModeOperatorMenuPrefs(role)/getModeOperatorSubmenuPrefs(menuKey,role).
       modeAdminMenuPrefs: (parsed.modeAdminMenuPrefs && typeof parsed.modeAdminMenuPrefs==='object') ? parsed.modeAdminMenuPrefs : {},
       modeAdminSubmenuPrefs: (parsed.modeAdminSubmenuPrefs && typeof parsed.modeAdminSubmenuPrefs==='object') ? parsed.modeAdminSubmenuPrefs : {},
+      // v3.258.0 -- BARU: lihat catatan lengkap di defaultData().
+      quickActionIconUrls: (parsed.quickActionIconUrls && typeof parsed.quickActionIconUrls==='object') ? parsed.quickActionIconUrls : {},
+      // v3.260.0 -- BARU: Pola Kunjungan Berulang -- hasil analisis mingguan
+      // (cron worker.js, lihat runWeeklyPatternAnalysis()) yang mendeteksi
+      // tempat yang SERING disinggahi tapi TIDAK pernah dicatat manual (mis.
+      // ke masjid, beli makan) dari data GPS.id -- dipakai memperkuat
+      // perhitungan Rasio/BBM Digunakan (lihat buildFuelChain()). Struktur:
+      // { [carId]: [ {id, lat, lon, jarakRataRataKm, jumlahKemunculan,
+      // durasiRataRataMenit, mingguTerkumpul, firstSeenAt, lastSeenAt} ] }.
+      // Kosong di sini SENGAJA (state APLIKASI ini cuma MEMBACA, tidak
+      // pernah menulis field ini -- yang menulis cuma cron worker.js).
+      recurringStopPatterns: (parsed.recurringStopPatterns && typeof parsed.recurringStopPatterns==='object') ? parsed.recurringStopPatterns : {},
     };
   }catch(e){
     console.error('Gagal membaca data tersimpan, memakai data kosong.', e);
@@ -2564,7 +2589,7 @@ function loadData(){
 }
 function defaultData(){
   return { cars: [], drivers: [], usage: [], services: [], documents: [], etollCards: [], etollTransactions: [], activityLog: [], bookings: [], destinations: [], notifAdmins: [], financeAdmins: [], superAdmins: [], admins: ['Admin 1','Admin 2'], carCodeSeq: 0, usageCodeSeq: 0, serviceCodeSeq: 0, destinationCodeSeq: 0, driverCodeSeq: 0, documentCodeSeq: 0, bookingCodeSeq: 0, etollCardCodeSeq: 0, toleransiGapKm: 15,
-    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24 },
+    notifSettings: { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24, reminderMode: 'fixed', reminderFixedHourWib: 8 },
     // BARU -- Notifikasi Telegram per Peran (menu khusus Administrator, lihat
     // getNotifRolePrefs() & renderNotifTelegramRoles()). Kosong di sini
     // SENGAJA -- nilai default sesungguhnya (yang meniru perilaku LAMA
@@ -2577,7 +2602,17 @@ function defaultData(){
     modeOperatorSubmenuPrefs: {},
     // v3.207.0 -- BARU: versi role 'operator' dari 2 field di atas.
     modeAdminMenuPrefs: {},
-    modeAdminSubmenuPrefs: {} };
+    // v3.258.0 -- BARU: Ikon Aksi Cepat (menu Pengaturan) -- SEBELUMNYA
+    // pengaturan ini cuma bisa diubah lewat edit kode langsung
+    // (QUICK_ACTION_ICON_URLS, konstanta hardcode). Sekarang jadi bagian
+    // data tersimpan (ikut ter-backup & tersinkron cloud spt setting lain),
+    // diedit lewat panel "🎨 Ikon Aksi Cepat". Kosong di sini SENGAJA --
+    // nilai default sesungguhnya (semua string kosong) diisi oleh
+    // getQuickActionIconUrls(), pola SAMA dgn notifRolePrefs/modeOperatorMenuPrefs.
+    quickActionIconUrls: {},
+    modeAdminSubmenuPrefs: {},
+    // v3.260.0 -- BARU: lihat catatan lengkap di loadData().
+    recurringStopPatterns: {} };
 }
 // v3.95.0 -- Pengaturan Notifikasi (nilai ambang batas dipakai computeAlerts()
 // & telegram-notify.mjs). PENTING: dibaca lewat fungsi ini SAJA (bukan baca
@@ -2600,6 +2635,17 @@ function defaultData(){
 // targetDriverIds: [] di alert-nya -- BUKAN ke sopir manapun, beda dari
 // kategori lain yang bisa disiarkan ke sopir lewat notifKategori.
 const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDefault: 20, etollMinDefault: 25000, budgetWarnPct: 80, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '06:00', checkIntervalMinutes: 60, tripDurationWarnHours: 24,
+  // v3.262.0 -- BARU: mode "Jam Tetap" (default) -- notifikasi BERKALA
+  // (Dokumen/Servis/BBM/E-Toll/Booking/Budget, dst) SELALU dikirim jam
+  // reminderFixedHourWib:00 WIB tiap hari, BUKAN lagi tiap checkIntervalMinutes
+  // menit sepanjang hari -- permintaan eksplisit Administrator ("pengingat
+  // selalu jam 08.00 untuk semua, kecuali urgent"). Notifikasi yg ditandai
+  // urgent:true (mis. Rute Menyimpang, Auto-deteksi Sampai, konfirmasi trip)
+  // TIDAK terpengaruh field ini SAMA SEKALI -- tetap dicek/dikirim tiap
+  // siklus cron (5 menit) spt biasa, tidak pernah ikut ditunda ke jam tetap.
+  // reminderMode:'interval' -- kembali ke perilaku LAMA (checkIntervalMinutes)
+  // kalau suatu saat mau dipakai lagi, tanpa kehilangan pengaturannya.
+  reminderMode: 'fixed', reminderFixedHourWib: 8,
   // v3.147.0 -- Alert Kecepatan Berlebih: batas default (km/j) dipakai untuk
   // mobil yang belum diisi batasnya sendiri (field "batasKecepatanKmh" di
   // Data Mobil, sama polanya dengan Budget Bulanan). speedAlertCooldownMinutes
@@ -2629,6 +2675,14 @@ const NOTIF_SETTINGS_DEFAULT = { docExpiryDays: 30, serviceWarnPct: 80, bbmMinDe
   // posisi GPS masuk radiusMeters dari tujuan berikutnya DAN kecepatannya
   // <= maxSpeedKmh (nampak berhenti, bukan cuma lewat).
   geofenceArrivalEnabled: true, geofenceArrivalRadiusMeters: 300, geofenceArrivalMaxSpeedKmh: 5,
+  // v3.261.0 -- BARU: Pola Kunjungan Berulang -- begitu sebuah pola matang
+  // (>=3 minggu data), bot Telegram TANYA PROAKTIF ke admin apakah mau
+  // dijadikan Data Tujuan resmi (lihat SOP + runWeeklyPatternAnalysis() di
+  // worker.js). SALINAN PERSIS dari NOTIF_SETTINGS_DEFAULT di worker.js --
+  // dibuat bisa dimatikan (default AKTIF) atas permintaan eksplisit supaya
+  // admin bisa mematikan kalau terasa spam, pola SAMA dgn toggle
+  // Rute Menyimpang/Auto-deteksi Sampai di atas.
+  polaKunjunganTanyaEnabled: true,
   // v3.183.0 -- Cegah Approve Booking Sendiri: kalau pengaju booking (yang
   // membuatnya di aplikasi) kebetulan JUGA salah satu admin penerima
   // notifikasi Telegram, dia TIDAK BOLEH menyetujui/menolak booking
@@ -2822,11 +2876,20 @@ const ALIAS_KATEGORI_CATALOG = [
   { key:'saldo:bg', label:'💰 Pintasan Saldo — Budget', defaults:['budget'] },
   { key:'menu', label:'🏠 menu — kembali ke Menu Utama', defaults:['menu'] },
   { key:'rekomendasi', label:'📋 rekomendasi — daftar perintah lengkap', defaults:['rekomendasi'] },
+  { key:'botupdate', label:'🤖 update/bot — 5 update fitur bot Telegram terbaru (Administrator, tersembunyi)', defaults:['update','bot'] },
   { key:'batal', label:'🚫 batal — batalkan alur/percakapan berjalan', defaults:['batal'] },
   { key:'tiba', label:'🏁 akhiri trip — akhiri trip yang sedang jalan (Sopir)', defaults:['akhiri trip','akhiritrip','selesai trip','selesaitrip'] },
   { key:'sampai', label:'📍 tiba / sampai — tandai 1 titik tujuan sudah dikunjungi, khusus trip multi-tujuan (Sopir)', defaults:['tiba','sampai'] },
   { key:'biaya', label:'🧾 biaya — catat biaya operasional/pribadi (Sopir)', defaults:['biaya','operasional','pribadi'] },
   { key:'booking', label:'📅 booking — ajukan booking/pesan mobil (Sopir & Operator)', defaults:['booking','pesan','boking','keep'] },
+  // v3.265.0 -- BARU: entri ini SEBENARNYA sudah dibaca worker.js sejak
+  // /batalbooking dibuat (batalBookingAliases() di sana pakai kategori
+  // 'batalbooking'), tapi TERLEWAT tidak pernah didaftarkan di sini --
+  // ketahuan saat menambah fitur belajar alias otomatis (lihat kategori:
+  // 'batalbooking' di nlpCandidates worker.js). Tanpa entri ini, kategori
+  // 'batalbooking' tidak muncul di panel "✏️ Alias" & DITOLAK validasi
+  // import (lihat kategoriValid = new Set(ALIAS_KATEGORI_CATALOG...)).
+  { key:'batalbooking', label:'❌ batalkan booking — batalkan booking mobil (Sopir & Operator)', defaults:['batalkan booking','batal booking','batalbooking','cancel booking'] },
   { key:'mulaitrip', label:'🚗 mulai trip — mulai trip baru (Sopir)', defaults:['mulai trip','mulai','jalan','berangkat','catat perjalanan'] },
   { key:'ya', label:'✅ ya — jawaban konfirmasi Ya', defaults:['ya','iya','y','benar','betul','yes','ok','oke'] },
   { key:'tidak', label:'❌ tidak — jawaban konfirmasi Tidak', defaults:['tidak','gak','ga','enggak','nggak','no','salah'] },
@@ -2841,6 +2904,7 @@ const HIDDEN_FEATURE_CATALOG = [
   { key:'kecepatanCommand', label:'⚡ Perintah /kecepatan (ranking kecepatan sopir lewat chat)' },
   { key:'namaSopirLookup', label:'👤 Ketik nama sopir persis (lihat detail statistik/kecepatan 1 sopir)' },
   { key:'notifLogCommand', label:'📋 Perintah log/notifikasi/cek notif (7 Log Notifikasi terakhir lewat chat)' },
+  { key:'botUpdateCommand', label:'🤖 Perintah update/bot (5 update fitur bot Telegram terbaru lewat chat)' },
 ];
 function getHiddenFeatures(){
   const saved = (state.hiddenFeatures && typeof state.hiddenFeatures==='object') ? state.hiddenFeatures : {};
@@ -2881,6 +2945,7 @@ const SETTINGS_ITEM_CATALOG = [
   { id:'aturbarcode', icon:'🔧', label:'Atur Barcode MyPertamina', desc:'Tambah/ganti foto barcode QR MyPertamina per mobil -- kirim foto baru setelah pilih mobil.', aliasKey:'aturbarcode', akses:'Operator & Administrator' },
   { id:'cekkodetrip', icon:'📎', label:'cek [kode trip]', desc:'Cth: "cek PJL-00007" -- status kirim & kirim ulang foto nota/tanda terima 1 trip tertentu (aktif maupun sudah selesai). Bukan alias biasa (kodenya berubah-ubah per trip, bukan kata kunci tetap), jadi tidak bisa diatur alias custom di sini.', akses:'Sopir (trip sendiri), Operator, Finance & Administrator (trip siapa saja)' },
   { id:'notifLog', icon:'📋', label:'Log Notifikasi (chat)', desc:'7 pengiriman notifikasi Telegram terakhir langsung lewat chat, dikelompokkan gagal/berhasil -- perintah tersembunyi, khusus Administrator.', aliasKey:'notiflog', hiddenKey:'notifLogCommand', akses:'Administrator (tersembunyi)' },
+  { id:'botUpdate', icon:'🤖', label:'Update Bot (chat)', desc:'5 update fitur bot Telegram TERBARU (bukan seluruh aplikasi) langsung lewat chat -- perintah tersembunyi, khusus Administrator.', aliasKey:'botupdate', hiddenKey:'botUpdateCommand', akses:'Administrator (tersembunyi)' },
   { id:'resi', icon:'🧾', label:'Resi Perjalanan', desc:'Kartu Tanda Terima trip yang dikirim ke sopir/admin.', notifKey:'resi', akses:'Sopir, Admin, Administrator (opsional)' },
   { id:'bookingApproval', icon:'✅', label:'Approval Booking', desc:'Notifikasi booking yang perlu disetujui/ditolak.', notifKey:'bookingApproval', akses:'Admin (Administrator selalu dapat)' },
   { id:'laporanBulanan', icon:'📊', label:'Laporan Bulanan', desc:'Rekap bulanan berkala ke Operator/Finance.', notifKey:'laporanBulanan', akses:'Operator & Finance' },
@@ -3873,6 +3938,10 @@ function loadDataFromObject(parsed){
     // v3.207.0 -- BARU: versi role 'operator' dari 2 field di atas.
     modeAdminMenuPrefs: (parsed.modeAdminMenuPrefs && typeof parsed.modeAdminMenuPrefs==='object') ? parsed.modeAdminMenuPrefs : {},
     modeAdminSubmenuPrefs: (parsed.modeAdminSubmenuPrefs && typeof parsed.modeAdminSubmenuPrefs==='object') ? parsed.modeAdminSubmenuPrefs : {},
+    // v3.258.0 -- BARU: lihat catatan lengkap di defaultData().
+    quickActionIconUrls: (parsed.quickActionIconUrls && typeof parsed.quickActionIconUrls==='object') ? parsed.quickActionIconUrls : {},
+    // v3.260.0 -- BARU: lihat catatan lengkap di loadData().
+    recurringStopPatterns: (parsed.recurringStopPatterns && typeof parsed.recurringStopPatterns==='object') ? parsed.recurringStopPatterns : {},
   };
 }
 
@@ -5196,12 +5265,21 @@ function navCompassIconHtml(color, needleColor, size){
   return `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="vertical-align:-2px;flex-shrink:0;"><circle cx="10" cy="10" r="9" fill="${color}"/><path d="M10 5L13.5 12.5L10 11L6.5 12.5Z" fill="${needleColor}"/></svg>`;
 }
 function mapsNavButtonHtml(mapsLink){
-  if(!mapsLink || !/^https?:\/\//i.test(mapsLink.trim())) return ''; // jaga-jaga: tolak skema selain http(s), mis. javascript:
+  if(!mapsLink) return '';
+  const trimmed = mapsLink.trim();
+  // v3.263.0 -- SEBELUMNYA tombol ditolak kalau teksnya tidak diawali
+  // http(s), termasuk kasus valid: koordinat MENTAH hasil tombol "Salin
+  // koordinat" Google Maps (mis. "-7.9188381, 112.5747833", tanpa link sama
+  // sekali). Sekarang diterima juga SELAMA polanya cocok sbg koordinat lewat
+  // extractLatLng() -- normalizeMapsUrl() di bawah yang akan mengubahnya
+  // jadi link Maps utuh. Skema selain http(s)/koordinat (mis. javascript:)
+  // tetap ditolak.
+  if(!/^https?:\/\//i.test(trimmed) && !extractLatLng(trimmed)) return '';
   // stopPropagation: beberapa tempat pemasangan (mis. trip-card di bubble)
   // punya klik-handler sendiri di elemen pembungkusnya -- tanpa ini, klik
   // tombol ini akan IKUT memicu handler pembungkus itu (mis. buka menu aksi)
   // di atas navigasi yang sebenarnya dituju.
-  return `<a href="${escapeHtml(normalizeMapsUrl(mapsLink))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps">${navCompassIconHtml()} Rute</a>`;
+  return `<a href="${escapeHtml(normalizeMapsUrl(trimmed))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps">${navCompassIconHtml()} Rute</a>`;
 }
 
 // Varian RINGKAS (ikon saja, tanpa teks "Rute") -- KHUSUS dipakai di
@@ -5223,8 +5301,11 @@ function navArrowSimpleHtml(){
   return `<svg width="13" height="13" viewBox="0 0 20 20" style="vertical-align:-2px;flex-shrink:0;"><path d="M10 2.5L16.5 17L10 13L3.5 17Z" fill="#fff"/></svg>`;
 }
 function mapsNavButtonCompactHtml(mapsLink){
-  if(!mapsLink || !/^https?:\/\//i.test(mapsLink.trim())) return '';
-  return `<a href="${escapeHtml(normalizeMapsUrl(mapsLink))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps-compact" title="Buka Rute">${navArrowSimpleHtml()}</a>`;
+  if(!mapsLink) return '';
+  const trimmed = mapsLink.trim();
+  // v3.263.0 -- lihat catatan sama di mapsNavButtonHtml() di atas.
+  if(!/^https?:\/\//i.test(trimmed) && !extractLatLng(trimmed)) return '';
+  return `<a href="${escapeHtml(normalizeMapsUrl(trimmed))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps-compact" title="Buka Rute">${navArrowSimpleHtml()}</a>`;
 }
 
 // Cari Link Maps dari riwayat TUJUAN YANG SAMA PERSIS (case-insensitive) --
@@ -6114,6 +6195,20 @@ function getSettingsCategories(){
     status: () => `Sopir ${getModeOperatorAllowedRoutes('sopir').length}/${MODE_OPERATOR_MENU_CATALOG.length} · Operator ${getModeOperatorAllowedRoutes('operator').length}/${MODE_OPERATOR_MENU_CATALOG.length}` },
   { key:'toleransi-gap', icon:'📏', title:'Toleransi Gap Odometer', desc:'Batas jarak antar-trip tak tercatat', hasLock:true,
     status: () => `${state.toleransiGapKm} KM` },
+  // v3.258.0 -- BARU: pindah dari "cuma bisa diedit lewat kode"
+  // (QUICK_ACTION_ICON_URLS) ke panel Pengaturan biasa -- lihat
+  // getQuickActionIconUrls()/qaIcon().
+  { key:'ikon-aksi-cepat', icon:'🎨', title:'Ikon Aksi Cepat', desc:'Ganti ikon tombol Aksi Cepat Dashboard', hasLock:true,
+    status: () => { const n = Object.values(getQuickActionIconUrls()).filter(Boolean).length; return n>0 ? `${n} ikon custom` : 'Pakai ikon bawaan'; } },
+  // v3.260.0 -- BARU: hasil analisis mingguan GPS.id (lihat
+  // getRecurringPatternsForCar()) -- tempat yang sering disinggahi tapi
+  // tidak pernah dicatat manual, dipakai memperkuat Rasio/BBM Digunakan.
+  { key:'pola-kunjungan', icon:'📍', title:'Pola Kunjungan Berulang', desc:'Tempat rutin yang terdeteksi otomatis dari GPS.id', hasLock:false,
+    status: () => {
+      const semua = (state.recurringStopPatterns && typeof state.recurringStopPatterns==='object') ? state.recurringStopPatterns : {};
+      const totalPola = Object.values(semua).reduce((a,arr)=> a + (Array.isArray(arr)?arr.length:0), 0);
+      return totalPola>0 ? `${totalPola} pola terdeteksi` : 'Belum ada data (baru aktif)';
+    } },
   { key:'nama-petugas', icon:'🧑\u200d🔧', title:'Nama Petugas / Admin', desc:'Kelola daftar petugas aplikasi', hasLock:false,
     status: () => `${state.admins.length} petugas` },
   ];
@@ -6451,8 +6546,23 @@ function renderSettingsDetailNotifGabungan(){
       <div class="panel-head"><h2>🌙 Jam Sunyi &amp; Jadwal Pengecekan</h2></div>
       <div class="panel-body">
         <div class="field-locked" id="lock-jam-sunyi">
-        <div class="field" style="max-width:280px;">
-            <label>⏱️ Cek notifikasi berkala setiap</label>
+        <div class="field" style="max-width:320px;">
+            <label>⏱️ Mode pengecekan notifikasi berkala</label>
+            <select id="in-notif-reminder-mode">
+              <option value="fixed" ${getNotifSettings().reminderMode!=='interval'?'selected':''}>⏰ Jam tetap (1x/hari) -- direkomendasikan</option>
+              <option value="interval" ${getNotifSettings().reminderMode==='interval'?'selected':''}>🔁 Interval (tiap sekian menit, cara lama)</option>
+            </select>
+            <div class="hint">Berlaku untuk notifikasi BERKALA/pengingat (Dokumen/Servis/BBM/E-Toll/Booking/Budget, dst). <b>Tidak berlaku</b> untuk notifikasi mendesak (🧭 Rute Menyimpang, 📍 Auto-deteksi Sampai, 🧾 Resi Perjalanan, dst) -- itu SELALU langsung dikirim begitu terdeteksi, apa pun mode ini.</div>
+        </div>
+        <div class="field" id="notif-reminder-fixed-fields" style="max-width:280px;${getNotifSettings().reminderMode==='interval'?'display:none;':''}">
+            <label>🕗 Kirim jam berapa (WIB)?</label>
+            <select id="in-notif-reminder-hour">
+              ${Array.from({length:24},(_,h)=>`<option value="${h}" ${(getNotifSettings().reminderFixedHourWib??8)===h?'selected':''}>${String(h).padStart(2,'0')}:00</option>`).join('')}
+            </select>
+            <div class="hint">Semua notifikasi pengingat berkala dikumpulkan &amp; dikirim SEKALI di jam ini tiap hari -- default 08:00 WIB.</div>
+        </div>
+        <div class="field" id="notif-reminder-interval-fields" style="max-width:280px;${getNotifSettings().reminderMode!=='interval'?'display:none;':''}">
+            <label>Cek notifikasi berkala setiap</label>
             <select id="in-notif-check-interval">
               <option value="5" ${getNotifSettings().checkIntervalMinutes===5?'selected':''}>5 menit</option>
               <option value="10" ${getNotifSettings().checkIntervalMinutes===10?'selected':''}>10 menit</option>
@@ -6460,7 +6570,7 @@ function renderSettingsDetailNotifGabungan(){
               <option value="30" ${getNotifSettings().checkIntervalMinutes===30?'selected':''}>30 menit</option>
               <option value="60" ${getNotifSettings().checkIntervalMinutes===60?'selected':''}>60 menit (1 jam)</option>
             </select>
-            <div class="hint">Berlaku untuk notifikasi Dokumen/Servis/BBM/E-Toll/Booking. Makin kecil = makin cepat, tapi makin sering job pengecekan berkala jalan (Worker Cron Trigger). <b>Tidak berlaku</b> untuk 🧾 Resi Perjalanan -- itu selalu dicek maksimal tiap 5 menit, berapa pun angka ini.</div>
+            <div class="hint">Makin kecil = makin cepat, tapi makin sering job pengecekan berkala jalan (Worker Cron Trigger).</div>
         </div>
         <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
           <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
@@ -6645,11 +6755,24 @@ function renderSettingsDetailNotifGabungan(){
           Jarak antar-trip (mobil sama) yang tidak nyambung akan dianggap
           errand harian wajar (mis. ke masjid, beli makan dekat) dan
           otomatis disertakan ke perhitungan Rasio &amp; BBM Digunakan --
-          bukan ditandai sebagai "Belum Teralokasi" -- selama tidak melebihi
-          angka di bawah ini. Gap yang LEBIH BESAR dari angka ini tetap
-          ditandai merah untuk dicek manual (kemungkinan trip pengiriman
-          yang lupa dicatat).
+          bukan ditandai sebagai "Belum Teralokasi". <b>Sejak v3.260.0</b>,
+          gap ini dicocokkan DULU ke Pola Kunjungan Berulang mobil ini
+          (hasil analisis GPS.id mingguan, lihat menu "📍 Pola Kunjungan") --
+          angka di bawah ini cuma berlaku ke SISA gap yang belum dijelaskan
+          pola apa pun. Gap yang lebih besar dari sisa toleransi tetap
+          ditandai merah untuk dicek manual (kemungkinan trip yang lupa
+          dicatat).
         </p>
+        <div class="hint" style="margin:0 0 12px;background:var(--blue-bg);color:var(--blue-dark);padding:10px 12px;border-radius:8px;">
+          💡 Kalau Pola Kunjungan Berulang mobil-mobil Anda sudah cukup
+          matang (beberapa minggu data terkumpul), angka ini bisa diturunkan
+          bebas -- termasuk ke <b>0</b> -- supaya toleransi generik tidak
+          lagi dipakai sama sekali, dan SEMUA gap harus benar-benar
+          dijelaskan oleh pola terverifikasi atau ditandai untuk dicek
+          manual. Untuk mobil yang baru terpasang GPS.id/belum punya cukup
+          data pola, disarankan tetap pakai angka wajar (mis. 15) supaya
+          laporan minggu-minggu awal tidak terlalu "berisik".
+        </div>
         <div class="field-locked" id="lock-toleransi-gap">
         <div class="field" style="max-width:220px;">
           <label>Toleransi Gap (KM)</label>
@@ -6657,6 +6780,97 @@ function renderSettingsDetailNotifGabungan(){
         </div>
         </div>
         ${settingsEditBarHtml('toleransi-gap','btn-edit-toleransi-gap','btn-save-toleransi-gap','btn-cancel-toleransi-gap')}
+      </div>
+    </div>
+    ` : ''}
+    ${settingsView==='ikon-aksi-cepat' ? `
+    <div class="panel">
+      <div class="panel-head"><h2>Ikon Aksi Cepat</h2></div>
+      <div class="panel-body">
+        <p style="color:var(--muted);margin:0 0 12px;">
+          Ganti ikon salah satu tombol "Aksi Cepat" di Dashboard dengan
+          gambar sendiri -- isi dengan URL gambar (https://... atau
+          data:image/...;base64,...). <b>Kosongkan</b> field mana pun untuk
+          tetap pakai ikon bawaan (emoji/gambar lama). Kalau URL yang diisi
+          ternyata gagal dimuat (link putus/404), sistem otomatis balik ke
+          ikon bawaan juga -- aman, tidak akan tampil ikon patah.
+        </p>
+        <div class="field-locked" id="lock-ikon-aksi-cepat">
+        ${Object.keys(QUICK_ACTION_ICON_LABELS).map(key => `
+          <div class="field">
+            <label>${escapeHtml(QUICK_ACTION_ICON_LABELS[key])}</label>
+            <input type="text" data-no-uppercase="1" id="in-qaicon-${key}" placeholder="Kosongkan = ikon bawaan" autocomplete="off" value="${escapeHtml(getQuickActionIconUrls()[key] || '')}">
+          </div>
+        `).join('')}
+        </div>
+        ${settingsEditBarHtml('ikon-aksi-cepat','btn-edit-ikon-aksi-cepat','btn-save-ikon-aksi-cepat','btn-cancel-ikon-aksi-cepat')}
+      </div>
+    </div>
+    ` : ''}
+    ${settingsView==='pola-kunjungan' ? `
+    <div class="panel">
+      <div class="panel-head"><h2>📍 Pola Kunjungan Berulang</h2></div>
+      <div class="panel-body">
+        <p style="color:var(--muted);margin:0 0 16px;">
+          Tempat yang rutin disinggahi tapi tidak pernah dicatat manual
+          (mis. ke masjid, beli makan) -- terdeteksi otomatis dari data
+          GPS.id, dianalisis 1x seminggu. Dipakai memperkuat perhitungan
+          Rasio &amp; BBM Digunakan (lihat "Toleransi Gap Odometer") --
+          bukan sekadar catatan, tapi bukti nyata yang dipercaya sistem.
+        </p>
+        <div class="field-locked" id="lock-pola-kunjungan">
+        <div style="padding-top:0;margin-bottom:16px;">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="in-notif-polakunjungan-enabled" ${getNotifSettings().polaKunjunganTanyaEnabled?'checked':''} style="width:16px;height:16px;">
+            🤖 Tanya otomatis lewat bot Telegram
+            ${toggleStatusBadgeHtml('notif-polakunjungan-status-badge', getNotifSettings().polaKunjunganTanyaEnabled)}
+          </label>
+          <div class="hint" style="margin:4px 0 0;">Begitu sebuah pola matang (≥3 minggu data), bot Telegram tanya proaktif ke admin apakah mau dijadikan Data Tujuan resmi. <b>Kalau terasa mengganggu/spam, matikan di sini kapan saja</b> -- pola tetap terus dianalisis &amp; terlihat di daftar bawah, cuma botnya yang tidak lagi bertanya sendiri.</div>
+        </div>
+        </div>
+        ${settingsEditBarHtml('pola-kunjungan','btn-edit-pola-kunjungan','btn-save-pola-kunjungan','btn-cancel-pola-kunjungan')}
+        ${(() => {
+          const semua = (state.recurringStopPatterns && typeof state.recurringStopPatterns==='object') ? state.recurringStopPatterns : {};
+          const carIdsWithPatterns = state.cars.filter(c => Array.isArray(semua[c.id]) && semua[c.id].length>0);
+          if(carIdsWithPatterns.length===0){
+            return emptyState('📍', 'Belum ada pola terdeteksi. Analisis berjalan otomatis tiap minggu untuk mobil yang sudah terhubung GPS.id -- butuh beberapa minggu data sebelum pola pertama muncul di sini.');
+          }
+          // v3.260.0 -- BARU: ringkasan transparansi -- dari SELURUH gap yang
+          // ikut dihitung ke Rasio/BBM Digunakan armada, berapa % yang
+          // benar-benar dijelaskan pola terverifikasi vs cuma lolos toleransi
+          // umum (dugaan tanpa bukti spesifik). SENGAJA cuma 1 baris ringkas
+          // di sini (bukan tabel/grafik) supaya tidak menambah keruwetan --
+          // detail per-mobil sudah cukup terwakili lewat kartu pola di bawah.
+          let totalVerified = 0, totalToleransiSaja = 0;
+          state.cars.forEach(c => { const s = getCarFuelStats(c.id); totalVerified += s.polaVerifiedKm; totalToleransiSaja += s.toleransiSajaKm; });
+          const totalGapDihitung = totalVerified + totalToleransiSaja;
+          const summaryHtml = totalGapDihitung > 0 ? `
+            <div class="hint" style="margin:0 0 16px;background:var(--ok-bg,#EAF7EE);color:var(--ok,#1F8A5A);padding:10px 12px;border-radius:8px;">
+              ✅ Dari seluruh gap yang ikut dihitung ke Rasio/BBM Digunakan armada, <b>${Math.round(totalVerified/totalGapDihitung*100)}%</b> terverifikasi lewat pola GPS.id, sisanya <b>${Math.round(totalToleransiSaja/totalGapDihitung*100)}%</b> masih toleransi umum (estimasi, belum ada pola spesifiknya).
+            </div>` : '';
+          return summaryHtml + carIdsWithPatterns.map(car => {
+            const pola = semua[car.id].slice().sort((a,b)=> (b.kemunculanPerMinggu||0)-(a.kemunculanPerMinggu||0));
+            return `
+            <div style="margin-bottom:20px;">
+              <div style="font-weight:700;font-size:13.5px;margin-bottom:8px;">🚗 ${escapeHtml(car.merk+' '+car.modelMobil+' — '+car.plat)}</div>
+              ${pola.map((p,i) => {
+                const matang = (p.mingguTerkumpul||0) >= 3;
+                const mapsUrl = (p.lat!=null && p.lon!=null) ? `https://www.google.com/maps?q=${p.lat},${p.lon}` : null;
+                return `
+                <div class="data-card" style="margin-bottom:8px;">
+                  <div class="data-card-title">
+                    <span>📍 Lokasi ${i+1}</span>
+                    <span class="badge ${matang?'ok':'neutral'}">${matang ? '✅ Terverifikasi' : `⏳ ${p.mingguTerkumpul||1} minggu data`}</span>
+                  </div>
+                  <div class="data-card-row"><span class="k">Frekuensi</span><span class="v">~${(p.kemunculanPerMinggu||0).toLocaleString('id-ID',{maximumFractionDigits:1})}x / minggu</span></div>
+                  <div class="data-card-row"><span class="k">Estimasi Jarak</span><span class="v">±${(p.jarakRataRataKm||0).toLocaleString('id-ID',{maximumFractionDigits:1})} KM / kunjungan</span></div>
+                  ${p.durasiRataRataMenit!=null ? `<div class="data-card-row"><span class="k">Durasi Berhenti</span><span class="v">±${Math.round(p.durasiRataRataMenit)} menit</span></div>` : ''}
+                  ${mapsUrl ? `<div class="data-card-actions"><a href="${mapsUrl}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">🗺️ Buka di Maps</a></div>` : ''}
+                </div>`;
+              }).join('')}
+            </div>`;
+          }).join('');
+        })()}
       </div>
     </div>
     ` : ''}
@@ -6848,6 +7062,12 @@ function renderSettingsDetailNotifGabungan(){
   }
   if(settingsView==='jam-sunyi' && isModeOperatorSubmenuVisible('settings','jam-sunyi')){
     wireSettingsLockButtons('jam-sunyi','lock-jam-sunyi','btn-edit-jam-sunyi','btn-cancel-jam-sunyi');
+    document.getElementById('in-notif-reminder-mode').addEventListener('change', function(){
+      const fixedWrap = document.getElementById('notif-reminder-fixed-fields');
+      const intervalWrap = document.getElementById('notif-reminder-interval-fields');
+      if(this.value==='interval'){ if(fixedWrap) fixedWrap.style.display='none'; if(intervalWrap) intervalWrap.style.display=''; }
+      else { if(fixedWrap) fixedWrap.style.display=''; if(intervalWrap) intervalWrap.style.display='none'; }
+    });
     document.getElementById('in-notif-quiethours').addEventListener('change', function(){
       const timesWrap = document.getElementById('notif-quiethours-times');
       if(timesWrap) timesWrap.style.cssText = this.checked ? '' : 'opacity:0.5;pointer-events:none;';
@@ -6859,10 +7079,14 @@ function renderSettingsDetailNotifGabungan(){
       const quietHoursStart = document.getElementById('in-notif-quiet-start').value || NOTIF_SETTINGS_DEFAULT.quietHoursStart;
       const quietHoursEnd = document.getElementById('in-notif-quiet-end').value || NOTIF_SETTINGS_DEFAULT.quietHoursEnd;
       const checkIntervalMinutes = Number(document.getElementById('in-notif-check-interval').value) || NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes;
+      const reminderMode = document.getElementById('in-notif-reminder-mode').value === 'interval' ? 'interval' : 'fixed';
+      const reminderFixedHourWib = Number(document.getElementById('in-notif-reminder-hour').value);
       state.notifSettings = {
         ...getNotifSettings(),
         quietHoursEnabled, quietHoursStart, quietHoursEnd,
         checkIntervalMinutes: [5,10,15,30,60].includes(checkIntervalMinutes) ? checkIntervalMinutes : NOTIF_SETTINGS_DEFAULT.checkIntervalMinutes,
+        reminderMode,
+        reminderFixedHourWib: (isFinite(reminderFixedHourWib) && reminderFixedHourWib>=0 && reminderFixedHourWib<=23) ? reminderFixedHourWib : NOTIF_SETTINGS_DEFAULT.reminderFixedHourWib,
       };
       saveData();
       showToast('Jam Sunyi & jadwal pengecekan disimpan.');
@@ -6947,6 +7171,37 @@ function renderSettingsDetailNotifGabungan(){
       saveData();
       showToast('Toleransi gap disimpan.');
       lockSettingsPanelAfterSave('toleransi-gap');
+      renderSettings();
+    };
+  }
+  if(settingsView==='ikon-aksi-cepat'){
+    wireSettingsLockButtons('ikon-aksi-cepat','lock-ikon-aksi-cepat','btn-edit-ikon-aksi-cepat','btn-cancel-ikon-aksi-cepat');
+    const btnSaveIkonAksiCepat = document.getElementById('btn-save-ikon-aksi-cepat');
+    if(btnSaveIkonAksiCepat) btnSaveIkonAksiCepat.onclick = () => {
+      const next = {};
+      Object.keys(QUICK_ACTION_ICON_LABELS).forEach(key => {
+        const el = document.getElementById('in-qaicon-'+key);
+        next[key] = el ? el.value.trim() : '';
+      });
+      state.quickActionIconUrls = next;
+      saveData();
+      showToast('Ikon Aksi Cepat disimpan.');
+      lockSettingsPanelAfterSave('ikon-aksi-cepat');
+      renderSettings();
+    };
+  }
+  if(settingsView==='pola-kunjungan'){
+    wireSettingsLockButtons('pola-kunjungan','lock-pola-kunjungan','btn-edit-pola-kunjungan','btn-cancel-pola-kunjungan');
+    document.getElementById('in-notif-polakunjungan-enabled').addEventListener('change', function(){
+      updateToggleStatusBadge('notif-polakunjungan-status-badge', this.checked);
+    });
+    const btnSavePolaKunjungan = document.getElementById('btn-save-pola-kunjungan');
+    if(btnSavePolaKunjungan) btnSavePolaKunjungan.onclick = () => {
+      state.notifSettings = { ...getNotifSettings(), polaKunjunganTanyaEnabled: document.getElementById('in-notif-polakunjungan-enabled').checked };
+      saveData();
+      showToast('Pengaturan Pola Kunjungan disimpan.');
+      renderNotifBell();
+      lockSettingsPanelAfterSave('pola-kunjungan');
       renderSettings();
     };
   }
@@ -15947,6 +16202,51 @@ function predictLiterForBarFill(carId, barDari, barKe){
    prinsip "jangan paksa pengguna perbaiki data lama, jangan rusak histori":
    trip itu TETAP dihitung seperti biasa (tidak diblokir/diubah), cuma diberi
    flag gapKm untuk ditampilkan sebagai peringatan transparansi di UI. */
+// v3.260.0 -- BARU: "Pola Kunjungan Berulang" -- daftar tempat yang SERING
+// disinggahi tapi TIDAK pernah dicatat manual (mis. ke masjid, beli makan),
+// terdeteksi otomatis dari data GPS.id (analisis mingguan, lihat
+// runWeeklyPatternAnalysis() di worker.js). Dipakai memperkuat toleransi gap
+// odometer di buildFuelChain() -- lihat estimasiPatternKmUntukGap() di
+// bawah. State ini CUMA DIBACA di sini -- yang MENULIS cuma cron worker.js.
+function getRecurringPatternsForCar(carId){
+  const all = (state.recurringStopPatterns && typeof state.recurringStopPatterns==='object') ? state.recurringStopPatterns : {};
+  return Array.isArray(all[carId]) ? all[carId] : [];
+}
+
+// v3.260.0 -- BARU: estimasi berapa KM dari 1 gap odometer yang "wajar
+// dijelaskan" oleh pola-pola terverifikasi mobil ini, PRORATA sesuai lama
+// rentang gap-nya (hari). SENGAJA estimasi STATISTIK (frekuensi pola x lama
+// rentang), BUKAN mencocokkan 1-per-1 kejadian pola ke gap tertentu --
+// data yang tersedia (waktu berhenti dari GPS.id) tidak selalu bisa
+// dipetakan pasti ke gap odometer MANA yang sedang dihitung (trip bisa
+// tercatat beberapa hari kemudian, dst), jadi pendekatan prorata per-hari
+// ini yang paling jujur & aman dipakai tanpa mengklaim presisi yang
+// sebenarnya tidak bisa dijamin datanya.
+function estimasiPatternKmUntukGap(carId, gapHari){
+  if(!(gapHari > 0)) return 0;
+  const patterns = getRecurringPatternsForCar(carId);
+  if(!patterns.length) return 0;
+  return patterns.reduce((total, p) => {
+    const jarak = Number(p.jarakRataRataKm) || 0;
+    const frekuensiPerMinggu = Number(p.kemunculanPerMinggu) || 0;
+    if(jarak<=0 || frekuensiPerMinggu<=0) return total;
+    return total + (jarak * (frekuensiPerMinggu/7) * gapHari);
+  }, 0);
+}
+
+// Selisih hari sederhana antara 2 tanggal "YYYY-MM-DD" (dipakai utk prorata
+// pola di atas) -- minimal 0 (tidak pernah negatif), dibulatkan ke ATAS
+// supaya gap dalam 1 hari yang sama tetap dihitung minimal 1 hari (lebih
+// aman melebih-estimasi drpd kurang, supaya toleransi tidak jadi terlalu
+// longgar krn pembagian hari=0).
+function selisihHariTanggal(tglAwal, tglAkhir){
+  if(!tglAwal || !tglAkhir) return 0;
+  const a = new Date(tglAwal+'T00:00:00');
+  const b = new Date(tglAkhir+'T00:00:00');
+  if(isNaN(a) || isNaN(b)) return 0;
+  return Math.max(1, Math.ceil((b-a)/86400000));
+}
+
 function buildFuelChain(carId){
   const car = state.cars.find(c=>c.id===carId);
   const result = new Map(); // usage.id -> hasil rantai untuk trip itu
@@ -15996,6 +16296,14 @@ function buildFuelChain(carId){
   let pendingLiter = 0; // BBM dari gap kecil yang ditoleransi & trip yg blm cukup andal, ikut diakumulasi berbarengan dgn KM-nya
   let prevOdoKembali = null;
   let prevBensinKembali = null; // % bensin saat trip SEBELUMNYA berakhir -- dasar hitung BBM selama gap
+  let prevTglKembali = null; // v3.260.0 -- BARU: tanggal trip sebelumnya berakhir, dipakai hitung lama rentang gap (hari) utk prorata pola
+  // v3.260.0 -- BARU: akumulasi total KM gap yang "wajar" (tolerated) sepanjang
+  // rantai ini, dipecah 2 sumber -- berapa yang dijelaskan pola TERVERIFIKASI
+  // (GPS.id, bukti nyata) vs berapa yang cuma lolos toleransi UMUM (dugaan,
+  // tanpa bukti spesifik). Dipakai badge transparansi di laporan Rasio --
+  // lihat pemakaian result.set() di bawah & renderRasioTransparansiBadge().
+  let totalGapKmPolaVerified = 0;
+  let totalGapKmToleransiSaja = 0;
   trips.forEach(u=>{
     const ownKm = u.odoKembali - u.odoKeluar;
     const keluar = getBensinKeluar(u);
@@ -16018,9 +16326,23 @@ function buildFuelChain(carId){
     const rawGapKm = (prevOdoKembali!=null) ? (u.odoKeluar - prevOdoKembali) : 0;
     const gapOverlap = rawGapKm < 0;
     const gapMissing = rawGapKm > 0;
-    const gapTolerated = gapMissing && rawGapKm <= toleransiGapKm;
-    const gapFlagged = gapOverlap || (gapMissing && rawGapKm > toleransiGapKm);
+    // v3.260.0 -- BARU: SEBELUM dibandingkan ke toleransi, gap mentah
+    // dikurangi dulu perkiraan KM yang sudah "dijelaskan" oleh Pola
+    // Kunjungan Berulang mobil ini (lihat estimasiPatternKmUntukGap()) --
+    // toleransi cuma diterapkan ke SISANYA. Ini yang membuat toleransi bisa
+    // diset serendah 0 tanpa gap yang sudah dikenali pola ikut kena tandai
+    // (lihat catatan lengkap di Pengaturan -> Toleransi Gap Odometer).
+    const gapHari = gapMissing ? selisihHariTanggal(prevTglKembali, u.tglKeluar) : 0;
+    const patternKmUntukGapIni = gapMissing ? Math.min(rawGapKm, estimasiPatternKmUntukGap(carId, gapHari)) : 0;
+    const sisaGapKm = gapMissing ? Math.max(0, rawGapKm - patternKmUntukGapIni) : 0;
+    const gapTolerated = gapMissing && sisaGapKm <= toleransiGapKm;
+    const gapFlagged = gapOverlap || (gapMissing && sisaGapKm > toleransiGapKm);
     const gapKm = rawGapKm; // dipertahankan utk kompatibilitas (dipakai buat tampilkan besar selisih di badge)
+
+    if(gapTolerated){
+      totalGapKmPolaVerified += patternKmUntukGapIni;
+      totalGapKmToleransiSaja += Math.min(sisaGapKm, toleransiGapKm);
+    }
 
     if(gapTolerated && keluar!=null && prevBensinKembali!=null && car.kapasitasTangkiLiter!=null){
       // Estimasi BBM yang terpakai SELAMA gap kecil ini, dari selisih %
@@ -16038,6 +16360,7 @@ function buildFuelChain(carId){
 
     prevOdoKembali = u.odoKembali;
     prevBensinKembali = kembali;
+    prevTglKembali = u.tglKembali || u.tglKeluar || prevTglKembali; // v3.260.0 -- BARU: jaga2 tglKembali kosong (trip msh berjalan/data lama), fallback ke tglKeluar drpd null total
 
     if(!punyaIndikator){
       // Tidak ada data indikator sama sekali -> di luar rantai, pakai
@@ -16080,6 +16403,12 @@ function buildFuelChain(carId){
     result.set(u.id, { resolved:true, method:'indikator', ownKm, effectiveKm, carriedInKm, literTerbakarRiil:effectiveLiter, ratio: effectiveKm/effectiveLiter, gapKm, gapFlagged, gapTolerated, gapOverlap, suggestedOdoKeluar: gapOverlap ? (u.odoKeluar - gapKm) : null });
   });
 
+  // v3.260.0 -- BARU: ditempel sbg properti tambahan di Map hasil (BUKAN
+  // mengubah bentuk return-nya -- Map tetap Map, semua pemanggil lama yang
+  // pakai .get()/.has() tidak terpengaruh) -- dipakai badge transparansi di
+  // laporan Rasio (lihat rasioTransparansiBadgeHtml()).
+  result.polaVerifiedKm = totalGapKmPolaVerified;
+  result.toleransiSajaKm = totalGapKmToleransiSaja;
   return result;
 }
 
@@ -16118,6 +16447,11 @@ function getCarFuelStats(carId){
   return {
     avgRatio: ewma,
     totalLiterTerpakai: totalLiter,
+    // v3.260.0 -- BARU: transparansi sumber gap yang ikut dihitung -- lihat
+    // rasioTransparansiBadgeHtml(). polaVerifiedKm/toleransiSajaKm ditempel
+    // ke Map hasil buildFuelChain(), lihat catatan lengkap di sana.
+    polaVerifiedKm: chain.polaVerifiedKm || 0,
+    toleransiSajaKm: chain.toleransiSajaKm || 0,
   };
 }
 function fuelLatestReading(carId){
@@ -18640,17 +18974,27 @@ function openTestFinanceModal(financeAdminId){
 // v3.217.0 -- BARU: sama persis pola regex dgn normalizeMapsUrl() di atas,
 // cuma balikin {lat,lon} sbg angka (bukan link) -- dipakai fitur "Optimalkan
 // Urutan" (butuh koordinat mentah utk dikirim ke endpoint /optimize-route).
+// v3.263.0 -- BARU: kalau link mengandung pola "!3d<lat>!4d<lon>" (koordinat
+// titik PIN yang sebenarnya diklik/ditandai di Google Maps), pola itu SELALU
+// dicoba LEBIH DULU sebelum pola umum "@lat,lng,zoom". Alasannya: kalau
+// halaman Maps sempat digeser/di-zoom SETELAH klik pin (mis. link dibagikan
+// dari address bar tanpa balik dulu ke posisi pin), nilai "@lat,lng" cuma
+// jadi titik TENGAH TAMPILAN peta saat itu -- bisa meleset beberapa km dari
+// pin aslinya. Pola !3d!4d tidak terpengaruh geser/zoom apa pun karena selalu
+// merujuk ke titik yang benar-benar ditandai.
 function extractLatLng(url){
   if(!url) return null;
+  const pin = url.match(/!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/);
+  if(pin) return { lat: Number(pin[1]), lon: Number(pin[2]) };
   const match = url.match(/(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/);
   if(!match) return null;
   return { lat: Number(match[1]), lon: Number(match[2]) };
 }
 function normalizeMapsUrl(url){
   if(!url) return url;
-  const match = url.match(/(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/);
-  if(match){
-    return `https://www.google.com/maps/dir/?api=1&destination=${match[1]},${match[2]}`;
+  const koor = extractLatLng(url);
+  if(koor){
+    return `https://www.google.com/maps/dir/?api=1&destination=${koor.lat},${koor.lon}`;
   }
   return url;
 }
@@ -19037,14 +19381,23 @@ function renderNotifStatusStrip(parsed){
     el.innerHTML = `<span class="badge danger">🔴 Belum pernah tercatat mengecek</span> <span style="font-size:11.5px;color:var(--muted);">File status sudah ada tapi belum ada catatan pengecekan berkala.</span>`;
     return;
   }
-  const intervalMin = getNotifSettings().checkIntervalMinutes;
+  const ns = getNotifSettings();
+  // v3.262.0 -- BARU: mode "Jam Tetap" cuma benar2 mengecek/kirim 1x/hari
+  // (lihat dueForAlertCheck di worker.js) -- target "sehat"-nya cron di sini
+  // disesuaikan jadi ~1 hari, BUKAN checkIntervalMinutes (yang cuma relevan
+  // lagi di mode 'interval') -- tanpa ini, indikator akan SELALU menunjukkan
+  // "🔴 Berhenti" keliru sepanjang hari (krn lastAlertCheckAt di mode Jam
+  // Tetap memang cuma diperbarui 1x/hari, bukan berarti cron-nya mati).
+  const modeFixedStrip = (ns.reminderMode || 'fixed') === 'fixed';
+  const targetMinStrip = modeFixedStrip ? 24*60 : ns.checkIntervalMinutes;
   const ageMs = Date.now() - lastAlertCheckAt;
   const ageMin = ageMs/60000;
   let cls, icon, label;
-  if(ageMin <= intervalMin*1.5 + 5){ cls='ok'; icon='🟢'; label='Aktif'; }
-  else if(ageMin <= intervalMin*4 + 30){ cls='warn'; icon='🟡'; label='Terlambat'; }
+  if(ageMin <= targetMinStrip*1.5 + 5){ cls='ok'; icon='🟢'; label='Aktif'; }
+  else if(ageMin <= targetMinStrip*4 + 30){ cls='warn'; icon='🟡'; label='Terlambat'; }
   else { cls='danger'; icon='🔴'; label='Berhenti/sangat terlambat'; }
-  el.innerHTML = `<span class="badge ${cls}">${icon} ${label}</span> <span style="font-size:11.5px;color:var(--muted);">terakhir dicek ${fmtDurasiLalu(ageMs)} (target tiap ${intervalMin} menit)${cls!=='ok'?' -- cek Cron Trigger di dashboard Cloudflare Worker Anda':''}</span>`;
+  const targetTxtStrip = modeFixedStrip ? `1x/hari jam ${String(ns.reminderFixedHourWib??8).padStart(2,'0')}:00 WIB` : `tiap ${targetMinStrip} menit`;
+  el.innerHTML = `<span class="badge ${cls}">${icon} ${label}</span> <span style="font-size:11.5px;color:var(--muted);">terakhir dicek ${fmtDurasiLalu(ageMs)} (target ${targetTxtStrip})${cls!=='ok'?' -- cek Cron Trigger di dashboard Cloudflare Worker Anda':''}</span>`;
 }
 async function renderNotifHistory(){
   const wrap = document.getElementById('notif-history-wrap');
@@ -19311,6 +19664,78 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.266.0',
+    date: '04 Agu 2026',
+    notes: [
+      '🤖 Bot Telegram: perintah baru <code>update</code> (atau ketik "bot") -- khusus Administrator, menampilkan 5 update fitur TERBARU khusus Bot Telegram (bukan seluruh aplikasi) langsung dari chat. Daftarnya dikurasi manual di worker.js (<code>BOT_CHANGELOG</code>), TERPISAH dari Changelog aplikasi ini -- supaya tidak tercampur perubahan web/UI yang tidak relevan buat percakapan bot.',
+      '🧠 Bot Telegram: NLP ringan sekarang belajar otomatis -- begitu AI (Tingkat 3) berhasil menebak & Anda tap "✅ Ya, benar", kata pemicunya diingat permanen (lewat menu "✏️ Alias" yang sudah ada) supaya lain kali dikenali tanpa AI lagi. Bisa dihapus manual di menu yang sama kalau ternyata salah belajar.',
+      '🔧 worker.js JUGA perlu diupload ulang kali ini, bukan cuma index.html.',
+    ]
+  },
+  {
+    v: '3.264.0',
+    date: '04 Agu 2026',
+    notes: [
+      '🎯 Endpoint auto-resolve link Maps pendek (<code>/resolve-maps-link</code>, dipakai saat menempel link hasil tombol "Bagikan" <code>maps.app.goo.gl/…</code>) sekarang IKUT memprioritaskan koordinat titik PIN asli (<code>!3d…!4d…</code>) di URL hasil redirect-nya -- menyamakan perbaikan v3.263.0 kemarin yang sebelumnya cuma berlaku di sisi pembacaan link, belum di sisi yang membuka/meresolve link pendeknya.',
+      '🔧 worker.js JUGA perlu diupload ulang kali ini, bukan cuma index.html.',
+    ]
+  },
+  {
+    v: '3.263.0',
+    date: '04 Agu 2026',
+    notes: [
+      '🎯 <b>Perbaikan akurasi koordinat Link Maps:</b> kalau link Google Maps mengandung pola <code>!3d...!4d...</code> (koordinat titik PIN yang sungguhan ditandai/diklik), sistem sekarang SELALU memakai itu duluan -- sebelumnya sistem asal ambil angka <code>lat,lng</code> pertama yang ketemu di link, yang kadang cuma titik TENGAH TAMPILAN peta (<code>@lat,lng,zoom</code>) dan bisa meleset beberapa km dari pin aslinya kalau peta sempat digeser/di-zoom setelah klik pin. Berlaku di semua tempat pemakai koordinat: tombol Rute, Optimalkan Urutan, Peringatan Rute Menyimpang, dll.',
+      '📍 Kolom Link Maps (Data Tujuan/Catat Perjalanan/Booking/Servis) sekarang juga menerima <b>koordinat MENTAH</b> tanpa link sama sekali (mis. hasil tombol "Salin koordinat" Google Maps: <code>-7.91,112.57</code>) -- sebelumnya tombol Rute tidak muncul kalau isian bukan link http(s), walau koordinatnya sendiri sebenarnya valid.',
+      '🔧 worker.js JUGA perlu diupload ulang kali ini (dua fungsi ekstraksi koordinat server-side disamakan), bukan cuma index.html.',
+    ]
+  },
+  {
+    v: '3.262.0',
+    date: '03 Agu 2026',
+    notes: [
+      '⏰ Notifikasi pengingat berkala (Dokumen/Servis/BBM/E-Toll/Booking/Budget, dst) sekarang defaultnya dikirim <b>1x/hari jam 08:00 WIB</b> untuk SEMUA -- bukan lagi tersebar sepanjang hari tiap sekian menit. <b>Notifikasi mendesak TIDAK terpengaruh</b> (🧭 Rute Menyimpang, 📍 Auto-deteksi Sampai, 🧾 Resi Perjalanan, konfirmasi trip, dll) -- itu selalu langsung dikirim begitu terdeteksi, apa pun jam-nya.',
+      '⚙️ Jam-nya bisa diatur ulang bebas (00:00-23:00) lewat Pengaturan → 🌙 Jam Sunyi &amp; Jadwal Pengecekan → "⏱️ Mode pengecekan notifikasi berkala". Cara lama (interval tiap sekian menit) masih tersedia sbg pilihan kalau ingin dipakai lagi.',
+      '🔧 worker.js JUGA perlu diupload ulang kali ini, bukan cuma index.html.',
+    ]
+  },
+  {
+    v: '3.261.0',
+    date: '03 Agu 2026',
+    notes: [
+      '🤖 Bot Telegram sekarang terhubung ke Pola Kunjungan Berulang: begitu sebuah pola matang (≥3 minggu data), bot TANYA PROAKTIF ke admin "mau dijadikan Data Tujuan resmi?" -- tinggal jawab Ya & ketik nama lokasinya, otomatis tersimpan (koordinat &amp; estimasi jarak sudah terisi dari hasil analisis). <b>Bisa dimatikan kapan saja</b> lewat Pengaturan → 📍 Pola Kunjungan Berulang → "🤖 Tanya otomatis lewat bot Telegram" kalau terasa mengganggu.',
+      '⌨️ Perintah baru <code>/pola</code> (atau <code>/pola &lt;nama mobil&gt;</code>) -- lihat ringkasan Pola Kunjungan Berulang langsung dari chat, tanpa perlu buka aplikasi.',
+      '⛽ Pola sekarang ditandai otomatis kalau kemungkinan besar SPBU langganan -- dicocokkan dari waktu berhenti vs catatan "Isi BBM Luar Trip" mobil yang sama (±90 menit). Info tambahan di laporan, tidak mengubah cara pola dihitung/disaring.',
+      '🔧 worker.js JUGA perlu diupload ulang kali ini, bukan cuma index.html.',
+    ]
+  },
+  {
+    v: '3.260.0',
+    date: '03 Agu 2026',
+    notes: [
+      '📍 Fitur baru besar: <b>Pola Kunjungan Berulang</b> -- sistem sekarang otomatis mendeteksi tempat yang SERING disinggahi mobil tapi TIDAK PERNAH dicatat manual (mis. ke masjid, beli makan dekat kantor), dari data GPS.id, dianalisis 1x/minggu (Senin dini hari). Tempat yang muncul ≥5x/minggu & belum tercatat sebagai Data Tujuan otomatis jadi "pola terverifikasi" -- lihat menu Pengaturan → 📍 Pola Kunjungan Berulang.',
+      '🎯 Rumus Rasio/BBM Digunakan (<code>buildFuelChain()</code>) sekarang memakai pola ini: gap odometer yang tidak nyambung antar-trip dicocokkan DULU ke pola terverifikasi mobil itu, baru SISANYA dibandingkan ke Toleransi Gap Odometer -- bukan toleransi flat yang sama utk semua mobil seperti sebelumnya. Laporan Rasio ikut menampilkan berapa % gap yang terverifikasi lewat GPS vs berapa % masih estimasi toleransi umum.',
+      '⚙️ Toleransi Gap Odometer (Pengaturan) sekarang bisa diturunkan sampai <b>0</b> -- disarankan HANYA setelah pola kunjungan mobil sudah cukup matang (≥3 minggu data terkumpul), supaya SEMUA gap harus benar-benar dijelaskan bukti nyata (pola GPS) atau ditandai utk dicek manual.',
+      '🔧 worker.js JUGA perlu diupload ulang kali ini (analisis mingguan baru di cron), bukan cuma index.html.',
+    ]
+  },
+  {
+    v: '3.259.0',
+    date: '03 Agu 2026',
+    notes: [
+      '📷 Bot Telegram: fitur baru "Isi BBM (Luar Trip)" -- di langkah "Nominal (Rp)?", sekarang bisa kirim FOTO struk SPBU sebagai ganti ketik manual. Nominalnya dibaca otomatis (OCR lewat Cloudflare Workers AI) lalu SELALU ditampilkan dulu utk dikonfirmasi/dikoreksi sebelum tersimpan -- tidak pernah langsung dipercaya begitu saja. Pakai binding <code>AI</code> yang <b>SAMA</b> dengan fitur "NLP ringan" yang sudah ada sejak 3.252.0 -- kalau itu sudah aktif, fitur foto struk ini OTOMATIS ikut aktif juga, TIDAK perlu setup tambahan apa pun. Dilindungi batas kuota harian sendiri (default 100x/hari, terpisah dari jatah NLP ringan) supaya tidak saling menghabiskan jatah gratis Workers AI (10.000 neuron/hari).',
+      '⌨️ Bot Telegram: pintasan 1-baris "bensin 50000" atau "isi bensin 50rb" langsung memulai alur Isi BBM dengan nominal sudah terisi -- tidak perlu ketik "isi" lalu jawab bertahap dulu. Field lain (mobil, tanggal, jenis BBM, level bensin) tetap ditanya normal seperti biasa.',
+      '🔧 worker.js JUGA perlu diupload ulang kali ini, bukan cuma index.html.',
+    ]
+  },
+  {
+    v: '3.258.0',
+    date: '03 Agu 2026',
+    notes: [
+      '🎨 Pengaturan ikon Aksi Cepat (sebelumnya cuma bisa diubah lewat edit kode -- QUICK_ACTION_ICON_URLS) sekarang punya panel sendiri di menu Pengaturan: <b>"🎨 Ikon Aksi Cepat"</b>. Tinggal buka, isi link gambar per tombol, Simpan -- tidak perlu sentuh kode lagi. Datanya ikut ter-backup &amp; tersinkron cloud seperti pengaturan lain (dulu cuma tersimpan di file kode, sekarang aman kalau app di-update/diganti perangkat).',
+      '🔧 index.html DAN sw.js perlu diupload ulang kali ini (CACHE_VERSION dinaikkan supaya popup "Versi Baru Tersedia" muncul) -- worker.js TIDAK berubah, tidak perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.257.0',
     date: '03 Agu 2026',
