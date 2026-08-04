@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.264.0">
+<meta name="app-version" content="3.268.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2097,7 +2097,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.266.0';
+const APP_VERSION = '3.268.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -2794,6 +2794,13 @@ const NOTIF_ROLE_CATEGORIES = [
   // BARU -- Peringatan Rute Menyimpang (lihat panel "🧭 Peringatan Rute
   // Menyimpang" di Pengaturan).
   { key:'routeDeviation', label:'Peringatan Rute Menyimpang' },
+  // v3.268.0 -- BARU: BEDA JENIS dari kategori lain di daftar ini -- semua
+  // kategori DI ATAS mengatur notifikasi PUSH (bot -> user), sedangkan ini
+  // mengatur AKSES command PULL (user -> bot, command "log"/Log Interaksi
+  // Bot). Numpang mekanisme togel per-peran yang SAMA (lebih fleksibel drpd
+  // togel Fitur Tersembunyi on/off global yang dipakai command rahasia lain
+  // spt kecepatan/lognotif) -- lihat botLogAccessAktif() di worker.js.
+  { key:'botLog', label:'Log Interaksi Bot (akses command "log")' },
 ];
 const NOTIF_ROLE_PREFS_DEFAULT = {
   // Default SENGAJA meniru PERSIS perilaku SEBELUM 3 kategori ini ada,
@@ -2819,10 +2826,10 @@ const NOTIF_ROLE_PREFS_DEFAULT = {
   //   gpsAlert TETAP tidak akan pernah terkirim ke siapa pun sampai
   //   watchlist kode alert-nya diisi (lihat panel di bawah), apa pun
   //   togel di sini.
-  sopir:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:false, kalibrasi:false, speed:false, resi:true,  bookingApproval:false, laporanBulanan:false, simGps:false, gpsAlert:false, routeDeviation:false },
-  finance: { doc:true,  service:true,  etoll:false, bbm:false, booking:false, tripLama:false, budget:false, kalibrasi:false, speed:false, resi:false, bookingApproval:false, laporanBulanan:true,  simGps:false, gpsAlert:false, routeDeviation:false },
-  admin:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:true,  kalibrasi:true,  speed:true,  resi:true,  bookingApproval:true,  laporanBulanan:true,  simGps:true,  gpsAlert:true,  routeDeviation:true  },
-  superadmin: { doc:true, service:true, etoll:true, bbm:true, booking:true, tripLama:true, budget:true, kalibrasi:true, speed:true, resi:false, bookingApproval:false, laporanBulanan:false, simGps:true, gpsAlert:true, routeDeviation:true },
+  sopir:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:false, kalibrasi:false, speed:false, resi:true,  bookingApproval:false, laporanBulanan:false, simGps:false, gpsAlert:false, routeDeviation:false, botLog:false },
+  finance: { doc:true,  service:true,  etoll:false, bbm:false, booking:false, tripLama:false, budget:false, kalibrasi:false, speed:false, resi:false, bookingApproval:false, laporanBulanan:true,  simGps:false, gpsAlert:false, routeDeviation:false, botLog:false },
+  admin:   { doc:true,  service:true,  etoll:true,  bbm:true,  booking:true,  tripLama:true,  budget:true,  kalibrasi:true,  speed:true,  resi:true,  bookingApproval:true,  laporanBulanan:true,  simGps:true,  gpsAlert:true,  routeDeviation:true,  botLog:false },
+  superadmin: { doc:true, service:true, etoll:true, bbm:true, booking:true, tripLama:true, budget:true, kalibrasi:true, speed:true, resi:false, bookingApproval:false, laporanBulanan:false, simGps:true, gpsAlert:true, routeDeviation:true, botLog:true },
 };
 function getNotifRolePrefs(){
   const saved = (state.notifRolePrefs && typeof state.notifRolePrefs==='object') ? state.notifRolePrefs : {};
@@ -2865,7 +2872,7 @@ const ALIAS_KATEGORI_CATALOG = [
   { key:'qrpertamina', label:'⛽ Barcode MyPertamina — lihat lagi barcode QR mobil (Sopir, Operator & Administrator)', defaults:['barcode','code','bar','my','pertamina','my pertamina','spbu','bahlil','bensin'] },
   { key:'aturbarcode', label:'🔧 Atur Barcode MyPertamina — tambah/ganti barcode per mobil (Operator & Administrator)', defaults:['atur barcode','atur'] },
   { key:'kalibrasi', label:'🛰️ /kalibrasi — tandai 1 mobil baru saja dikalibrasi odometer GPS.id, reset pengingat (Operator & Administrator)', defaults:['kalibrasi','sudah kalibrasi','sudah dikalibrasi'] },
-  { key:'notiflog', label:'📋 log/notifikasi/cek notif 🔒 — 7 Log Notifikasi terakhir (Administrator, tersembunyi)', defaults:['log','notifikasi','cek notif'] },
+  { key:'notiflog', label:'📋 lognotif/notifikasi/cek notif 🔒 — 7 Log Notifikasi keluar terakhir (Administrator, tersembunyi)', defaults:['lognotif','notifikasi','cek notif'] },
   { key:'saldo:et', label:'💳 Pintasan Saldo — E-Toll', defaults:['etoll'] },
   { key:'saldo:tk', label:'⛽ Pintasan Saldo — Sisa BBM (Tangki)', defaults:['bbm','tangki'] },
   { key:'saldo:od', label:'🛣️ Pintasan Saldo — Odometer', defaults:['odo'] },
@@ -2877,6 +2884,8 @@ const ALIAS_KATEGORI_CATALOG = [
   { key:'menu', label:'🏠 menu — kembali ke Menu Utama', defaults:['menu'] },
   { key:'rekomendasi', label:'📋 rekomendasi — daftar perintah lengkap', defaults:['rekomendasi'] },
   { key:'botupdate', label:'🤖 update/bot — 5 update fitur bot Telegram terbaru (Administrator, tersembunyi)', defaults:['update','bot'] },
+  { key:'id', label:'🪪 id — ringkasan akun & data Anda sendiri (semua peran terdaftar)', defaults:['id'] },
+  { key:'botlog', label:'📋 log — Log Interaksi Bot, semua pesan masuk (akses diatur per peran, default Administrator)', defaults:['log'] },
   { key:'batal', label:'🚫 batal — batalkan alur/percakapan berjalan', defaults:['batal'] },
   { key:'tiba', label:'🏁 akhiri trip — akhiri trip yang sedang jalan (Sopir)', defaults:['akhiri trip','akhiritrip','selesai trip','selesaitrip'] },
   { key:'sampai', label:'📍 tiba / sampai — tandai 1 titik tujuan sudah dikunjungi, khusus trip multi-tujuan (Sopir)', defaults:['tiba','sampai'] },
@@ -2944,8 +2953,16 @@ const SETTINGS_ITEM_CATALOG = [
   { id:'qrpertamina', icon:'⛽', label:'Barcode MyPertamina', desc:'Kirim ulang foto barcode QR MyPertamina mobil yang sudah tersimpan -- pilih mobil dulu kalau lebih dari 1 punya barcode.', aliasKey:'qrpertamina', akses:'Sopir, Operator & Administrator' },
   { id:'aturbarcode', icon:'🔧', label:'Atur Barcode MyPertamina', desc:'Tambah/ganti foto barcode QR MyPertamina per mobil -- kirim foto baru setelah pilih mobil.', aliasKey:'aturbarcode', akses:'Operator & Administrator' },
   { id:'cekkodetrip', icon:'📎', label:'cek [kode trip]', desc:'Cth: "cek PJL-00007" -- status kirim & kirim ulang foto nota/tanda terima 1 trip tertentu (aktif maupun sudah selesai). Bukan alias biasa (kodenya berubah-ubah per trip, bukan kata kunci tetap), jadi tidak bisa diatur alias custom di sini.', akses:'Sopir (trip sendiri), Operator, Finance & Administrator (trip siapa saja)' },
-  { id:'notifLog', icon:'📋', label:'Log Notifikasi (chat)', desc:'7 pengiriman notifikasi Telegram terakhir langsung lewat chat, dikelompokkan gagal/berhasil -- perintah tersembunyi, khusus Administrator.', aliasKey:'notiflog', hiddenKey:'notifLogCommand', akses:'Administrator (tersembunyi)' },
+  { id:'notifLog', icon:'📋', label:'Log Notifikasi Keluar (chat)', desc:'7 notifikasi Telegram yang bot KIRIM KELUAR terakhir, dikelompokkan gagal/berhasil -- perintah tersembunyi (kata kunci "lognotif"), khusus Administrator. BEDA dari "Log Interaksi Bot" di bawah (itu pesan MASUK dari semua peran).', aliasKey:'notiflog', hiddenKey:'notifLogCommand', akses:'Administrator (tersembunyi)' },
   { id:'botUpdate', icon:'🤖', label:'Update Bot (chat)', desc:'5 update fitur bot Telegram TERBARU (bukan seluruh aplikasi) langsung lewat chat -- perintah tersembunyi, khusus Administrator.', aliasKey:'botupdate', hiddenKey:'botUpdateCommand', akses:'Administrator (tersembunyi)' },
+  // v3.268.0 -- BARU: "Log Interaksi Bot" -- BEDA STRUKTUR dari item lain di
+  // atas yang aksesnya hardcode isSuperAdminChat/togel Fitur Tersembunyi --
+  // ini pakai notifKey SUNGGUHAN ('botLog') supaya togel per peran di panel
+  // ini BENAR-BENAR mengatur akses command "log" di worker.js (lihat
+  // botLogAccessAktif()), BUKAN sekadar badge baca-saja. SENGAJA TIDAK diberi
+  // hiddenKey -- akses murni lewat togel per-peran ini.
+  { id:'botLog', icon:'📋', label:'Log Interaksi Bot (chat)', desc:'SEMUA pesan masuk ke bot dari SEMUA peran (siapa, kapan, pesannya apa, berhasil/gagal secara teknis) -- command "log". Defaultnya HANYA Administrator, tapi bisa dibuka ke peran lain lewat togel di bawah.', notifKey:'botLog', aliasKey:'botlog', akses:'Diatur per peran (default: Administrator)' },
+  { id:'idSummary', icon:'🪪', label:'id (ringkasan akun)', desc:'Ringkasan data pribadi (Sopir: trip/KM/kecepatan/trip aktif/booking mendatang; Admin/Finance/Administrator: identitas + arahan ke rekomendasi) -- terbuka utk semua peran terdaftar, BUKAN command rahasia.', aliasKey:'id', akses:'Semua peran terdaftar (Sopir, Admin, Finance, Administrator)' },
   { id:'resi', icon:'🧾', label:'Resi Perjalanan', desc:'Kartu Tanda Terima trip yang dikirim ke sopir/admin.', notifKey:'resi', akses:'Sopir, Admin, Administrator (opsional)' },
   { id:'bookingApproval', icon:'✅', label:'Approval Booking', desc:'Notifikasi booking yang perlu disetujui/ditolak.', notifKey:'bookingApproval', akses:'Admin (Administrator selalu dapat)' },
   { id:'laporanBulanan', icon:'📊', label:'Laporan Bulanan', desc:'Rekap bulanan berkala ke Operator/Finance.', notifKey:'laporanBulanan', akses:'Operator & Finance' },
@@ -19664,6 +19681,24 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.268.0',
+    date: '04 Agu 2026',
+    notes: [
+      '📋 Bot Telegram: perintah <code>log</code> sekarang jadi <b>Log Interaksi Bot</b> -- SEMUA pesan masuk dari SEMUA peran (siapa, kapan, isi pesannya, berhasil/gagal secara teknis), bukan cuma milik Administrator. Akses diatur lewat menu "🔔 Notifikasi Telegram per Peran" (kategori baru "Log Interaksi Bot") -- default HANYA Administrator, tapi bisa dibuka ke Operator/Finance/Sopir kapan saja tanpa perlu ubah kode.',
+      '📋 Log Notifikasi yang LAMA (notifikasi yang bot KIRIM KELUAR) TIDAK hilang -- cuma pindah kata kunci jadi <code>lognotif</code> supaya tidak bentrok dengan perintah <code>log</code> yang baru. Tombol & alias terkait di panel "🔔 Notifikasi Telegram per Peran" sudah disesuaikan.',
+      '🐛 Ditemukan &amp; diperbaiki sekalian: tag <code>&lt;meta name="app-version"&gt;</code> di &lt;head&gt; sempat tidak disamakan dengan <code>APP_VERSION</code> selama beberapa rilis terakhir -- disamakan lagi.',
+      '🔧 worker.js JUGA perlu diupload ulang kali ini, bukan cuma index.html.',
+    ]
+  },
+  {
+    v: '3.267.0',
+    date: '04 Agu 2026',
+    notes: [
+      '🪪 Bot Telegram: perintah baru <code>id</code> -- ringkasan akun sendiri, terbuka utk SEMUA peran terdaftar (Sopir, Admin Notifikasi, Finance, Administrator). Sopir dapat total trip/KM/rata-rata kecepatan + trip yang sedang aktif + booking mendatang miliknya; peran lain dapat identitas & arahan ke <code>rekomendasi</code> utk daftar akses lengkap. Kalau 1 chat terdaftar di lebih dari 1 peran sekaligus, SEMUA peran ditampilkan.',
+      '🔧 worker.js JUGA perlu diupload ulang kali ini, bukan cuma index.html.',
+    ]
+  },
   {
     v: '3.266.0',
     date: '04 Agu 2026',
