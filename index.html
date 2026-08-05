@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.279.0">
+<meta name="app-version" content="3.281.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1361,8 +1361,8 @@
   .tf-row-divider{height:1px;background:var(--line);margin:12px 0;}
   .tf-chip-group{display:flex;gap:8px;}
   .tf-chip{
-    flex:1;text-align:center;padding:10px 6px;border-radius:24px;
-    background:var(--neutral-bg);color:var(--muted);font-size:12.5px;font-weight:700;
+    flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px 6px;border-radius:24px;
+    background:var(--neutral-bg);color:var(--muted);font-size:13.5px;font-weight:700;
     cursor:pointer;user-select:none;transition:background .12s,color .12s;
   }
   .tf-chip.active{background:var(--blue);color:#fff;}
@@ -2206,7 +2206,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.279.0';
+const APP_VERSION = '3.281.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -19860,6 +19860,20 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.281.0',
+    date: '05 Agu 2026',
+    notes: [
+      '🎨 PERBAIKAN TAMPILAN: chip "Jenis Perjalanan" (Catat Perjalanan) -- teks "Pribadi" sebelumnya menempel ke atas kotak (tidak center vertikal) di layar HP, karena tinggi chip ikut menyesuaikan chip sebelahnya ("Pengiriman (operasional)") yang sering jadi 2 baris, sementara "Pribadi" cuma 1 baris. Sekarang teks di kedua chip selalu center sempurna (horizontal & vertikal) berapa pun tingginya, dan ukuran font sedikit dibesarkan (12.5px → 13.5px) supaya lebih mudah dibaca. Murni CSS, tidak ada field/logika yang berubah.',
+    ]
+  },
+  {
+    v: '3.280.0',
+    date: '05 Agu 2026',
+    notes: [
+      '🗺️ BARU: notifikasi Telegram <b>Mesin Kendaraan Dinyalakan</b> sekarang menyertakan link <b>📍 Lihat lokasi live di peta (OpenStreetMap)</b> kalau posisi GPS.id kendaraan sedang jelas -- diklik langsung menampilkan lokasi mobil saat kontak baru diputar ON. SENGAJA pakai OpenStreetMap, BUKAN Google Maps -- konsisten dgn peta mini Leaflet + OpenStreetMap yang sudah dipakai di popup "🛰️ Lacak" (Data Mobil) & halaman "Lacak Kendaraan". Tidak menambah panggilan API GPS.id (posisi diambil dari data yang sama dgn deteksi status mesin). Kalau posisi GPS.id sedang tidak jelas, notifikasi tetap terkirim seperti biasa tanpa link. <code>worker.js</code> WAJIB diupload ulang -- <code>sw.js</code> TETAP perlu diupload ulang seperti biasa.',
+    ]
+  },
   {
     v: '3.279.0',
     date: '05 Agu 2026',
