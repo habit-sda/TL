@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.277.0">
+<meta name="app-version" content="3.278.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1902,6 +1902,34 @@
      <2 detik yang sudah ada sebelumnya sebelum konten app tampil. -->
 <div id="app-boot-screen"><img src="icons/splash-boot.png" alt="FleetOps"></div>
 <script>
+  // v3.278.0 -- PERBAIKAN: sebelumnya layar ini muncul di SETIAP reload
+  // halaman (termasuk refresh manual pas sedang pakai app), padahal
+  // maksudnya cuma layar SEKALI di awal (mirip splash native OS) saat app
+  // pertama dibuka dari ikon homescreen. Sekarang dibatasi pakai
+  // sessionStorage: flag ini otomatis KOSONG lagi tiap kali app benar-benar
+  // ditutup lalu dibuka ulang dari ikon (sesi browser baru), TAPI tetap
+  // terisi selama tab/app masih "hidup" -- jadi refresh manual di tengah
+  // pakai app TIDAK memicu boot screen lagi. Pengecekan ini SENGAJA taruh
+  // di sini (langsung setelah <div>-nya, bukan di script utama yang
+  // letaknya di paling bawah <body>) supaya keputusan "tampil atau tidak"
+  // diambil SEBELUM browser sempat mengecat elemennya -- hindari kedipan.
+  (function(){
+    var BOOT_SEEN_KEY = 'fleetops_boot_seen';
+    var el = document.getElementById('app-boot-screen');
+    try{
+      if(sessionStorage.getItem(BOOT_SEEN_KEY)){
+        // Sudah pernah tampil di sesi ini (berarti ini refresh, bukan buka
+        // baru dari ikon) -- langsung sembunyikan TANPA animasi/jeda.
+        if(el) el.style.display = 'none';
+      }else{
+        sessionStorage.setItem(BOOT_SEEN_KEY, '1');
+      }
+    }catch(e){
+      // sessionStorage bisa gagal (mis. mode privat ketat) -- aman-nya
+      // biarkan boot screen tetap tampil spt biasa drpd error mengganggu.
+    }
+  })();
+
   // Disembunyikan dari 2 jalur independen supaya tidak pernah "nyangkut":
   // 1) dipanggil manual oleh app utama begitu boot-nya sendiri selesai
   //    (lihat pemanggilan hideAppBootScreen() dekat checkStartupVersionChange()
@@ -1912,7 +1940,7 @@
   //    menutupi seluruh app selamanya.
   function hideAppBootScreen(){
     var el = document.getElementById('app-boot-screen');
-    if(!el || el.classList.contains('abs-hide')) return;
+    if(!el || el.classList.contains('abs-hide') || el.style.display === 'none') return;
     el.classList.add('abs-hide');
     setTimeout(function(){ el.style.display = 'none'; }, 400);
   }
@@ -2152,7 +2180,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.277.0';
+const APP_VERSION = '3.278.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -19806,6 +19834,13 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.278.0',
+    date: '05 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG: layar boot HP baru (dari v3.277.0) sebelumnya muncul di SETIAP refresh/reload halaman -- padahal maksudnya cuma tampil SEKALI saat app pertama dibuka dari ikon homescreen, mirip splash native OS. Sekarang pakai sessionStorage supaya cuma tampil sekali per sesi: hilang lagi otomatis kalau app benar-benar ditutup lalu dibuka ulang dari ikon, tapi TIDAK muncul lagi kalau cuma refresh manual selagi app masih berjalan.',
+    ]
+  },
   {
     v: '3.277.0',
     date: '05 Agu 2026',
