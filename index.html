@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.281.0">
+<meta name="app-version" content="3.282.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2206,7 +2206,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.281.0';
+const APP_VERSION = '3.282.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -19860,6 +19860,13 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.282.0',
+    date: '06 Agu 2026',
+    notes: [
+      '🔕 BARU (Bot Telegram): notifikasi alert yang masuk ke Admin/Super Admin sekarang menyertakan tombol rekomendasi cepat <b>"🔕 Matikan notifikasi [kategori] ini"</b> langsung di badan pesannya -- kalau kategori alert yang dikirim cuma 1 (bukan gabungan beberapa kategori sekaligus), tinggal tap tombolnya lalu konfirmasi "✅ Ya, terapkan" utk langsung mematikan kategori itu utk peran terkait, tanpa perlu mengetik ulang perintah bebas "matikan notifikasi ... untuk ..." (fitur v3.270.0, tetap berlaku seperti biasa). Sopir & Finance tidak mendapat tombol ini (perubahan pengaturan tetap khusus Admin/Super Admin). worker.js WAJIB diupload ulang -- sw.js TETAP perlu diupload ulang seperti biasa.',
+    ]
+  },
   {
     v: '3.281.0',
     date: '05 Agu 2026',
