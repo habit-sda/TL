@@ -4551,6 +4551,10 @@ async function pushToGithub(){
 }
 
 let cloudPushTimer = null;
+// v3.272.0 -- timer pengecek berkala tombol Aksi Cepat "Lacak Mobil Jalan"
+// di Dashboard (lihat refreshLacakMobilJalanButton()) -- dibersihkan begitu
+// pengguna pindah dari Dashboard, supaya tidak terus jalan di background.
+let dashLacakJalanTimer = null;
 // v3.134.0 -- Debounce dipercepat dari 3000ms jadi 600ms. Alasan: kalau HP
 // dikunci/tab ditutup PERSIS dalam window debounce ini, browser di HP
 // MEMBEKUKAN timer JS tab yang di-background -- push jadi TIDAK PERNAH
@@ -9959,11 +9963,27 @@ function renderDashboard(){
     });
   });
 
-  // v3.155.0 -- Cek async (tidak menghalangi render Dashboard) apakah SAAT
-  // INI ada mobil yang sedang jalan (GPS.id) -- tombol "Lacak Mobil Jalan"
-  // baru dimunculkan kalau memang ada, disembunyikan lagi kalau tidak ada
-  // (semua mesin mati / tidak ada data).
+  // v3.272.0 -- PERBAIKAN BUG: tombol "Lacak Mobil Jalan" SEBELUMNYA cuma
+  // dicek SEKALI saat Dashboard baru dibuka & disembunyikan total kalau
+  // syarat "accOn DAN speed>0" tidak pas terpenuhi PERSIS di momen itu --
+  // GPS.id sering melaporkan speed 0 sesaat (berhenti di lampu merah,
+  // macet, jitter sinyal) walau mobilnya sungguh sedang jalan, jadi tombol
+  // sering "hilang"/keliatan tidak bisa diklik padahal semestinya ada.
+  // TETAP hanya muncul kalau memang ada mobil jalan (perilaku semula
+  // dipertahankan, BUKAN selalu tampil) -- yang diperbaiki cuma 2 hal:
+  // (1) syarat dilonggarkan jadi "mesin ON" saja (tidak lagi wajib
+  // speed>0 PERSIS di detik pengecekan -- itu yang bikin sering meleset),
+  // (2) dicek BERULANG selama Dashboard terbuka (tiap 20 detik, lihat
+  // interval di bawah), bukan cuma SEKALI saat halaman pertama dimuat --
+  // supaya begitu ada mobil mulai jalan SETELAH Dashboard dibuka, tombolnya
+  // ikut muncul sendiri tanpa perlu reload manual.
+  if(dashLacakJalanTimer) clearInterval(dashLacakJalanTimer);
   refreshLacakMobilJalanButton();
+  dashLacakJalanTimer = setInterval(()=>{
+    if(currentRoute!=='dashboard' || document.hidden){ clearInterval(dashLacakJalanTimer); dashLacakJalanTimer=null; return; }
+    refreshLacakMobilJalanButton();
+  }, 20000);
+
 
   // v3.237.0 -- BARU: wiring hero. Tombol .quick-action-btn di dalam hero
   // OTOMATIS kepasang lewat wiring QUICK_ACTION_MAP di atas (elemen sama
@@ -10085,9 +10105,28 @@ function renderDashboard(){
 // refresh berkelanjutan (beda dari halaman penuh Lacak Kendaraan), supaya
 // tidak menambah beban permintaan GPS.id di halaman yang bukan tempatnya.
 async function refreshLacakMobilJalanButton(){
+  // v3.272.0 -- PERBAIKAN BUG: tombol ini TETAP hanya muncul kalau memang
+  // ada mobil yang sedang jalan (perilaku semula dipertahankan) -- yang
+  // diperbaiki cuma cara deteksinya:
+  // (1) syarat "speed>0 PERSIS di detik pengecekan" DIHAPUS -- GPS.id sering
+  //     lapor speed 0 sesaat (lampu merah, macet, jitter sinyal) walau mesin
+  //     tetap menyala & mobil sungguh sedang dipakai jalan; sekarang cukup
+  //     "mesin ON" (accOn) dari GPS.id, SAMA seperti syarat notifikasi
+  //     Telegram "Mesin Kendaraan Dinyalakan" yang sudah ada.
+  // (2) ditambah sinyal cadangan: kalau GPS.id mobil itu tidak/belum
+  //     terhubung (belum diisi IMEI, dsb) TAPI ada trip yang sedang berjalan
+  //     (state.usage status 'digunakan'), tombol tetap dimunculkan --
+  //     supaya tidak bergantung 100% pada GPS.id kalau datanya sedang tidak
+  //     tersedia, padahal aplikasi sendiri tahu ada mobil yang "jalan".
+  // Dipanggil BERULANG (lihat dashLacakJalanTimer di renderDashboard), bukan
+  // cuma sekali -- supaya begitu mobil mulai jalan setelah Dashboard sudah
+  // terbuka, tombolnya ikut muncul sendiri tanpa perlu reload manual.
   const btn = document.getElementById('qa-lacak-jalan');
   if(!btn) return;
-  if(!isGhConnected()){ btn.style.display = 'none'; return; }
+
+  const adaTripAktif = state.usage.some(u=>u.status==='digunakan');
+
+  if(!isGhConnected()){ btn.style.display = adaTripAktif ? '' : 'none'; return; }
   try{
     const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/gpsid/vehicles`, { headers: { 'accept':'application/json' } });
     const data = await res.json().catch(()=> null);
@@ -10099,18 +10138,16 @@ async function refreshLacakMobilJalanButton(){
 
     const btnNow = document.getElementById('qa-lacak-jalan');
     if(!btnNow) return; // Dashboard sudah ditinggalkan selagi fetch berjalan
-    if(!res.ok || !list){ btnNow.style.display = 'none'; return; }
+    if(!res.ok || !list){ btnNow.style.display = adaTripAktif ? '' : 'none'; return; }
 
-    const adaYangJalan = list.some(v=>{
+    const adaMesinNyala = list.some(v=>{
       const accRaw = v.acc ?? v.acc_status ?? v.status_mesin ?? null;
-      const accOn = accRaw===1 || accRaw===true || String(accRaw).toUpperCase()==='ON';
-      const speed = Number(v.speed ?? v.kecepatan ?? 0) || 0;
-      return accOn && speed > 0;
+      return accRaw===1 || accRaw===true || String(accRaw).toUpperCase()==='ON';
     });
-    btnNow.style.display = adaYangJalan ? '' : 'none';
+    btnNow.style.display = (adaMesinNyala || adaTripAktif) ? '' : 'none';
   } catch(e){
     const btnErr = document.getElementById('qa-lacak-jalan');
-    if(btnErr) btnErr.style.display = 'none';
+    if(btnErr) btnErr.style.display = adaTripAktif ? '' : 'none';
   }
 }
 
