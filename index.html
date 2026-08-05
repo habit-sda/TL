@@ -25,13 +25,13 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.270.0">
+<meta name="app-version" content="3.277.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
      disamakan dengan variabel APP_VERSION di kode JavaScript setiap rilis. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Amiri:wght@400;700&family=Noto+Naskh+Arabic:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;800&family=JetBrains+Mono:wght@500;700&family=Amiri:wght@400;700&family=Noto+Naskh+Arabic:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root{
     --navy:#161C27;
@@ -1069,9 +1069,15 @@
   }
   #desktop-lock-banner .dlb-mark img{width:56px;height:56px;display:block;}
   #desktop-lock-banner h1{
+    font-family:'Manrope',sans-serif;
     font-size:34px;font-weight:800;letter-spacing:-.5px;margin:0 0 8px;color:var(--navy);
   }
-  #desktop-lock-banner .dlb-tagline{font-size:15px;color:var(--muted);letter-spacing:.2px;}
+  #desktop-lock-banner h1 .dlb-ops{color:var(--blue);}
+  #desktop-lock-banner .dlb-tagline{
+    font-family:'Manrope',sans-serif;
+    font-weight:500;
+    font-size:15px;color:var(--muted);letter-spacing:1px;
+  }
   #desktop-lock-banner .dlb-trigger{
     cursor:pointer;opacity:.4;
     padding:10px 12px;margin:-10px -4px;
@@ -1085,6 +1091,32 @@
   body.desktop-locked #sidebar,
   body.desktop-locked #mobile-bottom-nav,
   body.desktop-locked #main{display:none !important;}
+
+  /* v3.277.0 -- BARU: layar boot khusus HP ("Mode Sopir" & semua role lain
+     yang buka lewat ikon app di homescreen). BEDA dgn #desktop-lock-banner
+     di atas (itu layar KUNCI yang tetap ada selama sesi berjalan di
+     desktop) -- #app-boot-screen ini cuma tampil SEBENTAR (mengisi jeda
+     <2 detik yang sudah ada sebelumnya saat app baru dibuka), lalu hilang
+     sendiri begitu boot selesai (lihat hideAppBootScreen() di bawah <div>
+     -nya). Isinya SENGAJA cuma 1 file gambar utuh (icons/splash-boot.png,
+     dipakai apa adanya, TIDAK direkonstruksi pakai CSS/teks/ilustrasi
+     manual) sesuai desain yang diberikan -- beda pendekatan dgn wordmark
+     #desktop-lock-banner yang memang dibangun dari teks+CSS.
+     display:none di default (desktop) -- HANYA dimunculkan di breakpoint
+     HP lewat media query di bawah, karena gambarnya didesain portrait utk
+     layar HP dan desktop sudah punya #desktop-lock-banner sendiri. */
+  #app-boot-screen{
+    display:none;
+    position:fixed;inset:0;z-index:9999;
+    background:#F5F6F8; /* sama dgn background_color di manifest.json, supaya menyatu mulus dgn splash native OS sebelum ini muncul, tanpa kedip warna */
+    align-items:center;justify-content:center;
+    transition:opacity .35s ease;
+  }
+  #app-boot-screen img{width:100%;height:100%;object-fit:contain;display:block;}
+  #app-boot-screen.abs-hide{opacity:0;pointer-events:none;}
+  @media(max-width:768px){
+    #app-boot-screen{display:flex;}
+  }
 
   /* ---------------- Ikon bulat berwarna (badge KPI ala mockup) ---------------- */
   .icon-badge{
@@ -1864,6 +1896,29 @@
 </head>
 <body>
 
+<!-- v3.277.0 -- BARU: layar boot khusus HP, lihat catatan lengkap di blok CSS
+     #app-boot-screen. Ditaruh PALING AWAL di <body> (sebelum elemen lain
+     apa pun) supaya sempat dicat browser secepat mungkin, mengisi jeda
+     <2 detik yang sudah ada sebelumnya sebelum konten app tampil. -->
+<div id="app-boot-screen"><img src="icons/splash-boot.png" alt="FleetOps"></div>
+<script>
+  // Disembunyikan dari 2 jalur independen supaya tidak pernah "nyangkut":
+  // 1) dipanggil manual oleh app utama begitu boot-nya sendiri selesai
+  //    (lihat pemanggilan hideAppBootScreen() dekat checkStartupVersionChange()
+  //    di script utama paling bawah).
+  // 2) fallback timer di sini SENDIRI (independen dari script utama) --
+  //    kalau skrip utama gagal/error sebelum sempat memanggil no.1, layar
+  //    boot ini tetap otomatis hilang setelah 2.5 detik, bukan nyangkut
+  //    menutupi seluruh app selamanya.
+  function hideAppBootScreen(){
+    var el = document.getElementById('app-boot-screen');
+    if(!el || el.classList.contains('abs-hide')) return;
+    el.classList.add('abs-hide');
+    setTimeout(function(){ el.style.display = 'none'; }, 400);
+  }
+  setTimeout(hideAppBootScreen, 2500);
+</script>
+
 <!-- BARU -- Banner kunci Desktop, lihat catatan lengkap di blok CSS
      #desktop-lock-banner & fungsi applyDesktopLockBanner() di script. -->
 <div id="desktop-lock-banner">
@@ -1871,7 +1926,7 @@
   <div class="dlb-scan"></div>
   <div class="dlb-center">
     <div class="dlb-mark"><img src="icons/icon-192.png" alt="FleetOps"></div>
-    <h1>FleetOps</h1>
+    <h1>Fleet<span class="dlb-ops">Ops</span></h1>
     <div class="dlb-tagline">Stay in Control <span class="dlb-trigger" id="desktop-lock-trigger" title="">&middot;</span></div>
   </div>
 </div>
@@ -2097,7 +2152,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.272.0';
+const APP_VERSION = '3.277.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -19752,6 +19807,51 @@ function wirePinEnterKey(inputId){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '3.277.0',
+    date: '05 Agu 2026',
+    notes: [
+      '🎨 BARU: layar boot khusus HP (muncul singkat saat ikon FleetOps di homescreen disentuh, mengisi jeda loading awal <2 detik yang sudah ada sebelumnya). Pakai gambar utuh yang diberikan langsung (icons/splash-boot.png) apa adanya -- tidak direkonstruksi pakai CSS/teks. Hanya tampil di layar HP (≤768px); desktop tidak berubah (tetap pakai #desktop-lock-banner yang sudah ada).',
+      '📁 WAJIB: unggah file baru icons/splash-boot.png ke hosting (folder yang sama dengan index.html) sebelum rilis ini aktif -- kalau file belum ada, area boot screen akan tampil kosong/ikon rusak selama <2.5 detik sebelum otomatis hilang (ada fallback timer, jadi tidak nyangkut).',
+    ]
+  },
+  {
+    v: '3.276.0',
+    date: '05 Agu 2026',
+    notes: [
+      '🎨 Tampilan layar kunci "Mode Sopir" di desktop (banner "FleetOps — Stay in Control" yang muncul saat akun Sopir dibuka lewat browser desktop) diperbarui mengikuti wordmark resmi baru: judul "FleetOps" pakai font Manrope ExtraBold dengan kata "Fleet" hitam & "Ops" biru (sama dengan biru logo), tagline "Stay in Control" pakai Manrope Medium dengan letter-spacing sedikit lebih lebar. Logo/ikon tidak berubah.',
+      '🐛 Sekalian ditemukan & diperbaiki: tag <meta name="app-version"> di &lt;head&gt; sempat tidak disamakan dengan APP_VERSION (3.270.0 vs 3.275.0) -- disamakan lagi.',
+    ]
+  },
+  {
+    v: '3.275.0',
+    date: '05 Agu 2026',
+    notes: [
+      '📐 SOP BARU (ditulis langsung sbg komentar di worker.js, di atas buildAlertMessageText): aturan wajib utk semua notifikasi Telegram ke depan -- judul singkat & baku, keterangan wajib sebutkan identitas mobil/subjek dgn kalimat lengkap, nada profesional (hindari frasa kasual spt "Abaikan kalau...", "Info saja..."), dan level cuma boleh danger/warn/info.',
+      '🛡️ Pengaman baru: kalau suatu saat ada notifikasi dgn judul/keterangan kosong (bug data), sekarang otomatis diganti teks fallback yang tetap jelas ("(rincian tidak tersedia -- cek aplikasi FleetOps)") -- BUKAN lagi baris kosong yang membingungkan. Ini melengkapi perbaikan "grup Info" di v3.273.0, jadi kelas bug "notifikasi terlihat kosong" ini seharusnya tidak terulang lagi dari sumber mana pun.',
+      '✍️ 3 kalimat notifikasi dirapikan jadi lebih formal/profesional (Dokumen Kadaluarsa, Peringatan Rute Menyimpang, Trip Belum Ditandai Tiba) -- makna & informasinya SAMA, cuma pilihan katanya lebih baku.',
+      '🔧 Perubahan cuma di worker.js -- WAJIB upload ulang ke Cloudflare Worker supaya aktif.',
+    ]
+  },
+  {
+    v: '3.274.0',
+    date: '05 Agu 2026',
+    notes: [
+      '✍️ Keterangan notifikasi "Mesin Dinyalakan" ditulis ulang lebih formal/profesional: "Mesin kendaraan [Merk Model — Plat] telah dinyalakan." (sebelumnya "[mobil] — kontak baru saja diputar ON."). Judulnya juga diubah jadi "Mesin Kendaraan Dinyalakan".',
+      '🔔 Menyusul perbaikan bug pesan kosong di rilis sebelumnya (v3.273.0), notifikasi ini DIKEMBALIKAN ke default AKTIF untuk Administrator (sempat dimatikan sementara) -- sekarang aman karena isinya sudah tampil benar & bahasanya sudah profesional.',
+      '🔧 Perubahan cuma di worker.js -- WAJIB upload ulang ke Cloudflare Worker supaya perbaikan ini aktif.',
+    ]
+  },
+  {
+    v: '3.273.0',
+    date: '05 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG: notifikasi Telegram ke Administrator (👑) kadang terlihat KOSONG (cuma judul "FleetOps — Info Administrator" + jam kirim, tanpa isi) -- penyebabnya alert "🔑 Mesin Dinyalakan" pakai level "info" yang tidak dikenali fungsi perakit pesan (cuma tahu 🔴 Mendesak / 🟡 Perlu Diperhatikan), jadi isinya diam-diam hilang walau pesan tetap terkirim. Sekarang level info punya grup tampilan sendiri (ℹ️) supaya tidak pernah kosong lagi.',
+      '🔕 Notifikasi "Mesin Dinyalakan" ke Administrator DIMATIKAN dari default (sebelumnya nyala) -- levelnya memang cuma info biasa, bukan warn/danger, dan frekuensinya tinggi (tiap kontak mobil mana pun diputar ON) sehingga dianggap bukan info penting untuk disiarkan. Bisa dinyalakan lagi kapan saja lewat menu "🔔 Notifikasi Telegram per Peran" atau ketik ke bot "nyalakan notifikasi mesin nyala untuk admin". Role Admin/Sopir/Finance biasa TIDAK berubah.',
+      '⚠️ Kalau Administrator masih terus dapat notifikasi ini setelah update (karena preferensinya sempat tersimpan manual sebelumnya), matikan sekali lagi manual lewat menu tsb.',
+      '🔧 Perubahan cuma di worker.js -- WAJIB upload ulang ke Cloudflare Worker supaya perbaikan ini aktif.',
+    ]
+  },
+  {
     v: '3.272.0',
     date: '05 Agu 2026',
     notes: [
@@ -23182,6 +23282,7 @@ if ('serviceWorker' in navigator) {
     openPopupInformational(APP_VERSION, latest ? latest.notes : []);
   }
   checkStartupVersionChange();
+  hideAppBootScreen(); // v3.277.0 -- boot app selesai, sembunyikan #app-boot-screen (jalur utama; fallback timer independen ada di dekat <div>-nya)
 
   window.addEventListener('load', () => {
     // Tambahkan ?v=APP_VERSION di alamat sw.js supaya SETIAP kali versi aplikasi
