@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.283.0">
+<meta name="app-version" content="3.284.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2248,7 +2248,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.283.0';
+const APP_VERSION = '3.284.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -12766,9 +12766,16 @@ function openBiayaOperasionalModal(usageId){
   const levelSebelumMax = (car && car.tipeIndikatorBbm==='bar') ? (car.maxBarBbm||8) : 100;
   const levelSebelumSatuan = (car && car.tipeIndikatorBbm==='bar') ? 'Bar' : '%';
 
+  // Proteksi "kunci item tersimpan": item yang SUDAH tersimpan (dibaca dari
+  // u.biayaOperasional saat modal dibuka) ditandai locked:true & savedOriginally:true
+  // -- ditampilkan sebagai kartu ringkasan baca-saja (bukan form), supaya tidak
+  // bisa kesentuh/kehapus tanpa sengaja. Harus tap "✏️ Edit" dulu (per item)
+  // baru field-nya terbuka utk diubah/dihapus. Item BARU yang ditambah lewat
+  // "+ Tambah Item" TETAP langsung terbuka (locked:false) -- proteksi ini
+  // cuma utk data yang sudah tersimpan, bukan menghambat alur tambah biasa.
   let formItems = usageBiayaOpItems(u).length > 0
-    ? usageBiayaOpItems(u).map(it=>({ id: it.id||uid(), kategori: it.kategori, kategoriCustom: isBiayaOpCategory(it.kategori)?'':it.kategori, nominal: it.nominal, biayaAdmin: it.biayaAdmin||'', catatan: it.catatan||'', jenisBbm: it.jenisBbm||'', jenisBbmCustom: '', literValidasi: it.literValidasi||'', literIsi: it.literIsi||'', bensinSebelumIsi: it.bensinSebelumIsi??'' }))
-    : [{ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'', jenisBbm:'', jenisBbmCustom:'', literValidasi:'', literIsi:'', bensinSebelumIsi:'' }];
+    ? usageBiayaOpItems(u).map(it=>({ id: it.id||uid(), kategori: it.kategori, kategoriCustom: isBiayaOpCategory(it.kategori)?'':it.kategori, nominal: it.nominal, biayaAdmin: it.biayaAdmin||'', catatan: it.catatan||'', jenisBbm: it.jenisBbm||'', jenisBbmCustom: '', literValidasi: it.literValidasi||'', literIsi: it.literIsi||'', bensinSebelumIsi: it.bensinSebelumIsi??'', savedOriginally:true, locked:true }))
+    : [{ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'', jenisBbm:'', jenisBbmCustom:'', literValidasi:'', literIsi:'', bensinSebelumIsi:'', savedOriginally:false, locked:false }];
   // Normalisasi: kalau kategori tersimpan bukan salah satu dari daftar baku, anggap "Lainnya" + custom.
   formItems = formItems.map(it=>{
     if(it.kategori && !BIAYA_OP_CATEGORIES.includes(it.kategori)){
@@ -12822,6 +12829,12 @@ function openBiayaOperasionalModal(usageId){
 
   function syncFromDom(){
     formItems.forEach(it=>{
+      // Item yang sedang locked TIDAK punya elemen form di DOM sama sekali
+      // (dirender sbg kartu ringkasan baca-saja) -- kalau tetap dipaksa baca
+      // 'bo-nominal-'+it.id di sini, getRibuanValue() akan balikin '' (elemen
+      // tidak ketemu) dan MENIMPA nominal yang sudah tersimpan jadi kosong.
+      // Lewati item locked sepenuhnya -- tidak ada apa pun utk disinkron.
+      if(it.locked) return;
       const katEl = document.getElementById('bo-kat-'+it.id);
       const katCustomEl = document.getElementById('bo-katcustom-'+it.id);
       const adminEl = document.getElementById('bo-biayaadmin-'+it.id);
@@ -12844,7 +12857,10 @@ function openBiayaOperasionalModal(usageId){
     });
   }
   function updateTotal(){
-    const total = formItems.reduce((sum,it)=> sum + (Number(getRibuanValue('bo-nominal-'+it.id))||0), 0);
+    // Item locked pakai it.nominal langsung (tidak ada input di DOM utk
+    // dibaca) -- item yang sedang terbuka tetap baca dari DOM spt biasa,
+    // supaya Total ikut naik/turun real-time sambil diketik.
+    const total = formItems.reduce((sum,it)=> sum + (it.locked ? (Number(it.nominal)||0) : (Number(getRibuanValue('bo-nominal-'+it.id))||0)), 0);
     const el = document.getElementById('biayaop-total');
     if(el) el.textContent = fmtMoney(total);
   }
@@ -12862,10 +12878,41 @@ function openBiayaOperasionalModal(usageId){
     const net = rpEtoll - biayaAdmin;
     infoEl.textContent = `Bersih masuk saldo kartu: ${fmtMoney(net)}`;
   }
+  // Kartu ringkasan baca-saja utk item yang sedang locked (sudah tersimpan &
+  // belum ditekan "Edit") -- ditaruh terpisah dari template form editable di
+  // bawah supaya keduanya gampang dibedakan/dirawat sendiri-sendiri. Cuma
+  // menampilkan info penting (kategori, nominal, catatan, dll) + 1 tombol
+  // "✏️ Edit" -- SENGAJA tidak ada tombol hapus di sini (itu intinya proteksi
+  // ini: hapus/ubah harus lewat Edit dulu, tidak bisa langsung dari kartu).
+  function renderLockedBiayaOpCard(it){
+    const displayKategori = it.kategori==='__lainnya__' ? (it.kategoriCustom||'(tanpa nama)') : (it.kategori||'(tanpa kategori)');
+    const subParts = [];
+    if(it.kategori==='Isi BBM'){
+      const displayJenisBbm = it.jenisBbm==='__lainnya__' ? it.jenisBbmCustom : it.jenisBbm;
+      if(displayJenisBbm) subParts.push(displayJenisBbm);
+      const literInfo = isPribadi ? it.literValidasi : it.literIsi;
+      if(literInfo) subParts.push(`${literInfo} L`);
+    }
+    if(it.kategori==='Isi E-Toll' && Number(it.biayaAdmin)>0) subParts.push(`Admin ${fmtMoney(Number(it.biayaAdmin))}`);
+    return `
+      <div style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--card);display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="badge neutral" style="font-size:10.5px;">🔒 Tersimpan</span>
+            <span style="font-size:13px;font-weight:600;color:var(--text);">${escapeHtml(displayKategori)}</span>
+          </div>
+          <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-top:3px;">${fmtMoney(Number(it.nominal)||0)}</div>
+          ${subParts.length ? `<div style="font-size:11px;color:var(--muted);margin-top:1px;">${escapeHtml(subParts.join(' · '))}</div>` : ''}
+          ${it.catatan ? `<div style="font-size:11.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📝 ${escapeHtml(it.catatan)}</div>` : ''}
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" data-edit-boitem="${it.id}" style="flex-shrink:0;white-space:nowrap;">✏️ Edit</button>
+      </div>
+    `;
+  }
   function renderItems(){
     const wrap = document.getElementById('biayaop-items-wrap');
     if(!wrap) return;
-    wrap.innerHTML = formItems.map(it=>`
+    wrap.innerHTML = formItems.map(it=> it.locked ? renderLockedBiayaOpCard(it) : `
       <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--hover-bg);">
         <div class="${it.kategori==='Isi BBM' ? '' : 'grid-2'}">
           <div class="field" style="margin-bottom:8px;">
@@ -12940,12 +12987,17 @@ function openBiayaOperasionalModal(usageId){
           <label>Catatan (opsional)</label>
           <input type="text" id="bo-catatan-${it.id}" value="${escapeHtml(it.catatan||'')}" placeholder="Detail tambahan">
         </div>
-        ${formItems.length>1 ? `<button type="button" class="btn btn-danger btn-sm" data-remove-boitem="${it.id}">Hapus Item Ini</button>` : ''}
+        ${(formItems.length>1 || it.savedOriginally) ? `
+        <div style="display:flex;gap:8px;margin-top:${formItems.length>1?'8px':'4px'};">
+          ${formItems.length>1 ? `<button type="button" class="btn btn-danger btn-sm" data-remove-boitem="${it.id}" style="flex:1;">Hapus Item Ini</button>` : ''}
+          ${it.savedOriginally ? `<button type="button" class="btn btn-ghost btn-sm" data-lock-boitem="${it.id}" style="flex:1;">🔒 Kunci Lagi</button>` : ''}
+        </div>` : ''}
       </div>
     `).join('');
     enhanceAllSelects(wrap);
 
     formItems.forEach(it=>{
+      if(it.locked) return; // kartu ringkasan, tidak ada elemen form utk disambungkan
       const katEl = document.getElementById('bo-kat-'+it.id);
       if(katEl) katEl.addEventListener('change', ()=>{ syncFromDom(); renderItems(); });
       const jenisBbmEl = document.getElementById('bo-jenisbbm-'+it.id);
@@ -12959,6 +13011,21 @@ function openBiayaOperasionalModal(usageId){
         if(adminEl) adminEl.addEventListener('input', ()=> updateEtollNetInfo(it.id));
         updateEtollNetInfo(it.id);
       }
+    });
+    // "✏️ Edit" (kartu locked -> buka field-nya) -- tidak perlu syncFromDom
+    // dulu krn item locked memang tidak punya apa pun di DOM utk disinkron.
+    wrap.querySelectorAll('[data-edit-boitem]').forEach(b=> b.onclick = ()=>{
+      const it = formItems.find(x=> x.id===b.dataset.editBoitem);
+      if(it) it.locked = false;
+      renderItems(); updateTotal();
+    });
+    // "🔒 Kunci Lagi" -- syncFromDom dulu supaya perubahan yang barusan diketik
+    // tidak hilang begitu kartunya balik jadi ringkasan baca-saja.
+    wrap.querySelectorAll('[data-lock-boitem]').forEach(b=> b.onclick = ()=>{
+      syncFromDom();
+      const it = formItems.find(x=> x.id===b.dataset.lockBoitem);
+      if(it) it.locked = true;
+      renderItems(); updateTotal();
     });
     wrap.querySelectorAll('[data-remove-boitem]').forEach(b=> b.onclick = ()=>{
       syncFromDom();
@@ -13075,7 +13142,7 @@ function openBiayaOperasionalModal(usageId){
   renderItems();
   document.getElementById('btn-add-biayaop-item').addEventListener('click', ()=>{
     syncFromDom();
-    formItems.push({ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'', jenisBbm:'', jenisBbmCustom:'', literValidasi:'', literIsi:'', bensinSebelumIsi:'' });
+    formItems.push({ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'', jenisBbm:'', jenisBbmCustom:'', literValidasi:'', literIsi:'', bensinSebelumIsi:'', savedOriginally:false, locked:false });
     renderItems();
   });
   const btnCopyBiayaOp = document.getElementById('btn-copy-biayaop-report');
@@ -19985,6 +20052,13 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.284.0',
+    date: '06 Agu 2026',
+    notes: [
+      '🔒 BARU: proteksi item pada form "🧾 Biaya Operasional"/"🏠 Biaya Pribadi" -- item yang SUDAH tersimpan sekarang tampil sebagai kartu ringkasan terkunci (kategori, nominal, catatan), harus tap "✏️ Edit" dulu per item baru bisa diubah/dihapus, supaya tidak kesentuh/kehapus tanpa sengaja. Item BARU yang ditambah lewat "+ Tambah Item" TETAP langsung terbuka seperti biasa (tidak perlu Edit dulu) -- alur tambah cepat tidak terganggu. Tersedia tombol "🔒 Kunci Lagi" utk mengunci ulang item yang baru selesai diedit. Murni perubahan tampilan/alur (index.html) -- struktur data (<code>u.biayaOperasional</code>), daftar kategori, dan endpoint <code>worker.js</code>/bot Telegram TIDAK berubah. <code>sw.js</code> WAJIB diupload ulang (CACHE_VERSION dinaikkan) supaya popup "Versi Baru Tersedia" muncul -- <code>worker.js</code> TIDAK perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.283.0',
     date: '06 Agu 2026',
