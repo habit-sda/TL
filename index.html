@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.282.0">
+<meta name="app-version" content="3.283.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -413,7 +413,7 @@
   .etoll-merged-divider{border-top:1px dashed var(--line);margin:11px 0;}
   .etoll-saldo-label-row{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
   .etoll-saldo-label-row .tag{font-size:9.5px;font-weight:700;color:var(--blue);background:var(--blue-bg);padding:1px 6px;border-radius:10px;text-transform:none;letter-spacing:0;}
-  .etoll-input-row{display:flex;align-items:center;background:var(--card);border:1.5px solid var(--blue);border-radius:8px;padding:0 12px;}
+  .etoll-input-row{display:flex;align-items:center;background:var(--card);border:1.5px solid var(--blue);border-radius:var(--radius);padding:0 12px;} /* v3.283.0 -- dulu 8px hardcode, disamakan --radius */
   .etoll-input-row .prefix{font-size:16px;font-weight:700;color:var(--muted);margin-right:2px;}
   .etoll-input-row input{border:none;outline:none;flex:1;font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace;padding:9px 0;color:var(--text);background:transparent;width:100%;min-width:0;}
   .etoll-input-row input:focus{box-shadow:none;}
@@ -1233,7 +1233,8 @@
   }
   .cdd-control{
     display:flex;align-items:center;justify-content:space-between;gap:8px;
-    border:1px solid var(--line);border-radius:7px;padding:9px 10px;
+    border:1px solid var(--line);border-radius:var(--radius); /* v3.283.0 -- dulu 7px hardcode */
+    padding:9px 10px;
     background:var(--card);color:var(--text);cursor:pointer;font-size:13px;font-family:inherit;
     transition:border-color .15s, box-shadow .15s;
     min-width:0; /* v3.69.0 -- WAJIB di dalam .grid-2/flex sempit, kalau
@@ -1299,6 +1300,22 @@
      & ikut membulat sesuai induk (border-radius:inherit) apa pun ukurannya. */
   .cdd-photo-icon{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;}
   .cdd-sheet .cdd-control{padding:11px 12px;border-radius:12px;gap:10px;}
+  /* v3.283.0 -- BARU: field Mobil/Sopir di Catat Perjalanan jadi "filled
+     row" gaya Gojek/Grab (baris berlatar abu, label kecil DI DALAM baris
+     di atas nilai) alih-alih kotak putih bergaris dgn <label> terpisah di
+     luar seperti field form biasa -- lihat data-sheet-field-label di JS
+     (enhanceSelectAsDropdown) yang merender .cdd-control-textwrap ini.
+     Ikon 🚗/🧑‍✈️ (data-icon/data-icon-mode) SENGAJA TIDAK diubah sama
+     sekali. Dropdown "sheet" LAIN (kalau ada ke depannya) otomatis ikut
+     gaya ini juga -- kalau memang ada yang mau dikecualikan, scope CSS-nya
+     lebih spesifik lagi (bukan hapus aturan generik ini). */
+  .cdd-sheet .cdd-control{background:var(--bg);border:1px solid var(--bg);}
+  .cdd-sheet.open .cdd-control, .cdd-sheet .cdd-control:focus{
+    border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,111,237,0.12);
+  }
+  .cdd-control-textwrap{display:flex;flex-direction:column;min-width:0;flex:1;}
+  .cdd-control-small-label{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:1px;}
+  .cdd-sheet .cdd-control-label{font-size:14px;font-weight:700;color:var(--text);-webkit-line-clamp:1;}
   .cdd-sheet .cdd-chevron{transform:rotate(-90deg);}
   .cdd-sheet.open .cdd-chevron{transform:rotate(-90deg);}
   .cdd-sheet.open::after{
@@ -1366,6 +1383,22 @@
     cursor:pointer;user-select:none;transition:background .12s,color .12s;
   }
   .tf-chip.active{background:var(--blue);color:#fff;}
+  /* v3.283.0 -- BARU: accordion "Detail tambahan" (Tujuan Tambahan + Link
+     Maps) di Catat Perjalanan, collapsed by default -- pakai <details>/
+     <summary> native (bukan JS custom) supaya sederhana & field di
+     dalamnya TETAP ada di DOM (id-nya tetap bisa dibaca wireXxx()/onSave
+     apa pun status buka/tutup-nya), cuma tampilan visualnya yang
+     disembunyikan. Kartu Saldo E-Toll SENGAJA TIDAK ikut masuk sini
+     (tetap tampil penuh spt sebelumnya) -- keputusan user. */
+  .tf-accordion{border-top:1px solid var(--line);margin-top:12px;padding-top:2px;}
+  .tf-accordion summary{
+    list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+    padding:10px 0;font-size:12.5px;font-weight:700;color:var(--muted);user-select:none;
+  }
+  .tf-accordion summary::-webkit-details-marker{display:none;}
+  .tf-accordion summary .tf-accordion-chevron{transition:transform .18s;flex-shrink:0;color:var(--muted);}
+  .tf-accordion[open] summary .tf-accordion-chevron{transform:rotate(180deg);}
+  .tf-accordion-body{padding-bottom:2px;}
 
   /* ---------------- Modal "Akhiri Trip" gaya Gojek/Grab (v3.225.0) ----------------
      SENGAJA di-scope KHUSUS ke .trip-end-modal (lewat modalClass baru di
@@ -1453,7 +1486,9 @@
   .field input, .field select, .field textarea{
     width:100%;
     border:1px solid var(--line);
-    border-radius:7px;
+    border-radius:var(--radius); /* v3.283.0 -- disamakan dgn --radius (dulu
+      hardcode 7px) supaya konsisten dgn .cdd-control & .etoll-input-row,
+      lihat catatan "poin 5" di dekat definisi --radius di :root */
     padding:9px 10px;
     font-size:13px;
     font-family:inherit;
@@ -1494,6 +1529,13 @@
     animation:toastIn .18s ease;
   }
   .toast.err{background:var(--red);}
+  /* v3.283.0 -- BARU: varian "success" (hijau) + ikon kecil opsional lewat
+     parameter ke-3 di showToast(), dipakai KHUSUS utk aksi penting spt
+     Berangkat/Akhiri Trip supaya ada micro-feedback yang lebih terasa
+     "berhasil" drpd toast teks polos biasa (gaya Gojek/Grab). Toast LAIN
+     yang tidak dikasih parameter icon tetap tampil sama seperti sebelumnya. */
+  .toast.success{background:var(--green);}
+  .toast .toast-ic{font-size:15px;flex-shrink:0;line-height:1;}
   @keyframes toastIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
 
   /* footer */
@@ -2206,7 +2248,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.282.0';
+const APP_VERSION = '3.283.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -5682,11 +5724,21 @@ document.addEventListener('click', (e)=>{
   }
 });
 
-function showToast(msg, isErr){
+function showToast(msg, isErr, icon){
+  // v3.283.0 -- parameter ke-3 (icon) BARU, opsional -- kalau diisi (mis.
+  // '✅'), toast tampil sbg varian hijau "success" dgn ikon kecil di depan
+  // teks (micro-feedback lebih terasa "berhasil" utk aksi penting spt
+  // Berangkat/Akhiri Trip, gaya Gojek/Grab). Toast lama yang dipanggil
+  // tanpa parameter ini (mayoritas di app) TIDAK berubah tampilannya sama
+  // sekali -- default tetap toast navy teks polos seperti sebelumnya.
   const wrap = document.getElementById('toast-wrap');
   const el = document.createElement('div');
-  el.className = 'toast' + (isErr ? ' err' : '');
-  el.textContent = msg;
+  el.className = 'toast' + (isErr ? ' err' : (icon ? ' success' : ''));
+  if(icon){
+    el.innerHTML = `<span class="toast-ic">${icon}</span><span>${escapeHtml(msg)}</span>`;
+  } else {
+    el.textContent = msg;
+  }
   wrap.appendChild(el);
   setTimeout(()=>{ el.remove(); }, 3200);
 }
@@ -8864,7 +8916,25 @@ function enhanceSelectAsDropdown(select){
   }
   const labelSpan = document.createElement('span');
   labelSpan.className = 'cdd-control-label';
-  control.appendChild(labelSpan);
+  // v3.283.0 -- BARU: kalau select dikasih data-sheet-field-label (dipakai
+  // KHUSUS Mobil/Sopir di Catat Perjalanan), labelSpan dibungkus 1 wrapper
+  // tambahan bareng label kecil statis DI DALAM baris (gaya "filled row"
+  // Gojek/Grab) alih-alih <label> terpisah di luar kotak seperti field
+  // form biasa. Dropdown lain (tanpa atribut ini) TIDAK berubah -- labelSpan
+  // langsung ditempel ke control seperti sebelumnya.
+  const fieldLabel = select.dataset.sheetFieldLabel;
+  if(fieldLabel){
+    const textWrap = document.createElement('span');
+    textWrap.className = 'cdd-control-textwrap';
+    const smallLabel = document.createElement('span');
+    smallLabel.className = 'cdd-control-small-label';
+    smallLabel.textContent = fieldLabel;
+    textWrap.appendChild(smallLabel);
+    textWrap.appendChild(labelSpan);
+    control.appendChild(textWrap);
+  } else {
+    control.appendChild(labelSpan);
+  }
   control.insertAdjacentHTML('beforeend', '<svg class="cdd-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
   wrap.appendChild(control);
 
@@ -12435,11 +12505,11 @@ function markReturned(id){
       </div>
     </div>
     <div class="field" id="box-bensin-kembali" style="margin-bottom:10px;">
-      ${renderFuelFieldHTML('in-bensin-kembali', 'Sisa Bensin', getBensinKembali(u), carForFuel)}
+      ${renderFuelFieldHTML('in-bensin-kembali', '⛽ Sisa Bensin', getBensinKembali(u), carForFuel)}
     </div>
     <div class="tf-card">
       <div class="field" style="margin-bottom:0;">
-        <label>Saldo E-Toll (Rp)</label>
+        <label>💳 Saldo E-Toll (Rp)</label>
         <input type="text" inputmode="numeric" id="in-etoll-kembali" placeholder="Contoh: 50.000" value="${fmtRibuanInitial(u.saldoEtoll)}">
         <div class="hint">${linkedCard ? `Terhubung ke kartu ${escapeHtml(linkedCard.nomorKartu)} — saldo di sini akan otomatis memperbarui saldo kartu tersebut.` : 'Perjalanan ini tidak terhubung ke kartu E-Toll manapun.'}</div>
       </div>
@@ -12578,7 +12648,7 @@ function markReturned(id){
           ['biayaBensin', 'Biaya BBM', v=> v==null?'-':fmtMoney(v)],
         ]);
       }
-      showToast('Mobil ditandai telah kembali.');
+      showToast('Mobil ditandai telah kembali.', false, '✅');
       renderActiveTripBubble();
       renderUsage();
       setTimeout(()=> openTripReceiptModal(u.id), 350); // ditunda dikit -- biar modal Tandai Tiba ini selesai tertutup dulu
@@ -14078,14 +14148,17 @@ function openUsageModal(editId, presetCarId){
   const body = `
     <div class="tf-card">
       <div class="field" id="f-car" style="margin-bottom:0;">
-        <label>Mobil *</label>
-        <select id="in-car" data-sheet="1" data-icon="🚗" data-icon-mode="car" data-sheet-title="Pilih mobil" data-sheet-subtitle="Mobil yang sedang dipakai tidak bisa dipilih"><option value="">— pilih mobil —</option>${carOptions}</select>
+        <!-- v3.283.0 -- <label> statis di luar kotak DIHAPUS -- labelnya
+             sekarang dirender DI DALAM baris lewat data-sheet-field-label
+             (lihat enhanceSelectAsDropdown -> .cdd-control-small-label),
+             gaya "filled row" Gojek/Grab. Ikon 🚗/data-icon-mode TIDAK
+             disentuh. -->
+        <select id="in-car" data-sheet="1" data-sheet-field-label="Mobil *" data-icon="🚗" data-icon-mode="car" data-sheet-title="Pilih mobil" data-sheet-subtitle="Mobil yang sedang dipakai tidak bisa dipilih"><option value="">— pilih mobil —</option>${carOptions}</select>
         <div class="err-msg">Pilih mobil yang tersedia.</div>
       </div>
       <div class="tf-row-divider"></div>
       <div class="field" id="f-driver" style="margin-bottom:0;">
-        <label>Sopir *</label>
-        <select id="in-driver" data-sheet="1" data-icon="🧑‍✈️" data-icon-mode="driver" data-sheet-title="Pilih sopir"><option value="">— pilih sopir —</option>${buildDriverOptions(editing?editing.driverId:null)}</select>
+        <select id="in-driver" data-sheet="1" data-sheet-field-label="Sopir *" data-icon="🧑‍✈️" data-icon-mode="driver" data-sheet-title="Pilih sopir"><option value="">— pilih sopir —</option>${buildDriverOptions(editing?editing.driverId:null)}</select>
         <div class="err-msg">Pilih sopir.</div>
       </div>
     </div>
@@ -14114,22 +14187,37 @@ function openUsageModal(editId, presetCarId){
             <div class="hint" id="tujuan-ref-hint" style="display:none;"></div>
             <div class="hint" id="tujuan-locked-hint" style="display:none;"></div>
           </div>
-          <div class="field" style="margin-bottom:0;">
-            <label>Tujuan Tambahan (opsional)</label>
-            <div id="tujuan-tambahan-wrap"></div>
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px;">
-              <div class="hint" style="margin:0;">Kalau trip ini mampir ke lebih dari 1 tempat (mis. antar barang ke beberapa gudang sekaligus), tambahkan di sini -- Odometer & BBM tetap dicatat 1 kali untuk SELURUH trip, bukan per titik.</div>
-              <button type="button" class="btn btn-ghost btn-sm" id="btn-optimalkan-urutan" style="white-space:nowrap;flex-shrink:0;">🔀 Optimalkan Urutan</button>
+          <!-- v3.283.0 -- Tujuan Tambahan + Link Maps DIGABUNG jadi 1
+               accordion collapsed by default (poin 3) -- field opsional ini
+               dulu SELALU tampil penuh (bikin form terasa panjang), sekarang
+               disembunyikan sampai user sengaja buka. Kartu Saldo E-Toll
+               (di bawah, di luar <div style="flex:1"> ini) SENGAJA TIDAK
+               ikut masuk sini, tetap tampil penuh seperti sebelumnya --
+               keputusan user. id/wiring field di dalam TIDAK berubah, cuma
+               dibungkus <details> -- wireTujuanTambahanInput()/
+               wireMapsAutofill() tetap bisa baca elemennya apa pun status
+               buka/tutup accordion-nya. -->
+          <details class="tf-accordion" ${editing && ((Array.isArray(editing.tujuanTambahan)&&editing.tujuanTambahan.length) || editing.mapsLink) ? 'open' : ''}>
+            <summary>➕ Detail tambahan (tujuan tambahan, link Maps)<svg class="tf-accordion-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+            <div class="tf-accordion-body">
+              <div class="field" style="margin-bottom:0;">
+                <label>Tujuan Tambahan (opsional)</label>
+                <div id="tujuan-tambahan-wrap"></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                  <div class="hint" style="margin:0;">Kalau trip ini mampir ke lebih dari 1 tempat (mis. antar barang ke beberapa gudang sekaligus), tambahkan di sini -- Odometer & BBM tetap dicatat 1 kali untuk SELURUH trip, bukan per titik.</div>
+                  <button type="button" class="btn btn-ghost btn-sm" id="btn-optimalkan-urutan" style="white-space:nowrap;flex-shrink:0;">🔀 Optimalkan Urutan</button>
+                </div>
+                <div id="optimalkan-urutan-hasil" class="hint" style="display:none;"></div>
+              </div>
+              <div class="field" style="margin-bottom:0;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">
+                <label>Link Google Maps Tujuan (opsional)</label>
+                <input type="text" id="in-maps-link" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
+                <div id="maps-link-preview" style="margin-top:6px;"></div>
+                <div class="hint">Terisi otomatis kalau tujuan ini sudah pernah dicatat. Klik "Rute" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- otomatis ikut memperbarui Data Tujuan supaya perjalanan berikutnya ke tujuan ini pakai link terbaru juga. Bisa juga diperbarui langsung lewat menu Data Tujuan.</div>
+              </div>
             </div>
-            <div id="optimalkan-urutan-hasil" class="hint" style="display:none;"></div>
-          </div>
+          </details>
         </div>
-      </div>
-      <div class="field" style="margin-bottom:0;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">
-        <label>Link Google Maps Tujuan (opsional)</label>
-        <input type="text" id="in-maps-link" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
-        <div id="maps-link-preview" style="margin-top:6px;"></div>
-        <div class="hint">Terisi otomatis kalau tujuan ini sudah pernah dicatat. Klik "Rute" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- otomatis ikut memperbarui Data Tujuan supaya perjalanan berikutnya ke tujuan ini pakai link terbaru juga. Bisa juga diperbarui langsung lewat menu Data Tujuan.</div>
       </div>
     </div>
     <div class="tf-card">
@@ -14173,12 +14261,12 @@ function openUsageModal(editId, presetCarId){
       </div>
     </div>
     <div class="field" id="box-bensin-keluar" style="margin-bottom:10px;">
-      ${renderFuelFieldHTML('in-bensin', 'Sisa Bensin Saat Berangkat', editing?getBensinKeluar(editing):null, editing?state.cars.find(c=>c.id===editing.carId):null)}
+      ${renderFuelFieldHTML('in-bensin', '⛽ Sisa Bensin Saat Berangkat', editing?getBensinKeluar(editing):null, editing?state.cars.find(c=>c.id===editing.carId):null)}
     </div>
     <div class="tf-card">
       <div class="field" id="f-etoll-card" style="margin-bottom:10px;">
         <label>Kartu E-Toll Dipakai</label>
-        <select id="in-etoll-card">
+        <select id="in-etoll-card" data-icon="💳">
           <!-- v3.73.1 -- field ini DIPINDAH keluar dari grid-2 (dulu
                berdampingan dgn box-bensin-keluar). Akar masalah "sempit"
                ternyata BUKAN soal dropdown-nya (sudah diverifikasi 2 lapis
@@ -14305,7 +14393,7 @@ function openUsageModal(editId, presetCarId){
         }
         saveData();
         logActivity('penggunaan', 'Catat penggunaan mobil', `${carLabel(carId)} — ${tujuan}`);
-        showToast('Penggunaan mobil dicatat.');
+        showToast('Penggunaan mobil dicatat.', false, '✅');
       }
       // v3.121.0 -- "Petugas Aktif" otomatis mengikuti SOPIR TERAKHIR yang
       // dipilih di Catat Perjalanan (permintaan eksplisit, menggantikan
@@ -19860,6 +19948,13 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.283.0',
+    date: '06 Agu 2026',
+    notes: [
+      '🎨 PERBAIKAN TAMPILAN (gaya Gojek/Grab, khusus Catat Perjalanan & Akhiri Trip di HP): (1) field Mobil & Sopir sekarang jadi "filled row" berlatar abu dgn label kecil di dalam baris (bukan kotak putih bergaris + label terpisah di atasnya) -- ikon 🚗/🧑‍✈️/foto TIDAK diubah; (2) ditambahkan ikon kecil 💳 di field Kartu E-Toll & Saldo E-Toll, ⛽ di label Sisa Bensin, supaya lebih gampang dipindai mata; (3) "Tujuan Tambahan" & "Link Google Maps Tujuan" di Catat Perjalanan digabung jadi 1 accordion "➕ Detail tambahan" (collapsed by default, otomatis kebuka kalau sedang Edit trip yang datanya sudah terisi) -- Saldo E-Toll TETAP tampil penuh seperti sebelumnya; (4) radius kotak input/dropdown/baris E-Toll disamakan ke <code>var(--radius)</code> di seluruh app (dulu campuran 7px/8px) -- kartu (<code>.tf-card</code>) TETAP 14px, sengaja dibedakan dari kontrol kecil; (5) toast sukses "Berangkat"/"Akhiri Trip" sekarang tampil hijau + ikon ✅ (toast lain tidak berubah). Murni tampilan -- id field, urutan validasi, dan logika onSave TIDAK disentuh sama sekali.',
+    ]
+  },
   {
     v: '3.282.0',
     date: '06 Agu 2026',
