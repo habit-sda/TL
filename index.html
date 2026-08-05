@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.278.0">
+<meta name="app-version" content="3.279.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -996,6 +996,32 @@
        lebar) tidak cocok untuk layar sempit, jadi di HP cukup tampilan
        Card saja (default) yang bisa dipilih. Desktop tidak terpengaruh. */
     #btn-view-list{display:none;}
+    /* v3.269.0 -- BARU: KHUSUS HP + Mode Sopir terkunci (body.mobile-nav-locked
+       -- kelas ini bisa aktif di lebar layar berapa pun, makanya aturan ini
+       WAJIB tetap di dalam @media(max-width:768px) ini supaya Admin/Operator
+       yang kebetulan buka app di layar lebar tidak ikut berubah) -- field
+       Odometer Saat Berangkat/Tiba (Catat Perjalanan & Tandai Kembali) diberi
+       bingkai kotak biru senada gaya .etoll-input-row (kartu Saldo E-Toll di
+       form yang sama), supaya kedua field angka penting itu terlihat
+       KONSISTEN & gampang dipindai mata sopir saat buru-buru di lapangan.
+       MURNI CSS -- tidak menambah elemen DOM baru, tidak menyentuh
+       id/listener/validasi yang sudah ada (#in-odo-keluar, #in-odo-kembali,
+       setGpsEstimateField(), dst tetap persis sama). Dikecualikan saat
+       .gps-est-active (badge kuning "🛰️ dari GPS.id") lewat :not() supaya
+       tidak terjadi kotak dobel bertumpuk dengan bingkai amber yang sudah
+       ada di kondisi itu -- lihat aturan .field.gps-est-active. */
+    body.mobile-nav-locked #f-odo-keluar:not(.gps-est-active) .gps-est-input-wrap,
+    body.mobile-nav-locked #f-odo-kembali:not(.gps-est-active) .gps-est-input-wrap{
+      background:var(--card);border:1.5px solid var(--blue);border-radius:8px;padding:0 12px;
+    }
+    body.mobile-nav-locked #f-odo-keluar:not(.gps-est-active) .gps-est-input-wrap input,
+    body.mobile-nav-locked #f-odo-kembali:not(.gps-est-active) .gps-est-input-wrap input{
+      border:none;padding:9px 0;box-shadow:none;background:transparent;
+    }
+    body.mobile-nav-locked #f-odo-keluar:not(.gps-est-active) .gps-est-input-wrap input:focus,
+    body.mobile-nav-locked #f-odo-kembali:not(.gps-est-active) .gps-est-input-wrap input:focus{
+      box-shadow:none;
+    }
   }
 
   /* ---------------- Overlay transisi halus saat update diterapkan ----------------
@@ -2180,7 +2206,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.278.0';
+const APP_VERSION = '3.279.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -19834,6 +19860,13 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.279.0',
+    date: '05 Agu 2026',
+    notes: [
+      '🎨 BARU: field "Odometer Saat Berangkat" (Catat Perjalanan) & "Odometer Saat Akhiri Trip" (Tandai Kembali) sekarang tampil dalam bingkai kotak biru senada gaya kartu "Saldo E-Toll Saat Berangkat" -- KHUSUS di Mode Sopir terkunci lewat HP, supaya kedua field angka penting itu terlihat konsisten & gampang dipindai sekilas. Murni tampilan (CSS), tidak ada field/logika yang berubah. Desktop dan tampilan Admin/Operator di HP tidak terpengaruh. worker.js TIDAK perlu diupload ulang (tidak disentuh sama sekali di rilis ini) -- sw.js TETAP perlu diupload ulang seperti biasa.',
+    ]
+  },
   {
     v: '3.278.0',
     date: '05 Agu 2026',
