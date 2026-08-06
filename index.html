@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.285.0">
+<meta name="app-version" content="3.289.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2248,7 +2248,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.285.0';
+const APP_VERSION = '3.289.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -4304,6 +4304,59 @@ function mergeCollection(localArr, localTomb, remoteArr, remoteTomb){
 function canonicalize(arr){
   return JSON.stringify([...(arr||[])].sort((a,b)=> String(a&&a.id).localeCompare(String(b&&b.id))));
 }
+// v3.288.0 -- BARU: mitigasi risiko SAMA PERSIS dgn bug barcode MyPertamina
+// (qrPertaminaFileId, v3.272.0) yang PERNAH benar-benar kejadian --
+// mergeCollection() di atas menang/kalah PER RECORD UTUH berdasarkan
+// updatedAt PALING BARU. Kalau 1 device mengedit field LAIN di trip yang
+// SAMA (mis. Catatan Biaya Operasional, Edit Data Kembali) SEBELUM sempat
+// menarik dulu foto nota yang baru ditambahkan bot Telegram ke server,
+// versi device itu (updatedAt lebih baru, TAPI TANPA foto nota itu) akan
+// MENANG saat sinkron -- foto nota yang sudah tersimpan di server IKUT
+// HILANG begitu saja, persis pola yang bikin barcode hilang "beberapa hari
+// kemudian".
+// Jalan SETELAH mergeCollection() generik memilih pemenang per trip --
+// KHUSUS koleksi usage: kalau versi yang KALAH (local ATAU remote, siapa
+// pun yang kalah) ternyata punya buktiPending/resiImageFileId yang TIDAK
+// ada di versi pemenang, item² itu di-UNION-kan (digabung balik, dicocokkan
+// per fileId Telegram supaya tidak dobel) ke versi pemenang -- TIDAK PERNAH
+// dibuang lagi hanya karena kalah bandingan updatedAt record utuh.
+// Kalau ada item yang berhasil "diselamatkan" begini & trip itu SUDAH
+// ditandai buktiTerkirimAt, statusnya direset jadi belum terkirim lagi --
+// pola SAMA dgn perbaikan bot v3.287.0 (item susulan wajib dikirim ulang
+// manual lewat "📨 Kirim Ulang"/ketik "kirim", TIDAK dianggap otomatis
+// sudah terkirim padahal belum pernah benar-benar diteruskan ke Finance).
+function reconcileUsageBuktiPending(mergedUsageArr, localUsageArr, remoteUsageArr){
+  const localMap = new Map((localUsageArr||[]).map(u=>[u.id, u]));
+  const remoteMap = new Map((remoteUsageArr||[]).map(u=>[u.id, u]));
+  let changed = false;
+  (mergedUsageArr||[]).forEach(winner=>{
+    if(!winner || winner.id==null) return;
+    const kandidat = [localMap.get(winner.id), remoteMap.get(winner.id)].filter(c=> c && c!==winner);
+    if(!kandidat.length) return;
+    const winnerFileIds = new Set((Array.isArray(winner.buktiPending)?winner.buktiPending:[]).map(b=>b && b.fileId));
+    let adaTambahan = false;
+    kandidat.forEach(cand=>{
+      (Array.isArray(cand.buktiPending)?cand.buktiPending:[]).forEach(b=>{
+        if(b && b.fileId && !winnerFileIds.has(b.fileId)){
+          if(!Array.isArray(winner.buktiPending)) winner.buktiPending = [];
+          winner.buktiPending.push(b);
+          winnerFileIds.add(b.fileId);
+          adaTambahan = true;
+        }
+      });
+      if(!winner.resiImageFileId && cand.resiImageFileId){
+        winner.resiImageFileId = cand.resiImageFileId;
+        adaTambahan = true;
+      }
+    });
+    if(adaTambahan){
+      changed = true;
+      if(winner.buktiTerkirimAt) winner.buktiTerkirimAt = null; // wajib dikirim ulang manual, bukan dianggap otomatis sudah terkirim
+      winner.updatedAt = Date.now();
+    }
+  });
+  return changed;
+}
 function mergeAllCollections(remoteState, remoteTombstones){
   const mergedState = {};
   const mergedTombstones = {};
@@ -4372,6 +4425,49 @@ function resyncOdometerDanSaldoEtoll(){
   return changed;
 }
 
+// v3.289.0 -- BARU: proteksi SAMA (union-balik saat kalah bandingan
+// updatedAt record utuh) utk field MOBIL yang ditulis LANGSUNG oleh bot
+// Telegram (BUKAN lewat aplikasi web) -- qrPertaminaFileId/qrPertaminaSetAt
+// (barcode MyPertamina) & lastKalibrasiAt (tanggal kalibrasi GPS.id).
+// v3.272.0 dulu SUDAH menambahkan `updatedAt = Date.now()` di penulisan bot
+// supaya versi bot "terlihat lebih baru" -- itu MEMBANTU tapi TERBUKTI
+// TIDAK CUKUP (laporan nyata: barcode hilang lagi di HARI YANG SAMA ia
+// diupload ulang): kalau device LAIN mengedit field lain di mobil yang
+// sama SETELAH bot menulis TAPI SEBELUM device itu sempat menarik
+// perubahan bot (sinkron cuma tiap 45 detik), device itu tetap bisa
+// mencatat updatedAt yang lebih baru lagi & menang saat sinkron -- barcode
+// ikut hilang lagi. Sama pola dgn reconcileUsageBuktiPending() di atas.
+function reconcileCarsBotFields(mergedCarsArr, localCarsArr, remoteCarsArr){
+  const localMap = new Map((localCarsArr||[]).map(c=>[c.id, c]));
+  const remoteMap = new Map((remoteCarsArr||[]).map(c=>[c.id, c]));
+  let changed = false;
+  (mergedCarsArr||[]).forEach(winner=>{
+    if(!winner || winner.id==null) return;
+    const kandidat = [localMap.get(winner.id), remoteMap.get(winner.id)].filter(c=> c && c!==winner);
+    if(!kandidat.length) return;
+    let adaTambahan = false;
+    kandidat.forEach(cand=>{
+      if(!winner.qrPertaminaFileId && cand.qrPertaminaFileId){
+        // Pemenang tidak punya barcode sama sekali -- kembalikan dari kandidat.
+        winner.qrPertaminaFileId = cand.qrPertaminaFileId;
+        winner.qrPertaminaSetAt = cand.qrPertaminaSetAt || winner.qrPertaminaSetAt;
+        adaTambahan = true;
+      } else if(winner.qrPertaminaFileId && cand.qrPertaminaFileId && cand.qrPertaminaFileId!==winner.qrPertaminaFileId && (cand.qrPertaminaSetAt||0) > (winner.qrPertaminaSetAt||0)){
+        // Keduanya punya barcode tapi BEDA (mis. baru diganti ulang) -- ambil yang qrPertaminaSetAt-nya paling baru, BUKAN ikut updatedAt record utuh.
+        winner.qrPertaminaFileId = cand.qrPertaminaFileId;
+        winner.qrPertaminaSetAt = cand.qrPertaminaSetAt;
+        adaTambahan = true;
+      }
+      if((cand.lastKalibrasiAt||0) > (winner.lastKalibrasiAt||0)){
+        winner.lastKalibrasiAt = cand.lastKalibrasiAt;
+        adaTambahan = true;
+      }
+    });
+    if(adaTambahan){ changed = true; winner.updatedAt = Date.now(); }
+  });
+  return changed;
+}
+
 let ghAutoSyncTimer = null;
 // FIX (v3.187.0) -- SEBELUMNYA 20 detik, GET Contents API PENUH tiap kali
 // walau tidak ada perubahan sama sekali. Diperlebar ke 45 detik DAN
@@ -4433,6 +4529,21 @@ async function fetchFromGithub(){
     const remoteTombstones = parsed.tombstones || {};
 
     let { mergedState, mergedTombstones, remoteNeedsUpdate, localChanged } = mergeAllCollections(remoteState, remoteTombstones);
+
+    // v3.288.0 -- jalan SEBELUM state.usage lama ditimpa hasil merge --
+    // lihat catatan lengkap di reconcileUsageBuktiPending(). Kalau ada foto
+    // nota yg "diselamatkan", ikut ditandai localChanged/remoteNeedsUpdate
+    // supaya hasil penyelamatannya benar2 tersimpan & didorong balik ke
+    // GitHub, bukan cuma hidup sesaat di memori lalu hilang lagi di siklus
+    // sinkron berikutnya.
+    if(reconcileUsageBuktiPending(mergedState.usage||[], state.usage||[], remoteState.usage||[])){
+      localChanged = true;
+      remoteNeedsUpdate = true;
+    }
+    if(reconcileCarsBotFields(mergedState.cars||[], state.cars||[], remoteState.cars||[])){
+      localChanged = true;
+      remoteNeedsUpdate = true;
+    }
 
     // PENTING: mergedState cuma berisi koleksi yang ada di SYNC_COLLECTIONS +
     // admins. Field state LAIN yang bukan koleksi (mis. carCodeSeq,
@@ -10093,7 +10204,7 @@ function renderDashboard(){
     chip.addEventListener('click', ()=> navigate(chip.dataset.gotoRoute));
   });
   const mdhTripAktif = document.querySelector('.mdh-trip-aktif[data-lacak-trip-car]');
-  if(mdhTripAktif) mdhTripAktif.addEventListener('click', ()=> openCarTrackingModal(mdhTripAktif.dataset.lacakTripCar));
+  if(mdhTripAktif) mdhTripAktif.addEventListener('click', ()=> openCarTrackingModal(mdhTripAktif.dataset.lacakTripCar, {simple:true}));
 }
 
 // v3.155.0 -- Cek status GPS.id (proxy /gpsid/vehicles, sumber & cara ambil
@@ -12255,8 +12366,24 @@ function renderUsage(){
         <div><span class="k">Saldo E-Toll</span> <span class="v">${r.etoll!==null&&!isNaN(r.etoll)?fmtMoney(r.etoll):'-'}</span></div>
         ${r.biayaTolInfo ? `<div><span class="k">🛣️ Tol Terpakai</span> <span class="v">${fmtMoney(r.biayaTolInfo.biayaTol)} ${r.biayaTolInfo.sumber==='warisan' ? '<span class="badge warn" style="cursor:pointer;" onclick="openEtollAkurasiInfoModal(true)">Estimasi</span>' : '<span class="badge ok" style="cursor:pointer;" onclick="openEtollAkurasiInfoModal(false)">Akurat</span>'}</span></div>` : ''}
       </div>
-      <div class="usage-card-actions" style="margin-top:16px;">${r.actionButtonsHtml}${u.status==='selesai' ? `<button class="btn btn-ghost btn-sm" data-trip-receipt="${u.id}">🧾 Tanda Terima</button>` : ''}</div>
+      <div class="usage-card-actions" style="margin-top:16px;">${r.actionButtonsHtml}${u.status==='selesai' ? tripReceiptButtonHtml(u) : ''}</div>
     `;
+  }
+
+  // v3.287.0 -- BARU: dipisah jadi fungsi sendiri supaya bisa tampil beda
+  // kalau ada nota/foto yang SUDAH tersimpan (buktiPending) tapi BELUM
+  // diteruskan ke Admin Finance (mis. foto susulan yang baru masuk lewat
+  // bot SETELAH trip ini sempat ditandai "sudah terkirim" -- lihat
+  // perbaikan bug di worker.js: susulan begini sekarang di-reset jadi
+  // "belum terkirim" lagi supaya WAJIB dikirim ulang manual, bukan hilang
+  // diam-diam). Kalau kondisinya begitu, tombol tampil MENYOLOK (bukan
+  // abu-abu ghost biasa) -- supaya tidak keceklupan/terlupa dibuka lagi.
+  function tripReceiptButtonHtml(u){
+    const adaNotaBelumTerkirim = u.jenisPenggunaan!=='pribadi' && Array.isArray(u.buktiPending) && u.buktiPending.length>0 && !u.buktiTerkirimAt;
+    if(adaNotaBelumTerkirim){
+      return `<button class="btn btn-sm" data-trip-receipt="${u.id}" style="background:var(--amber-bg);color:var(--amber);font-weight:700;">⚠️ ${u.buktiPending.length} Nota Belum Terkirim</button>`;
+    }
+    return `<button class="btn btn-ghost btn-sm" data-trip-receipt="${u.id}">🧾 Tanda Terima</button>`;
   }
 
   function etollTabHtml(vs){
@@ -18349,7 +18476,15 @@ function renderGpsTracking(){
    badge merah -- selaras dengan alert Telegram "Kecepatan berlebih".
    ======================================================================== */
 let carTrackingModalTimer = null;
-async function openCarTrackingModal(carId){
+// v3.286.0 -- param ke-2 opts.simple: mode ringkas KHUSUS kartu "Trip Aktif"
+// di Dashboard Mode Sopir -- peta dibesarkan + alamat (reverse geocode lewat
+// worker /geocode-reverse) + Update Terakhir + link Maps saja, TANPA baris
+// teknis (Mesin ON/OFF, Kecepatan, Odometer, Pintu, Device GPS battery/
+// satelit) yang lebih relevan buat Administrator/Operator di Data Mobil.
+// Mode default (opts.simple falsy) TETAP kartu lengkap seperti sebelumnya --
+// dipakai tombol "🛰️ Lacak" & "Lihat Detail" di Data Mobil, TIDAK berubah.
+async function openCarTrackingModal(carId, opts){
+  const simple = !!(opts && opts.simple);
   const car = state.cars.find(c=>c.id===carId);
   if(!car) return;
 
@@ -18405,6 +18540,12 @@ async function openCarTrackingModal(carId){
   // tiba-tiba hilang. Cukup dikasih catatan kecil kalau sinkron terakhir
   // gagal & sistem akan otomatis mencoba lagi di siklus berikutnya.
   let lastGoodCardHtml = null;
+  // v3.286.0 -- cache alamat reverse-geocode (khusus mode simple). Kunci
+  // dibulatkan ~4 desimal (±11m) -- posisi yang masih di titik yang SAMA
+  // (mobil berhenti/parkir) tidak perlu ambil ulang ke worker tiap siklus
+  // auto-refresh 15 detik, cukup pas pertama kali & pas benar-benar pindah.
+  let lastGeocodeKey = null;
+  let lastGeocodeLabel = null;
 
   function renderSyncWarnInto(box, msg){
     let warnEl = document.getElementById('car-tracking-sync-warn');
@@ -18488,7 +18629,55 @@ async function openCarTrackingModal(carId){
     const battery = v.battery ?? null;
     const satellite = v.satellite ?? null;
 
-    box.innerHTML = `
+    // v3.286.0 -- reverse-geocode KHUSUS mode simple (kartu Trip Aktif
+    // Dashboard Mode Sopir). Pakai cache (lastGeocodeKey/lastGeocodeLabel)
+    // supaya posisi yang belum banyak berubah antar siklus refresh 15 detik
+    // TIDAK memanggil worker berulang-ulang -- cukup pas pertama kali & pas
+    // memang pindah cukup jauh (>~11m).
+    let alamatLabel = null, geocodeUnavailable = false;
+    if(simple && lat!=null && lon!=null){
+      const geoKey = `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}`;
+      if(geoKey === lastGeocodeKey){
+        alamatLabel = lastGeocodeLabel;
+      } else if(isGhConnected() && ghConfig.notifySecret){
+        try{
+          const gRes = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/geocode-reverse`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+            body: JSON.stringify({ lat, lon }),
+          });
+          const gData = await gRes.json().catch(()=>null);
+          if(gRes.ok && gData && gData.ok && gData.label){
+            alamatLabel = gData.label;
+            lastGeocodeKey = geoKey;
+            lastGeocodeLabel = alamatLabel;
+          } else {
+            alamatLabel = lastGeocodeLabel; // gagal -- pakai cache lama (kalau ada) drpd kosong total
+          }
+        } catch(e){
+          alamatLabel = lastGeocodeLabel;
+        }
+      } else {
+        geocodeUnavailable = true;
+      }
+    }
+
+    box.innerHTML = simple ? `
+      <div class="gps-card-list">
+        <div class="gps-card" style="padding:0;overflow:hidden;">
+          ${(lat!=null && lon!=null) ? `<div id="car-tracking-mini-map" style="height:300px;width:100%;background:var(--neutral-bg);"></div>` : `<div style="padding:16px;">${emptyState('🛰️','Posisi belum tersedia.')}</div>`}
+          <div style="padding:14px 16px;">
+            <div class="data-card-row" style="align-items:flex-start;">
+              <span class="k" style="flex-shrink:0;">📍 Alamat</span>
+              <span class="v" style="text-align:right;">${alamatLabel ? escapeHtml(alamatLabel) : geocodeUnavailable ? '<span style="color:var(--muted);">Alamat tidak tersedia (Worker belum tersambung)</span>' : '<span style="color:var(--muted);">Alamat tidak ditemukan</span>'}</span>
+            </div>
+            ${waktu ? `<div class="data-card-row"><span class="k">Update Terakhir</span><span class="v">${escapeHtml(String(waktu))}</span></div>` : ''}
+            ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" rel="noopener" class="gps-card-maps-link">📍 Buka lokasi di Google Maps</a>` : ''}
+          </div>
+        </div>
+      </div>
+      <div id="car-tracking-sync-warn"></div>
+    ` : `
       <div class="gps-card-list">
         <div class="gps-card">
           <div class="gps-card-head">
@@ -20052,6 +20241,39 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.289.0',
+    date: '06 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG SERIUS: barcode MyPertamina (dan tanggal kalibrasi GPS.id) masih bisa HILANG walau v3.272.0 sudah pernah mencoba memperbaikinya -- perbaikan lama itu cuma menjamin tulisan bot Telegram "terlihat baru" saat itu, TAPI kalau ada perangkat lain yang mengedit field LAIN di mobil yang sama SEBELUM sempat menarik dulu perubahan bot itu (sinkron cuma tiap 45 detik), perangkat itu tetap bisa menang saat sinkron & barcode ikut hilang lagi -- persis laporan nyata (hilang di HARI YANG SAMA diupload ulang). Sekarang ada lapisan penyelamat KHUSUS field yang ditulis bot (qrPertaminaFileId/qrPertaminaSetAt & lastKalibrasiAt): kalau versi yang "kalah" ternyata punya nilai yang tidak ada/lebih baru di versi pemenang, nilai itu digabung balik -- tidak dibuang lagi hanya krn kalah bandingan waktu edit field lain yang tidak berhubungan. <b>Barcode yang sudah terlanjur hilang TIDAK otomatis pulih sendiri -- upload ulang sekali lagi lewat bot setelah update ini, seharusnya sudah tidak hilang lagi setelahnya.</b>',
+      'Perbaikan ini pola SAMA dgn perbaikan foto nota/bukti pembelian di 3.288.0 -- 2 kasus yang sama-sama ditulis bot Telegram langsung ke server, di luar sepengetahuan aplikasi web, sama-sama rentan mekanisme sinkron "menang per catatan utuh" ini.',
+    ]
+  },
+  {
+    v: '3.288.0',
+    date: '06 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG SERIUS: risiko foto nota/bukti pembelian HILANG saat sinkron cloud -- MEKANISME SAMA PERSIS dengan bug barcode MyPertamina yang pernah kejadian sebelumnya (v3.272.0). Sinkronisasi cloud menang/kalah PER CATATAN TRIP UTUH berdasarkan waktu edit terbaru (bukan per-field) -- kalau 1 perangkat mengedit field LAIN di trip yang sama (mis. Catatan Biaya Operasional) SEBELUM sempat menarik dulu foto nota yang baru ditambahkan lewat bot Telegram, versi perangkat itu (tanpa foto nota) bisa menang & foto yang sudah tersimpan di server ikut hilang. Sekarang ada lapisan penyelamat KHUSUS foto nota/tanda terima trip: kalau versi yang "kalah" ternyata punya foto yang tidak ada di versi pemenang, foto itu digabung balik (bukan dibuang) -- tidak akan hilang lagi krn kalah bandingan waktu edit catatan yang sama.',
+      'Kalau foto yang "diselamatkan" itu ternyata dari trip yang sudah sempat ditandai "terkirim ke Finance", statusnya otomatis direset jadi belum terkirim lagi (pola sama dgn perbaikan bot v3.287.0) -- supaya wajib ditekan ulang "📨 Kirim Ulang", bukan dianggap sudah terkirim padahal belum pernah benar-benar diteruskan.',
+    ]
+  },
+  {
+    v: '3.287.0',
+    date: '06 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG SERIUS (worker.js): foto bukti pembelian/nota yang dikirim sopir lewat bot Telegram SETELAH trip sempat ditandai "sudah terkirim ke Finance" (mis. sopir keburu tekan "📨 Kirim ke Finance" -- tombol itu TETAP aktif walau baru gambar Tanda Terima otomatis yg ada, belum ada nota sama sekali) SEBELUMNYA DITOLAK MENTAH-MENTAH oleh bot dan tidak pernah tersimpan sama sekali -- sopir mengira sudah lengkap, padahal Admin Finance tidak pernah menerima foto itu, dan tidak ada jalan memperbaikinya lagi. Sekarang lampiran susulan SELALU diterima & disimpan; status trip otomatis di-reset jadi "belum terkirim" lagi (BUKAN auto-terkirim diam-diam) supaya wajib ditekan ulang "📨 Kirim Ulang" (popup Tanda Terima Perjalanan) atau ketik "kirim" di bot -- keduanya membaca data ter-baru & akan ikut mengirim foto susulan ini.',
+      '🐛 Perbaikan terkait: pencarian "trip sasaran lampiran" di bot SEBELUMNYA ikut mensyaratkan trip belum ditandai terkirim -- akibatnya begitu trip terakhir sopir sudah "sudah terkirim", TIDAK ADA trip yang jadi sasaran sama sekali & bot membalas "tidak ada trip aktif/baru selesai" walau sopir baru saja selesai trip. Syarat itu dihapus.',
+      '🎨 Tombol "🧾 Tanda Terima" di detail Riwayat Perjalanan sekarang tampil MENYOLOK (⚠️ kuning + jumlah lampiran) kalau ada nota yang sudah tersimpan tapi belum diteruskan ke Finance -- supaya foto susulan/terlupa di atas tidak hilang dari perhatian, gampang ditemukan & dikirim ulang kapan saja.',
+    ]
+  },
+  {
+    v: '3.286.0',
+    date: '06 Agu 2026',
+    notes: [
+      '🗺️ Popup "🚗 TRIP AKTIF — Lacak →" di Dashboard Mode Sopir sekarang tampilan RINGKAS: peta dibesarkan jadi konten utama + 📍 Alamat (hasil reverse-geocode otomatis dari koordinat GPS.id) + Update Terakhir + link "📍 Buka lokasi di Google Maps" -- baris teknis (Mesin ON/OFF, Kecepatan, Odometer, Pintu, Device GPS battery/satelit) DIHILANGKAN dari versi ini krn kurang relevan buat Sopir. Popup detail LENGKAP di Data Mobil (tombol "🛰️ Lacak"/"Lihat Detail") TIDAK berubah -- tetap tampil semua info spt sebelumnya, cuma kartu Trip Aktif Dashboard yang disederhanakan.',
+      '🔧 worker.js JUGA perlu diupload ulang kali ini -- endpoint baru <code>/geocode-reverse</code> (lat/lon → alamat, lewat OpenRouteService Geocoding reverse, API key & kuota harian SAMA dgn fitur ORS lain yang sudah ada).',
+    ]
+  },
   {
     v: '3.285.0',
     date: '06 Agu 2026',
