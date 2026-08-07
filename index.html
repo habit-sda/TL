@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.289.0">
+<meta name="app-version" content="3.291.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1188,20 +1188,28 @@
   .field{margin-bottom:13px;}
   .field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:5px;color:var(--text);}
   /* v3.214.0 -- BARU: input "Tujuan Tambahan" (multi-tujuan 1 trip, lihat
-     wireTujuanTambahanInput()) -- SEMUA warna pakai var(--...) dari awal. */
-  .tujuan-chip-box{border:1px solid var(--line);border-radius:8px;padding:7px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--card);}
-  .tujuan-chip{background:var(--blue-bg);color:var(--blue-dark);font-size:12.5px;font-weight:600;padding:5px 6px 5px 10px;border-radius:16px;display:inline-flex;align-items:center;gap:6px;max-width:100%;min-width:0;}
-  /* v3.252.0 -- PERBAIKAN: sebelumnya .tujuan-chip pakai white-space:nowrap
-     tanpa batas lebar sama sekali -- nama tujuan yang panjang (mis. "TEMBORO
-     - GUDANG AL BAROKAH (MAGETAN)") jadi meluber keluar frame modal karena
-     chip dipaksa selebar teksnya. Sekarang teksnya dibungkus span terpisah
-     (.tujuan-chip-text) yang dibatasi lebarnya & dipotong "..." kalau
-     kepanjangan -- ikon rute & tombol ✕ di sampingnya tetap selalu utuh
-     kelihatan, cuma teksnya yang dipotong. Nama lengkapnya tetap ada di
-     data (cuma tampilannya yang dipotong), jadi tidak ada data yang hilang. */
-  .tujuan-chip-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px;}
-  .tujuan-chip b{cursor:pointer;opacity:.65;font-weight:700;flex-shrink:0;}
-  .tujuan-chip-box input{flex:1;min-width:120px;border:none;outline:none;font-size:12.5px;font-family:inherit;padding:5px 2px;background:transparent;color:var(--text);}
+     wireTujuanTambahanInput()) -- SEMUA warna pakai var(--...) dari awal.
+     v3.284.0 -- REDESAIN: dari chip pill horizontal (rawan berdesakan kalau
+     nama tujuan banyak/panjang) jadi baris bertingkat bernomor -- 1 tujuan
+     = 1 baris penuh, nomor urut & tombol Rute/hapus selalu di posisi tetap
+     jadi lebih gampang dipindai mata & disentuh di HP. Data & fungsi
+     (get/set, autocomplete, cari Link Maps otomatis, kunci saat sebagian
+     sudah "sampai") TIDAK berubah sama sekali -- murni tampilan, lihat
+     render() di wireTujuanTambahanInput(). */
+  .tujuan-chip-box{display:flex;flex-direction:column;gap:6px;}
+  .tujuan-chip-row{display:flex;align-items:center;gap:8px;background:var(--neutral-bg);border-radius:var(--radius);padding:7px 10px;}
+  .tujuan-chip-row.is-locked{opacity:.7;}
+  .tujuan-chip-num{width:18px;height:18px;border-radius:5px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--muted);flex-shrink:0;}
+  /* v3.252.0 -- teks tujuan dibungkus span terpisah (.tujuan-chip-text) yang
+     dibatasi lebarnya & dipotong "..." kalau kepanjangan (mis. "TEMBORO -
+     GUDANG AL BAROKAH (MAGETAN)") -- nomor, tombol Rute & ✕ di sampingnya
+     tetap selalu utuh kelihatan. Nama lengkapnya tetap ada di data. */
+  .tujuan-chip-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:600;color:var(--text);}
+  .tujuan-chip-remove{cursor:pointer;opacity:.55;flex-shrink:0;font-size:12px;color:var(--muted);}
+  .tujuan-chip-lock{flex-shrink:0;font-size:12px;opacity:.75;}
+  .tujuan-chip-input-row{display:flex;align-items:center;gap:8px;border:1px dashed var(--line);border-radius:var(--radius);padding:7px 10px;}
+  .tujuan-chip-input-row .tujuan-chip-plus{color:var(--muted);font-weight:700;flex-shrink:0;}
+  .tujuan-chip-input-row input{flex:1;min-width:0;border:none;outline:none;font-size:12.5px;font-family:inherit;padding:2px;background:transparent;color:var(--text);}
   .field .hint{font-size:11px;color:var(--muted);margin-top:4px;}
   /* v3.60.0 -- reset tampilan bawaan OS/browser utk SEMUA <select> (panah
      kotak dropdown-nya SELALU beda tiap OS/browser & sering terlihat kasar/
@@ -1392,10 +1400,20 @@
      (tetap tampil penuh spt sebelumnya) -- keputusan user. */
   .tf-accordion{border-top:1px solid var(--line);margin-top:12px;padding-top:2px;}
   .tf-accordion summary{
-    list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
-    padding:10px 0;font-size:12.5px;font-weight:700;color:var(--muted);user-select:none;
+    list-style:none;cursor:pointer;display:flex;flex-direction:column;gap:6px;
+    padding:10px 0;user-select:none;
   }
   .tf-accordion summary::-webkit-details-marker{display:none;}
+  /* v3.291.0 -- BARU: judul summary dibungkus badge/pill hijau (bukan cuma
+     teks abu polos var(--muted)) supaya lebih kontras & kelihatan jelas
+     sebagai elemen yang bisa disentuh -- keterangan "Tujuan tambahan & link
+     Maps" dipindah jadi baris kecil terpisah di bawahnya (.tf-accordion-hint)
+     supaya judul utamanya tidak sesak/kepanjangan dalam 1 baris. */
+  .tf-accordion-summary-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .tf-accordion-title{display:inline-flex;align-items:center;gap:6px;background:var(--green-bg);color:var(--green);font-size:12.5px;font-weight:700;padding:6px 10px;border-radius:8px;}
+  .tf-accordion-hint{font-size:11px;color:var(--muted);padding-left:2px;}
+  .tf-accordion-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  .tf-accordion-badge{font-size:11px;font-weight:700;color:var(--blue-dark);background:var(--blue-bg);padding:2px 8px;border-radius:20px;}
   .tf-accordion summary .tf-accordion-chevron{transition:transform .18s;flex-shrink:0;color:var(--muted);}
   .tf-accordion[open] summary .tf-accordion-chevron{transform:rotate(180deg);}
   .tf-accordion-body{padding-bottom:2px;}
@@ -2248,7 +2266,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.289.0';
+const APP_VERSION = '3.291.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -11566,23 +11584,44 @@ function wireTujuanTambahanInput(wrapId, initial, lockedCount){
   if(!wrap) return { get: () => [] };
   const locked = Math.max(0, Number(lockedCount) || 0);
   let items = Array.isArray(initial) ? initial.filter(Boolean).slice() : [];
+  // v3.284.0 -- BARU: update badge "N titik" di summary accordion Detail
+  // tambahan (id tf-accordion-badge) tiap kali daftar tujuan tambahan
+  // berubah. Elemennya cuma ada di modal Catat Perjalanan (yang punya
+  // accordion) -- di modal lain (mis. Buat Booking) elemennya tidak ada,
+  // jadi di-skip senyap (no-op) supaya wireTujuanTambahanInput() tetap 1
+  // fungsi generik yang sama dipakai di kedua tempat.
+  function updateTfAccordionBadge(){
+    const badge = document.getElementById('tf-accordion-badge');
+    if(!badge) return;
+    if(items.length>0){ badge.style.display=''; badge.textContent = items.length===1 ? '1 titik' : items.length+' titik'; }
+    else { badge.style.display='none'; badge.textContent=''; }
+  }
   function render(){
     const focusAfter = document.activeElement && document.activeElement.id === wrapId+'-input';
     wrap.innerHTML = `
       <div class="tujuan-chip-box">
         ${items.map((t,i)=>{
           const link = findMapsLinkForTujuan(t);
-          const linkHtml = link ? `<span style="display:inline-flex;transform:scale(0.7);margin:0 -3px;">${mapsNavButtonCompactHtml(link)}</span>` : '';
+          const navHtml = link ? mapsNavButtonCompactHtml(link) : '';
           const isLocked = i < locked;
-          const removeBtn = isLocked ? `<span title="Sudah ditandai sampai -- dikunci" style="opacity:.6;">🔒</span>` : `<b data-remove-chip="${i}">✕</b>`;
-          return `<span class="tujuan-chip"${isLocked?' style="opacity:.75;"':''} title="${escapeHtml(t)}"><span class="tujuan-chip-text">${escapeHtml(t)}</span>${linkHtml}${removeBtn}</span>`;
+          const removeBtn = isLocked ? `<span class="tujuan-chip-lock" title="Sudah ditandai sampai -- dikunci">🔒</span>` : `<span class="tujuan-chip-remove" data-remove-chip="${i}" title="Hapus">✕</span>`;
+          return `<div class="tujuan-chip-row${isLocked?' is-locked':''}">
+            <span class="tujuan-chip-num">${i+1}</span>
+            <span class="tujuan-chip-text" title="${escapeHtml(t)}">${escapeHtml(t)}</span>
+            ${navHtml}
+            ${removeBtn}
+          </div>`;
         }).join('')}
-        <input type="text" id="${wrapId}-input" placeholder="${items.length===0?'Ketik tujuan ke-2, lalu Enter...':'Tambah lagi...'}" autocomplete="off">
+        <div class="tujuan-chip-input-row">
+          <span class="tujuan-chip-plus">+</span>
+          <input type="text" id="${wrapId}-input" placeholder="${items.length===0?'Ketik tujuan ke-2, lalu Enter...':'Tambah lagi...'}" autocomplete="off">
+        </div>
       </div>
     `;
     wrap.querySelectorAll('[data-remove-chip]').forEach(b=>{
       b.onclick = () => { items.splice(Number(b.dataset.removeChip),1); render(); };
     });
+    updateTfAccordionBadge();
     const inp = document.getElementById(wrapId+'-input');
     if(focusAfter) inp.focus();
     attachAutocomplete(wrapId+'-input', () => state.destinations.map(d=>d.nama));
@@ -14429,19 +14468,31 @@ function openUsageModal(editId, presetCarId){
                wireMapsAutofill() tetap bisa baca elemennya apa pun status
                buka/tutup accordion-nya. -->
           <details class="tf-accordion" ${editing && ((Array.isArray(editing.tujuanTambahan)&&editing.tujuanTambahan.length) || editing.mapsLink) ? 'open' : ''}>
-            <summary>➕ Detail tambahan (tujuan tambahan, link Maps)<svg class="tf-accordion-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+            <summary>
+              <div class="tf-accordion-summary-row">
+                <span class="tf-accordion-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Detail tambahan
+                </span>
+                <span class="tf-accordion-right">
+                  <span class="tf-accordion-badge" id="tf-accordion-badge" style="display:none;"></span>
+                  <svg class="tf-accordion-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </span>
+              </div>
+              <div class="tf-accordion-hint">Tujuan tambahan &amp; link Maps</div>
+            </summary>
             <div class="tf-accordion-body">
               <div class="field" style="margin-bottom:0;">
-                <label>Tujuan Tambahan (opsional)</label>
+                <label>📍 Tujuan Tambahan (opsional)</label>
                 <div id="tujuan-tambahan-wrap"></div>
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-top:8px;">
                   <div class="hint" style="margin:0;">Kalau trip ini mampir ke lebih dari 1 tempat (mis. antar barang ke beberapa gudang sekaligus), tambahkan di sini -- Odometer & BBM tetap dicatat 1 kali untuk SELURUH trip, bukan per titik.</div>
                   <button type="button" class="btn btn-ghost btn-sm" id="btn-optimalkan-urutan" style="white-space:nowrap;flex-shrink:0;">🔀 Optimalkan Urutan</button>
                 </div>
                 <div id="optimalkan-urutan-hasil" class="hint" style="display:none;"></div>
               </div>
               <div class="field" style="margin-bottom:0;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">
-                <label>Link Google Maps Tujuan (opsional)</label>
+                <label>🗺️ Link Google Maps Tujuan (opsional)</label>
                 <input type="text" id="in-maps-link" data-no-uppercase="1" placeholder="Tempel link Google Maps di sini" autocomplete="off" value="${editing?escapeHtml(editing.mapsLink||''):''}">
                 <div id="maps-link-preview" style="margin-top:6px;"></div>
                 <div class="hint">Terisi otomatis kalau tujuan ini sudah pernah dicatat. Klik "Rute" di atas untuk buka & cek lokasinya. Mau perbarui? Tempel link baru di sini -- otomatis ikut memperbarui Data Tujuan supaya perjalanan berikutnya ke tujuan ini pakai link terbaru juga. Bisa juga diperbarui langsung lewat menu Data Tujuan.</div>
@@ -20241,6 +20292,20 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.291.0',
+    date: '07 Agu 2026',
+    notes: [
+      '🎨 PERBAIKAN KONTRAS: judul summary accordion "Detail tambahan" sebelumnya teks abu polos (var(--muted)) yang kurang terlihat, apalagi berdampingan dengan teks keterangan "(tujuan tambahan, link Maps)" dalam 1 baris yang sama sampai bisa pecah 2 baris di layar sempit. Sekarang judulnya dibungkus badge/pill hijau (senada warna tombol "Rute") + ikon "+" biar kontras & jelas kelihatan sebagai elemen yang bisa disentuh, sementara keterangannya dipindah jadi 1 baris kecil terpisah di bawah judul. Murni tampilan summary -- badge jumlah titik, isi accordion, & fungsinya tidak berubah.',
+    ]
+  },
+  {
+    v: '3.290.0',
+    date: '07 Agu 2026',
+    notes: [
+      '🎨 REDESAIN TAMPILAN accordion "➕ Detail tambahan" di Catat Perjalanan: (1) judul di summary dipendekkan jadi "Detail tambahan" + badge jumlah titik (mis. "2 titik") di kanan, sebelumnya teksnya panjang & bisa pecah 2 baris di layar sempit; (2) daftar "Tujuan Tambahan" yang sebelumnya berupa chip pill berdempetan sekarang jadi baris bertingkat bernomor (1 tujuan = 1 baris penuh) supaya lebih mudah dibaca & disentuh -- tombol "🧭 Rute" (kalau tujuan itu sudah punya Link Maps tersimpan) & tombol hapus tetap ada persis di tempat yang sama seperti sebelumnya, cuma tampilannya dirapikan; (3) label "Tujuan Tambahan" & "Link Google Maps Tujuan" ditambah ikon (📍/🗺️) biar lebih gampang dipindai mata. Murni tampilan -- id field, data yang disimpan (masih array nama string, tanpa Link Maps per-titik), serta fungsi wireTujuanTambahanInput()/wireMapsAutofill()/Optimalkan Urutan TIDAK disentuh sama sekali.',
+    ]
+  },
   {
     v: '3.289.0',
     date: '06 Agu 2026',
