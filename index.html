@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.295.0">
+<meta name="app-version" content="3.296.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2305,7 +2305,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.295.0';
+const APP_VERSION = '3.296.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -2361,7 +2361,26 @@ function qaIcon(action, fallbackHtml){
   // v3.295.0 -- ukuran icon custom (upload user) ikut standar baku badge
   // Aksi Cepat: background 64px, icon 40px (lihat komentar di CSS
   // .quick-action-btn .ic untuk rincian lengkap 64/40/19/12 ini).
-  return `<img src="${url}" style="width:40px;height:40px;object-fit:contain;" onerror="this.parentElement.innerHTML=\`${fallbackEscaped}\`;">`;
+  // v3.296.0 -- BUG DIPERBAIKI: atribut onerror di bawah SEBELUMNYA pakai
+  // kutip dua ("...") persis seperti atribut src/style di sekelilingnya --
+  // masalahnya fallbackHtml (ikon bawaan tombol driver/service/rutepulang/
+  // lacakjalan) SENDIRI berisi <img>/<svg> dengan atribut kutip-dua juga
+  // (src="...", style="..."). Begitu URL custom gagal dimuat & onerror
+  // coba tempel fallbackHtml itu ke dalam atribut onerror="...", kutip dua
+  // di DALAM fallbackHtml ikut dianggap PENUTUP atribut onerror -- HTML-nya
+  // "putus" di tengah, sisanya dirender sbg teks mentah/atribut nyasar di
+  // halaman (persis gambar rusak + teks aneh ';">' yang dilaporkan user).
+  // fallbackEscaped SEBELUMNYA cuma escape backtick (`), TIDAK escape
+  // kutip dua -- itu akar masalahnya, BUKAN cuma soal link custom yang
+  // salah format. DIPERBAIKI: atribut onerror di bawah diganti pakai kutip
+  // SATU ('...') -- semua fallbackHtml yang ada di proyek ini SELALU pakai
+  // kutip dua utk atributnya (tidak pernah kutip satu), jadi aman dipakai
+  // sbg pembatas luar tanpa bentrok. **Kalau menambah ikon bawaan BARU ke
+  // proyek ini nanti yang HTML-nya mengandung kutip satu (mis. atribut
+  // style='...'), WAJIB diseragamkan dulu ke kutip dua SEBELUM dipakai
+  // lewat qaIcon(), atau bug yang SAMA (cuma versi kutip satu) akan
+  // muncul lagi.**
+  return `<img src="${url}" style="width:40px;height:40px;object-fit:contain;" onerror='this.parentElement.innerHTML=\`${fallbackEscaped}\`;'>`;
 }
 
 /* ---------------- Pengaturan: Auto-isi Odometer dari GPS.id ----------------
@@ -20474,6 +20493,13 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.296.0',
+    date: '07 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG: Ikon Aksi Cepat custom (Pengaturan -> "🎨 Ikon Aksi Cepat") yang URL-nya gagal dimuat (mis. link halaman Flaticon, bukan link gambar langsung) menampilkan ikon PATAH + teks aneh, bukan balik rapi ke ikon bawaan seperti seharusnya -- terjadi di tombol "Tambah Sopir" & "Catat Servis" (dan berpotensi tombol lain yang ikon bawaannya berupa gambar/svg). Penyebabnya: mekanisme fallback (<code>qaIcon()</code>) menyisipkan HTML ikon bawaan ke dalam atribut <code>onerror="..."</code> tanpa meng-escape tanda kutip dua di dalamnya -- karena ikon bawaan itu sendiri mengandung atribut kutip-dua (<code>src="..."</code>, <code>style="..."</code>), HTML-nya jadi terpotong di tengah & sisanya dirender sebagai teks mentah. Sudah diperbaiki dengan mengganti pembatas atribut onerror jadi kutip satu. Berdampak juga ke tampilan Aksi Cepat versi HP (mode terkunci), karena grid itu menyalin HTML dari tombol versi desktop -- ikut otomatis benar setelah perbaikan ini.',
+    ]
+  },
   {
     v: '3.295.0',
     date: '07 Agu 2026',
