@@ -10267,14 +10267,54 @@ async function refreshLacakMobilJalanButton(){
 
     const btnNow = document.getElementById('qa-lacak-jalan');
     if(!btnNow) return; // Dashboard sudah ditinggalkan selagi fetch berjalan
-    if(!res.ok || !list){ btnNow.style.display = adaTripAktif ? '' : 'none'; return; }
+    if(!res.ok || !list){
+      // BARU -- sebelumnya gagal di sini (response bukan 200 / bentuk JSON
+      // tidak dikenali) diam total, jadi kalau ada masalah di worker/GPS.id
+      // tombolnya tampak "sengaja tersembunyi" padahal sebenarnya error.
+      // Sekarang errornya tetap dicatat ke console supaya kelihatan saat
+      // di-debug (F12 > Console), walau tombolnya tetap fallback ke syarat
+      // trip aktif seperti semula.
+      console.warn('refreshLacakMobilJalanButton: respons /gpsid/vehicles tidak valid', { ok: res.ok, status: res.status, data });
+      btnNow.style.display = adaTripAktif ? '' : 'none';
+      return;
+    }
 
+    // BARU -- deteksi "mesin ON" diperluas. Sebelumnya HANYA menerima 3
+    // bentuk nilai persis (1 / true / 'ON') dari 3 nama field (acc /
+    // acc_status / status_mesin). Kalau GPS.id kirim variasi lain (mis.
+    // field bernama berbeda, angka dalam bentuk string "1", atau kata
+    // 'Aktif'/'Nyala'/'Hidup'), mobil yang sungguh sedang jalan bisa
+    // tidak terdeteksi tanpa ada error apa pun. Sekarang: nama field
+    // diperluas + pencocokan nilai case-insensitive & longgar terhadap
+    // string angka. Speed>0 juga ditambahkan sebagai sinyal CADANGAN
+    // (OR, bukan pengganti syarat acc) -- kalau field status mesin dari
+    // GPS.id kebetulan tidak terbaca tapi kecepatan tercatat >0, mobil
+    // jelas sedang jalan.
+    const ACC_ON_STRINGS = ['ON','1','TRUE','YES','Y','AKTIF','ACTIVE','NYALA','HIDUP'];
     const adaMesinNyala = list.some(v=>{
-      const accRaw = v.acc ?? v.acc_status ?? v.status_mesin ?? null;
-      return accRaw===1 || accRaw===true || String(accRaw).toUpperCase()==='ON';
+      const accRaw = v.acc ?? v.acc_status ?? v.accStatus ?? v.status_mesin ?? v.statusMesin
+        ?? v.engine_status ?? v.engineStatus ?? v.ignition ?? v.ignition_status ?? null;
+      const accOn = accRaw===1 || accRaw===true || ACC_ON_STRINGS.includes(String(accRaw).trim().toUpperCase());
+
+      const speedRaw = v.speed ?? v.kecepatan ?? v.velocity ?? null;
+      const speedOn = speedRaw!=null && Number(speedRaw) > 0;
+
+      return accOn || speedOn;
     });
+
+    if(!adaMesinNyala && !adaTripAktif){
+      // Bantu debugging: kalau tombol akhirnya disembunyikan padahal kita
+      // sampai di titik ini (data GPS.id berhasil diambil), catat ringkasan
+      // status tiap kendaraan supaya gampang dicek dari console kalau
+      // pengguna melaporkan mobilnya sebenarnya sedang jalan.
+      console.debug('refreshLacakMobilJalanButton: tidak ada mesin ON / trip aktif terdeteksi', list.map(v=>({
+        imei: v.imei ?? v.IMEI, acc: v.acc ?? v.acc_status ?? v.status_mesin, speed: v.speed
+      })));
+    }
+
     btnNow.style.display = (adaMesinNyala || adaTripAktif) ? '' : 'none';
   } catch(e){
+    console.warn('refreshLacakMobilJalanButton: fetch /gpsid/vehicles gagal', e);
     const btnErr = document.getElementById('qa-lacak-jalan');
     if(btnErr) btnErr.style.display = adaTripAktif ? '' : 'none';
   }
