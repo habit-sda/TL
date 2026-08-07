@@ -1215,8 +1215,14 @@
      sudah "sampai") TIDAK berubah sama sekali -- murni tampilan, lihat
      render() di wireTujuanTambahanInput(). */
   .tujuan-chip-box{display:flex;flex-direction:column;gap:6px;}
+  .tujuan-chip-list{display:flex;flex-direction:column;gap:6px;}
   .tujuan-chip-row{display:flex;align-items:center;gap:8px;background:var(--neutral-bg);border-radius:var(--radius);padding:7px 10px;}
   .tujuan-chip-row.is-locked{opacity:.7;}
+  /* v3.300.0 -- BARU: baris Tujuan UTAMA (kalau mainOpts diisi) ikut tampil
+     di list yang sama, dibedakan tipis lewat outline biar tetap kelihatan
+     "istimewa" dibanding Tujuan Tambahan biasa -- tanpa mengganggu urutan
+     visual angka nomor (1, 2, 3, ...) yang tetap berjalan normal. */
+  .tujuan-chip-row.is-main{outline:1.5px solid #00AED6;outline-offset:-1.5px;}
   .tujuan-chip-num{width:18px;height:18px;border-radius:5px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--muted);flex-shrink:0;}
   /* v3.252.0 -- teks tujuan dibungkus span terpisah (.tujuan-chip-text) yang
      dibatasi lebarnya & dipotong "..." kalau kepanjangan (mis. "TEMBORO -
@@ -1225,12 +1231,14 @@
   .tujuan-chip-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:600;color:var(--text);}
   .tujuan-chip-remove{cursor:pointer;opacity:.55;flex-shrink:0;font-size:12px;color:var(--muted);}
   .tujuan-chip-lock{flex-shrink:0;font-size:12px;opacity:.75;}
-  /* v3.298.0 -- BARU: tombol reorder manual (naik/turun) per baris tujuan,
-     lihat komentar di wireTujuanTambahanInput() untuk detail perilakunya. */
-  .tujuan-chip-reorder{display:flex;flex-direction:column;gap:1px;flex-shrink:0;}
-  .tujuan-chip-move{border:none;background:var(--card);border-radius:4px;width:18px;height:14px;font-size:9px;line-height:1;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;color:var(--muted);}
-  .tujuan-chip-move:disabled{opacity:.25;cursor:default;}
-  .tujuan-chip-move:active:not(:disabled){background:var(--line);}
+  /* v3.300.0 -- BARU: drag handle "⠿" (ganti tombol ⬆️⬇️ v3.298.0) -- geser
+     jari/mouse dari sini utk urutkan baris ke posisi mana pun. touch-action
+     diset 'none' inline via JS (bukan cuma CSS) supaya scroll accordion
+     tidak "berebut" gestur dengan drag saat disentuh di HP. */
+  .tujuan-chip-drag{cursor:grab;flex-shrink:0;font-size:15px;color:var(--muted);opacity:.6;padding:2px 4px;user-select:none;}
+  .tujuan-chip-drag:active{cursor:grabbing;opacity:1;}
+  .tujuan-chip-row.dragging{opacity:.5;box-shadow:0 2px 8px rgba(0,0,0,.15);}
+  .tujuan-chip-row.dragging .tujuan-chip-drag{cursor:grabbing;}
   .tujuan-chip-input-row{display:flex;align-items:center;gap:8px;border:1px dashed var(--line);border-radius:var(--radius);padding:7px 10px;}
   .tujuan-chip-input-row .tujuan-chip-plus{color:var(--muted);font-weight:700;flex-shrink:0;}
   .tujuan-chip-input-row input{flex:1;min-width:0;border:none;outline:none;font-size:12.5px;font-family:inherit;padding:2px;background:transparent;color:var(--text);}
@@ -2311,7 +2319,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.299.0';
+const APP_VERSION = '3.300.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -11840,11 +11848,56 @@ function migrateRemovePribadiOnlyDestinations(){
 // tidak bisa menghapusnya -- supaya penandaan lama tidak rusak kalau
 // urutannya digeser. Dipanggil dgn lockedCount=0 (default, perilaku PERSIS
 // sama seperti sebelum ini) di semua tempat lain yg belum butuh penguncian.
-function wireTujuanTambahanInput(wrapId, initial, lockedCount){
+// v3.300.0 -- DIROMBAK: (1) tombol ⬆️⬇️ manual (v3.298.0) diganti drag handle
+// "⠿" berbasis Pointer Events (satu API yang sama utk mouse & jari/touch,
+// tanpa library tambahan) -- geser baris ke posisi mana pun langsung, bukan
+// tukar-tetangga satu-satu; (2) parameter ke-4 BARU `mainOpts` opsional
+// {tujuanElId, mapsElId, locked} -- kalau diisi, baris Tujuan UTAMA (field
+// terpisah #in-tujuan/#in-maps-link yang SEBELUMNYA sama sekali di luar
+// jangkauan fungsi ini) ikut ditampilkan sbg baris no.1 di list yang SAMA &
+// BISA IKUT DIGESER/ditukar posisinya dgn Tujuan Tambahan manapun -- selama
+// belum dikunci (mainOpts.locked, dipetakan dari status "sampai" trip aktif
+// persis spt lockedCount). Kalau mainOpts tidak diisi (dipanggil versi lama,
+// 3 argumen saja), perilaku PERSIS seperti sebelumnya -- cuma daftar Tujuan
+// Tambahan, tujuan utama tetap di luar. Data yang disimpan (array nama
+// string di `items`) tidak berubah strukturnya; yang baru cuma field Tujuan
+// utama SEKARANG bisa ikut ditulis-ulang oleh fungsi ini kalau mainOpts ada.
+function wireTujuanTambahanInput(wrapId, initial, lockedCount, mainOpts){
   const wrap = document.getElementById(wrapId);
   if(!wrap) return { get: () => [] };
   const locked = Math.max(0, Number(lockedCount) || 0);
   let items = Array.isArray(initial) ? initial.filter(Boolean).slice() : [];
+  const mainEnabled = !!(mainOpts && mainOpts.tujuanElId);
+  const mainLocked = mainEnabled && !!mainOpts.locked;
+  // Tujuan utama (kalau mainLocked) SELALU jadi baris pertama yg terkunci,
+  // baru disusul `locked` baris Tujuan Tambahan pertama -- persis urutan
+  // penandaan "sampai" yang sudah ada (lihat completedCount di call site).
+  const lockedPrefixLen = mainEnabled ? (mainLocked ? (1 + locked) : 0) : locked;
+
+  function mainName(){
+    if(!mainEnabled) return '';
+    const el = document.getElementById(mainOpts.tujuanElId);
+    return el ? el.value.trim() : '';
+  }
+  function setMainNameAndMaps(name){
+    const tEl = document.getElementById(mainOpts.tujuanElId);
+    if(tEl) tEl.value = name;
+    if(mainOpts.mapsElId){
+      const mEl = document.getElementById(mainOpts.mapsElId);
+      if(mEl) mEl.value = findMapsLinkForTujuan(name) || '';
+    }
+  }
+  // Susunan gabungan (Tujuan utama [kalau ada] + semua Tujuan Tambahan) yang
+  // dipakai baik utk render maupun sbg acuan drag -- dibangun ulang tiap kali
+  // dibutuhkan (bukan disimpan permanen) supaya field Tujuan utama yang
+  // diketik langsung di field aslinya (bukan lewat fungsi ini) tetap ikut
+  // termuat saat render berikutnya.
+  function buildSlots(){
+    const slots = [];
+    if(mainEnabled) slots.push({ kind:'main', name: mainName() });
+    items.forEach((t,idx)=> slots.push({ kind:'item', name:t, itemIndex: idx }));
+    return slots;
+  }
   // v3.284.0 -- BARU: update badge "N titik" di summary accordion Detail
   // tambahan (id tf-accordion-badge) tiap kali daftar tujuan tambahan
   // berubah. Elemennya cuma ada di modal Catat Perjalanan (yang punya
@@ -11859,32 +11912,29 @@ function wireTujuanTambahanInput(wrapId, initial, lockedCount){
   }
   function render(){
     const focusAfter = document.activeElement && document.activeElement.id === wrapId+'-input';
+    const slots = buildSlots();
     wrap.innerHTML = `
       <div class="tujuan-chip-box">
-        ${items.map((t,i)=>{
-          const link = findMapsLinkForTujuan(t);
+        <div class="tujuan-chip-list" id="${wrapId}-list">
+        ${slots.map((s,i)=>{
+          const t = s.name;
+          const isMain = s.kind==='main';
+          const link = t ? findMapsLinkForTujuan(t) : null;
           const navHtml = link ? mapsNavButtonCompactHtml(link) : '';
-          const isLocked = i < locked;
-          const removeBtn = isLocked ? `<span class="tujuan-chip-lock" title="Sudah ditandai sampai -- dikunci">🔒</span>` : `<span class="tujuan-chip-remove" data-remove-chip="${i}" title="Hapus">✕</span>`;
-          // v3.298.0 -- BARU: tombol ⬆️⬇️ reorder manual per baris, alternatif
-          // dari hapus-lalu-ketik-ulang. Tidak tampil sama sekali di baris
-          // terkunci (isLocked) -- tujuan yang sudah "sampai" tidak boleh
-          // digeser. Batas atas gerak: tidak boleh naik melewati batas
-          // `locked` (supaya tidak menyusup ke depan tujuan yang terkunci).
-          const canMoveUp = !isLocked && i > locked;
-          const canMoveDown = !isLocked && i < items.length-1;
-          const reorderHtml = isLocked ? '' : `<span class="tujuan-chip-reorder">
-            <button type="button" class="tujuan-chip-move" data-move-up="${i}" ${canMoveUp?'':'disabled'} title="Naikkan urutan">⬆️</button>
-            <button type="button" class="tujuan-chip-move" data-move-down="${i}" ${canMoveDown?'':'disabled'} title="Turunkan urutan">⬇️</button>
-          </span>`;
-          return `<div class="tujuan-chip-row${isLocked?' is-locked':''}">
+          const isLocked = i < lockedPrefixLen;
+          const removeBtn = isLocked ? `<span class="tujuan-chip-lock" title="Sudah ditandai sampai -- dikunci">🔒</span>`
+            : (isMain ? '' : `<span class="tujuan-chip-remove" data-remove-chip="${s.itemIndex}" title="Hapus">✕</span>`);
+          const dragHandle = isLocked ? '' : `<span class="tujuan-chip-drag" title="Tahan &amp; geser untuk urutkan">⠿</span>`;
+          const label = t ? escapeHtml(t) : `<i>(tujuan utama -- belum diisi)</i>`;
+          return `<div class="tujuan-chip-row${isLocked?' is-locked':''}${isMain?' is-main':''}" data-orig-index="${i}">
             <span class="tujuan-chip-num">${i+1}</span>
-            <span class="tujuan-chip-text" title="${escapeHtml(t)}">${escapeHtml(t)}</span>
-            ${reorderHtml}
+            ${dragHandle}
+            <span class="tujuan-chip-text" title="${escapeHtml(t)}">${label}</span>
             ${navHtml}
             ${removeBtn}
           </div>`;
         }).join('')}
+        </div>
         <div class="tujuan-chip-input-row">
           <span class="tujuan-chip-plus">+</span>
           <input type="text" id="${wrapId}-input" placeholder="${items.length===0?'Ketik tujuan ke-2, lalu Enter...':'Tambah lagi...'}" autocomplete="off">
@@ -11894,27 +11944,7 @@ function wireTujuanTambahanInput(wrapId, initial, lockedCount){
     wrap.querySelectorAll('[data-remove-chip]').forEach(b=>{
       b.onclick = () => { items.splice(Number(b.dataset.removeChip),1); render(); };
     });
-    // v3.298.0 -- BARU: wiring tombol reorder manual (tukar posisi dengan
-    // tetangga langsung, bukan drag-and-drop -- lebih aman disentuh jari &
-    // tidak butuh library drag tambahan). Guard `i<=locked`/`i>=length-1`
-    // diulang di sini (bukan cuma di render()) sbg jaga-jaga kalau state
-    // sempat berubah antara render terakhir & klik.
-    wrap.querySelectorAll('[data-move-up]').forEach(b=>{
-      b.onclick = () => {
-        const i = Number(b.dataset.moveUp);
-        if(i<=locked || i>=items.length) return;
-        [items[i-1], items[i]] = [items[i], items[i-1]];
-        render();
-      };
-    });
-    wrap.querySelectorAll('[data-move-down]').forEach(b=>{
-      b.onclick = () => {
-        const i = Number(b.dataset.moveDown);
-        if(i<locked || i>=items.length-1) return;
-        [items[i+1], items[i]] = [items[i], items[i+1]];
-        render();
-      };
-    });
+    wireDragHandles(slots);
     updateTfAccordionBadge();
     const inp = document.getElementById(wrapId+'-input');
     if(focusAfter) inp.focus();
@@ -11938,6 +11968,73 @@ function wireTujuanTambahanInput(wrapId, initial, lockedCount){
       if(sudahAda){ inp.value=''; return; }
       items.push(v); inp.value=''; render();
     });
+  }
+  // v3.300.0 -- BARU: drag reorder pakai Pointer Events (unifikasi
+  // mouse+touch). Baris yang digeser DIPINDAH LANGSUNG di DOM (insertBefore/
+  // appendChild) selama drag berlangsung (feedback instan, tanpa nunggu
+  // render ulang) -- attribute data-orig-index tiap baris TIDAK ikut diubah
+  // selama proses ini, jadi begitu jari/mouse dilepas, urutan akhir baris di
+  // DOM dibaca balik lewat attribute itu utk dipetakan ke `slotsAtStart` &
+  // ditulis ke `items` (+ field Tujuan utama kalau mainEnabled). Baris
+  // terkunci (isLocked) tidak dapat drag handle sama sekali & tidak pernah
+  // jadi tujuan drop (dilewati saat cari posisi sisip) -- jadi baris bebas
+  // tidak bisa menyusup ke depan baris yang sudah dikunci.
+  function wireDragHandles(slotsAtStart){
+    const listEl = document.getElementById(wrapId+'-list');
+    if(!listEl) return;
+    listEl.querySelectorAll('.tujuan-chip-drag').forEach(handle=>{
+      handle.style.touchAction = 'none';
+      handle.addEventListener('pointerdown', (e)=>{
+        if(e.button !== undefined && e.button !== 0) return;
+        const row = handle.closest('[data-orig-index]');
+        if(!row) return;
+        const origIndex = Number(row.dataset.origIndex);
+        if(origIndex < lockedPrefixLen) return;
+        e.preventDefault();
+        row.classList.add('dragging');
+        try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+        const onMove = (ev)=>{
+          ev.preventDefault();
+          const y = ev.clientY;
+          const rows = Array.from(listEl.children).filter(r=>r!==row);
+          let inserted = false;
+          for(const r of rows){
+            const idx = Number(r.dataset.origIndex);
+            if(idx < lockedPrefixLen) continue; // tidak boleh nyusup di depan baris terkunci
+            const rect = r.getBoundingClientRect();
+            if(y < rect.top + rect.height/2){
+              listEl.insertBefore(row, r);
+              inserted = true;
+              break;
+            }
+          }
+          if(!inserted) listEl.appendChild(row);
+        };
+        const onUp = (ev)=>{
+          handle.removeEventListener('pointermove', onMove);
+          handle.removeEventListener('pointerup', onUp);
+          handle.removeEventListener('pointercancel', onUp);
+          row.classList.remove('dragging');
+          try{ handle.releasePointerCapture(ev.pointerId); }catch(err){}
+          const finalSlots = Array.from(listEl.children).map(r => slotsAtStart[Number(r.dataset.origIndex)]);
+          commitSlotOrder(finalSlots);
+          render();
+        };
+        handle.addEventListener('pointermove', onMove);
+        handle.addEventListener('pointerup', onUp);
+        handle.addEventListener('pointercancel', onUp);
+      });
+    });
+  }
+  function commitSlotOrder(finalSlots){
+    const newItems = [];
+    let newMainName = mainName();
+    finalSlots.forEach(s=>{
+      if(s.kind==='main') newMainName = s.name;
+      else newItems.push(s.name);
+    });
+    if(mainEnabled && newMainName !== mainName()) setMainNameAndMaps(newMainName);
+    items = newItems;
   }
   render();
   // v3.217.0 -- BARU: set() ditambahkan utk fitur "Optimalkan Urutan" --
@@ -15050,7 +15147,7 @@ function openUsageModal(editId, presetCarId){
       lockedHintEl.innerHTML = `🔒 Tujuan ke-1 sudah ditandai "sampai" & dikunci (tidak bisa diubah). ${completedCount>1?`${completedCount-1} Tujuan Tambahan berikutnya yang sudah "sampai" juga dikunci.`:''}`;
     }
   }
-  tujuanTambahanHandle = wireTujuanTambahanInput('tujuan-tambahan-wrap', editing ? editing.tujuanTambahan : null, completedCount>0 ? completedCount-1 : 0);
+  tujuanTambahanHandle = wireTujuanTambahanInput('tujuan-tambahan-wrap', editing ? editing.tujuanTambahan : null, completedCount>0 ? completedCount-1 : 0, { tujuanElId:'in-tujuan', mapsElId:'in-maps-link', locked: completedCount>0 });
   document.getElementById('btn-optimalkan-urutan').onclick = async () => {
     const tujuanUtama = document.getElementById('in-tujuan').value.trim();
     const tambahanList = tujuanTambahanHandle ? tujuanTambahanHandle.get() : [];
@@ -15726,7 +15823,7 @@ function openBookingModal(editId){
   wireMapsAutofill('in-tujuan', 'in-maps-link', editing ? editing.id : null, 'maps-link-preview');
   wireMapsLinkAutoResolve('in-maps-link'); // v3.254.0 -- auto-resolve link Maps pendek (maps.app.goo.gl)
   wireDestinationRefHint('in-tujuan', 'tujuan-ref-hint');
-  tujuanTambahanHandle = wireTujuanTambahanInput('tujuan-tambahan-wrap', editing ? editing.tujuanTambahan : null);
+  tujuanTambahanHandle = wireTujuanTambahanInput('tujuan-tambahan-wrap', editing ? editing.tujuanTambahan : null, 0, { tujuanElId:'in-tujuan', mapsElId:'in-maps-link', locked:false });
   // v3.253.0 -- BARU: kalau cuma 1 mobil yang tersedia, langsung diarahkan
   // ke situ -- lihat autoSelectSingleCar().
   autoSelectSingleCar('in-car');
@@ -20648,6 +20745,15 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.300.0',
+    date: '07 Agu 2026',
+    notes: [
+      '🖐️ Fitur baru: <b>geser (drag) untuk urutkan</b> daftar "Tujuan Tambahan" (Catat Perjalanan &amp; Booking) -- pegang ikon "⠿" di tiap baris lalu geser ke posisi yang diinginkan, jalan dgn jari (HP) maupun mouse (desktop). Menggantikan tombol ⬆️⬇️ (v3.298.0) yang cuma bisa tukar-tetangga satu-satu.',
+      '📍 Baris <b>Tujuan Utama</b> (field ke-1, sebelumnya field terpisah sama sekali di luar daftar) sekarang ikut tampil sbg baris no.1 di list yang sama & BISA IKUT DIGESER/ditukar posisinya dengan Tujuan Tambahan manapun -- selama belum ditandai "sampai" pada trip aktif. Ditandai garis tepi biru supaya tetap kelihatan beda dari Tujuan Tambahan biasa.',
+      '🔒 Aturan kunci lama tetap berlaku persis sama: tujuan (baik Utama maupun Tambahan) yang sudah ditandai "sampai" pada trip aktif tidak dapat ikon geser sama sekali & tidak bisa disisipi tujuan lain di depannya.',
+    ]
+  },
   {
     v: '3.299.0',
     date: '07 Agu 2026',
