@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.297.0">
+<meta name="app-version" content="3.299.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1225,6 +1225,12 @@
   .tujuan-chip-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:600;color:var(--text);}
   .tujuan-chip-remove{cursor:pointer;opacity:.55;flex-shrink:0;font-size:12px;color:var(--muted);}
   .tujuan-chip-lock{flex-shrink:0;font-size:12px;opacity:.75;}
+  /* v3.298.0 -- BARU: tombol reorder manual (naik/turun) per baris tujuan,
+     lihat komentar di wireTujuanTambahanInput() untuk detail perilakunya. */
+  .tujuan-chip-reorder{display:flex;flex-direction:column;gap:1px;flex-shrink:0;}
+  .tujuan-chip-move{border:none;background:var(--card);border-radius:4px;width:18px;height:14px;font-size:9px;line-height:1;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;color:var(--muted);}
+  .tujuan-chip-move:disabled{opacity:.25;cursor:default;}
+  .tujuan-chip-move:active:not(:disabled){background:var(--line);}
   .tujuan-chip-input-row{display:flex;align-items:center;gap:8px;border:1px dashed var(--line);border-radius:var(--radius);padding:7px 10px;}
   .tujuan-chip-input-row .tujuan-chip-plus{color:var(--muted);font-weight:700;flex-shrink:0;}
   .tujuan-chip-input-row input{flex:1;min-width:0;border:none;outline:none;font-size:12.5px;font-family:inherit;padding:2px;background:transparent;color:var(--text);}
@@ -2305,7 +2311,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.297.0';
+const APP_VERSION = '3.299.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -5827,15 +5833,21 @@ function wireBengkelMapsAutofill(bengkelInputId, mapsLinkInputId, excludeId, pre
 // belum diisi di Pengaturan -- GAGAL DIAM-DIAM (fail-open): field tetap
 // terisi apa adanya seperti sebelum fitur ini ada, TIDAK memblokir apa pun
 // (ini murni kemudahan tambahan, bukan validasi wajib untuk bisa Simpan).
+// v3.298.0 -- konstanta ini dulunya lokal di dalam wireMapsLinkAutoResolve()
+// saja -- diangkat ke scope modul supaya bisa dipakai bareng oleh
+// autoResolveShortMapsLinkSilent() di bawah (dipakai tombol "Optimalkan
+// Urutan"), tanpa duplikasi regex yang bisa lupa disamakan kalau salah satu
+// diubah nanti.
+const MAPS_COORD_RE = /(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/;
+const MAPS_SHORT_HOST_RE = /^https?:\/\/(maps\.app\.goo\.gl|goo\.gl)\//i;
+
 function wireMapsLinkAutoResolve(inputId){
   const el = document.getElementById(inputId);
   if(!el) return;
-  const COORD_RE = /(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/;
-  const SHORT_HOST_RE = /^https?:\/\/(maps\.app\.goo\.gl|goo\.gl)\//i;
   el.addEventListener('blur', async () => {
     const val = el.value.trim();
-    if(!val || COORD_RE.test(val)) return; // kosong, atau sudah ada koordinat -- tidak perlu diapa-apakan
-    if(!SHORT_HOST_RE.test(val)) return; // bukan pola link pendek yang dikenal -- jangan sok tahu, biarkan apa adanya
+    if(!val || MAPS_COORD_RE.test(val)) return; // kosong, atau sudah ada koordinat -- tidak perlu diapa-apakan
+    if(!MAPS_SHORT_HOST_RE.test(val)) return; // bukan pola link pendek yang dikenal -- jangan sok tahu, biarkan apa adanya
     if(!isGhConnected() || !ghConfig.notifySecret) return; // fitur opsional -- diam kalau infra Worker belum disiapkan
     const hintId = inputId + '-resolve-hint';
     let hintEl = document.getElementById(hintId);
@@ -5866,6 +5878,45 @@ function wireMapsLinkAutoResolve(inputId){
       hintEl.textContent = ''; // gagal koneksi -- fail-open, diam saja
     }
   });
+}
+
+// v3.298.0 -- BARU: versi "senyap" (tanpa elemen hint UI) dari resolve link
+// pendek di atas, khusus dipakai tombol "🔀 Optimalkan Urutan". SEBELUMNYA
+// tombol ini langsung menyerah begitu extractLatLng() gagal pada link yang
+// tersimpan di Data Tujuan (mis. tersimpan sebelum fitur auto-resolve blur
+// ada, atau memang belum sempat di-blur ulang) -- padahal endpoint
+// /resolve-maps-link yang sama persis bisa membetulkannya otomatis TANPA
+// user perlu buka Google Maps & tempel ulang link "detail" manual (yang
+// menurut laporan pengguna kadang malah MELESET -- kemungkinan besar karena
+// link address-bar yang ditempel cuma titik TENGAH TAMPILAN peta @lat,lng,
+// bukan titik PIN sungguhan !3d...!4d..., beda dari link hasil redirect
+// resmi Google yang lebih bisa dipercaya akurasinya, lihat extractLatLng()).
+// Kalau berhasil di-resolve, link barunya JUGA disimpan balik ke record
+// Data Tujuan (findDestinationByName + saveData()) supaya klik berikutnya
+// tidak perlu resolve ulang lagi -- sekali dibetulkan, seterusnya beres.
+async function autoResolveShortMapsLinkSilent(link, nama){
+  if(!link || MAPS_COORD_RE.test(link)) return null; // kosong atau sudah ada koordinat -- tidak perlu apa-apa
+  if(!MAPS_SHORT_HOST_RE.test(link)) return null; // bukan pola link pendek dikenal -- jangan sok tahu
+  if(!isGhConnected() || !ghConfig.notifySecret) return null; // fitur opsional, fail-open kalau Worker belum siap
+  try{
+    const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/resolve-maps-link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+      body: JSON.stringify({ url: link }),
+    });
+    const data = await res.json();
+    if(!res.ok || !data.ok || !data.url) return null;
+    // Simpan balik ke Data Tujuan (kalau nama ini memang tersimpan di sana)
+    // supaya perbaikan ini permanen, bukan cuma dipakai sekali lalu hilang.
+    const dest = nama ? findDestinationByName(nama) : null;
+    if(dest && dest.mapsLink === link){
+      dest.mapsLink = data.url;
+      saveData();
+    }
+    return data.url;
+  }catch(e){
+    return null; // gagal koneksi -- fail-open, biarkan pemanggil pakai jalur gagal seperti biasa
+  }
 }
 
 // v3.255.0 -- BARU: tombol "🔍 Cari Lokasi" -- cari kandidat koordinat dari
@@ -11815,9 +11866,21 @@ function wireTujuanTambahanInput(wrapId, initial, lockedCount){
           const navHtml = link ? mapsNavButtonCompactHtml(link) : '';
           const isLocked = i < locked;
           const removeBtn = isLocked ? `<span class="tujuan-chip-lock" title="Sudah ditandai sampai -- dikunci">🔒</span>` : `<span class="tujuan-chip-remove" data-remove-chip="${i}" title="Hapus">✕</span>`;
+          // v3.298.0 -- BARU: tombol ⬆️⬇️ reorder manual per baris, alternatif
+          // dari hapus-lalu-ketik-ulang. Tidak tampil sama sekali di baris
+          // terkunci (isLocked) -- tujuan yang sudah "sampai" tidak boleh
+          // digeser. Batas atas gerak: tidak boleh naik melewati batas
+          // `locked` (supaya tidak menyusup ke depan tujuan yang terkunci).
+          const canMoveUp = !isLocked && i > locked;
+          const canMoveDown = !isLocked && i < items.length-1;
+          const reorderHtml = isLocked ? '' : `<span class="tujuan-chip-reorder">
+            <button type="button" class="tujuan-chip-move" data-move-up="${i}" ${canMoveUp?'':'disabled'} title="Naikkan urutan">⬆️</button>
+            <button type="button" class="tujuan-chip-move" data-move-down="${i}" ${canMoveDown?'':'disabled'} title="Turunkan urutan">⬇️</button>
+          </span>`;
           return `<div class="tujuan-chip-row${isLocked?' is-locked':''}">
             <span class="tujuan-chip-num">${i+1}</span>
             <span class="tujuan-chip-text" title="${escapeHtml(t)}">${escapeHtml(t)}</span>
+            ${reorderHtml}
             ${navHtml}
             ${removeBtn}
           </div>`;
@@ -11830,6 +11893,27 @@ function wireTujuanTambahanInput(wrapId, initial, lockedCount){
     `;
     wrap.querySelectorAll('[data-remove-chip]').forEach(b=>{
       b.onclick = () => { items.splice(Number(b.dataset.removeChip),1); render(); };
+    });
+    // v3.298.0 -- BARU: wiring tombol reorder manual (tukar posisi dengan
+    // tetangga langsung, bukan drag-and-drop -- lebih aman disentuh jari &
+    // tidak butuh library drag tambahan). Guard `i<=locked`/`i>=length-1`
+    // diulang di sini (bukan cuma di render()) sbg jaga-jaga kalau state
+    // sempat berubah antara render terakhir & klik.
+    wrap.querySelectorAll('[data-move-up]').forEach(b=>{
+      b.onclick = () => {
+        const i = Number(b.dataset.moveUp);
+        if(i<=locked || i>=items.length) return;
+        [items[i-1], items[i]] = [items[i], items[i-1]];
+        render();
+      };
+    });
+    wrap.querySelectorAll('[data-move-down]').forEach(b=>{
+      b.onclick = () => {
+        const i = Number(b.dataset.moveDown);
+        if(i<locked || i>=items.length-1) return;
+        [items[i+1], items[i]] = [items[i], items[i+1]];
+        render();
+      };
     });
     updateTfAccordionBadge();
     const inp = document.getElementById(wrapId+'-input');
@@ -15000,18 +15084,32 @@ function openUsageModal(editId, presetCarId){
     const poin = [];
     const belumAdaLink = []; // beneran belum ada link Maps tersimpan sama sekali
     const linkTanpaKoordinat = []; // v3.252.0 -- BARU: link SUDAH ada tapi tidak bisa diambil koordinatnya
-    sisaNama.forEach((nama, iSisa)=>{
+    // v3.298.0 -- BARU: sebelum menyerah, coba resolve otomatis dulu link
+    // pendek (maps.app.goo.gl/...) lewat autoResolveShortMapsLinkSilent() --
+    // lihat komentar lengkap di definisinya. Diubah dari forEach jadi
+    // for...of supaya bisa await tiap tujuan satu-satu (jumlah tujuan
+    // biasanya kecil, aman dilakukan berurutan tanpa Promise.all).
+    hasilEl.textContent = '⏳ Mengecek link Maps tiap tujuan...';
+    for(let iSisa=0; iSisa<sisaNama.length; iSisa++){
+      const nama = sisaNama[iSisa];
       const iAsli = completedCount + iSisa; // indeks asli di semuaNama -- mapsLinkUtama cuma valid utk tujuan ke-1 (indeks 0), yang kalau completedCount>0 sudah pasti terkunci & tidak masuk sisaNama
       let link = (iAsli===0 && mapsLinkUtama) ? mapsLinkUtama : null;
       if(!link){
         const dest = findDestinationByName(nama);
         link = dest ? dest.mapsLink : null;
       }
-      if(!link){ belumAdaLink.push(nama); return; }
-      const koor = extractLatLng(link);
+      if(!link){ belumAdaLink.push(nama); continue; }
+      let koor = extractLatLng(link);
+      if(!koor){
+        const resolved = await autoResolveShortMapsLinkSilent(link, nama);
+        if(resolved){
+          koor = extractLatLng(resolved);
+          if(iAsli===0 && mapsLinkUtama===link) document.getElementById('in-maps-link').value = resolved; // sinkronkan field yang lagi ditampilkan juga, kalau ini tujuan ke-1
+        }
+      }
       if(koor) poin.push({ nama, lat: koor.lat, lon: koor.lon });
       else linkTanpaKoordinat.push(nama);
-    });
+    }
     if(belumAdaLink.length > 0 || linkTanpaKoordinat.length > 0){
       const bagian = [];
       // v3.252.0 -- PERBAIKAN: sebelumnya SEMUA kasus gagal (baik belum ada
@@ -15028,7 +15126,10 @@ function openUsageModal(editId, presetCarId){
         bagian.push(`belum ada Link Maps tersimpan sama sekali: <b>${belumAdaLink.map(escapeHtml).join(', ')}</b>. Tambahkan link Maps-nya dulu di Data Tujuan.`);
       }
       if(linkTanpaKoordinat.length > 0){
-        bagian.push(`Link Maps-nya sudah ada tapi formatnya tidak menyertakan koordinat (biasanya karena link PENDEK hasil tombol "Bagikan" di app Google Maps, mis. maps.app.goo.gl/...): <b>${linkTanpaKoordinat.map(escapeHtml).join(', ')}</b>. Buka link itu di Google Maps, lalu ganti Link Maps-nya di Data Tujuan pakai link dari address bar (yang mengandung angka koordinat, mis. .../@-7.12,112.34,17z/...) atau tombol "Salin koordinat".`);
+        // v3.298.0 -- pesan diperbarui: resolve otomatis sudah dicoba duluan
+        // (lihat loop di atas) dan tetap gagal utk sisa nama ini -- baru
+        // sekarang minta bantuan manual, bukan lagi langkah pertama.
+        bagian.push(`Link Maps-nya sudah ada tapi belum bisa dibaca koordinatnya walau sudah dicoba diperbaiki otomatis: <b>${linkTanpaKoordinat.map(escapeHtml).join(', ')}</b>. Coba buka link itu di Google Maps lalu tempel ulang Link Maps-nya di Data Tujuan (idealnya lewat tombol "Bagikan" -> "Salin link" langsung dari app Google Maps, BUKAN link address bar hasil geser/zoom peta -- itu cuma titik tengah tampilan, bukan titik pin sungguhan & bisa meleset).`);
       }
       hasilEl.innerHTML = `⚠️ Belum bisa dioptimalkan -- ${bagian.join(' ')}`;
       return;
@@ -15654,24 +15755,37 @@ function openBookingModal(editId){
     const poin = [];
     const belumAdaLink = []; // beneran belum ada link Maps tersimpan sama sekali
     const linkTanpaKoordinat = []; // v3.252.0 -- BARU: link SUDAH ada tapi tidak bisa diambil koordinatnya (mis. link pendek maps.app.goo.gl)
-    semuaNama.forEach((nama, i)=>{
+    // v3.298.0 -- BARU: sama seperti versi Catat Perjalanan (lihat komentar
+    // lengkap di autoResolveShortMapsLinkSilent()) -- coba resolve otomatis
+    // link pendek dulu sebelum menyerah. Diubah dari forEach jadi for...of
+    // supaya bisa await.
+    hasilEl.textContent = '⏳ Mengecek link Maps tiap tujuan...';
+    for(let i=0; i<semuaNama.length; i++){
+      const nama = semuaNama[i];
       let link = (i===0 && mapsLinkUtama) ? mapsLinkUtama : null;
       if(!link){
         const dest = findDestinationByName(nama);
         link = dest ? dest.mapsLink : null;
       }
-      if(!link){ belumAdaLink.push(nama); return; }
-      const koor = extractLatLng(link);
+      if(!link){ belumAdaLink.push(nama); continue; }
+      let koor = extractLatLng(link);
+      if(!koor){
+        const resolved = await autoResolveShortMapsLinkSilent(link, nama);
+        if(resolved){
+          koor = extractLatLng(resolved);
+          if(i===0 && mapsLinkUtama===link) document.getElementById('in-maps-link').value = resolved;
+        }
+      }
       if(koor) poin.push({ nama, lat: koor.lat, lon: koor.lon });
       else linkTanpaKoordinat.push(nama);
-    });
+    }
     if(belumAdaLink.length > 0 || linkTanpaKoordinat.length > 0){
       const bagian = [];
       if(belumAdaLink.length > 0){
         bagian.push(`belum ada Link Maps tersimpan sama sekali: <b>${belumAdaLink.map(escapeHtml).join(', ')}</b>. Tambahkan link Maps-nya dulu di Data Tujuan.`);
       }
       if(linkTanpaKoordinat.length > 0){
-        bagian.push(`Link Maps-nya sudah ada tapi formatnya tidak menyertakan koordinat (biasanya karena link PENDEK hasil tombol "Bagikan" di app Google Maps, mis. maps.app.goo.gl/...): <b>${linkTanpaKoordinat.map(escapeHtml).join(', ')}</b>. Buka link itu di Google Maps, lalu ganti Link Maps-nya di Data Tujuan pakai link dari address bar (yang mengandung angka koordinat, mis. .../@-7.12,112.34,17z/...) atau tombol "Salin koordinat".`);
+        bagian.push(`Link Maps-nya sudah ada tapi belum bisa dibaca koordinatnya walau sudah dicoba diperbaiki otomatis: <b>${linkTanpaKoordinat.map(escapeHtml).join(', ')}</b>. Coba buka link itu di Google Maps lalu tempel ulang Link Maps-nya di Data Tujuan (idealnya lewat tombol "Bagikan" -> "Salin link" langsung dari app Google Maps, BUKAN link address bar hasil geser/zoom peta -- itu cuma titik tengah tampilan, bukan titik pin sungguhan & bisa meleset).`);
       }
       hasilEl.innerHTML = `⚠️ Belum bisa dioptimalkan -- ${bagian.join(' ')}`;
       return;
@@ -20534,6 +20648,22 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.299.0',
+    date: '07 Agu 2026',
+    notes: [
+      '🎯 PERBAIKAN: tombol "🔀 Optimalkan Urutan" sekarang OTOMATIS mencoba memperbaiki link Maps pendek (maps.app.goo.gl/...) yang tersimpan di Data Tujuan tapi belum bisa dibaca koordinatnya -- sebelumnya langsung menyerah & minta user tempel ulang link "detail" manual. Perbaikan otomatis ini dilakukan lewat endpoint /resolve-maps-link yang sama, yang justru LEBIH akurat dari tempel manual (endpoint ini membaca titik PIN asli dari hasil redirect Google, sedangkan link address-bar yang ditempel manual sering cuma titik tengah tampilan peta -- ini kemungkinan besar penyebab laporan "hasilnya meleset" saat link detail ditempel manual). Kalau berhasil, link yang sudah dibetulkan JUGA disimpan balik ke Data Tujuan supaya klik berikutnya tidak perlu resolve ulang.',
+      '📝 Pesan error saat gagal (sudah dicoba otomatis tapi tetap tidak terbaca) diperbarui: sekarang menyarankan tombol "Bagikan" -> "Salin link" langsung dari app Google Maps, BUKAN lagi menyarankan link address bar hasil geser/zoom peta (karena itu justru sumber potensi meleset di atas).',
+    ]
+  },
+  {
+    v: '3.298.0',
+    date: '07 Agu 2026',
+    notes: [
+      '🔀 Fitur baru: <b>reorder manual</b> untuk daftar "Tujuan Tambahan" (Catat Perjalanan &amp; Booking) -- tiap baris tujuan yang belum terkunci sekarang punya tombol ⬆️⬇️ kecil untuk menukar posisinya dengan tetangga langsung, alternatif dari cara lama (hapus lalu ketik ulang semua). Melengkapi tombol otomatis "🔀 Optimalkan Urutan" yang sudah ada, bukan menggantikannya.',
+      '🔒 Tombol reorder TIDAK tampil sama sekali di baris yang sudah dikunci (ikon 🔒, tujuan yang sudah ditandai "sampai" pada trip aktif) -- tombol ⬆️ pada baris pertama yang belum terkunci juga otomatis nonaktif, supaya tidak bisa menyusup ke depan tujuan yang sudah dikunjungi.',
+    ]
+  },
   {
     v: '3.297.0',
     date: '07 Agu 2026',
