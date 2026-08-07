@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.291.0">
+<meta name="app-version" content="3.292.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1684,19 +1684,40 @@
     body.mobile-nav-locked #qa-panel{ display:none; }
     /* v3.239.0 -- BARU: popup kecil "Lainnya" (menggantikan cara lama yg
        membuka #qa-panel PENUH -- sekarang cuma tampilkan aksi yg BELUM ada
-       di grid hero, lihat showLainnyaPopup()). */
-    .mdh-lainnya-popup{
-      position:fixed; z-index:200; left:16px; right:16px; bottom:90px;
-      background:var(--card); border:1px solid var(--line); border-radius:14px;
-      box-shadow:0 8px 24px rgba(16,24,40,0.18); padding:8px; max-width:340px; margin:0 auto;
+       di grid hero, lihat showLainnyaPopup()).
+       v3.292.0 -- DIUBAH TOTAL jadi bottom-sheet grid ala "Layanan Lainnya"
+       Gojek (lihat referensi user): SEBELUMNYA daftar baris vertikal
+       (.mdh-lainnya-row) sempit & terasa seperti menu biasa -- sekarang
+       lembar penuh dari bawah (edge-to-edge, ada handle & backdrop gelap)
+       berisi GRID 4 kolom kotak ikon bulat + label di bawahnya, identik
+       gaya "Layanan lainnya" pada aplikasi Gojek. Grid Aksi Cepat utama di
+       Dashboard (mdh-menu-grid, 8 slot) TIDAK diubah sama sekali -- ini
+       cuma mengubah TAMPILAN popup "Lainnya"-nya saja. */
+    .mdh-lainnya-backdrop{
+      position:fixed; inset:0; z-index:199; background:rgba(16,20,28,0.45);
+      animation:mdhLainnyaFade .18s ease;
     }
-    .mdh-lainnya-row{ display:flex; align-items:center; gap:10px; padding:10px 8px; cursor:pointer; border-radius:8px; font-size:13px; color:var(--text); }
-    .mdh-lainnya-row:hover{ background:var(--hover-bg); }
-    .mdh-lainnya-row .ic{ width:30px; height:30px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
-    .mdh-lainnya-empty{ padding:14px 10px; font-size:12px; color:var(--muted); text-align:center; }
-    .mdh-lainnya-head{ display:flex; align-items:center; justify-content:space-between; padding:8px 8px 10px; border-bottom:1px solid var(--line); margin-bottom:4px; }
-    .mdh-lainnya-head span:first-child{ font-size:12.5px; font-weight:700; color:var(--text); }
-    .mdh-lainnya-close{ cursor:pointer; color:var(--muted); font-size:15px; padding:4px 8px; border-radius:6px; }
+    @keyframes mdhLainnyaFade{ from{opacity:0;} to{opacity:1;} }
+    @keyframes mdhLainnyaSlideUp{ from{transform:translateY(100%);} to{transform:translateY(0);} }
+    .mdh-lainnya-popup{
+      position:fixed; z-index:200; left:0; right:0; bottom:0;
+      background:var(--card); border:none; border-radius:20px 20px 0 0;
+      box-shadow:0 -8px 28px rgba(16,24,40,0.22);
+      padding:10px 18px calc(env(safe-area-inset-bottom,0px) + 18px);
+      max-width:480px; margin:0 auto; max-height:78vh; overflow-y:auto;
+      animation:mdhLainnyaSlideUp .22s cubic-bezier(.22,.61,.36,1);
+    }
+    .mdh-lainnya-handle{ width:36px; height:4px; border-radius:3px; background:var(--line); margin:2px auto 10px; }
+    .mdh-lainnya-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:18px 8px; padding:2px 0 4px; }
+    .mdh-lainnya-item{ display:flex; flex-direction:column; align-items:center; gap:7px; cursor:pointer; text-align:center; -webkit-tap-highlight-color:transparent; }
+    .mdh-lainnya-item:active{ transform:scale(0.96); }
+    .mdh-lainnya-item .ic{ width:52px; height:52px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:22px; background:var(--neutral-bg); }
+    .mdh-lainnya-item .ic img,.mdh-lainnya-item .ic svg{ width:26px; height:26px; }
+    .mdh-lainnya-item .lbl{ font-size:11px; font-weight:500; color:var(--text); line-height:1.25; }
+    .mdh-lainnya-empty{ padding:20px 10px 8px; font-size:12px; color:var(--muted); text-align:center; }
+    .mdh-lainnya-head{ display:flex; align-items:center; justify-content:space-between; padding:0 0 12px; }
+    .mdh-lainnya-head span:first-child{ font-size:15px; font-weight:800; color:var(--text); }
+    .mdh-lainnya-close{ cursor:pointer; color:var(--muted); font-size:15px; padding:5px 9px; border-radius:8px; background:var(--neutral-bg); line-height:1; }
     .mdh-lainnya-close:hover{ background:var(--hover-bg); color:var(--text); }
     /* v3.237.0 -- BARU (percobaan ke-3): hero gaya Gojek/Grab sesuai
        referensi yang dikonfirmasi user. order:-2 supaya PALING DEPAN.
@@ -2266,7 +2287,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.291.0';
+const APP_VERSION = '3.292.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -10203,53 +10224,77 @@ function renderDashboard(){
   // yg sudah ada) TAPI actionnya belum dipakai di hero. Kalau kosong (semua
   // sudah tercakup di 8 slot), kasih tahu apa adanya, bukan buka panel kosong.
   const HERO_COVERED_ACTIONS = ['usage','driver','service','doc','booking','rutepulang','bbmluar','etollluar'];
-  const showLainnyaPopup = () => {
+  // v3.292.0 -- DIUBAH: popup "Lainnya" sekarang bottom-sheet GRID (ala
+  // "Layanan Lainnya" Gojek) menggantikan daftar baris vertikal lama.
+  // Grid Aksi Cepat utama Dashboard (mdh-menu-grid, tetap 8 slot) TIDAK
+  // disentuh -- item yang belum tertampung di sana (mis. "Lacak Mobil
+  // Jalan" saat sedang muncul) yang dipindah ke sini, dalam bentuk kotak
+  // ikon + label seperti referensi.
+  const closeLainnyaPopup = () => {
     document.getElementById('mdh-lainnya-popup')?.remove();
+    document.getElementById('mdh-lainnya-backdrop')?.remove();
+  };
+  const showLainnyaPopup = () => {
+    closeLainnyaPopup();
     const extraBtns = Array.from(document.querySelectorAll('#qa-panel .quick-action-btn')).filter(b=>{
       return b.style.display !== 'none' && !HERO_COVERED_ACTIONS.includes(b.dataset.action);
     });
+    // Backdrop gelap di belakang lembar -- klik di mana pun di sini menutup
+    // popup, sama seperti bottom-sheet Gojek.
+    const backdrop = document.createElement('div');
+    backdrop.id = 'mdh-lainnya-backdrop';
+    backdrop.className = 'mdh-lainnya-backdrop';
+    backdrop.addEventListener('click', closeLainnyaPopup);
+    document.body.appendChild(backdrop);
+
     const popup = document.createElement('div');
     popup.id = 'mdh-lainnya-popup';
     popup.className = 'mdh-lainnya-popup';
+    popup.addEventListener('click', (e)=> e.stopPropagation());
+
+    const handle = document.createElement('div');
+    handle.className = 'mdh-lainnya-handle';
+    popup.appendChild(handle);
+
     // v3.241.0 -- PERBAIKAN BUG: SEBELUMNYA cuma mengandalkan deteksi
     // "klik di luar popup" utk menutup -- ternyata di sebagian kasus tidak
     // bekerja (laporan: popup tidak bisa ditutup). Ditambah tombol ✕ EKSPLISIT
-    // yang DIJAMIN bekerja (langsung panggil .remove(), tidak bergantung
-    // deteksi klik di luar sama sekali) -- deteksi klik-di-luar TETAP ada
-    // sbg cara tambahan, bukan satu-satunya cara lagi.
-    const closeBtn = document.createElement('div');
-    closeBtn.className = 'mdh-lainnya-head';
-    closeBtn.innerHTML = `<span>Menu Lainnya</span><span class="mdh-lainnya-close">✕</span>`;
-    closeBtn.querySelector('.mdh-lainnya-close').addEventListener('click', ()=> popup.remove());
-    popup.appendChild(closeBtn);
+    // yang DIJAMIN bekerja (langsung panggil closeLainnyaPopup(), tidak
+    // bergantung deteksi klik di luar sama sekali) -- deteksi klik-di-luar
+    // (lewat backdrop) TETAP ada sbg cara tambahan, bukan satu-satunya lagi.
+    const head = document.createElement('div');
+    head.className = 'mdh-lainnya-head';
+    head.innerHTML = `<span>Menu Lainnya</span><span class="mdh-lainnya-close">✕</span>`;
+    head.querySelector('.mdh-lainnya-close').addEventListener('click', closeLainnyaPopup);
+    popup.appendChild(head);
+
     if(extraBtns.length === 0){
       const empty = document.createElement('div');
       empty.className = 'mdh-lainnya-empty';
       empty.textContent = 'Semua menu utama sudah tampil di atas -- tidak ada menu tambahan lain saat ini.';
       popup.appendChild(empty);
     } else {
+      const grid = document.createElement('div');
+      grid.className = 'mdh-lainnya-grid';
       extraBtns.forEach(b=>{
-        const row = document.createElement('div');
-        row.className = 'mdh-lainnya-row';
-        row.innerHTML = `<span class="ic">${b.querySelector('.ic')?.innerHTML||''}</span><span>${b.textContent.trim()}</span>`;
-        row.addEventListener('click', ()=>{ popup.remove(); b.click(); });
-        popup.appendChild(row);
+        const item = document.createElement('div');
+        item.className = 'mdh-lainnya-item';
+        item.innerHTML = `<span class="ic">${b.querySelector('.ic')?.innerHTML||''}</span><span class="lbl">${b.textContent.trim()}</span>`;
+        item.addEventListener('click', ()=>{ closeLainnyaPopup(); b.click(); });
+        grid.appendChild(item);
       });
+      popup.appendChild(grid);
     }
     document.body.appendChild(popup);
     // v3.245.0 -- BARU: kalau memang tidak ada menu tambahan (kondisi
     // "kosong" di atas), popup ini cuma pemberitahuan sekilas -- tidak
     // perlu ditutup manual, otomatis hilang sendiri setelah 2 detik.
     // Kalau BERISI daftar menu (ada yang bisa diklik), tetap harus ditutup
-    // manual seperti biasa (✕ / klik di luar) supaya tidak keburu hilang
+    // manual seperti biasa (✕ / klik backdrop) supaya tidak keburu hilang
     // saat pengguna masih mau memilih.
     if(extraBtns.length === 0){
-      setTimeout(()=>{ if(document.body.contains(popup)) popup.remove(); }, 2000);
+      setTimeout(()=>{ closeLainnyaPopup(); }, 2000);
     }
-    setTimeout(()=>{
-      const closeOnOutside = (e) => { if(!popup.contains(e.target)){ popup.remove(); document.removeEventListener('click', closeOnOutside); } };
-      document.addEventListener('click', closeOnOutside);
-    }, 10);
   };
   const mdhLainnya1 = document.getElementById('mdh-lainnya-btn');
   const mdhLainnya2 = document.getElementById('mdh-lainnya-btn2');
@@ -20391,6 +20436,13 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.292.0',
+    date: '07 Agu 2026',
+    notes: [
+      '🎨 REDESAIN popup "Menu Lainnya" di Aksi Cepat Dashboard (mobile): sebelumnya daftar baris vertikal sempit -- sekarang lembar penuh dari bawah (bottom-sheet, ada handle & latar gelap di belakangnya) berisi GRID kotak ikon bulat + label, gaya sama seperti "Layanan Lainnya" pada aplikasi Gojek. Grid Aksi Cepat utama Dashboard TETAP 8 slot seperti sebelumnya, tidak berubah -- ini murni ganti tampilan popup "Lainnya"-nya saja (termasuk saat menampilkan "🚗 Lacak Mobil Jalan" ketika ada mobil sedang jalan). Klik di luar lembar (area gelap) atau tombol ✕ tetap menutup popup seperti biasa.',
+    ]
+  },
   {
     v: '3.291.0',
     date: '07 Agu 2026',
