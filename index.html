@@ -2387,6 +2387,27 @@ function ensureDestinationsArray(){
   if(!Array.isArray(state.pendingTripReminders)) state.pendingTripReminders = [];
   if(!Array.isArray(state.financeAdmins)) state.financeAdmins = [];
   if(!Array.isArray(state.superAdmins)) state.superAdmins = [];
+  // BARU -- daftar NAMA tujuan yang sengaja dihapus lewat menu Hapus Data.
+  // Beda dari tombstone by-id (yang cuma mencegah baris LAMA itu sendiri
+  // hidup lagi lewat sinkron Cloud) -- ini mencegah ensureDestinationsSeeded()
+  // & ensureDestinationFromTujuan() otomatis membuat BARIS BARU dgn nama yang
+  // sama, yang selama ini jadi penyebab data Tujuan "muncul lagi" walau sudah
+  // dihapus (lihat deleteDestination(), ensureDestinationsSeeded()).
+  if(!Array.isArray(state.deletedDestinationNames)) state.deletedDestinationNames = [];
+}
+function isDestinationNameDeleted(nama){
+  const needle = (nama||'').trim().toLowerCase();
+  if(!needle) return false;
+  return state.deletedDestinationNames.some(x=> x.nama===needle);
+}
+function markDestinationNameDeleted(nama){
+  const needle = (nama||'').trim().toLowerCase();
+  if(!needle) return;
+  if(!isDestinationNameDeleted(needle)) state.deletedDestinationNames.push({ nama: needle, deletedAt: Date.now() });
+}
+function unmarkDestinationNameDeleted(nama){
+  const needle = (nama||'').trim().toLowerCase();
+  state.deletedDestinationNames = state.deletedDestinationNames.filter(x=> x.nama!==needle);
 }
 
 // Rata-rata Jarak & BBM dari riwayat Catat Perjalanan untuk 1 nama tujuan
@@ -11344,6 +11365,7 @@ function deleteDestination(id, onDeleted){
   openConfirmModal(warn, ()=>{
     const nama = dest ? dest.nama : '';
     markDeleted('destinations', id);
+    markDestinationNameDeleted(nama); // BARU -- cegah nama ini dibuat ulang otomatis
     state.destinations = state.destinations.filter(d=>d.id!==id);
     logActivity('tujuan', 'Hapus data tujuan', nama);
     saveData();
@@ -11483,6 +11505,7 @@ function openDestinationModal(editId){
         }
       } else {
         state.destinations.push(touch({id: uid(), kode: nextDestinationCode(), nama, jarakKm, bbmLiter, mapsLink: mapsLink || null, createdAt: today(), petugas: currentAdmin}));
+        unmarkDestinationNameDeleted(nama); // BARU -- admin sengaja menambah lagi, batalkan status "dihapus" sebelumnya
         logActivity('tujuan', 'Tambah tujuan baru', nama);
         showToast('Tujuan baru ditambahkan.');
       }
@@ -11527,6 +11550,15 @@ function ensureDestinationFromTujuan(tujuan, mapsLink){
     }
     return;
   }
+  // BARU -- kalau nama ini SUDAH PERNAH sengaja dihapus dari Data Tujuan
+  // (lewat menu Hapus Data), JANGAN buat ulang otomatis di sini. Sebelumnya
+  // fungsi ini tetap membuat baris baru tiap ada trip lama (mis. diedit
+  // ulang) atau baru yang menyebut nama itu, sehingga tujuan yang sudah
+  // dihapus selalu "muncul lagi" tanpa ada permintaan eksplisit dari admin.
+  // Kalau memang mau dihidupkan lagi, admin cukup pakai "+ Tambah Tujuan"
+  // di menu Data Tujuan -- itu jalur terpisah yang otomatis membatalkan
+  // status "dihapus" ini (lihat openDestinationModal()).
+  if(isDestinationNameDeleted(nama)) return;
   const avgNew = computeAvgJarakBbmForTujuan(nama);
   state.destinations.push(touch({
     id: uid(), kode: nextDestinationCode(), nama, jarakKm: avgNew.jarakKm, bbmLiter: avgNew.bbmLiter, mapsLink: mapsLink || null,
@@ -11554,6 +11586,16 @@ function ensureDestinationsSeeded(){
       if(!nama) return;
       const key = nama.toLowerCase();
       if(seen.has(key)) return;
+      // BARU -- BUG UTAMA: fungsi ini SEHARUSNYA cuma migrasi 1x saat Data
+      // Tujuan masih kosong (lihat komentar di atas), TAPI di kode tidak ada
+      // pengecekan itu -- dipanggil TANPA SYARAT setiap app dibuka (lihat
+      // pemanggilnya di akhir file). Akibatnya, Tujuan yang sudah dihapus
+      // lewat menu Hapus Data SELALU muncul lagi begitu app di-reload, sebab
+      // namanya masih ada di riwayat Catat Perjalanan/Booking dan dianggap
+      // "belum di-seed". Sekarang di-skip kalau namanya sudah tercatat
+      // sengaja dihapus (lihat markDestinationNameDeleted() di
+      // deleteDestination()).
+      if(isDestinationNameDeleted(nama)) return;
       seen.add(key);
       state.destinations.push(touch({id: uid(), kode: nextDestinationCode(), nama, ...computeAvgJarakBbmForTujuan(nama), mapsLink: item.mapsLink||null, createdAt: today(), petugas: currentAdmin}));
       changed = true;
@@ -18414,6 +18456,7 @@ function renderGpsTracking(){
               ${accRaw!=null ? (accOn ? '<span class="badge ok">Mesin ON</span>' : '<span class="badge neutral">Mesin OFF</span>') : ''}
             </div>
             ${kecepatan!=null ? `<div class="data-card-row"><span class="k">Kecepatan</span><span class="v">${escapeHtml(String(kecepatan))} km/j</span></div>` : ''}
+            <div class="data-card-row" style="opacity:.6;"><span class="k">Status mesin (mentah)</span><span class="v">${accRaw!=null ? escapeHtml(String(accRaw)) : '(kosong/null)'}</span></div>
             ${mileageKm!=null ? `<div class="data-card-row"><span class="k">Odometer GPS</span><span class="v">${mileageKm.toLocaleString('id-ID')} km</span></div>` : ''}
             ${doorRaw ? `<div class="data-card-row"><span class="k">Pintu</span><span class="v">${doorOpen?'<span class="badge warn">Terbuka</span>':'<span class="badge neutral">Tertutup</span>'}</span></div>` : ''}
             ${waktu ? `<div class="data-card-row"><span class="k">Update Terakhir</span><span class="v">${escapeHtml(String(waktu))}</span></div>` : ''}
