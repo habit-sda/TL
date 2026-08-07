@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.296.0">
+<meta name="app-version" content="3.297.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -1941,8 +1941,8 @@
     .mdh-summary-label{ font-size:11px; color:var(--muted); }
     .mdh-summary-right{ display:flex; gap:20px; }
     .mdh-wallet-btn{ text-align:center; cursor:pointer; user-select:none; background:none; border:none; padding:0; gap:0; }
-    .mdh-wallet-btn .ic{ width:64px; height:64px; border-radius:19px; padding:12px; box-sizing:border-box; display:flex; align-items:center; justify-content:center; margin:0 auto 5px; font-size:40px; line-height:1; }
-    .mdh-wallet-btn .ic svg, .mdh-wallet-btn .ic img{ width:100% !important; height:100% !important; object-fit:contain; }
+    .mdh-wallet-btn .ic{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 5px; font-size:18px; line-height:1; }
+    .mdh-wallet-btn .ic svg, .mdh-wallet-btn .ic img{ width:19px !important; height:19px !important; object-fit:contain; }
     .mdh-wallet-btn .lbl{ font-size:10.5px; color:var(--text); display:block; }
     .mdh-menu-grid{ padding:0; display:grid; grid-template-columns:repeat(4,1fr); gap:18px 10px; margin-bottom:16px; }
     .mdh-menu-item{ text-align:center; cursor:pointer; user-select:none; text-decoration:none; display:block; background:none; border:none; padding:0; }
@@ -2305,7 +2305,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.296.0';
+const APP_VERSION = '3.297.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -5418,6 +5418,16 @@ const BIAYA_OP_CATEGORIES = ['Isi BBM','Isi E-Toll','Makan','Parkir','Tol Tunai'
 // seperti kategori custom Biaya Operasional lainnya) untuk dipakai lagi ke
 // depannya tanpa perlu ketik ulang.
 const JENIS_BBM_DEFAULT = ['Pertalite','Pertamax'];
+// v3.335.0 -- Metode Pembayaran WAJIB diisi per item Biaya Operasional/Pribadi
+// (semua kategori, bukan cuma Isi BBM/E-Toll) -- dipakai jg di Tanda Terima
+// Perjalanan (badge kecil di samping nominal tiap baris, "Opsi A").
+const METODE_BAYAR_OPTIONS = ['Cash','Kartu Perusahaan','Kartu Pribadi'];
+function metodeBayarBadgeStyle(m){
+  if(m==='Cash') return 'background:#E4F6EC;color:#1B7A3D;';
+  if(m==='Kartu Perusahaan') return 'background:#EAF0FF;color:#0C447C;';
+  if(m==='Kartu Pribadi') return 'background:#F1EBFC;color:#4A2E85;';
+  return 'background:#F1EFE8;color:#5F5E5A;';
+}
 function usageBiayaOpItems(u){ return Array.isArray(u.biayaOperasional) ? u.biayaOperasional : []; }
 function usageBiayaOpTotal(u){ return usageBiayaOpItems(u).reduce((sum,it)=> sum + (Number(it.nominal)||0), 0); }
 // Total Biaya E-Toll (Rp E-Toll, gross yang dibayar -- BUKAN nilai bersih
@@ -13140,8 +13150,8 @@ function openBiayaOperasionalModal(usageId){
   // "+ Tambah Item" TETAP langsung terbuka (locked:false) -- proteksi ini
   // cuma utk data yang sudah tersimpan, bukan menghambat alur tambah biasa.
   let formItems = usageBiayaOpItems(u).length > 0
-    ? usageBiayaOpItems(u).map(it=>({ id: it.id||uid(), kategori: it.kategori, kategoriCustom: isBiayaOpCategory(it.kategori)?'':it.kategori, nominal: it.nominal, biayaAdmin: it.biayaAdmin||'', catatan: it.catatan||'', jenisBbm: it.jenisBbm||'', jenisBbmCustom: '', literValidasi: it.literValidasi||'', literIsi: it.literIsi||'', bensinSebelumIsi: it.bensinSebelumIsi??'', savedOriginally:true, locked:true }))
-    : [{ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'', jenisBbm:'', jenisBbmCustom:'', literValidasi:'', literIsi:'', bensinSebelumIsi:'', savedOriginally:false, locked:false }];
+    ? usageBiayaOpItems(u).map(it=>({ id: it.id||uid(), kategori: it.kategori, kategoriCustom: isBiayaOpCategory(it.kategori)?'':it.kategori, nominal: it.nominal, biayaAdmin: it.biayaAdmin||'', catatan: it.catatan||'', jenisBbm: it.jenisBbm||'', jenisBbmCustom: '', literValidasi: it.literValidasi||'', literIsi: it.literIsi||'', bensinSebelumIsi: it.bensinSebelumIsi??'', metodeBayar: it.metodeBayar||'', savedOriginally:true, locked:true }))
+    : [{ id: uid(), kategori:'', kategoriCustom:'', nominal:'', biayaAdmin:'', catatan:'', jenisBbm:'', jenisBbmCustom:'', literValidasi:'', literIsi:'', bensinSebelumIsi:'', metodeBayar:'', savedOriginally:false, locked:false }];
   // Normalisasi: kalau kategori tersimpan bukan salah satu dari daftar baku, anggap "Lainnya" + custom.
   formItems = formItems.map(it=>{
     if(it.kategori && !BIAYA_OP_CATEGORIES.includes(it.kategori)){
@@ -13210,6 +13220,7 @@ function openBiayaOperasionalModal(usageId){
       const literValidasiEl = document.getElementById('bo-litervalidasi-'+it.id);
       const literIsiEl = document.getElementById('bo-literisi-'+it.id);
       const levelSebelumEl = document.getElementById('bo-levelsebelum-'+it.id);
+      const metodeBayarEl = document.getElementById('bo-metodebayar-'+it.id);
       if(katEl) it.kategori = katEl.value;
       if(katCustomEl) it.kategoriCustom = katCustomEl.value;
       it.nominal = getRibuanValue('bo-nominal-'+it.id);
@@ -13220,6 +13231,7 @@ function openBiayaOperasionalModal(usageId){
       if(literValidasiEl) it.literValidasi = literValidasiEl.value;
       if(literIsiEl) it.literIsi = literIsiEl.value;
       if(levelSebelumEl) it.bensinSebelumIsi = levelSebelumEl.value;
+      if(metodeBayarEl) it.metodeBayar = metodeBayarEl.value;
     });
   }
   function updateTotal(){
@@ -13263,9 +13275,10 @@ function openBiayaOperasionalModal(usageId){
     return `
       <div style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--card);display:flex;align-items:center;justify-content:space-between;gap:10px;">
         <div style="min-width:0;">
-          <div style="display:flex;align-items:center;gap:6px;">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <span class="badge neutral" style="font-size:10.5px;">🔒 Tersimpan</span>
             <span style="font-size:13px;font-weight:600;color:var(--text);">${escapeHtml(displayKategori)}</span>
+            ${it.metodeBayar ? `<span style="display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:20px;${metodeBayarBadgeStyle(it.metodeBayar)}">${escapeHtml(it.metodeBayar)}</span>` : ''}
           </div>
           <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-top:3px;">${fmtMoney(Number(it.nominal)||0)}</div>
           ${subParts.length ? `<div style="font-size:11px;color:var(--muted);margin-top:1px;">${escapeHtml(subParts.join(' · '))}</div>` : ''}
@@ -13349,6 +13362,14 @@ function openBiayaOperasionalModal(usageId){
           <input type="text" inputmode="numeric" id="bo-biayaadmin-${it.id}" placeholder="Contoh: 1.500" value="${fmtRibuanInitial(it.biayaAdmin)}">
           <div class="hint" id="bo-etollnet-${it.id}"></div>
         </div>` : ''}
+        <div class="field" id="f-bo-metodebayar-${it.id}" style="margin-bottom:8px;">
+          <label>Metode Pembayaran *</label>
+          <select id="bo-metodebayar-${it.id}">
+            <option value="">— pilih —</option>
+            ${METODE_BAYAR_OPTIONS.map(m=>`<option value="${m}" ${it.metodeBayar===m?'selected':''}>${m}</option>`).join('')}
+          </select>
+          <div class="err-msg">Metode pembayaran wajib dipilih.</div>
+        </div>
         <div class="field" style="margin-bottom:${formItems.length>1?'8px':'0'};">
           <label>Catatan (opsional)</label>
           <input type="text" id="bo-catatan-${it.id}" value="${escapeHtml(it.catatan||'')}" placeholder="Detail tambahan">
@@ -13426,7 +13447,17 @@ function openBiayaOperasionalModal(usageId){
         const levelOverMax = it.bensinSebelumIsi!=='' && isFinite(levelAngka) && levelAngka>levelSebelumMax;
         if(levelOverMax) valid = false;
       });
-      if(!valid){ showToast('Ada isian yang belum valid -- cek baris "Isi BBM" (Jenis BBM wajib diisi, Level BBM Sebelum tidak boleh lewat batas mobil).', true); return false; }
+      // v3.335.0 -- Metode Pembayaran WAJIB diisi utk SEMUA kategori (bukan
+      // cuma Isi BBM) -- item locked (sudah tersimpan, tidak sedang dibuka
+      // lewat Edit) dilewati krn field-nya tidak ada di DOM sama sekali &
+      // data lama sebelum fitur ini ada boleh tetap tanpa metodeBayar.
+      formItems.forEach(it=>{
+        if(it.locked) return;
+        const metodeBayarKosong = !it.metodeBayar;
+        toggleFieldError('f-bo-metodebayar-'+it.id, metodeBayarKosong);
+        if(metodeBayarKosong) valid = false;
+      });
+      if(!valid){ showToast('Ada isian yang belum valid -- cek "Jenis BBM", "Level BBM Sebelum", dan "Metode Pembayaran" di tiap baris.', true); return false; }
 
       const validItems = formItems
         .map(it => ({
@@ -13438,6 +13469,7 @@ function openBiayaOperasionalModal(usageId){
           literValidasi: (isPribadi && it.kategori==='Isi BBM' && it.literValidasi!=='') ? Number(it.literValidasi) : undefined,
           literIsi: (!isPribadi && it.kategori==='Isi BBM' && it.literIsi!=='') ? Number(it.literIsi) : undefined,
           bensinSebelumIsi: (it.kategori==='Isi BBM' && it.bensinSebelumIsi!=='') ? Number(it.bensinSebelumIsi) : undefined,
+          metodeBayar: it.metodeBayar || undefined,
           catatan: (it.catatan||'').trim()
         }))
         .filter(it => it.kategori && it.nominal > 0);
@@ -13660,11 +13692,11 @@ function buildTripReceiptTextTg(u){
   if(u.literBensin) lines.push(`<b>Total BBM Diisi:</b> ${u.literBensin} L`);
   lines.push(`<b>Biaya BBM (total):</b> ${fmtMoney(u.biayaBensin||0)}`);
   biayaOpItems.filter(it=>it.kategori==='Isi BBM').forEach(it=>{
-    lines.push(`   ↳ <i>${escapeHtml(it.jenisBbm||'BBM')}${it.catatan?' — '+escapeHtml(it.catatan):''}: ${fmtMoney(it.nominal)}</i>`);
+    lines.push(`   ↳ <i>${escapeHtml(it.jenisBbm||'BBM')}${it.catatan?' — '+escapeHtml(it.catatan):''}${it.metodeBayar?' ['+escapeHtml(it.metodeBayar)+']':''}: ${fmtMoney(it.nominal)}</i>`);
   });
   if(biayaTolInfo) lines.push(`<b>Biaya Tol (total):</b> ${fmtMoney(biayaTol)}`);
   biayaOpItems.filter(it=>it.kategori==='Isi E-Toll').forEach(it=>{
-    lines.push(`   ↳ <i>${it.catatan?escapeHtml(it.catatan):'Isi E-Toll'}: ${fmtMoney(it.nominal)}</i>`);
+    lines.push(`   ↳ <i>${it.catatan?escapeHtml(it.catatan):'Isi E-Toll'}${it.metodeBayar?' ['+escapeHtml(it.metodeBayar)+']':''}: ${fmtMoney(it.nominal)}</i>`);
   });
   const adaIsiEtollTg = biayaOpItems.some(it=>it.kategori==='Isi E-Toll');
   if(adaIsiEtollTg || u.saldoEtoll!=null){
@@ -14122,7 +14154,10 @@ function buildTripReceiptElement(u){
           <td style="padding:2px 0 2px 14px;color:#6B7280;font-size:11px;position:relative;">
             <span style="position:absolute;left:0;color:#C7CCD4;">↳</span>${it.jenisBbm?escapeHtml(it.jenisBbm):'BBM'}${it.catatan?' — '+escapeHtml(it.catatan):''}
           </td>
-          <td style="padding:2px 0;text-align:right;font-family:'JetBrains Mono',monospace;color:#6B7280;font-size:11px;">${fmtMoney(it.nominal)}</td>
+          <td style="padding:2px 0;text-align:right;white-space:nowrap;">
+            ${it.metodeBayar ? `<span style="display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:20px;margin-right:6px;${metodeBayarBadgeStyle(it.metodeBayar)}">${escapeHtml(it.metodeBayar)}</span>` : ''}
+            <span style="font-family:'JetBrains Mono',monospace;color:#6B7280;font-size:11px;">${fmtMoney(it.nominal)}</span>
+          </td>
         </tr>`).join('')}
       ${biayaTolInfo ? `<tr><td style="padding:4px 0;font-weight:700;">Biaya Tol <span style="font-weight:400;color:#8993A4;font-size:10.5px;">(total)</span></td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;">${fmtMoney(biayaTol)}</td></tr>` : ''}
       ${biayaOpItems.filter(it=>it.kategori==='Isi E-Toll').map(it=>`
@@ -14130,7 +14165,10 @@ function buildTripReceiptElement(u){
           <td style="padding:2px 0 2px 14px;color:#6B7280;font-size:11px;position:relative;">
             <span style="position:absolute;left:0;color:#C7CCD4;">↳</span>${it.catatan?escapeHtml(it.catatan):'Isi E-Toll'}
           </td>
-          <td style="padding:2px 0;text-align:right;font-family:'JetBrains Mono',monospace;color:#6B7280;font-size:11px;">${fmtMoney(it.nominal)}</td>
+          <td style="padding:2px 0;text-align:right;white-space:nowrap;">
+            ${it.metodeBayar ? `<span style="display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:20px;margin-right:6px;${metodeBayarBadgeStyle(it.metodeBayar)}">${escapeHtml(it.metodeBayar)}</span>` : ''}
+            <span style="font-family:'JetBrains Mono',monospace;color:#6B7280;font-size:11px;">${fmtMoney(it.nominal)}</span>
+          </td>
         </tr>`).join('')}
       ${(() => {
         // v3.120.0 -- Saldo E-Toll (saldo KARTU saat ini) SEBELUMNYA tidak
@@ -14153,7 +14191,10 @@ function buildTripReceiptElement(u){
         ${itemLain.map(it=>`
         <tr>
           <td style="padding:4px 0;font-weight:700;">${escapeHtml(it.kategori)}${it.catatan?`<div style="font-size:10.5px;color:#6B7280;font-weight:400;">${escapeHtml(it.catatan)}</div>`:''}</td>
-          <td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;">${fmtMoney(it.nominal)}</td>
+          <td style="padding:4px 0;text-align:right;white-space:nowrap;">
+            ${it.metodeBayar ? `<span style="display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:20px;margin-right:6px;${metodeBayarBadgeStyle(it.metodeBayar)}">${escapeHtml(it.metodeBayar)}</span>` : ''}
+            <span style="font-family:'JetBrains Mono',monospace;font-weight:700;">${fmtMoney(it.nominal)}</span>
+          </td>
         </tr>`).join('')}`;
       })()}
     </table>
@@ -20493,6 +20534,15 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.297.0',
+    date: '07 Agu 2026',
+    notes: [
+      '🆕 Field baru "Metode Pembayaran *" (Cash / Kartu Perusahaan / Kartu Pribadi) ditambahkan ke SETIAP item di form "Biaya Operasional Perjalanan"/"Biaya Pribadi" (semua kategori: Isi BBM, Isi E-Toll, Parkir, Makan, dll) -- wajib diisi utk item baru, item lama yang sudah tersimpan sebelum fitur ini boleh tetap tanpa metode pembayaran sampai di-Edit ulang.',
+      '🎨 Tanda Terima Perjalanan (gambar & versi teks Telegram) sekarang menampilkan badge/label metode pembayaran di samping nominal tiap baris item.',
+      '⚠️ CATATAN SINKRONISASI: teks resi versi server (<code>buildTripReceiptText</code> di <code>scripts/telegram-notify.mjs</code>) BELUM ikut disentuh di sesi ini (file tidak diunggah) -- wajib disamakan manual supaya isi resi tidak beda tergantung jalur pengiriman mana yang sukses duluan, sesuai SOP.',
+    ]
+  },
   {
     v: '3.296.0',
     date: '07 Agu 2026',
