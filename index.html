@@ -7868,7 +7868,7 @@ function navigate(route, opts){
   // itu akan SELALU dialihkan ke Dashboard). Dicek terpisah lewat
   // isModeOperatorSubmenuVisible() (checkbox 'notiftelegram-peran'), simetris
   // dengan applyModeOperatorVisibility().
-  if(!insightUnlocked && route !== 'panduan'){
+  if(!insightUnlocked && !opts.forceAllow && route !== 'panduan'){
     if(route === 'notiftelegram'){
       if(!isModeOperatorSubmenuVisible('settings','notiftelegram-peran')) route = 'dashboard';
     } else {
@@ -10100,7 +10100,23 @@ function renderDashboard(){
     // Kendaraan" (bukan buka modal), dan MEMAKSA tampilan langsung ke Peta
     // (gpsTrackingForceView) supaya sesuai maksud tombolnya -- lihat mobil
     // yang sedang jalan itu juga, bukan cuma daftar kartu.
-    lacakjalan: () => { gpsTrackingForceView = 'peta'; navigate('gps'); },
+    // BARU -- PERBAIKAN BUG: tombol ini SEBELUMNYA memanggil navigate('gps')
+    // polos, yang kena gerbang keamanan rute umum di navigate() -- rute
+    // 'gps' default TIDAK diaktifkan utk Mode Sopir (lihat
+    // MODE_OPERATOR_MENU_DEFAULT.gps=false), jadi klik tombol ini DIAM-DIAM
+    // dialihkan balik ke Dashboard, tanpa pesan error apa pun -- kelihatan
+    // seperti "tombolnya tidak bisa diklik" padahal sebenarnya navigasinya
+    // diblokir gerbang. Sekarang pakai opts.forceAllow supaya tombol Aksi
+    // Cepat ini SELALU bisa membuka Peta -- masuk akal karena tombolnya
+    // sendiri SUDAH digerbang ketat oleh kondisinya sendiri (cuma tampil
+    // kalau memang ada mobil sungguh sedang jalan/trip aktif, lihat
+    // refreshLacakMobilJalanButton()), jadi tidak perlu digerbang dobel lagi
+    // oleh izin menu "Lacak Kendaraan" yang memang ditujukan utk akses BEBAS
+    // (lihat semua mobil kapan saja), beda konteks dari tombol kontekstual
+    // ini. Akses ke menu "Lacak Kendaraan" PENUH lewat sidebar/drawer TETAP
+    // digerbang seperti biasa -- ini HANYA mengecualikan jalur khusus tombol
+    // Aksi Cepat "Lacak Mobil Jalan".
+    lacakjalan: () => { gpsTrackingForceView = 'peta'; navigate('gps', { forceAllow: true }); },
   };
   document.querySelectorAll('.quick-action-btn').forEach(b=>{
     b.addEventListener('click', ()=>{
