@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.308.0">
+<meta name="app-version" content="3.309.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -559,6 +559,20 @@
      multiTujuanDetailBodyHtml()/openMultiTujuanDetailModal()). */
   [data-multitujuan-detail]{cursor:pointer;}
   [data-multitujuan-detail]:hover{filter:brightness(0.95);}
+  /* v3.309.0 -- BARU: badge ini sebelumnya WARISAN padding polos .badge
+     (3px 9px) + inline style="font-size:10px" (dulu ditempel manual di 2
+     tempat render, sekarang dipindah ke sini spy 1 sumber) -- kekecilan
+     buat ditarget jari di HP, gampang meleset & malah kena listener klik
+     elemen PEMBUNGKUS-nya (mis. .trip-card di bubble -- itu yang buka menu
+     Aksi lama Edit/Biaya Operasional/dst, BUKAN bug, memang begitu
+     perilakunya kalau area di LUAR badge yang diketuk). SENGAJA TIDAK
+     pakai trik "margin negatif" (hit-area lebih besar dari tampilan
+     visual) -- badge ini duduk DI TENGAH kalimat (inline, bukan tombol
+     berdiri sendiri), margin negatif di situ berisiko tumpang tindih dgn
+     teks di sebelahnya. Jadi cukup perbesar padding & font betulan
+     sedikit -- badge jadi sedikit lebih besar scr visual (bukan cuma area
+     ketuknya), tapi aman drpd bikin layout tabrakan. */
+  [data-multitujuan-detail]{padding:6px 11px;font-size:11.5px;}
   .mtj-stats{display:flex;gap:8px;margin-bottom:14px;}
   .mtj-stat{flex:1;min-width:0;background:var(--neutral-bg);border-radius:8px;padding:8px 10px;}
   .mtj-stat .mtj-stat-label{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -2348,7 +2362,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.308.0';
+const APP_VERSION = '3.309.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -12095,7 +12109,7 @@ function tujuanRingkasHtml(u){
   // (tooltip hover) TETAP dipertahankan sbg fallback cepat sebelum modal
   // sempat terbuka/di perangkat yang tidak mendukung klik dgn baik.
   if(selesaiCount === 0 || u.status !== 'digunakan'){
-    return `${escapeHtml(u.tujuan||'-')} <span class="badge neutral" style="font-size:10px;" data-multitujuan-detail="${u.id}" title="${escapeHtml(semua.join(' • '))} — ketuk untuk detail">+${u.tujuanTambahan.length} lainnya</span>`;
+    return `${escapeHtml(u.tujuan||'-')} <span class="badge neutral" data-multitujuan-detail="${u.id}" title="${escapeHtml(semua.join(' • '))} — ketuk untuk detail">+${u.tujuanTambahan.length} lainnya</span>`;
   }
   // v3.307.0 -- pakai hitungProgresTujuan() (bukan findIndex sendiri lagi) --
   // lihat komentar lengkap di fungsi itu soal urutanKonsisten: kalau ada
@@ -12107,7 +12121,7 @@ function tujuanRingkasHtml(u){
   const label = sedangMenuju ? `Menuju: ${escapeHtml(sedangMenuju)}`
     : (!urutanKonsisten ? 'Sebagian ditandai di luar urutan' : 'Semua tujuan selesai');
   const badgeClass = sedangMenuju ? 'warn' : (!urutanKonsisten ? 'warn' : 'ok');
-  return `${label} <span class="badge ${badgeClass}" style="font-size:10px;" data-multitujuan-detail="${u.id}" title="${escapeHtml(semua.join(' • '))} — ketuk untuk detail">${selesaiCount}/${total} selesai</span>`;
+  return `${label} <span class="badge ${badgeClass}" data-multitujuan-detail="${u.id}" title="${escapeHtml(semua.join(' • '))} — ketuk untuk detail">${selesaiCount}/${total} selesai</span>`;
 }
 
 
@@ -21276,6 +21290,13 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.309.0',
+    date: '08 Agu 2026',
+    notes: [
+      '🎯 Badge "+N lainnya"/"X/Y selesai" (trigger modal Detail Tujuan) diperbesar sedikit (padding & font) -- SEBELUMNYA cuma pil kecil (padding 3px, font 10px) yang gampang meleset diketuk di HP, dan meleset dari badge berarti kena listener klik elemen pembungkusnya (mis. kartu di bubble "Mobil Sedang Jalan"), yang memang sengaja buka menu Aksi lama (Edit/Biaya Operasional/dst) -- BUKAN bug, tapi target ketuk yang kekecilan. Style <code>font-size:10px</code> yang dulu ditempel manual di 2 tempat render juga dirapikan jadi 1 aturan CSS.',
+    ]
+  },
   {
     v: '3.308.0',
     date: '08 Agu 2026',
