@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.299.0">
+<meta name="app-version" content="3.301.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2319,7 +2319,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.300.0';
+const APP_VERSION = '3.301.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -14459,13 +14459,24 @@ async function copyTripReceiptToClipboard(usageId){
 function tripFinanceStatusHtml(u){
   if(u.jenisPenggunaan === 'pribadi') return ''; // trip Pribadi tidak pernah dikirim ke Finance
   const sudahKirim = !!u.buktiTerkirimAt;
+  // BARU -- gaya kotak & tombol dirombak sesuai referensi: kotak amber
+  // dengan sudut lebih membulat (14px, bukan 8px) + ikon segitiga peringatan
+  // ⚠️, dan tombol "Kirim ke Finance" diganti jadi PIL HITAM PENUH (bukan
+  // btn-primary biru bawaan) supaya kontras maksimal & tidak mungkin
+  // ketuker sama tombol lain di sekitarnya -- ini tombol PALING PENTING di
+  // popup ini, jadi sengaja dibuat paling menonjol. Sengaja BUKAN pakai
+  // class .btn bawaan lagi (semua inline) supaya gaya pil hitamnya tidak
+  // ketimpa aturan .btn-primary/.btn-sm global.
   return `
-    <div style="border-top:1px dashed var(--line);margin:6px 0 12px 0;"></div>
-    <div id="trip-finance-status-box" style="border:1px solid var(--line);background:var(--neutral-bg);border-radius:8px;padding:10px 12px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-        <div id="trip-finance-status-text" style="font-size:11.5px;color:var(--muted);line-height:1.4;">${sudahKirim ? '✅ Sudah dikirim ke Admin Finance' : 'Belum dikirim ke Admin Finance'}</div>
-        <button type="button" class="btn btn-primary btn-sm" id="btn-kirim-trip-finance">📨 ${sudahKirim ? 'Kirim Ulang' : 'Kirim ke Finance'}</button>
+    <div id="trip-finance-status-box" style="border:1.5px solid ${sudahKirim ? 'var(--line)' : 'var(--amber)'};background:${sudahKirim ? 'var(--neutral-bg)' : 'var(--amber-bg)'};border-radius:14px;padding:14px;margin-top:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:${sudahKirim ? '0' : '10px'};">
+        <div id="trip-finance-status-text" style="display:flex;align-items:center;gap:6px;font-size:13px;color:${sudahKirim ? 'var(--muted)' : 'var(--amber)'};line-height:1.4;font-weight:700;">${sudahKirim ? '✅ Sudah dikirim ke Admin Finance' : '⚠️ Belum dikirim ke admin finance'}</div>
+        ${sudahKirim ? `<button type="button" id="btn-kirim-trip-finance" style="background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;padding:0;">Kirim ulang</button>` : ''}
       </div>
+      ${sudahKirim ? '' : `
+      <button type="button" id="btn-kirim-trip-finance" style="width:100%;background:#111318;color:#fff;border:none;border-radius:999px;height:44px;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;">
+        <span style="font-size:15px;">📨</span> Kirim ke finance
+      </button>`}
     </div>
   `;
 }
@@ -14486,10 +14497,16 @@ function openTripReceiptModal(usageId){
     `,
     onSave: () => true
   });
-  const saveBtn = document.getElementById('modal-save');
-  if(saveBtn) saveBtn.textContent = 'Tutup';
-  const cancelBtn = document.getElementById('modal-cancel');
-  if(cancelBtn) cancelBtn.style.display = 'none';
+  // BARU -- tombol "Tutup" (& "Batal") di footer DIHAPUS SENGAJA untuk popup
+  // ini -- satu-satunya cara menutup sekarang HANYA lewat ✕ di pojok kanan
+  // atas (modal-close, sudah ada bawaan openModal()). Alasannya: tombol
+  // "Tutup" besar di footer terasa seperti ajakan implisit utk buru2
+  // menutup popup tanpa baca isinya dulu -- ✕ kecil di pojok terasa lebih
+  // sebagai aksi sadar/disengaja, bukan tombol utama yang mengundang
+  // ditekan reflek. Footer disembunyikan total (bukan cuma cancelBtn spt
+  // sebelumnya) supaya tidak ada ruang kosong bekas footer yang aneh.
+  const modalFoot = document.querySelector('#modal-root .modal-foot');
+  if(modalFoot) modalFoot.style.display = 'none';
   const previewHolder = document.getElementById('trip-receipt-preview');
   if(previewHolder){
     const receiptEl = buildTripReceiptElement(u);
@@ -14520,6 +14537,24 @@ function openTripReceiptModal(usageId){
   document.getElementById('btn-share-trip-receipt').onclick = () => shareTripReceipt(usageId);
   const btnKirimFinance = document.getElementById('btn-kirim-trip-finance');
   if(btnKirimFinance) btnKirimFinance.onclick = () => kirimTripReceiptKeFinance(usageId);
+
+  // BARU -- kartu pengingat mengambang: begitu popup Tanda Terima ini
+  // ditutup (lewat tombol Tutup, ✕, ATAU tap area gelap di luar modal) TANPA
+  // sopir sempat menekan "Kirim ke Finance" di dalamnya, munculkan kartu
+  // pengingat kecil (lihat showFinanceReminderPopup() di atas) sebagai
+  // jaring pengaman -- ini KASUS PERSIS yang bikin sopir sering kelewat
+  // (buru2 tutup popup sebelum sempat scroll ke tombol kirim). Dipasang
+  // lewat addEventListener (BUKAN timpa .onclick) supaya perilaku tutup
+  // modal yang sudah ada (close(), termasuk urusan history/back button-nya)
+  // TIDAK terganggu sama sekali -- ini cuma "nebeng" event yang sama.
+  // Ditunda dikit (300ms) supaya animasi/transisi modal tertutup selesai
+  // dulu sebelum kartu pengingat muncul, biar tidak tabrakan visualnya.
+  const checkFinanceReminderAfterClose = () => setTimeout(() => showFinanceReminderPopup(usageId), 300);
+  document.getElementById('modal-close').addEventListener('click', checkFinanceReminderAfterClose);
+  document.getElementById('modal-save').addEventListener('click', checkFinanceReminderAfterClose);
+  document.getElementById('modal-overlay').addEventListener('click', (e) => {
+    if(e.target.id === 'modal-overlay') checkFinanceReminderAfterClose();
+  });
 }
 
 // BARU (v3.187.0) -- versi HTTP dari fitur "kirim ke Finance", dipicu dari
@@ -14531,13 +14566,20 @@ function openTripReceiptModal(usageId){
 // itu sama sekali. Endpoint-nya (/kirim-nota-finance di worker.js) baca data
 // FRESH langsung dari GitHub -- bukan dari state lokal HP ini -- supaya tidak
 // kena masalah "field belum tersinkron" yang sama seperti resi instan dulu.
-async function kirimTripReceiptKeFinance(usageId){
+// v3.29x.0 -- BARU: btnId/statusId dibuat jadi parameter (defaultnya tetap ID
+// tombol di popup Tanda Terima lama, supaya pemanggilan lama tidak perlu
+// diubah) -- ini supaya fungsi yang SAMA bisa dipakai ULANG oleh popup kartu
+// mengambang "Kirim ke Finance" (lihat showFinanceReminderPopup() di bawah),
+// tanpa duplikasi logika fetch/error-handling. statusId boleh null kalau
+// pemanggilnya (mis. kartu mengambang) tidak punya elemen teks status.
+async function kirimTripReceiptKeFinance(usageId, btnId='btn-kirim-trip-finance', statusId='trip-finance-status-text'){
   if(!isGhConnected() || !ghConfig.notifySecret){
     showToast('Sinkron GitHub/Notify Secret belum diatur -- atur dulu di menu Pengaturan.', true);
     return;
   }
-  const btn = document.getElementById('btn-kirim-trip-finance');
-  const statusText = document.getElementById('trip-finance-status-text');
+  const btn = btnId ? document.getElementById(btnId) : null;
+  const statusText = statusId ? document.getElementById(statusId) : null;
+  const btnOriginalHtml = btn ? btn.innerHTML : '';
   if(btn){ btn.disabled = true; btn.textContent = 'Mengirim...'; }
   try{
     const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/kirim-nota-finance`, {
@@ -14548,8 +14590,8 @@ async function kirimTripReceiptKeFinance(usageId){
     const body = await res.json().catch(()=>({}));
     if(!res.ok){
       showToast(body.error || `Gagal mengirim ke Finance (HTTP ${res.status}).`, true);
-      if(btn){ btn.disabled = false; btn.textContent = '📨 Kirim ke Finance'; }
-      return;
+      if(btn){ btn.disabled = false; btn.innerHTML = btnOriginalHtml || '📨 Kirim ke Finance'; }
+      return false;
     }
     // Tandai juga di data lokal supaya status di popup (& badge lain kalau
     // ada) langsung sinkron tanpa perlu nunggu auto-sync berikutnya.
@@ -14558,10 +14600,69 @@ async function kirimTripReceiptKeFinance(usageId){
     if(statusText) statusText.textContent = '✅ Sudah dikirim ke Admin Finance';
     if(btn){ btn.disabled = false; btn.textContent = '📨 Kirim Ulang'; }
     showToast('Nota/tanda terima berhasil dikirim ke Admin Finance. 🙏');
+    return true;
   }catch(e){
     showToast('Gagal menghubungi server: ' + e.message, true);
-    if(btn){ btn.disabled = false; btn.textContent = '📨 Kirim ke Finance'; }
+    if(btn){ btn.disabled = false; btn.innerHTML = btnOriginalHtml || '📨 Kirim ke Finance'; }
+    return false;
   }
+}
+
+// BARU -- kartu popup mengambang "Kirim ke Finance", pengganti/pelengkap
+// tombol yang sebelumnya cuma ada di dalam popup besar "Tanda Terima
+// Perjalanan" (gampang kelewat kalau sopir buru-buru menutup popup itu
+// sebelum sempat scroll ke tombolnya). Kartu ini TIDAK pakai overlay gelap
+// (openModal biasa) -- sengaja mengambang tipis di atas layar supaya sopir
+// tetap bisa lihat/pakai aplikasi di baliknya, tapi tombolnya tetap jelas &
+// tidak tersembunyi. Dipicu dari checkFinanceReminderAfterModalClose() di
+// openTripReceiptModal() -- lihat komentar di sana.
+//
+// Perilaku tombol "Nanti saja" (SESUAI PERMINTAAN USER): begitu ditekan,
+// kartu ini TIDAK muncul lagi untuk trip ini SAMA SEKALI (ditandai lewat
+// u.financeReminderDismissed) -- sopir tetap kebagian pengingat Telegram
+// otomatis 5 jam kemudian (runNotifyCheck di worker.js) sebagai jaring
+// pengaman terakhir, jadi tidak ada trip yang benar2 "hilang" dari radar.
+function showFinanceReminderPopup(usageId){
+  const u = state.usage.find(x=>x.id===usageId);
+  if(!u) return;
+  if(u.jenisPenggunaan === 'pribadi') return; // trip Pribadi tidak pernah dikirim ke Finance
+  if(u.buktiTerkirimAt || u.financeReminderDismissed) return; // sudah terkirim / sudah pernah ditolak sopir
+  if(document.getElementById('finance-reminder-popup')) return; // sudah ada kartu tampil, jangan dobel
+
+  // Kalau bar navigasi bawah HP (khusus peran Sopir, lihat #mobile-bottom-nav
+  // di CSS) sedang aktif, naikkan posisi kartu supaya tidak ketutupan olehnya.
+  const navActive = document.body.classList.contains('mobile-nav-locked');
+  const bottomOffset = navActive ? 'calc(84px + env(safe-area-inset-bottom))' : '16px';
+
+  const el = document.createElement('div');
+  el.id = 'finance-reminder-popup';
+  el.style.cssText = `position:fixed;left:12px;right:12px;bottom:${bottomOffset};max-width:380px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:0 4px 20px rgba(0,0,0,0.14);z-index:9999;font-family:Inter,sans-serif;`;
+  el.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:10px;">
+      <div style="width:34px;height:34px;border-radius:10px;background:var(--amber-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;">🧾</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:700;color:#1A2130;">Tanda Terima Perjalanan</div>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.4;">Belum dikirim ke Admin Finance — ${escapeHtml(carLabel(u.carId))}</div>
+      </div>
+    </div>
+    <button type="button" id="finance-reminder-btn" style="width:100%;margin-top:12px;background:#111318;color:#fff;border:none;border-radius:999px;height:44px;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;"><span style="font-size:15px;">📨</span> Kirim ke finance</button>
+    <button type="button" id="finance-reminder-dismiss" style="width:100%;margin-top:4px;background:none;border:none;color:var(--muted);font-size:12px;padding:7px;cursor:pointer;">Nanti saja</button>
+  `;
+  document.body.appendChild(el);
+
+  document.getElementById('finance-reminder-btn').onclick = async () => {
+    const ok = await kirimTripReceiptKeFinance(usageId, 'finance-reminder-btn', null);
+    if(ok){
+      const stillThere = document.getElementById('finance-reminder-popup');
+      if(stillThere) stillThere.remove();
+    }
+  };
+  document.getElementById('finance-reminder-dismiss').onclick = () => {
+    u.financeReminderDismissed = true;
+    touch(u);
+    saveData();
+    el.remove();
+  };
 }
 
 async function generateUsageReportBlob(u){
@@ -20745,6 +20846,16 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.301.0',
+    date: '08 Agu 2026',
+    notes: [
+      '📨 Popup "Tanda Terima Perjalanan" (muncul otomatis setelah Akhiri Trip/Tandai Tiba): kotak status "Belum dikirim ke admin finance" dirombak jadi lebih menonjol -- sudut lebih membulat, ikon ⚠️, dan tombol <b>Kirim ke Finance</b> diganti jadi PIL HITAM PENUH lebar (bukan tombol biru kecil biasa) supaya tidak mungkin kelewat. Kotak tetap di posisi bawah (setelah gambar resi &amp; tombol Salin/Bagikan) seperti sebelumnya.',
+      '✕ Tombol "Tutup" &amp; "Batal" di footer popup ini DIHAPUS -- sekarang satu-satunya cara menutup popup HANYA lewat ✕ di pojok kanan atas, supaya menutup popup jadi aksi yang lebih disengaja/sadar, bukan reflek tekan tombol besar di footer tanpa baca isinya dulu.',
+      '🔔 BARU: kartu pengingat mengambang (tanpa overlay gelap, tidak menutupi seluruh layar) muncul sebagai jaring pengaman kedua kalau popup Tanda Terima ditutup TANPA sempat menekan Kirim ke Finance -- pilihan cuma 2: <b>Kirim ke Finance</b> (gaya pil hitam sama seperti di atas) atau <b>Nanti saja</b> (kalau "Nanti saja" ditekan, kartu ini tidak muncul lagi untuk trip itu, tetap diingatkan lewat pengingat Telegram 5 jam seperti biasa).',
+      '🔧 Sekalian diperbaiki: tag <meta name="app-version"> di &lt;head&gt; sempat tidak disamakan dengan APP_VERSION (3.299.0 vs 3.300.0) -- disamakan lagi.',
+    ]
+  },
   {
     v: '3.300.0',
     date: '07 Agu 2026',
