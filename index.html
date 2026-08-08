@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.301.0">
+<meta name="app-version" content="3.302.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2343,7 +2343,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.301.0';
+const APP_VERSION = '3.302.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -5449,7 +5449,7 @@ function servisBerkalaReminderInfo(car){
 
 const SERVICE_CATEGORIES = ['Ganti Oli','Servis Berkala / Tune Up','Rem','Ban & Balancing','AC','Kelistrikan','Suspensi/Understel','Aki','Lainnya'];
 
-const BIAYA_OP_CATEGORIES = ['Isi BBM','Isi E-Toll','Makan','Parkir','Tol Tunai','Lainnya'];
+const BIAYA_OP_CATEGORIES = ['Isi BBM','Isi E-Toll','Konsumsi','Parkir','Tol Tunai','Lainnya']; // v3.341.0 -- 'Makan' diganti 'Konsumsi' (lbh mencakup, mis. minum/snack, bukan cuma makan). Kembaran: BIAYA_OP_CATEGORIES di worker.js WAJIB disamakan.
 // v3.99.0 -- sub-kategori WAJIB kalau kategori = "Isi BBM" (jenis BBM yang
 // diisi) -- daftar dasar cuma 2, tapi bisa ditambah bebas lewat "+ Jenis
 // lain (baru)..." dan otomatis "diingat" (diambil dari riwayat, sama
@@ -13991,6 +13991,7 @@ function buildTripReceiptTextTg(u){
 
   const lines = [
     '🧾 <b>Tanda Terima Perjalanan</b>', '',
+    `<b>Kode:</b> ${escapeHtml(u.kode||'-')}`,
     `<b>Mobil:</b> ${escapeHtml(carLabel(u.carId))}`,
     `<b>Sopir:</b> ${escapeHtml(driverLabel(u.driverId, u.driver))}`,
     `<b>Jenis:</b> ${u.jenisPenggunaan==='pribadi' ? '🏠 Pribadi' : '🧾 Operasional'}`,
@@ -14013,7 +14014,12 @@ function buildTripReceiptTextTg(u){
   if(adaIsiEtollTg || u.saldoEtoll!=null){
     const linkedCardTg = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
     const nomorRingkasTg = linkedCardTg ? (linkedCardTg.nomorKartu.length>4 ? '•••• '+linkedCardTg.nomorKartu.slice(-4) : linkedCardTg.nomorKartu) : '';
-    lines.push(`<b>Saldo E-Toll${nomorRingkasTg?' ('+nomorRingkasTg+')':''}:</b> ${u.saldoEtoll!=null?fmtMoney(u.saldoEtoll):'-'}`);
+    // v3.341.0 -- label "Saldo Akhir E-Toll" (lebih jelas ini saldo kartu, bukan
+    // biaya) & SENGAJA pakai <i> (bukan <b> spt baris Biaya BBM/Biaya Tol) --
+    // Telegram HTML tidak dukung warna teks, jadi italic dipakai sbg penanda
+    // visual "baris ini BUKAN bagian dari Total di bawah", pola yang sama dgn
+    // baris rincian ↳ di atas yang juga italic krn bukan biaya berdiri sendiri.
+    lines.push(`<i>Saldo Akhir E-Toll${nomorRingkasTg?' ('+nomorRingkasTg+')':''}: ${u.saldoEtoll!=null?fmtMoney(u.saldoEtoll):'-'}</i>`);
   }
   const grandTotal = (Number(u.biayaBensin)||0) + biayaTol + biayaOpTotalUntukTotal;
   lines.push('', `<b>Total:</b> ${fmtMoney(grandTotal)}`);
@@ -14448,6 +14454,7 @@ function buildTripReceiptElement(u){
       <div style="font-size:13px;font-weight:700;margin-top:8px;color:#374151;">Tanda Terima Perjalanan</div>
     </div>
     <div style="border-top:1.5px dashed #C7CCD4;border-bottom:1.5px dashed #C7CCD4;padding:10px 0;margin-bottom:12px;font-size:12.5px;line-height:1.7;">
+      <div><b>Kode:</b> ${escapeHtml(u.kode||'-')}</div>
       <div><b>Mobil:</b> ${escapeHtml(carLabel(u.carId))}</div>
       <div><b>Sopir:</b> ${escapeHtml(driverLabel(u.driverId, u.driver))}</div>
       <div><b>Tujuan:</b> ${escapeHtml(u.tujuan||'-')}</div>
@@ -14492,7 +14499,12 @@ function buildTripReceiptElement(u){
         if(!adaIsiEtoll && u.saldoEtoll==null) return '';
         const linkedCard = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
         const nomorRingkas = linkedCard ? (linkedCard.nomorKartu.length>4 ? '•••• '+linkedCard.nomorKartu.slice(-4) : linkedCard.nomorKartu) : '';
-        return `<tr><td style="padding:4px 0;font-weight:700;">Saldo E-Toll${nomorRingkas?` <span style="font-weight:400;color:#8993A4;font-size:10.5px;">(${nomorRingkas})</span>`:''}</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;">${u.saldoEtoll!=null?fmtMoney(u.saldoEtoll):'-'}</td></tr>`;
+        // v3.341.0 -- label diganti "Saldo Akhir E-Toll" (lebih jelas ini SALDO KARTU,
+        // bukan biaya) & warnanya SENGAJA dibuat abu-abu muted (bukan hitam tebal spt
+        // baris Biaya BBM/Biaya Tol di atasnya) -- baris ini BUKAN bagian dari
+        // penjumlahan TOTAL BIAYA di bawah (lihat grandTotal), jadi warnanya harus
+        // beda supaya tidak terlihat seolah-olah ikut dijumlah.
+        return `<tr><td style="padding:4px 0;font-weight:600;color:#8993A4;">Saldo Akhir E-Toll${nomorRingkas?` <span style="font-weight:400;color:#8993A4;font-size:10.5px;">(${nomorRingkas})</span>`:''}</td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600;color:#8993A4;">${u.saldoEtoll!=null?fmtMoney(u.saldoEtoll):'-'}</td></tr>`;
       })()}
       ${(() => {
         const itemLain = biayaOpItems.filter(it=>it.kategori!=='Isi BBM' && it.kategori!=='Isi E-Toll');
@@ -20976,6 +20988,17 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.302.0',
+    date: '08 Agu 2026',
+    notes: [
+      '🍽️ Kategori Biaya Operasional/Pribadi "Makan" diganti nama jadi "Konsumsi" (lebih mencakup, mis. minum/snack, bukan cuma makan) -- <code>worker.js</code> JUGA diupload ulang kali ini (BIAYA_OP_CATEGORIES kembarannya ikut disamakan). Item lama yang tersimpan dgn kategori "Makan" TIDAK hilang/rusak -- otomatis dikenali sistem sebagai kategori custom "Makan" (mekanisme normalisasi yang sudah ada), tetap muncul & bisa dihitung seperti biasa, cuma tidak lagi otomatis dipilih dari dropdown baku.',
+      '🔖 Tanda Terima Perjalanan (app & Telegram) sekarang menampilkan baris <b>Kode</b> (kode perjalanan, mis. PJL-00001) -- sebelumnya kode ini cuma terlihat di daftar Catat Perjalanan/menu Aksi, belum ikut tercantum di resi. <code>worker.js</code> JUGA diupload ulang (2 kembaran <code>buildTripReceiptText</code> di sana ikut disamakan).',
+      '🧹 Pesan Telegram "trip selesai" yang diteruskan ke Admin Finance (baik otomatis maupun lewat tombol "📨 Kirim ke Finance"/"Kirim Ulang" di aplikasi) dirapikan -- sebelumnya tanggal & jumlah lampiran digabung jadi 1 baris panjang (gaya " · "), sekarang tiap info (Kode, Mobil, Tujuan, Tanggal, Lampiran) jadi baris <b>Label:</b> tersendiri, lebih gampang dipindai mata. <code>worker.js</code> perlu diupload ulang kali ini.',
+      '🎨 Baris "Saldo E-Toll" di Tanda Terima Perjalanan (app & Telegram) diganti nama jadi "Saldo Akhir E-Toll" (lebih jelas ini SALDO KARTU, bukan biaya) & tampilannya dibedakan dari baris Biaya BBM/Biaya Tol di atasnya -- di app jadi warna abu-abu muted (bukan hitam tebal), di Telegram jadi <i>italic</i> (Telegram tidak dukung warna teks) -- supaya jelas baris ini BUKAN bagian dari penjumlahan TOTAL BIAYA di bawahnya.',
+      '⚠️ CATATAN SINKRONISASI (sama pola dgn v3.301.0 & rilis-rilis sebelumnya): teks resi versi server (<code>buildTripReceiptText</code> di <code>scripts/telegram-notify.mjs</code>) BELUM ikut disentuh di sesi ini (file tidak diunggah) -- wajib disamakan manual (kode perjalanan + label "Saldo Akhir E-Toll") supaya isi resi tidak beda tergantung jalur pengiriman mana yang sukses duluan, sesuai SOP.',
+    ]
+  },
   {
     v: '3.301.0',
     date: '08 Agu 2026',
