@@ -553,6 +553,30 @@
   .badge.danger{background:var(--red-bg);color:var(--red);}
   .badge.neutral{background:var(--neutral-bg);color:var(--muted);}
 
+  /* v3.302.0 -- BARU: modal "Detail Tujuan" (klik badge "+N lainnya" /
+     "X/Y selesai" dari tujuanRingkasHtml() -- bubble, daftar trip, kartu
+     perjalanan, SEMUA pakai fungsi & modal yang sama, lihat
+     multiTujuanDetailBodyHtml()/openMultiTujuanDetailModal()). */
+  [data-multitujuan-detail]{cursor:pointer;}
+  [data-multitujuan-detail]:hover{filter:brightness(0.95);}
+  .mtj-stats{display:flex;gap:8px;margin-bottom:14px;}
+  .mtj-stat{flex:1;min-width:0;background:var(--neutral-bg);border-radius:8px;padding:8px 10px;}
+  .mtj-stat .mtj-stat-label{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mtj-stat .mtj-stat-value{font-size:14px;font-weight:800;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mtj-timeline{margin-top:4px;}
+  .mtj-row{display:flex;gap:10px;}
+  .mtj-row-dot-col{display:flex;flex-direction:column;align-items:center;flex-shrink:0;}
+  .mtj-dot{width:18px;height:18px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;}
+  .mtj-dot.done{background:var(--green);color:#fff;}
+  .mtj-dot.next{background:var(--amber-bg);border:1.5px solid var(--amber);}
+  .mtj-dot.pending{border:1.5px dashed var(--line);}
+  .mtj-line{width:1px;flex:1;background:var(--line);margin:2px 0;min-height:8px;}
+  .mtj-row-body{padding-bottom:16px;flex:1;min-width:0;}
+  .mtj-row-body .mtj-name{font-size:13px;color:var(--text);}
+  .mtj-row.next .mtj-row-body .mtj-name{font-weight:700;}
+  .mtj-row-body .mtj-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+  .mtj-row.next .mtj-row-body .mtj-meta{color:var(--amber);}
+
   /* Tombol Navigasi Maps -- Opsi 2 (Outline Tegas), dipilih supaya lebih
      terlihat dibanding badge kecil sebelumnya, tanpa terlalu "ramai" kalau
      berdampingan dengan tombol aksi lain (Edit, Biaya Operasional, dll). */
@@ -12059,14 +12083,120 @@ function tujuanRingkasHtml(u){
   // tampilan "+N lainnya" polos seperti sebelumnya.
   const selesaiMap = u.tujuanSelesaiAt || {};
   const selesaiCount = Object.keys(selesaiMap).length;
+  // v3.302.0 -- BARU: badge sekarang BISA DIKLIK (data-multitujuan-detail)
+  // -- membuka modal "Detail Tujuan" (lihat openMultiTujuanDetailModal())
+  // yang menunjukkan SEMUA titik + urutan + jam sampai (kalau sudah) +
+  // estimasi jarak per titik (kalau namanya cocok di Data Tujuan). title
+  // (tooltip hover) TETAP dipertahankan sbg fallback cepat sebelum modal
+  // sempat terbuka/di perangkat yang tidak mendukung klik dgn baik.
   if(selesaiCount === 0 || u.status !== 'digunakan'){
-    return `${escapeHtml(u.tujuan||'-')} <span class="badge neutral" style="font-size:10px;" title="${escapeHtml(semua.join(' • '))}">+${u.tujuanTambahan.length} lainnya</span>`;
+    return `${escapeHtml(u.tujuan||'-')} <span class="badge neutral" style="font-size:10px;" data-multitujuan-detail="${u.id}" title="${escapeHtml(semua.join(' • '))} — ketuk untuk detail">+${u.tujuanTambahan.length} lainnya</span>`;
   }
   let sedangMenujuIdx = semua.findIndex((_,i)=> !selesaiMap[i+1]);
   const sedangMenuju = sedangMenujuIdx===-1 ? null : semua[sedangMenujuIdx];
   const label = sedangMenuju ? `Menuju: ${escapeHtml(sedangMenuju)}` : 'Semua tujuan selesai';
-  return `${label} <span class="badge ${sedangMenuju?'warn':'ok'}" style="font-size:10px;" title="${escapeHtml(semua.join(' • '))}">${selesaiCount}/${total} selesai</span>`;
+  return `${label} <span class="badge ${sedangMenuju?'warn':'ok'}" style="font-size:10px;" data-multitujuan-detail="${u.id}" title="${escapeHtml(semua.join(' • '))} — ketuk untuk detail">${selesaiCount}/${total} selesai</span>`;
 }
+
+// v3.302.0 -- BARU: isi modal "Detail Tujuan" -- gabungan 2 referensi desain
+// (kartu ringkasan progres/estimasi di atas + timeline vertikal per titik di
+// bawah) supaya SEKALI buka langsung kelihatan semua: urutan tujuan, mana yg
+// sudah/sedang/belum dikunjungi, jam sampai per titik (real, dari perintah
+// bot "sampai"/"tiba"), dan estimasi jarak per titik (SENGAJA dilabeli
+// "estimasi" -- diambil dari Data Tujuan by NAMA, bukan jarak aktual GPS
+// per-titik yang memang belum ada tercatat, cuma odometer awal/akhir SATU
+// trip penuh -- lihat findDestinationByName()).
+function multiTujuanDetailBodyHtml(u){
+  const semua = [u.tujuan, ...(u.tujuanTambahan||[])].filter(Boolean);
+  const total = semua.length;
+  const selesaiMap = u.tujuanSelesaiAt || {};
+  const selesaiCount = Object.keys(selesaiMap).length;
+  const sedangMenujuIdx = semua.findIndex((_,i)=> !selesaiMap[i+1]);
+  const sedangMenuju = (u.status==='digunakan' && sedangMenujuIdx!==-1) ? semua[sedangMenujuIdx] : null;
+
+  // Estimasi jarak per titik dari Data Tujuan (referensi by nama, BUKAN
+  // aktual) -- kalau semua titik punya referensi, tampilkan juga totalnya;
+  // kalau ada yang tidak ketemu, total disembunyikan (drpd angka salah/kurang).
+  const estimasiPerTitik = semua.map(nama=>{
+    const dest = findDestinationByName(nama);
+    return (dest && dest.jarakKm!=null) ? Number(dest.jarakKm) : null;
+  });
+  const totalEstimasi = estimasiPerTitik.every(v=>v!=null) ? estimasiPerTitik.reduce((a,b)=>a+b,0) : null;
+
+  const statsHtml = `
+    <div class="mtj-stats">
+      <div class="mtj-stat">
+        <div class="mtj-stat-label">Progres</div>
+        <div class="mtj-stat-value">${selesaiCount} / ${total}</div>
+      </div>
+      <div class="mtj-stat">
+        <div class="mtj-stat-label">Estimasi total jarak</div>
+        <div class="mtj-stat-value">${totalEstimasi!=null ? '~'+totalEstimasi.toLocaleString('id-ID')+' KM' : '-'}</div>
+      </div>
+      <div class="mtj-stat">
+        <div class="mtj-stat-label">${sedangMenuju ? 'Sedang dituju' : 'Status'}</div>
+        <div class="mtj-stat-value" style="font-size:12.5px;${sedangMenuju?'color:var(--amber);':u.status==='digunakan'?'':'color:var(--green);'}">${sedangMenuju ? escapeHtml(sedangMenuju) : (u.status==='digunakan' ? 'Semua selesai' : 'Trip selesai')}</div>
+      </div>
+    </div>`;
+
+  const rowsHtml = semua.map((nama, i)=>{
+    const nomor = i+1;
+    const selesaiAt = selesaiMap[nomor];
+    const isLast = nomor===total;
+    const isNext = nama===sedangMenuju && sedangMenujuIdx===i;
+    const dotClass = selesaiAt ? 'done' : (isNext ? 'next' : 'pending');
+    const dotContent = selesaiAt ? '✓' : (isNext ? '' : '');
+    const jarakTxt = estimasiPerTitik[i]!=null ? `~${estimasiPerTitik[i].toLocaleString('id-ID')} KM (estimasi)` : null;
+    let metaTxt;
+    if(selesaiAt){
+      const jam = new Date(selesaiAt).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+      metaTxt = `Sampai ${jam}${jarakTxt ? ' · '+jarakTxt : ''}`;
+    } else if(isNext){
+      metaTxt = `Sedang dituju${jarakTxt ? ' · '+jarakTxt : ''}`;
+    } else {
+      metaTxt = `Belum dikunjungi${jarakTxt ? ' · '+jarakTxt : ''}`;
+    }
+    return `
+      <div class="mtj-row${isNext?' next':''}">
+        <div class="mtj-row-dot-col">
+          <div class="mtj-dot ${dotClass}">${dotContent}</div>
+          ${!isLast ? '<div class="mtj-line"></div>' : ''}
+        </div>
+        <div class="mtj-row-body" style="${isLast?'padding-bottom:2px;':''}">
+          <div class="mtj-name">${escapeHtml(nama)}</div>
+          <div class="mtj-meta">${metaTxt}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `${statsHtml}<div class="mtj-timeline">${rowsHtml}</div>`;
+}
+
+function openMultiTujuanDetailModal(usageId){
+  const u = state.usage.find(x=>x.id===usageId);
+  if(!u || !Array.isArray(u.tujuanTambahan) || u.tujuanTambahan.length===0) return;
+  const subjudul = `${carLabel(u.carId)} · ${driverLabel(u.driverId, u.driver)}`;
+  openModal({
+    title: `📍 Detail Tujuan — ${subjudul}`,
+    body: multiTujuanDetailBodyHtml(u),
+    onSave: ()=>true,
+  });
+  const saveBtn = document.getElementById('modal-save'); if(saveBtn) saveBtn.style.display='none';
+  const cancelBtn = document.getElementById('modal-cancel'); if(cancelBtn) cancelBtn.textContent='Tutup';
+}
+// Delegasi 1x di seluruh dokumen (pola sama dgn [data-copy-code]) -- badge
+// ini muncul di banyak tempat berbeda (bubble "Mobil Sedang Jalan", daftar
+// trip, kartu perjalanan) yang masing-masing di-render ulang sendiri-sendiri,
+// jadi TIDAK perlu wiring ulang tiap render. stopPropagation() krn badge ini
+// hampir selalu ada DI DALAM elemen lain yg juga listen klik (trip-card ->
+// openTripActionMenu, trip-timeline-item -> buka detail trip, dst) -- tanpa
+// ini, klik badge akan ikut memicu aksi elemen pembungkusnya juga.
+document.addEventListener('click', (e)=>{
+  const el = e.target.closest('[data-multitujuan-detail]');
+  if(!el) return;
+  e.stopPropagation();
+  openMultiTujuanDetailModal(el.dataset.multitujuanDetail);
+});
 
 // yang punya literBensin & biayaBensin lengkap (maks 90 hari terakhir, atau
 // 30 trip terakhir kalau lebih cepat lengkap 30 -- supaya tetap relevan
@@ -20855,6 +20985,8 @@ const CHANGELOG = [
       '🔔 BARU: kartu pengingat mengambang (tanpa overlay gelap, tidak menutupi seluruh layar) muncul sebagai jaring pengaman kedua kalau popup Tanda Terima ditutup TANPA sempat menekan Kirim ke Finance -- pilihan cuma 2: <b>Kirim ke Finance</b> (gaya pil hitam sama seperti di atas) atau <b>Nanti saja</b> (kalau "Nanti saja" ditekan, kartu ini tidak muncul lagi untuk trip itu, tetap diingatkan lewat pengingat Telegram 5 jam seperti biasa).',
       '🔧 Sekalian diperbaiki: tag <meta name="app-version"> di &lt;head&gt; sempat tidak disamakan dengan APP_VERSION (3.299.0 vs 3.300.0) -- disamakan lagi.',
       '🔧 PERBAIKAN BUG: bubble mengambang "Mobil Sedang Jalan" untuk trip multi-tujuan (Tujuan Tambahan) sebelumnya cuma menampilkan nama tujuan PERTAMA polos -- tidak ikut badge "+N lainnya" / progres "Menuju: ... (1/3 selesai)" seperti yang sudah ada di daftar trip &amp; kartu perjalanan (tujuanRingkasHtml()). Sekarang disamakan supaya konsisten di semua tempat.',
+      '📍 BARU: badge "+N lainnya" / "X/Y selesai" pada trip multi-tujuan (bubble, daftar trip, kartu perjalanan -- di mana pun tujuanRingkasHtml() dipakai) sekarang BISA DIKETUK, membuka modal <b>Detail Tujuan</b> berisi kartu ringkasan (progres, estimasi total jarak, sedang menuju titik mana) DAN daftar lengkap semua titik dalam bentuk garis waktu bertanda: hijau+jam untuk yang sudah "sampai", kuning untuk yang sedang dituju, abu putus-putus untuk yang belum. Sebelumnya info ini cuma tersirat dari badge (ambigu, tidak menunjukkan URUTAN/titik mana saja).',
+      '📏 Estimasi jarak per titik pada modal Detail Tujuan diambil dari Data Tujuan berdasarkan kecocokan NAMA (referensi, bukan GPS aktual per-titik -- itu belum tercatat, yang ada cuma odometer awal/akhir SATU trip penuh) -- ditandai jelas "(estimasi)" pada tiap baris supaya tidak disalahartikan sbg jarak riil. Total estimasi cuma ditampilkan kalau SEMUA titik di trip itu punya referensi Data Tujuan; kalau ada satu saja yang tidak ketemu, total disembunyikan drpd menampilkan angka yang kurang/salah.',
     ]
   },
   {
