@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.309.0">
+<meta name="app-version" content="3.310.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2362,7 +2362,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.309.0';
+const APP_VERSION = '3.310.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -12242,6 +12242,47 @@ function multiTujuanDetailBodyHtml(u){
       </div>
     </div>`;
 
+  // v3.310.0 -- BARU (ide #1 dari diskusi "Sedang Dituju"): tombol "Pilih
+  // tujuan berikutnya" -- SEBELUMNYA prompt "Lanjut ke tujuan mana?" cuma
+  // muncul OTOMATIS tepat setelah Tandai Sampai. Kalau trip sudah kadung
+  // ambigu dari awal (mis. ditandai lewat bot Telegram tanpa sempat
+  // dijawab "lanjut ke mana", atau jawab "Belum tahu" lalu berubah pikiran
+  // belakangan), sebelumnya SATU-SATUNYA cara membetulkan itu adalah
+  // menandai 1 titik lagi. Tombol ini buka prompt yang SAMA PERSIS
+  // (openLanjutKeModal()), kapan pun, tanpa perlu ada penandaan baru dulu.
+  // HANYA muncul kalau trip masih jalan & sisa titik >=2 -- sisa 0/1 tidak
+  // ada ambiguitas utk diputuskan (lihat resolveLanjutKeSetelahTandai()).
+  const sisaNomorUntukAksi = [];
+  for(let n=1; n<=total; n++){ if(!selesaiMap[n]) sisaNomorUntukAksi.push(n); }
+  const bisaPilihLanjut = u.status==='digunakan' && sisaNomorUntukAksi.length>=2;
+  // v3.310.0 -- BARU (ide #4): jalan pintas ke "Optimalkan Urutan" yang
+  // SEBENARNYA SUDAH ADA (di form Edit Perjalanan, sejak v3.230.0, sudah
+  // bisa pakai posisi GPS.id mobil SEKARANG sbg titik start optimasi utk
+  // trip AKTIF) -- cuma belum ada jalan pintas ke situ DARI modal ini.
+  // Bukan fitur baru dari nol, cuma pintu masuk baru ke fitur yang sudah
+  // ada, supaya tidak perlu tahu dulu kalau tombolnya "nyempil" di form Edit.
+  const aksiTambahanHtml = bisaPilihLanjut ? `
+    <div style="display:flex;gap:8px;margin:-6px 0 14px 0;flex-wrap:wrap;">
+      <button type="button" class="btn btn-ghost btn-sm" data-pilih-lanjut="${u.id}">🔀 Pilih Tujuan Berikutnya</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-susun-ulang="${u.id}">🔧 Susun Ulang Sisa Titik</button>
+    </div>` : '';
+
+  // v3.310.0 -- BARU (ide #3): jarak LIVE dari posisi GPS.id mobil SAAT INI
+  // ke titik yang sedang dituju -- BEDA dari "estimasi" per titik di atas
+  // (yang statis, dari referensi Data Tujuan, dihitung dari titik ASAL
+  // trip bukan posisi sekarang). Placeholder dulu di sini (fetch GPS.id
+  // itu ASYNC, tidak bisa langsung disisipkan ke string HTML sinkron ini)
+  // -- lihat wireMtjLiveJarak() yg dipanggil openMultiTujuanDetailModal()
+  // setelah modal ini masuk DOM, isi elemen ini belakangan. Kalau car tidak
+  // ada IMEI GPS.id ATAU titik "sedang dituju" tidak punya koordinat
+  // tersimpan, wireMtjLiveJarak() akan sembunyikan baris ini lagi (bukan
+  // dibiarkan nyangkut di teks "memuat..." selamanya).
+  const carUntukLive = state.cars.find(c=>c.id===u.carId);
+  const liveJarakHtml = (sedangMenujuEfektif && carUntukLive && carUntukLive.imeiGps) ? `
+    <div class="mtj-live-jarak" id="mtj-live-jarak" data-usage-id="${u.id}" style="font-size:12px;color:var(--muted);margin:-8px 0 14px 0;display:flex;align-items:center;gap:6px;">
+      🛰️ <span id="mtj-live-jarak-val">Menghitung jarak GPS ke ${escapeHtml(sedangMenujuEfektif)}...</span>
+    </div>` : '';
+
   const rowsHtml = semua.map((nama, i)=>{
     const nomor = i+1;
     const selesaiAt = selesaiMap[nomor];
@@ -12297,7 +12338,7 @@ function multiTujuanDetailBodyHtml(u){
   const rute = mapsNavButtonHtml(u.mapsLink);
   const ruteHtml = rute ? `<div style="margin-top:14px;text-align:right;">${rute}</div>` : '';
 
-  return `${statsHtml}<div class="mtj-timeline">${rowsHtml}</div>${ruteHtml}`;
+  return `${statsHtml}${liveJarakHtml}${aksiTambahanHtml}<div class="mtj-timeline">${rowsHtml}</div>${ruteHtml}`;
 }
 
 // v3.306.0 -- BARU: tombol "Tandai Sampai" di modal "Detail Tujuan" --
@@ -12459,7 +12500,106 @@ function openMultiTujuanDetailModal(usageId){
   });
   const saveBtn = document.getElementById('modal-save'); if(saveBtn) saveBtn.style.display='none';
   const cancelBtn = document.getElementById('modal-cancel'); if(cancelBtn) cancelBtn.textContent='Tutup';
+  // v3.310.0 -- BARU (ide #3): kalau modal ini punya placeholder jarak live
+  // (lihat liveJarakHtml di multiTujuanDetailBodyHtml()), mulai fetch &
+  // polling-nya SEKARANG -- setelah modal benar2 masuk DOM, bukan pas
+  // string HTML-nya masih dirakit (fetch GPS.id itu async, elemen targetnya
+  // belum tentu ada saat itu).
+  wireMtjLiveJarak(u);
 }
+
+// v3.310.0 -- BARU (ide #3 dari diskusi "Sedang Dituju"): jarak LIVE dari
+// posisi GPS.id mobil SAAT INI ke titik "sedang dituju" -- BEDA dari
+// "estimasi" per titik yang sudah ada (itu statis, dihitung dari titik
+// ASAL trip via Data Tujuan, bukan posisi sekarang). Pola sama dgn
+// updateDistanceIndicator() di openTripActionMenu() ("Jarak sejak
+// berangkat"): polling tiap 25 detik SELAMA modal masih di DOM, berhenti
+// sendiri (clearInterval) begitu modal ditutup -- supaya tidak boros
+// kuota API GPS.id/proxy Worker kalau modal dibiarkan lama tanpa ditutup.
+// Fail-open: kalau car tidak ada IMEI GPS.id, ATAU titik yang dituju tidak
+// punya koordinat tersimpan, ATAU GPS.id gagal diambil -- baris ini
+// disembunyikan lagi (bukan dibiarkan nyangkut di teks "menghitung...").
+function getKoordinatTujuanKe(u, nomor, nama){
+  // Pola SAMA dgn "Optimalkan Urutan" (btn-optimalkan-urutan): titik ke-1
+  // bisa juga ambil dari u.mapsLink langsung (belum tentu match nama persis
+  // di Data Tujuan), titik lain WAJIB dicari by nama di Data Tujuan.
+  let link = (nomor===1 && u.mapsLink) ? u.mapsLink : null;
+  if(!link){ const dest = findDestinationByName(nama); link = dest ? dest.mapsLink : null; }
+  if(!link) return null;
+  return extractLatLng(link);
+}
+function haversineMetersJs(lat1, lon1, lat2, lon2){
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function wireMtjLiveJarak(u){
+  const el = document.getElementById('mtj-live-jarak');
+  if(!el) return; // tidak ada titik "sedang dituju"/car tanpa IMEI -- lihat guard di multiTujuanDetailBodyHtml()
+  const valEl = document.getElementById('mtj-live-jarak-val');
+  let timer = null;
+  const update = async ()=>{
+    if(!document.body.contains(el)){ if(timer) clearInterval(timer); return; }
+    const info = hitungProgresTujuan(u);
+    if(!info.sedangMenuju || u.status!=='digunakan'){ el.style.display='none'; if(timer) clearInterval(timer); return; }
+    const car = state.cars.find(c=>c.id===u.carId);
+    if(!car || !car.imeiGps){ el.style.display='none'; if(timer) clearInterval(timer); return; }
+    const koorTujuan = getKoordinatTujuanKe(u, info.sedangMenujuIdx+1, info.sedangMenuju);
+    if(!koorTujuan){ el.style.display='none'; if(timer) clearInterval(timer); return; }
+    const posisiMobil = await fetchGpsLatLon(car.imeiGps);
+    if(!document.body.contains(el)){ if(timer) clearInterval(timer); return; } // modal sempat ditutup selagi fetch berjalan
+    if(!posisiMobil){ if(valEl) valEl.textContent = `Posisi GPS.id mobil tidak tersedia saat ini.`; return; }
+    const jarakKm = haversineMetersJs(posisiMobil.lat, posisiMobil.lon, koorTujuan.lat, koorTujuan.lon) / 1000;
+    if(valEl) valEl.textContent = `~${jarakKm < 1 ? jarakKm.toFixed(1) : Math.round(jarakKm).toLocaleString('id-ID')} KM lagi (garis lurus) ke ${info.sedangMenuju}`;
+  };
+  update();
+  timer = setInterval(update, 25000);
+}
+
+// v3.310.0 -- BARU (ide #1): tombol "Pilih Tujuan Berikutnya" -- buka
+// prompt "Lanjut ke tujuan mana?" (openLanjutKeModal(), sama persis dgn
+// yang otomatis muncul setelah Tandai Sampai) KAPAN PUN, tanpa perlu
+// menunggu ada penandaan baru dulu -- lihat komentar lengkap di
+// multiTujuanDetailBodyHtml() (bisaPilihLanjut) soal alasannya.
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-pilih-lanjut]');
+  if(!btn) return;
+  e.stopPropagation();
+  const u = state.usage.find(x=>x.id===btn.dataset.pilihLanjut);
+  if(!u) return;
+  const semua = [u.tujuan, ...(u.tujuanTambahan||[])].filter(Boolean);
+  const selesaiMap = u.tujuanSelesaiAt || {};
+  const sisaNomor = [];
+  for(let n=1; n<=semua.length; n++){ if(!selesaiMap[n]) sisaNomor.push(n); }
+  if(sisaNomor.length < 2) return; // safety -- tombol ini harusnya sudah tidak tampil kalau begini
+  openLanjutKeModal(u, sisaNomor, ()=>{
+    const modalBody = document.querySelector('#modal-overlay .modal-body');
+    if(modalBody){ modalBody.innerHTML = multiTujuanDetailBodyHtml(u); wireMtjLiveJarak(u); }
+  });
+}, true);
+
+// v3.310.0 -- BARU (ide #4): jalan pintas ke "Optimalkan Urutan" yang
+// SUDAH ADA di form Edit Perjalanan (btn-optimalkan-urutan, sejak v3.230.0
+// sudah bisa pakai posisi GPS.id mobil SEKARANG sbg titik start optimasi
+// utk trip AKTIF) -- tutup modal Detail Tujuan dulu (pola sama dgn
+// markReturned() -> openTripReceiptModal(), delay 350ms spy animasi
+// tutup modal lama selesai dulu), baru buka Edit Perjalanan & kasih
+// petunjuk toast krn tombolnya "nyempil" di bawah field Tujuan Tambahan,
+// tidak langsung kelihatan begitu form terbuka.
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-susun-ulang]');
+  if(!btn) return;
+  e.stopPropagation();
+  const usageId = btn.dataset.susunUlang;
+  const cancelBtn = document.getElementById('modal-cancel');
+  if(cancelBtn) cancelBtn.click();
+  setTimeout(()=>{
+    openUsageModal(usageId);
+    showToast('Klik "🔀 Optimalkan Urutan" di bawah Tujuan Tambahan untuk menyusun ulang sisa titik dari posisi GPS sekarang.', false, '🔧');
+  }, 350);
+}, true);
 // Delegasi 1x di seluruh dokumen (pola sama dgn [data-copy-code]) -- badge
 // ini muncul di banyak tempat berbeda (bubble "Mobil Sedang Jalan", daftar
 // trip, kartu perjalanan) yang masing-masing di-render ulang sendiri-sendiri,
@@ -21290,6 +21430,16 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.310.0',
+    date: '08 Agu 2026',
+    notes: [
+      '🔀 BARU: tombol "Pilih Tujuan Berikutnya" di modal Detail Tujuan -- sebelumnya prompt "Lanjut ke tujuan mana?" (v3.308.0) cuma muncul otomatis tepat setelah Tandai Sampai. Sekarang bisa dibuka kapan pun (kalau trip masih jalan & sisa titik ≥2), tanpa perlu menunggu ada penandaan baru dulu.',
+      '🛰️ BARU: jarak LIVE dari posisi GPS.id mobil saat ini ke titik "sedang dituju", tampil di modal Detail Tujuan (kalau mobil punya IMEI GPS.id & titiknya punya koordinat tersimpan). Dilabeli jelas "(garis lurus)" -- ini jarak udara dari haversine, BUKAN jarak jalan/rute, supaya tidak disalahartikan presisi seperti hasil rute Maps.',
+      '🔧 BARU: tombol "Susun Ulang Sisa Titik" di modal Detail Tujuan -- jalan pintas ke fitur "Optimalkan Urutan" yang SEBENARNYA SUDAH ADA di form Edit Perjalanan sejak v3.230.0 (bisa pakai posisi GPS.id mobil sekarang sbg titik start optimasi utk trip aktif), cuma belum ada pintu masuk cepat ke situ dari modal ini.',
+      '🐛 PERBAIKAN BUG (backend, <code>worker.js</code>): Auto-deteksi Sampai berbasis GPS.id (fitur lama, v3.229.0) ternyata punya bug yang sama persis dengan bug tampilan "Sedang Dituju" yang sudah diperbaiki (v3.307.0/v3.308.0) -- sistem cuma cek jarak GPS ke SATU titik hasil tebakan urutan daftar ("titik pertama yang belum ditandai"), padahal tebakan itu bisa salah kalau ada titik yang ditandai di luar urutan. Akibatnya bot bisa proaktif tanya "sudah sampai di X?" padahal mobil sebenarnya di titik Y. Diperbaiki: sekarang cek jarak GPS ke SEMUA titik yang belum ditandai sekaligus, pilih yang paling dekat. <code>worker.js</code> WAJIB diupload ulang kali ini.',
+    ]
+  },
   {
     v: '3.309.0',
     date: '08 Agu 2026',
