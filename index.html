@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.303.0">
+<meta name="app-version" content="3.304.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2343,7 +2343,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.303.0';
+const APP_VERSION = '3.304.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -12175,6 +12175,22 @@ function multiTujuanDetailBodyHtml(u){
 function openMultiTujuanDetailModal(usageId){
   const u = state.usage.find(x=>x.id===usageId);
   if(!u || !Array.isArray(u.tujuanTambahan) || u.tujuanTambahan.length===0) return;
+  // v3.304.0 -- PERBAIKAN BUG: perbaikan v3.303.0 (capture+stopPropagation)
+  // memang berhasil mencegah openTripActionMenu ikut terpicu, TAPI modal
+  // ini masih "tidak muncul" kalau dibuka dari badge DI DALAM bubble
+  // "Mobil Sedang Jalan" -- BUKAN soal urutan event lagi, tapi z-index:
+  // #trip-bubble-panel sengaja dipertahankan di 151 (lihat komentar
+  // v3.244.0 di CSS .modal-overlay) supaya selalu MENANG di atas modal
+  // (145) apa pun. Panel itu TIDAK otomatis tertutup saat modal ini dibuka
+  // -- lebarnya pun sampai 360px (lihat positionTripBubblePanel()), nyaris
+  // selebar layar HP -- jadi modal yg sebenarnya SUDAH kebuka di baliknya
+  // jadi kelihatan seperti tidak terjadi apa-apa. openTripActionMenu() di
+  // atas sudah lebih dulu punya baris persis ini untuk masalah yang sama
+  // (cari "trip-bubble-panel').style.display='none'" dekat situ) --
+  // sekarang dipasang juga di sini, supaya APA PUN cara badge ini diketuk
+  // (dari dalam bubble atau tidak), panelnya tidak lagi menutupi modal.
+  const bubblePanel = document.getElementById('trip-bubble-panel');
+  if(bubblePanel) bubblePanel.style.display = 'none';
   const subjudul = `${carLabel(u.carId)} · ${driverLabel(u.driverId, u.driver)}`;
   openModal({
     title: `📍 Detail Tujuan — ${subjudul}`,
@@ -21014,6 +21030,13 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.304.0',
+    date: '08 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG LANJUTAN: perbaikan v3.303.0 (badge "Detail Tujuan" di bubble "Mobil Sedang Jalan") sudah benar dari sisi urutan event, TAPI modal masih tidak kelihatan -- akar masalah SISANYA: panel "Mobil Sedang Jalan" (<code>#trip-bubble-panel</code>) sengaja punya z-index (151) di ATAS modal (145) supaya selalu menang di layar (lihat catatan v3.244.0), dan panel itu TIDAK otomatis tertutup saat modal Detail Tujuan dibuka -- lebarnya sampai 360px, nyaris selebar layar HP, jadi modal yang sebenarnya SUDAH terbuka jadi tertutup total olehnya. Diperbaiki dengan menutup panel tsb otomatis begitu modal Detail Tujuan dibuka (pola sama seperti yang sudah dipakai <code>openTripActionMenu()</code> untuk masalah serupa).',
+    ]
+  },
   {
     v: '3.303.0',
     date: '08 Agu 2026',
