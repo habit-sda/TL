@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.311.0">
+<meta name="app-version" content="3.313.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -573,6 +573,7 @@
      sedikit -- badge jadi sedikit lebih besar scr visual (bukan cuma area
      ketuknya), tapi aman drpd bikin layout tabrakan. */
   [data-multitujuan-detail]{padding:6px 11px;font-size:11.5px;}
+  .gs-item:hover, .gs-item:active{background:var(--hover-bg);}
   .mtj-stats{display:flex;gap:8px;margin-bottom:14px;}
   .mtj-stat{flex:1;min-width:0;background:var(--neutral-bg);border-radius:8px;padding:8px 10px;}
   .mtj-stat .mtj-stat-label{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -710,7 +711,7 @@
     display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1;
   }
   .notif-dropdown{
-    position:absolute;top:calc(100% + 8px);right:0;width:320px;max-width:85vw;
+    position:fixed;width:320px;max-width:85vw;
     background:var(--card);border:1px solid var(--line);border-radius:12px;
     box-shadow:0 12px 32px rgba(0,0,0,0.15);z-index:120;max-height:400px;overflow-y:auto;overflow-x:hidden;
   }
@@ -979,6 +980,26 @@
      juga -- sebelumnya popup ini nyaris tak terlihat batasnya. */
   .trip-action-item[data-act="cancel"]{background:var(--bg);}
   .trip-action-item[data-act="cancel"]:hover{background:var(--neutral-bg);}
+  /* v3.313.0 -- BARU: titik merah kecil di baris "Edit" & "Biaya
+     Operasional" -- MURNI penanda visual "coba ketuk di sini" utk
+     pengguna awam, TIDAK mewakili data/kondisi apa pun (bukan jumlah,
+     bukan status belum lengkap) -- jadi SELALU tampil, tidak ada logika
+     kondisional. Ditaruh sbg elemen TERAKHIR di baris flex yg sudah ada
+     (.trip-action-item: display:flex;align-items:center;gap:10px) dengan
+     margin-left:auto -- otomatis terdorong ke ujung KANAN baris & rata
+     tengah vertikal mengikuti align-items yg sudah ada, TANPA positioning
+     absolute manual -- ini caranya supaya tidak pernah tumpang tindih
+     dengan ikon/teks di baris yg sama (lebar teks "Edit" vs "Biaya
+     Operasional"/"Biaya Pribadi" beda jauh, absolute-position dgn koordinat
+     tetap gampang meleset di salah satu). Ukuran kecil (8px) & warna solid
+     (bukan gradient/animasi) supaya tetap halus/tidak norak -- sesuai
+     "utamakan estetika": jadi penunjuk arah yang tenang, bukan mengganggu. */
+  .tam-badge-dot{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--red);
+    margin-left:auto;
+    flex-shrink:0;
+  }
 
   /* v3.164.0 -- Baris "Jarak sejak berangkat" (indikator KM live dari
      GPS.id, "Opsi B — baris statistik" yang dipilih user), ditempatkan
@@ -1873,7 +1894,7 @@
       background:transparent; display:flex; gap:10px; align-items:center;
       padding:14px 14px 10px;
     }
-    .mdh-search{ flex:1; background:#fff; border-radius:14px; padding:13px 15px; display:flex; align-items:center; gap:8px; }
+    .mdh-search{ flex:1; background:#fff; border-radius:14px; padding:13px 15px; display:flex; align-items:center; gap:8px; cursor:pointer; }
     .mdh-search span{ font-size:13.5px; color:#9199A8; }
     .mdh-bell{ width:44px; height:44px; border-radius:50%; background:rgba(255,255,255,0.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; cursor:pointer; }
     /* v3.237.0 -- BARU: doa Dashboard (#header-dua, elemen BERSAMA, dipakai
@@ -2228,11 +2249,26 @@
           <button id="notif-bell-btn" class="btn btn-ghost btn-sm" style="padding:8px 10px;position:relative;font-size:15px;line-height:1;">
             🔔<span id="notif-count-badge" class="notif-count-badge" style="display:none;">0</span>
           </button>
-          <div id="notif-dropdown" class="notif-dropdown" style="display:none;"></div>
         </div>
         <div id="header-actions"></div>
       </div>
     </div>
+    <!-- v3.312.0 -- PERBAIKAN BUG: #notif-dropdown SEBELUMNYA nested di dalam
+         .topbar-row di atas -- begitu HP dalam kondisi terkunci (hero aktif),
+         CSS "body.mobile-nav-locked .topbar-row{display:none}" (v3.238.0)
+         ikut menyembunyikan dropdown ini SEKALIGUS, walau dropdown-nya sendiri
+         di-set display:block oleh toggleNotifDropdown() -- display:none di
+         ANCESTOR selalu menang, tidak ada cara meng-override dari elemen
+         turunan lewat CSS apa pun. Ini akar masalah kenapa lonceng "tidak
+         berfungsi" di HP terkunci: dropdown-nya SEBENARNYA sudah terbuka,
+         cuma tidak pernah kelihatan. Dipindah jadi SAUDARA (sibling) dari
+         .topbar-row, bukan anak -- sekarang tidak lagi ikut disembunyikan
+         apa pun kondisi topbar-row. Posisinya sekarang SELALU position:fixed
+         (lihat CSS .notif-dropdown), dihitung dinamis lewat JS berdasarkan
+         tombol lonceng mana yang diketuk (lihat toggleNotifDropdown()) --
+         jadi tetap presisi nempel di bawah lonceng yang mana pun dipakai
+         (topbar lama ATAU lonceng hero #mdh-bell-btn). -->
+    <div id="notif-dropdown" class="notif-dropdown" style="display:none;"></div>
     <div id="mdh-header-search" style="display:none;"></div>
     <div id="header-dua" style="display:none;"></div>
   </header>
@@ -2386,7 +2422,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.311.0';
+const APP_VERSION = '3.313.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -8032,7 +8068,7 @@ function renderHeaderDua(route){
     if(route !== 'dashboard'){ searchBox.style.display = 'none'; searchBox.innerHTML = ''; }
     else {
       searchBox.innerHTML = `
-        <div class="mdh-search">
+        <div class="mdh-search" id="mdh-search-btn" role="button" tabindex="0">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#9199A8" stroke-width="2"/><path d="M20 20l-4-4" stroke="#9199A8" stroke-width="2" stroke-linecap="round"/></svg>
           <span>Cari menu, mobil, sopir...</span>
         </div>
@@ -8041,8 +8077,26 @@ function renderHeaderDua(route){
         </div>
       `;
       searchBox.style.display = 'flex';
+      // v3.312.0 -- PERBAIKAN BUG: kotak pencarian ini SEBELUMNYA murni
+      // dekoratif -- SVG + teks placeholder tanpa satu pun listener klik,
+      // jadi ketuk apa pun memang TIDAK PERNAH melakukan apa-apa sejak
+      // awal dibuat (v3.241.0), bukan regresi baru. Sekarang buka modal
+      // pencarian global sungguhan (openGlobalSearchModal()) -- lihat
+      // definisinya utk detail sumber data (menu/mobil/sopir).
+      const searchBtn = document.getElementById('mdh-search-btn');
+      if(searchBtn) searchBtn.onclick = (e)=>{ e.stopPropagation(); openGlobalSearchModal(); };
       const bell = document.getElementById('mdh-bell-btn');
-      if(bell) bell.onclick = toggleNotifDropdown;
+      // v3.312.0 -- PERBAIKAN BUG: SEBELUMNYA `bell.onclick = toggleNotifDropdown;`
+      // TANPA stopPropagation() -- klik lonceng hero ini bubble sampai ke
+      // listener "klik di luar dropdown -> tutup" (di bawah), yang
+      // langsung menutup lagi dropdown yang baru saja dibuka PADA KLIK
+      // YANG SAMA (krn e.target.id nya 'mdh-bell-btn', bukan
+      // 'notif-bell-btn', dianggap "klik di luar"). Jadi SEKALIPUN bug
+      // display:none di atas sudah diperbaiki, dropdown akan tetap
+      // kelihatan seperti "tidak terjadi apa-apa" krn kebuka-lalu-tertutup
+      // dalam 1 event yang sama. Sekarang pakai listener yg stop
+      // propagation + kirim elemen lonceng ini sbg acuan posisi.
+      if(bell) bell.onclick = (e)=>{ e.stopPropagation(); toggleNotifDropdown(bell); };
     }
   }
   if(!box) return;
@@ -8413,10 +8467,33 @@ function renderNotifBell(){
   if(count > 0){ badge.style.display='flex'; badge.textContent = count>9 ? '9+' : count; }
   else badge.style.display = 'none';
 }
-function toggleNotifDropdown(){
+// v3.312.0 -- PERBAIKAN BUG: sekarang terima elemen tombol lonceng yang
+// MEMICU (triggerEl) -- posisi dropdown (top/right) dihitung DINAMIS dari
+// getBoundingClientRect() tombol itu, bukan lagi mengandalkan CSS
+// position:absolute relatif ke wrapper tombol lama (yang mengharuskan
+// dropdown jadi ANAK dari wrapper itu -- akar masalah bug lonceng tidak
+// berfungsi di HP terkunci, lihat komentar HTML #notif-dropdown). Sekarang
+// dropdown ini SATU elemen yang dipakai bersama oleh KEDUA lonceng (topbar
+// lama #notif-bell-btn ATAU lonceng hero #mdh-bell-btn) -- fallback ke
+// #notif-bell-btn kalau triggerEl tidak diberikan (dipanggil dari tempat
+// lama yang belum diperbarui).
+function toggleNotifDropdown(triggerEl){
   const dd = document.getElementById('notif-dropdown');
   if(dd.style.display === 'block'){ dd.style.display = 'none'; return; }
   renderNotifDropdownContent();
+  const btn = triggerEl || document.getElementById('notif-bell-btn');
+  const rect = btn.getBoundingClientRect();
+  dd.style.top = (rect.bottom + 8) + 'px';
+  if(window.innerWidth <= 640){
+    // Mobile: biarkan CSS media query (@media max-width:640px) yang atur
+    // left/right/width jadi full-bleed mengikuti lebar layar -- cukup
+    // kosongkan inline left/right supaya aturan CSS itu berlaku normal.
+    dd.style.left = '';
+    dd.style.right = '';
+  } else {
+    dd.style.right = (window.innerWidth - rect.right) + 'px';
+    dd.style.left = '';
+  }
   dd.style.display = 'block';
 }
 function renderNotifDropdownContent(){
@@ -8454,11 +8531,100 @@ function renderNotifDropdownContent(){
     dd.style.display = 'none';
   });
 }
-document.getElementById('notif-bell-btn').addEventListener('click', (e)=>{ e.stopPropagation(); toggleNotifDropdown(); });
+document.getElementById('notif-bell-btn').addEventListener('click', (e)=>{ e.stopPropagation(); toggleNotifDropdown(e.currentTarget); });
 document.addEventListener('click', (e)=>{
   const dd = document.getElementById('notif-dropdown');
-  if(dd && dd.style.display==='block' && !dd.contains(e.target) && e.target.id!=='notif-bell-btn'){ dd.style.display = 'none'; }
+  if(dd && dd.style.display==='block' && !dd.contains(e.target) && !e.target.closest('#notif-bell-btn') && !e.target.closest('#mdh-bell-btn')){ dd.style.display = 'none'; }
 });
+
+/* ---------------- v3.312.0 -- BARU: Pencarian Global (kotak "Cari menu,
+   mobil, sopir..." di hero HP terkunci) ----------------
+   SEBELUMNYA kotak ini murni dekoratif, tanpa fungsi apa pun (lihat komentar
+   di renderHeaderDua()). Sekarang buka overlay pencarian sungguhan -- 3
+   sumber data: (1) menu sidebar (dibaca langsung dari elemen .menu-item yang
+   sudah ada, BUKAN daftar terpisah -- supaya otomatis sinkron kalau menu
+   berubah, tidak perlu diperbarui manual 2 tempat), (2) state.cars (plat +
+   merk + model), (3) state.drivers (nama). Live-filter ketik-langsung
+   (bukan tombol "Cari" terpisah), maksimal 6 hasil per kategori supaya tidak
+   membanjiri layar kecil. Pola overlay SAMA dgn openLanjutKeModal() --
+   elemen sendiri ditempel ke body, bukan lewat openModal() (perlu autofocus
+   input & re-render isi tiap ketikan, lebih simpel dikelola manual). */
+function openGlobalSearchModal(){
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.cssText = 'display:flex;align-items:flex-start;';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px;margin-top:60px;">
+      <div style="padding:16px 16px 8px 16px;">
+        <input type="text" id="gs-input" placeholder="Cari menu, mobil, sopir..." autocomplete="off"
+          style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:var(--bg);color:var(--text);">
+      </div>
+      <div id="gs-results" style="padding:0 8px 12px 8px;max-height:60vh;overflow-y:auto;"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  markModalOpen();
+  const close = ()=>{ overlay.remove(); markModalClosed(); };
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
+
+  const resultsEl = document.getElementById('gs-results');
+  const renderResults = (qRaw)=>{
+    const q = qRaw.trim().toLowerCase();
+    if(!q){ resultsEl.innerHTML = '<div style="padding:12px;font-size:12.5px;color:var(--muted);">Ketik untuk mencari menu, mobil, atau sopir.</div>'; return; }
+
+    const menuHits = Array.from(document.querySelectorAll('.menu-item[data-route]'))
+      .map(el=>({ route: el.dataset.route, label: el.textContent.trim() }))
+      .filter(m=> m.label.toLowerCase().includes(q))
+      .slice(0,6);
+
+    const carHits = state.cars
+      .filter(c=> `${c.merk} ${c.modelMobil} ${c.plat}`.toLowerCase().includes(q))
+      .slice(0,6);
+
+    const driverHits = state.drivers
+      .filter(d=> (d.nama||'').toLowerCase().includes(q))
+      .slice(0,6);
+
+    if(menuHits.length===0 && carHits.length===0 && driverHits.length===0){
+      resultsEl.innerHTML = '<div style="padding:12px;font-size:12.5px;color:var(--muted);">Tidak ada hasil yang cocok.</div>';
+      return;
+    }
+
+    const section = (title, itemsHtml)=> itemsHtml ? `<div style="padding:8px 8px 2px 8px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;">${title}</div>${itemsHtml}` : '';
+
+    const menuHtml = menuHits.map(m=>
+      `<div class="gs-item" data-gs-route="${escapeHtml(m.route)}" style="padding:10px 8px;cursor:pointer;border-radius:8px;">🔗 ${escapeHtml(m.label)}</div>`
+    ).join('');
+    const carHtml = carHits.map(c=>
+      `<div class="gs-item" data-gs-car="${c.id}" style="padding:10px 8px;cursor:pointer;border-radius:8px;">🚘 ${escapeHtml(c.merk+' '+c.modelMobil+' — '+c.plat)}</div>`
+    ).join('');
+    const driverHtml = driverHits.map(d=>
+      `<div class="gs-item" data-gs-driver="${d.id}" style="padding:10px 8px;cursor:pointer;border-radius:8px;">👤 ${escapeHtml(d.nama)}</div>`
+    ).join('');
+
+    resultsEl.innerHTML = section('Menu', menuHtml) + section('Mobil', carHtml) + section('Sopir', driverHtml);
+  };
+
+  resultsEl.addEventListener('click', (e)=>{
+    const item = e.target.closest('.gs-item');
+    if(!item) return;
+    close();
+    if(item.dataset.gsRoute){
+      navigate(item.dataset.gsRoute);
+    } else if(item.dataset.gsCar){
+      navigate('cars');
+      setTimeout(()=> openCarModal(item.dataset.gsCar), 250);
+    } else if(item.dataset.gsDriver){
+      navigate('drivers');
+      setTimeout(()=> openDriverModal(item.dataset.gsDriver), 250);
+    }
+  });
+
+  const input = document.getElementById('gs-input');
+  input.addEventListener('input', ()=> renderResults(input.value));
+  renderResults('');
+  setTimeout(()=> input.focus(), 50);
+}
 
 /* ---------------- Bubble melayang: indikator mobil sedang dalam perjalanan ----------------
    Muncul di SEMUA halaman (mirip lonceng notifikasi), supaya kapan pun bisa
@@ -9734,8 +9900,8 @@ function openTripActionMenu(usageId, anchorEl){
       </div>
       <div class="trip-action-distance-value" id="trip-action-distance-value">–</div>
     </div>` : ''}
-    <div class="trip-action-item" data-act="edit">✏️ Edit</div>
-    <div class="trip-action-item" data-act="biayaop">${isOperasional ? '🧾 Biaya Operasional' : '🏠 Biaya Pribadi'}</div>
+    <div class="trip-action-item" data-act="edit">✏️ Edit<span class="tam-badge-dot"></span></div>
+    <div class="trip-action-item" data-act="biayaop">${isOperasional ? '🧾 Biaya Operasional' : '🏠 Biaya Pribadi'}<span class="tam-badge-dot"></span></div>
     <div class="trip-action-item" data-act="return">✅ Akhiri Trip</div>
     <div class="trip-action-item" data-act="copykode" data-copy-code="${escapeHtml(u.kode||'')}">📋 Salin Kode Perjalanan</div>
   `;
@@ -21476,6 +21642,21 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.313.0',
+    date: '08 Agu 2026',
+    notes: [
+      '🔴 BARU: titik merah kecil di baris "✏️ Edit" & "🧾 Biaya Operasional" pada popup yang muncul saat kartu mobil di bubble "Mobil Sedang Jalan" diketuk -- murni penanda visual "coba ketuk di sini" supaya lebih jelas terlihat sebagai tombol bagi pengguna awam, bukan mewakili data/kondisi apa pun (tidak ada logika baru, fungsi klik kedua baris tetap persis seperti sebelumnya). Posisi otomatis rata kanan lewat flexbox (bukan koordinat tetap) supaya tidak pernah tumpang tindih dengan ikon/teks di baris yang sama, berapa pun panjang labelnya (mis. "Biaya Pribadi" vs "Biaya Operasional").',
+    ]
+  },
+  {
+    v: '3.312.0',
+    date: '08 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG: lonceng notifikasi di hero HP terkunci (Mode Sopir/Operator) tidak berfungsi -- DUA bug sekaligus: (1) <code>#notif-dropdown</code> ternyata nested di dalam <code>.topbar-row</code> yang memang sengaja disembunyikan (<code>display:none</code>) saat hero aktif -- dropdown-nya SEBENARNYA sudah terbuka tiap diketuk, cuma tidak pernah kelihatan krn ancestor-nya tersembunyi; (2) lonceng hero (<code>#mdh-bell-btn</code>) tidak pernah memanggil <code>stopPropagation()</code>, jadi klik-nya bubble ke listener "klik di luar dropdown → tutup" yang langsung menutup lagi dropdown yang baru saja dibuka, PADA KLIK YANG SAMA. Diperbaiki keduanya: dropdown dipindah keluar dari elemen yang bisa tersembunyi, posisinya dihitung dinamis (bukan lagi CSS statis) supaya tetap presisi nempel di bawah lonceng mana pun yang diketuk.',
+      '🔍 BARU: kotak "Cari menu, mobil, sopir..." di hero HP terkunci -- SEBELUMNYA murni dekoratif sejak awal dibuat (v3.241.0), belum pernah benar-benar berfungsi. Sekarang buka pencarian sungguhan: ketik langsung, hasil live-filter dari 3 sumber (menu sidebar, Data Mobil, Data Sopir), ketuk hasil untuk langsung pindah ke menu/buka detail mobil/sopir terkait.',
+    ]
+  },
   {
     v: '3.311.0',
     date: '08 Agu 2026',
