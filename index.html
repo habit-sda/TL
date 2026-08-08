@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.304.0">
+<meta name="app-version" content="3.308.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -576,6 +576,11 @@
   .mtj-row.next .mtj-row-body .mtj-name{font-weight:700;}
   .mtj-row-body .mtj-meta{font-size:11px;color:var(--muted);margin-top:2px;}
   .mtj-row.next .mtj-row-body .mtj-meta{color:var(--amber);}
+  /* v3.306.0 -- BARU: tombol "Tandai Sampai" per titik (lihat
+     multiTujuanDetailBodyHtml()) -- ukuran kecil & warna netral supaya
+     tidak lebih menonjol dari titik "sedang dituju" (kuning) yang memang
+     harus tetap jadi fokus visual utama baris. */
+  .mtj-tandai-btn{display:inline-block;}
 
   /* Tombol Navigasi Maps -- Opsi 2 (Outline Tegas), dipilih supaya lebih
      terlihat dibanding badge kecil sebelumnya, tanpa terlalu "ramai" kalau
@@ -2343,7 +2348,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.304.0';
+const APP_VERSION = '3.308.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -12092,10 +12097,76 @@ function tujuanRingkasHtml(u){
   if(selesaiCount === 0 || u.status !== 'digunakan'){
     return `${escapeHtml(u.tujuan||'-')} <span class="badge neutral" style="font-size:10px;" data-multitujuan-detail="${u.id}" title="${escapeHtml(semua.join(' • '))} — ketuk untuk detail">+${u.tujuanTambahan.length} lainnya</span>`;
   }
-  let sedangMenujuIdx = semua.findIndex((_,i)=> !selesaiMap[i+1]);
-  const sedangMenuju = sedangMenujuIdx===-1 ? null : semua[sedangMenujuIdx];
-  const label = sedangMenuju ? `Menuju: ${escapeHtml(sedangMenuju)}` : 'Semua tujuan selesai';
-  return `${label} <span class="badge ${sedangMenuju?'warn':'ok'}" style="font-size:10px;" data-multitujuan-detail="${u.id}" title="${escapeHtml(semua.join(' • '))} — ketuk untuk detail">${selesaiCount}/${total} selesai</span>`;
+  // v3.307.0 -- pakai hitungProgresTujuan() (bukan findIndex sendiri lagi) --
+  // lihat komentar lengkap di fungsi itu soal urutanKonsisten: kalau ada
+  // titik yang ditandai di luar urutan (mis. C ditandai sblm A/B), TIDAK
+  // LAGI menyebut nama titik tunggal sbg "Menuju: ..." (krn bisa salah --
+  // titik pertama yg belum ditandai belum tentu benar2 yg sedang dituju),
+  // cukup progres count-nya saja + label netral.
+  const { sedangMenuju, urutanKonsisten } = hitungProgresTujuan(u);
+  const label = sedangMenuju ? `Menuju: ${escapeHtml(sedangMenuju)}`
+    : (!urutanKonsisten ? 'Sebagian ditandai di luar urutan' : 'Semua tujuan selesai');
+  const badgeClass = sedangMenuju ? 'warn' : (!urutanKonsisten ? 'warn' : 'ok');
+  return `${label} <span class="badge ${badgeClass}" style="font-size:10px;" data-multitujuan-detail="${u.id}" title="${escapeHtml(semua.join(' • '))} — ketuk untuk detail">${selesaiCount}/${total} selesai</span>`;
+}
+
+
+// v3.307.0 -- BARU: helper terpusat utk hitung progres & "sedang dituju" --
+// SEBELUMNYA logika findIndex ini disalin 2x (di sini & di
+// multiTujuanDetailBodyHtml), gampang tidak sinkron kalau salah satu
+// direvisi tapi yang lain lupa. Sekarang 1 sumber kebenaran dipakai
+// keduanya.
+//
+// urutanKonsisten: sejak tombol "Tandai Sampai" (v3.306.0) membolehkan
+// menandai titik MANA SAJA (tidak wajib urut, sama seperti bot Telegram),
+// "titik pertama yang belum ditandai" TIDAK LAGI otomatis berarti "titik
+// berikutnya yang benar-benar dituju" -- kalau sopir menandai C duluan
+// (sebelum A/B), titik pertama yang belum ditandai tetaplah A, padahal
+// sopir sudah lewat A. Menyatakan "Menuju: A" di situasi begini SALAH,
+// bukan sekadar kurang presisi -- makin percis diagnosis awal soal
+// "estimasi vs aktual" yang sudah diterapkan di jarak per titik. Jadi:
+// kalau himpunan titik yang sudah ditandai TIDAK membentuk awalan
+// berurutan {1..k} (mis. titik ke-3 ditandai tapi titik ke-1/2 belum),
+// urutanKonsisten=false -- pemanggil WAJIB berhenti menyebut nama titik
+// tunggal sebagai "sedang dituju", cukup tampilkan progres X/Y saja
+// (lihat pola yang sama di komentar findDestinationByName soal jarak
+// "sembunyikan drpd angka salah").
+//
+// v3.308.0 -- BARU: u.tujuanBerikutnyaIdx -- pilihan EKSPLISIT dari
+// pengguna (dijawab lewat prompt "Lanjut ke tujuan mana?" setelah Tandai
+// Sampai/perintah bot "sampai", lihat openLanjutKeModal() & worker.js
+// prosesTandaiSampai()) -- kalau ADA & masih valid (menunjuk titik yang
+// belum ditandai selesai), ini SELALU dipakai sbg "sedang dituju",
+// MENGALAHKAN tebakan otomatis di atas -- karena ini bukan tebakan lagi,
+// tapi kepastian dari pengguna sendiri saat itu juga. Kalau tidak ada
+// (belum pernah diisi/sudah null krn user pilih "belum tahu") ATAU sudah
+// basi (titik yang ditunjuknya ternyata sudah keburu ditandai selesai
+// lewat jalur lain), jatuh balik ke tebakan otomatis + honesty fallback
+// yang sudah ada di atas.
+function hitungProgresTujuan(u){
+  const semua = [u.tujuan, ...(u.tujuanTambahan||[])].filter(Boolean);
+  const total = semua.length;
+  const selesaiMap = u.tujuanSelesaiAt || {};
+  const selesaiCount = Object.keys(selesaiMap).length;
+  const autoIdx = semua.findIndex((_,i)=> !selesaiMap[i+1]);
+  // Konsisten (urutan wajar) HANYA kalau jumlah yang sudah selesai PERSIS
+  // sama dengan jumlah titik SEBELUM titik pertama yang belum ditandai --
+  // artinya semua titik SETELAH autoIdx juga masih belum ditandai (tidak
+  // ada yang "melompat" ke depan).
+  const urutanKonsisten = autoIdx===-1 ? true : (selesaiCount === autoIdx);
+
+  const overrideNomor = u.tujuanBerikutnyaIdx;
+  const overrideValid = overrideNomor!=null && overrideNomor>=1 && overrideNomor<=total && !selesaiMap[overrideNomor];
+
+  const sedangMenujuIdx = overrideValid ? (overrideNomor-1) : autoIdx;
+  const sedangMenuju = overrideValid ? semua[sedangMenujuIdx]
+    : ((urutanKonsisten && sedangMenujuIdx!==-1) ? semua[sedangMenujuIdx] : null);
+  // Kalau sumbernya eksplisit (bukan tebakan), anggap "konsisten" utk
+  // pemanggil -- bukan krn urutan aslinya rapi, tapi krn kita memang sudah
+  // TAHU PASTI titik berikutnya, jadi tidak perlu lagi fallback "Sebagian
+  // di luar urutan".
+  const urutanKonsistenEfektif = overrideValid ? true : urutanKonsisten;
+  return { semua, total, selesaiMap, selesaiCount, sedangMenujuIdx, sedangMenuju, urutanKonsisten: urutanKonsistenEfektif };
 }
 
 // v3.302.0 -- BARU: isi modal "Detail Tujuan" -- gabungan 2 referensi desain
@@ -12107,12 +12178,15 @@ function tujuanRingkasHtml(u){
 // per-titik yang memang belum ada tercatat, cuma odometer awal/akhir SATU
 // trip penuh -- lihat findDestinationByName()).
 function multiTujuanDetailBodyHtml(u){
-  const semua = [u.tujuan, ...(u.tujuanTambahan||[])].filter(Boolean);
-  const total = semua.length;
-  const selesaiMap = u.tujuanSelesaiAt || {};
-  const selesaiCount = Object.keys(selesaiMap).length;
-  const sedangMenujuIdx = semua.findIndex((_,i)=> !selesaiMap[i+1]);
-  const sedangMenuju = (u.status==='digunakan' && sedangMenujuIdx!==-1) ? semua[sedangMenujuIdx] : null;
+  // v3.307.0 -- pakai hitungProgresTujuan() bersama (lihat komentar di situ
+  // soal urutanKonsisten) -- gantikan findIndex lokal yang sebelumnya
+  // duplikat dgn punya tujuanRingkasHtml(). "sedang dituju" cuma masuk akal
+  // utk trip yang MASIH berjalan (status 'digunakan') -- utk trip yang
+  // sudah selesai/dibatalkan, tidak ada "next" apa pun lagi, ditutup lewat
+  // sedangMenujuEfektif di bawah (bukan diserahkan ke hitungProgresTujuan(),
+  // krn fungsi itu sengaja generik/tidak tahu soal status trip).
+  const { semua, total, selesaiMap, selesaiCount, sedangMenujuIdx, sedangMenuju, urutanKonsisten } = hitungProgresTujuan(u);
+  const sedangMenujuEfektif = (u.status==='digunakan') ? sedangMenuju : null;
 
   // Estimasi jarak per titik dari Data Tujuan (referensi by nama, BUKAN
   // aktual) -- kalau semua titik punya referensi, tampilkan juga totalnya;
@@ -12122,6 +12196,21 @@ function multiTujuanDetailBodyHtml(u){
     return (dest && dest.jarakKm!=null) ? Number(dest.jarakKm) : null;
   });
   const totalEstimasi = estimasiPerTitik.every(v=>v!=null) ? estimasiPerTitik.reduce((a,b)=>a+b,0) : null;
+
+  // v3.307.0 -- kotak status ketiga sekarang punya 4 kemungkinan (bukan 2)
+  // supaya jujur soal urutanKonsisten: kalau ada titik ditandai di luar
+  // urutan, JANGAN tampilkan nama titik tunggal seolah itu pasti "next"
+  // (lihat komentar hitungProgresTujuan()) -- cukup bilang begitu adanya.
+  let statusLabel, statusValue, statusColor;
+  if(sedangMenujuEfektif){
+    statusLabel = 'Sedang dituju'; statusValue = sedangMenujuEfektif; statusColor = 'var(--amber)';
+  } else if(u.status==='digunakan' && !urutanKonsisten){
+    statusLabel = 'Status'; statusValue = 'Sebagian di luar urutan'; statusColor = 'var(--amber)';
+  } else if(u.status==='digunakan'){
+    statusLabel = 'Status'; statusValue = 'Semua selesai'; statusColor = 'var(--green)';
+  } else {
+    statusLabel = 'Status'; statusValue = 'Trip selesai'; statusColor = 'var(--green)';
+  }
 
   const statsHtml = `
     <div class="mtj-stats">
@@ -12134,8 +12223,8 @@ function multiTujuanDetailBodyHtml(u){
         <div class="mtj-stat-value">${totalEstimasi!=null ? '~'+totalEstimasi.toLocaleString('id-ID')+' KM' : '-'}</div>
       </div>
       <div class="mtj-stat">
-        <div class="mtj-stat-label">${sedangMenuju ? 'Sedang dituju' : 'Status'}</div>
-        <div class="mtj-stat-value" style="font-size:12.5px;${sedangMenuju?'color:var(--amber);':u.status==='digunakan'?'':'color:var(--green);'}">${sedangMenuju ? escapeHtml(sedangMenuju) : (u.status==='digunakan' ? 'Semua selesai' : 'Trip selesai')}</div>
+        <div class="mtj-stat-label">${statusLabel}</div>
+        <div class="mtj-stat-value" style="font-size:12.5px;color:${statusColor};">${escapeHtml(statusValue)}</div>
       </div>
     </div>`;
 
@@ -12143,7 +12232,7 @@ function multiTujuanDetailBodyHtml(u){
     const nomor = i+1;
     const selesaiAt = selesaiMap[nomor];
     const isLast = nomor===total;
-    const isNext = nama===sedangMenuju && sedangMenujuIdx===i;
+    const isNext = nama===sedangMenujuEfektif && sedangMenujuIdx===i;
     const dotClass = selesaiAt ? 'done' : (isNext ? 'next' : 'pending');
     const dotContent = selesaiAt ? '✓' : (isNext ? '' : '');
     const jarakTxt = estimasiPerTitik[i]!=null ? `~${estimasiPerTitik[i].toLocaleString('id-ID')} KM (estimasi)` : null;
@@ -12156,6 +12245,18 @@ function multiTujuanDetailBodyHtml(u){
     } else {
       metaTxt = `Belum dikunjungi${jarakTxt ? ' · '+jarakTxt : ''}`;
     }
+    // v3.306.0 -- BARU: tombol "Tandai Sampai" per titik yang belum ditandai
+    // -- HANYA muncul kalau trip masih berjalan (u.status==='digunakan').
+    // SENGAJA dipasang di titik MANA PUN yang belum selesai (bukan cuma
+    // "sedang dituju") -- disamakan dgn bot Telegram (buildSampaiKeyboard()
+    // di worker.js), yang juga membolehkan pilih titik mana saja yang belum
+    // ditandai, tidak wajib urut (mis. sopir lupa tandai titik ke-2, baru
+    // ingat setelah sampai titik ke-3 -- tetap harus bisa ditandai belakangan
+    // tanpa keduanya jadi tidak sinkron). Lihat listener [data-tandai-sampai]
+    // di document (di bawah fungsi ini) utk handler klik & openConfirmModal-nya.
+    const tandaiBtn = (!selesaiAt && u.status==='digunakan')
+      ? `<button type="button" class="btn btn-sm btn-ghost mtj-tandai-btn" data-tandai-sampai="${u.id}" data-tandai-nomor="${nomor}" data-tandai-nama="${escapeHtml(nama)}" style="margin-top:4px;">✅ Tandai Sampai</button>`
+      : '';
     return `
       <div class="mtj-row${isNext?' next':''}">
         <div class="mtj-row-dot-col">
@@ -12165,12 +12266,157 @@ function multiTujuanDetailBodyHtml(u){
         <div class="mtj-row-body" style="${isLast?'padding-bottom:2px;':''}">
           <div class="mtj-name">${escapeHtml(nama)}</div>
           <div class="mtj-meta">${metaTxt}</div>
+          ${tandaiBtn}
         </div>
       </div>`;
   }).join('');
 
-  return `${statsHtml}<div class="mtj-timeline">${rowsHtml}</div>`;
+  // v3.305.0 -- BARU: tombol "Rute" ke Maps ditambahkan di bawah timeline --
+  // bagian terakhir dari referensi "modal detail" (Referensi B) yang belum
+  // ikut dipasang sebelumnya. SENGAJA cuma 1 tombol untuk SATU link Maps
+  // milik trip (u.mapsLink), BUKAN per-titik -- data trip ini memang cuma
+  // simpan 1 link Maps per trip (lihat field 'in-maps-link' di form Catat
+  // Perjalanan), tidak ada link terpisah per titik Tujuan Tambahan. Kalau
+  // trip tidak punya mapsLink sama sekali, mapsNavButtonHtml() otomatis
+  // balik string kosong -- baris ini otomatis tidak tampil, bukan tombol
+  // rusak/kosong.
+  const rute = mapsNavButtonHtml(u.mapsLink);
+  const ruteHtml = rute ? `<div style="margin-top:14px;text-align:right;">${rute}</div>` : '';
+
+  return `${statsHtml}<div class="mtj-timeline">${rowsHtml}</div>${ruteHtml}`;
 }
+
+// v3.306.0 -- BARU: tombol "Tandai Sampai" di modal "Detail Tujuan" --
+// menulis LANGSUNG ke u.tujuanSelesaiAt dari aplikasi web, TANPA perlu lewat
+// bot Telegram lagi (sebelumnya field ini HANYA bisa ditulis dari sana).
+// SENGAJA tanpa kunci PIN -- disamakan dgn level akses Edit/Biaya
+// Operasional di menu Aksi trip yang juga tidak dikunci PIN di UI ini.
+// SENGAJA boleh menandai titik MANA SAJA (tidak wajib urut) -- disamakan
+// dgn bot Telegram, lihat komentar di atas tombolnya (multiTujuanDetailBodyHtml).
+// Delegasi 1x di document (pola sama dgn [data-multitujuan-detail]) --
+// tombol ini di-render ulang tiap kali modal dibuka/isinya diperbarui, jadi
+// TIDAK perlu wiring ulang manual tiap render.
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-tandai-sampai]');
+  if(!btn) return;
+  e.stopPropagation();
+  const usageId = btn.dataset.tandaiSampai;
+  const nomor = Number(btn.dataset.tandaiNomor);
+  const nama = btn.dataset.tandaiNama;
+  openConfirmModal(`Tandai sudah sampai di <b>${nama}</b>?`, ()=>{
+    const u = state.usage.find(x=>x.id===usageId);
+    if(!u) return;
+    u.tujuanSelesaiAt = u.tujuanSelesaiAt || {};
+    u.tujuanSelesaiAt[nomor] = Date.now();
+    touch(u);
+    logActivity('penggunaan', 'Tandai Sampai (Tujuan Tambahan)', `${carLabel(u.carId)} — ${nama} (titik ke-${nomor})`);
+    saveData();
+    showToast(`Ditandai sampai di ${nama}.`, false, '✅');
+    renderActiveTripBubble();
+    renderUsage();
+    // Modal Detail Tujuan ini sendiri masih terbuka di belakang dialog
+    // konfirmasi yang baru saja ditutup -- refresh isinya di tempat supaya
+    // progres & tombol yang baru saja ditandai langsung hilang dari
+    // tampilan, tanpa perlu user tutup-buka modal manual.
+    const refreshModal = ()=>{
+      const modalBody = document.querySelector('#modal-overlay .modal-body');
+      if(modalBody) modalBody.innerHTML = multiTujuanDetailBodyHtml(u);
+    };
+    // v3.308.0 -- BARU: setelah menandai, tentukan "sedang dituju"
+    // berikutnya -- lihat resolveLanjutKeSetelahTandai() utk logikanya
+    // (tanya kalau ambigu >=2 sisa, auto kalau cuma 1 sisa, kosongkan
+    // kalau trip sudah selesai semua).
+    resolveLanjutKeSetelahTandai(u, refreshModal);
+    refreshModal();
+  });
+}, true);
+
+// v3.308.0 -- BARU: setelah 1 titik ditandai "sampai", putuskan "sedang
+// dituju" BERIKUTNYA -- gantikan pendekatan "diam & tebak/jujur-tidak-tahu"
+// (v3.307.0) dengan MINTA KEPASTIAN dari pengguna begitu ada ambiguitas,
+// supaya tampilan (badge/modal) bisa "beradaptasi" mengikuti rute
+// sebenarnya, bukan cuma pasif melaporkan "tidak yakin". 3 kondisi:
+//  - Sisa 0 (semua titik sudah ditandai)   -> kosongkan tujuanBerikutnyaIdx,
+//    tidak perlu tanya apa pun lagi.
+//  - Sisa 1 (cuma 1 titik belum ditandai)  -> otomatis itu yang jadi
+//    "berikutnya", TANPA tanya -- tidak ada pilihan lain yang mungkin,
+//    menanyakannya cuma menambah klik yang tidak perlu.
+//  - Sisa >=2 (ada pilihan nyata)          -> baru MUNCUL prompt
+//    "Lanjut ke tujuan mana?" (openLanjutKeModal()) supaya kepastian
+//    datang dari pengguna, bukan tebakan urutan daftar.
+function resolveLanjutKeSetelahTandai(u, onDone){
+  const semua = [u.tujuan, ...(u.tujuanTambahan||[])].filter(Boolean);
+  const total = semua.length;
+  const selesaiMap = u.tujuanSelesaiAt || {};
+  const sisaNomor = [];
+  for(let n=1; n<=total; n++){ if(!selesaiMap[n]) sisaNomor.push(n); }
+  if(sisaNomor.length === 0){
+    u.tujuanBerikutnyaIdx = null;
+    touch(u); saveData();
+    if(onDone) onDone();
+    return;
+  }
+  if(sisaNomor.length === 1){
+    u.tujuanBerikutnyaIdx = sisaNomor[0];
+    touch(u); saveData();
+    if(onDone) onDone();
+    return;
+  }
+  // >=2 sisa -- tanya, JANGAN diam-diam pasang tebakan.
+  openLanjutKeModal(u, sisaNomor, onDone);
+}
+
+// v3.308.0 -- BARU: prompt "Lanjut ke tujuan mana?" -- overlay ringan sendiri
+// (pola SAMA dgn openConfirmModal(), BUKAN openModal() -- supaya bisa
+// tampil DI ATAS modal Detail Tujuan yang masih terbuka, sama seperti
+// openConfirmModal juga numpang overlay terpisah di situ). Daftar tombol =
+// SEMUA titik yang masih belum ditandai (sisaNomor), + 1 tombol netral
+// "Belum tahu / nanti saja" yang SENGAJA mengosongkan tujuanBerikutnyaIdx
+// (bukan dibiarkan menebak) -- badge & modal lalu jatuh balik ke pesan
+// jujur "Sebagian ditandai di luar urutan" (lihat hitungProgresTujuan()).
+function openLanjutKeModal(u, sisaNomor, onDone){
+  const semua = [u.tujuan, ...(u.tujuanTambahan||[])].filter(Boolean);
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.cssText = 'display:flex;';
+  const opsiHtml = sisaNomor.map(n=>
+    `<button type="button" class="btn btn-ghost" data-lanjut-pilih="${n}" style="width:100%;text-align:left;margin-bottom:8px;">📍 ${escapeHtml(semua[n-1])}</button>`
+  ).join('');
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:340px;">
+      <div style="padding:22px 20px 18px 20px;">
+        <p style="font-size:15px;font-weight:700;margin:0 0 14px 0;color:var(--text);text-align:center;">➡️ Lanjut ke tujuan mana?</p>
+        ${opsiHtml}
+        <button type="button" class="btn btn-ghost" id="lanjut-nanti-btn" style="width:100%;color:var(--muted);">🤷 Belum tahu / nanti saja</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  markModalOpen();
+  const close = ()=> { overlay.remove(); markModalClosed(); };
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
+  overlay.querySelectorAll('[data-lanjut-pilih]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const nomor = Number(btn.dataset.lanjutPilih);
+      u.tujuanBerikutnyaIdx = nomor;
+      touch(u); saveData();
+      showToast(`Dicatat: sedang menuju ${semua[nomor-1]}.`, false, '➡️');
+      close();
+      renderActiveTripBubble();
+      renderUsage();
+      if(onDone) onDone();
+    });
+  });
+  document.getElementById('lanjut-nanti-btn').addEventListener('click', ()=>{
+    u.tujuanBerikutnyaIdx = null;
+    touch(u); saveData();
+    close();
+    renderActiveTripBubble();
+    renderUsage();
+    if(onDone) onDone();
+  });
+}
+
 
 function openMultiTujuanDetailModal(usageId){
   const u = state.usage.find(x=>x.id===usageId);
@@ -21030,6 +21276,34 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.308.0',
+    date: '08 Agu 2026',
+    notes: [
+      '➡️ BARU: setelah "Tandai Sampai" (app) atau "sampai" (bot Telegram) di 1 titik, sistem sekarang MINTA KEPASTIAN "Lanjut ke tujuan mana?" kalau masih ada ≥2 titik tersisa yang belum ditandai -- pilihan pengguna disimpan (<code>tujuanBerikutnyaIdx</code>) & dipakai LANGSUNG sbg "Sedang Dituju" di badge/modal, MENGGANTIKAN tebakan urutan daftar (v3.216.0) ataupun fallback jujur "Sebagian di luar urutan" (v3.307.0) -- keduanya tetap jadi cadangan kalau pengguna pilih "Belum tahu/nanti saja" atau belum pernah dijawab. Kalau tersisa cuma 1 titik, otomatis itu yang jadi berikutnya TANPA perlu tanya (tidak ada pilihan lain). <code>worker.js</code> JUGA diupload ulang kali ini -- fitur ini disamakan persis di app & bot Telegram supaya "sedang dituju" konsisten dari jalur mana pun trip ditandai.',
+    ]
+  },
+  {
+    v: '3.307.0',
+    date: '08 Agu 2026',
+    notes: [
+      '🎯 PERBAIKAN LOGIKA: "Sedang Dituju" (badge & modal Detail Tujuan) sebelumnya selalu dihitung sebagai "titik pertama dalam daftar yang belum ditandai" -- logika ini jadi BISA SALAH sejak tombol "Tandai Sampai" (v3.306.0) membolehkan menandai titik mana pun di luar urutan. Contoh: trip A→B→C, kalau C ditandai duluan (sblm A/B), sistem lama tetap bilang "Menuju: A" walau sopir sudah di C. Sekarang: kalau titik yang sudah ditandai TIDAK membentuk urutan rapi dari awal (ada yang "dilompati"), aplikasi TIDAK LAGI menebak nama titik tunggal sbg tujuan berikutnya -- cukup tampilkan progres (mis. "2/3 selesai") + label netral "Sebagian ditandai di luar urutan", jujur soal ketidaktahuan drpd menampilkan tebakan yang berpotensi salah. Logikanya juga dirapikan jadi 1 fungsi bersama (<code>hitungProgresTujuan()</code>) dipakai badge & modal, sebelumnya disalin manual di 2 tempat.',
+    ]
+  },
+  {
+    v: '3.306.0',
+    date: '08 Agu 2026',
+    notes: [
+      '✅ BARU: modal "Detail Tujuan" sekarang punya tombol <b>Tandai Sampai</b> di tiap titik yang belum dikunjungi -- sebelumnya penandaan "sampai di titik X" HANYA bisa lewat bot Telegram (perintah "sampai"/"tiba"), sekarang bisa juga langsung dari aplikasi web. Boleh menandai titik MANA SAJA (tidak wajib urut) -- disamakan dengan perilaku bot Telegram yang juga membolehkan lompat urutan (mis. sopir lupa tandai titik ke-2, baru ingat setelah titik ke-3 -- tetap bisa ditandai belakangan). Tanpa kunci PIN, disamakan dgn level akses Edit/Biaya Operasional yang sudah ada di menu Aksi trip.',
+    ]
+  },
+  {
+    v: '3.305.0',
+    date: '08 Agu 2026',
+    notes: [
+      '🗺️ Modal "Detail Tujuan" (dibuka lewat badge "+N lainnya"/"X/Y selesai" di bubble, daftar trip, kartu perjalanan) sekarang menampilkan tombol <b>Rute</b> ke Google Maps di bawah timeline, kalau trip-nya punya link Maps tersimpan (<code>u.mapsLink</code>) -- pelengkap dari 2 referensi tampilan (kartu ringkasan + timeline bertanda) yang sudah digabung sejak v3.302.0. Catatan: 1 tombol untuk 1 link Maps milik SELURUH trip, bukan per-titik tujuan -- aplikasi memang cuma menyimpan satu link Maps per trip, bukan per titik Tujuan Tambahan.',
+    ]
+  },
   {
     v: '3.304.0',
     date: '08 Agu 2026',
