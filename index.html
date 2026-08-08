@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.310.0">
+<meta name="app-version" content="3.311.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -621,6 +621,30 @@
     vertical-align:middle;transition:transform .1s;
   }
   .btn-nav-maps-compact:active{transform:scale(0.92);}
+
+  /* v3.311.0 -- BARU: tombol "Detail Tujuan" berdiri sendiri, ditaruh
+     BERSEBELAHAN dgn tombol "Rute" (bukan cuma badge kecil nempel di
+     tengah kalimat spt sebelumnya) -- SENGAJA biru (var(--blue), beda dari
+     hijau Rute) supaya 2 aksi yg beda maksud (navigasi vs lihat detail)
+     tidak ambigu/gampang ketuker cuma dari warna sekilas. Struktur CSS
+     PERSIS meniru .btn-nav-maps/-compact (biar sejajar rapi & konsisten
+     ukuran) -- sengaja class terpisah, bukan modifier, spy perubahan di
+     sini tidak menyentuh tombol Rute sama sekali. */
+  .btn-detail-tujuan{
+    display:inline-flex;align-items:center;gap:7px;
+    background:var(--blue);color:#fff;text-decoration:none;
+    padding:7px 16px;border-radius:22px;font-size:12.5px;font-weight:700;
+    border:none;white-space:nowrap;cursor:pointer;
+  }
+  .btn-detail-tujuan-compact{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:27px;height:27px;flex:none;
+    background:var(--blue);text-decoration:none;
+    border-radius:50%;font-size:12px;line-height:1;
+    border:1.5px solid #fff;box-shadow:0 2px 6px rgba(47,111,237,0.45);
+    vertical-align:middle;transition:transform .1s;cursor:pointer;
+  }
+  .btn-detail-tujuan-compact:active{transform:scale(0.92);}
 
   .empty-state{
     text-align:center;
@@ -2362,7 +2386,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.310.0';
+const APP_VERSION = '3.311.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -3205,7 +3229,7 @@ const ALIAS_KATEGORI_CATALOG = [
   { key:'botlog', label:'📋 log — Log Interaksi Bot, semua pesan masuk (akses diatur per peran, default Administrator)', defaults:['log'] },
   { key:'batal', label:'🚫 batal — batalkan alur/percakapan berjalan', defaults:['batal'] },
   { key:'tiba', label:'🏁 akhiri trip — akhiri trip yang sedang jalan (Sopir)', defaults:['akhiri trip','akhiritrip','selesai trip','selesaitrip'] },
-  { key:'sampai', label:'📍 tiba / sampai — tandai 1 titik tujuan sudah dikunjungi, khusus trip multi-tujuan (Sopir)', defaults:['tiba','sampai'] },
+  { key:'sampai', label:'📍 tiba / sampai / tandai — tandai 1 titik tujuan sudah dikunjungi, khusus trip multi-tujuan (Sopir)', defaults:['tiba','sampai','tandai'] },
   { key:'biaya', label:'🧾 biaya — catat biaya operasional/pribadi (Sopir)', defaults:['biaya','operasional','pribadi'] },
   { key:'booking', label:'📅 booking — ajukan booking/pesan mobil (Sopir & Operator)', defaults:['booking','pesan','boking','keep'] },
   // v3.265.0 -- BARU: entri ini SEBENARNYA sudah dibaca worker.js sejak
@@ -3294,7 +3318,7 @@ const SETTINGS_ITEM_CATALOG = [
   { id:'rekomendasi', icon:'📋', label:'rekomendasi', desc:'Daftar perintah lengkap sesuai peran.', aliasKey:'rekomendasi', akses:'Semua pengguna terdaftar' },
   { id:'batal', icon:'🚫', label:'batal', desc:'Batalkan alur/percakapan yang sedang berjalan.', aliasKey:'batal', akses:'Semua pengguna terdaftar' },
   { id:'tiba', icon:'🏁', label:'akhiri trip', desc:'Akhiri trip yang sedang berjalan, khusus Sopir. Sebelumnya bernama "tiba" -- SEKARANG kata "tiba" tidak lagi menutup trip (lihat fitur "tiba / sampai" di bawah), diganti "akhiri trip" supaya tidak ambigu dengan penanda sampai di 1 titik tujuan.', aliasKey:'tiba', akses:'Sopir' },
-  { id:'sampai', icon:'📍', label:'tiba / sampai', desc:'Tandai 1 titik tujuan sudah dikunjungi -- KHUSUS trip yang punya lebih dari 1 tujuan (Tujuan Tambahan). Kalau trip cuma 1 tujuan, sopir yang ketik ini akan diarahkan ke "akhiri trip".', aliasKey:'sampai', akses:'Sopir' },
+  { id:'sampai', icon:'📍', label:'tiba / sampai / tandai', desc:'Tandai 1 titik tujuan sudah dikunjungi -- KHUSUS trip yang punya lebih dari 1 tujuan (Tujuan Tambahan). Kalau trip cuma 1 tujuan, sopir yang ketik ini akan diarahkan ke "akhiri trip". Sama persis dengan tombol "✅ Tandai Sampai" di aplikasi web -- keduanya menulis ke field yang sama (tujuanSelesaiAt), boleh dipakai bergantian.', aliasKey:'sampai', akses:'Sopir' },
   { id:'biaya', icon:'🧾', label:'biaya', desc:'Catat biaya operasional/pribadi, khusus Sopir.', aliasKey:'biaya', akses:'Sopir' },
   { id:'mulaitrip', icon:'🚗', label:'mulai trip', desc:'Mulai trip baru, khusus Sopir.', aliasKey:'mulaitrip', akses:'Sopir' },
   { id:'ya', icon:'✅', label:'ya', desc:'Jawaban konfirmasi Ya.', aliasKey:'ya', akses:'Semua pengguna terdaftar' },
@@ -5771,6 +5795,28 @@ function mapsNavButtonCompactHtml(mapsLink){
   // v3.263.0 -- lihat catatan sama di mapsNavButtonHtml() di atas.
   if(!/^https?:\/\//i.test(trimmed) && !extractLatLng(trimmed)) return '';
   return `<a href="${escapeHtml(normalizeMapsUrl(trimmed))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn-nav-maps-compact" title="Buka Rute">${navArrowSimpleHtml()}</a>`;
+}
+
+// v3.311.0 -- BARU: tombol "Detail Tujuan" berdiri sendiri -- SEBELUMNYA
+// satu-satunya cara buka modal Detail Tujuan adalah ngetuk badge kecil
+// ("+N lainnya"/"X/Y selesai") yang nempel DI TENGAH kalimat deskripsi --
+// gampang meleset ketuk di HP (lihat perbesaran hit-area v3.309.0). Sesuai
+// masukan: taruh tombol BERDIRI SENDIRI bersebelahan dgn "Rute", warna
+// BIRU (beda dari hijau Rute) supaya jelas 2 aksi berbeda, tidak ambigu.
+// Badge lama TETAP ada & TETAP bisa diklik (tidak dihapus) -- tombol ini
+// cuma jalan pintas TAMBAHAN yang lebih besar & jelas, bukan pengganti.
+// Cuma tampil kalau trip punya >1 tujuan (sama spt syarat badge itu
+// sendiri) -- trip 1 tujuan tidak punya apa pun untuk "didetailkan".
+function detailTujuanButtonHtml(u){
+  if(!Array.isArray(u.tujuanTambahan) || u.tujuanTambahan.length===0) return '';
+  return `<button type="button" class="btn-detail-tujuan" data-multitujuan-detail="${u.id}" onclick="event.stopPropagation()">📍 Detail Tujuan</button>`;
+}
+// Varian ringkas (ikon saja) -- KHUSUS dipakai berdampingan dgn
+// mapsNavButtonCompactHtml() (kolom sempit, mis. daftar trip List view),
+// pola & alasan PERSIS sama dgn mapsNavButtonCompactHtml() di atas.
+function detailTujuanButtonCompactHtml(u){
+  if(!Array.isArray(u.tujuanTambahan) || u.tujuanTambahan.length===0) return '';
+  return `<button type="button" class="btn-detail-tujuan-compact" data-multitujuan-detail="${u.id}" title="Detail Tujuan" onclick="event.stopPropagation()">📍</button>`;
 }
 
 // Cari Link Maps dari riwayat TUJUAN YANG SAMA PERSIS (case-insensitive) --
@@ -8514,7 +8560,7 @@ function renderTripBubblePanelContent(){
         ${carPhotoHtml(carForBubble, 'car-thumb')}
         <div style="flex:1;min-width:0;">
           <b>${escapeHtml(carLabel(u.carId))}</b>
-          <div class="desc">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${tujuanRingkasHtml(u)}${u.jamKeluar?' · sejak '+u.jamKeluar:''} ${mapsNavButtonHtml(u.mapsLink)}</div>
+          <div class="desc">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${tujuanRingkasHtml(u)}${u.jamKeluar?' · sejak '+u.jamKeluar:''} ${mapsNavButtonHtml(u.mapsLink)} ${detailTujuanButtonHtml(u)}</div>
         </div>
       </div>`;
     }).join(''));
@@ -13062,7 +13108,7 @@ function renderUsage(){
           <div class="triprow">
             <div class="triprow-top">
               <div>
-                <div class="triprow-dest">${codeBadgeHtml(u.kode)} ${tujuanPinIconHtml()} ${tujuanRingkasHtml(u)}${mapsNavButtonCompactHtml(u.mapsLink)}</div>
+                <div class="triprow-dest">${codeBadgeHtml(u.kode)} ${tujuanPinIconHtml()} ${tujuanRingkasHtml(u)}${mapsNavButtonCompactHtml(u.mapsLink)}${detailTujuanButtonCompactHtml(u)}</div>
                 <div class="triprow-meta">${escapeHtml(carLabel(u.carId))} · ${escapeHtml(driverLabel(u.driverId,u.driver))} · ${u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman'} · ${fmtDate(u.tglKeluar)} ${u.jamKeluar||''} → ${u.tglKembali?fmtDate(u.tglKembali):'-'} ${u.jamKembali||''}</div>
               </div>
               <div class="triprow-right">
@@ -13094,7 +13140,7 @@ function renderUsage(){
               <span class="usage-card-mobil car-with-thumb-sm">${carPhotoHtml(r.carForRow,'car-thumb-sm')}<span>${escapeHtml(carLabel(u.carId))}</span></span>
               ${u.status==='digunakan' ? `<span class="badge warn">Digunakan</span>` : `<span class="badge ok">Selesai</span>`}
             </div>
-            <div class="usage-card-tujuan">${tujuanPinIconHtml()} ${tujuanRingkasHtml(u)} ${mapsNavButtonHtml(u.mapsLink)}</div>
+            <div class="usage-card-tujuan">${tujuanPinIconHtml()} ${tujuanRingkasHtml(u)} ${mapsNavButtonHtml(u.mapsLink)} ${detailTujuanButtonHtml(u)}</div>
             <div class="usage-card-meta">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${fmtDate(u.tglKeluar)}${u.tglKembali?' → '+fmtDate(u.tglKembali):''}</div>
             <div style="margin-top:6px;">${codeBadgeHtml(u.kode)}</div>
             <div class="usage-card-detail-toggle" data-toggle="${idx}">▾ Lihat detail (Jarak, BBM, Efisiensi, dst)</div>
@@ -21430,6 +21476,14 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.311.0',
+    date: '08 Agu 2026',
+    notes: [
+      '📍 BARU: perintah Telegram <b>tandai</b> ditambahkan sebagai alias baru untuk "tiba"/"sampai" (menandai 1 titik tujuan sudah dikunjungi) -- fungsinya identik, cuma nama lain yang lebih cocok dgn istilah tombol "Tandai Sampai" di aplikasi web. Sudah didaftarkan juga di menu Notifikasi Telegram per Peran (kategori "tiba / sampai / tandai") supaya konsisten kalau Administrator mau tambah alias custom lain lewat panel Alias. <code>worker.js</code> WAJIB diupload ulang kali ini.',
+      '🔵 BARU: tombol "📍 Detail Tujuan" berdiri sendiri, ditaruh bersebelahan dengan tombol "Rute" (bubble "Mobil Sedang Jalan", daftar trip, kartu perjalanan) -- sebelumnya satu-satunya cara buka modal Detail Tujuan adalah ngetuk badge kecil yang nempel di tengah kalimat, gampang meleset di HP. Tombol baru ini SENGAJA biru (beda dari hijau Rute) supaya 2 aksi berbeda maksud (navigasi vs lihat detail) tidak ambigu/gampang ketuker. Badge lama tetap ada & tetap bisa diklik -- ini cuma jalan pintas tambahan yang lebih besar & jelas.',
+    ]
+  },
   {
     v: '3.310.0',
     date: '08 Agu 2026',
