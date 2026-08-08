@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.302.0">
+<meta name="app-version" content="3.303.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2343,7 +2343,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.302.0';
+const APP_VERSION = '3.303.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -12191,12 +12191,38 @@ function openMultiTujuanDetailModal(usageId){
 // hampir selalu ada DI DALAM elemen lain yg juga listen klik (trip-card ->
 // openTripActionMenu, trip-timeline-item -> buka detail trip, dst) -- tanpa
 // ini, klik badge akan ikut memicu aksi elemen pembungkusnya juga.
+// v3.303.0 -- PERBAIKAN BUG: modal "Detail Tujuan" TERNYATA kebuka di
+// BELAKANG menu Aksi lama (openTripActionMenu) kalau badge ini diketuk di
+// dalam bubble "Mobil Sedang Jalan" -- gejalanya: user cuma melihat popup
+// Aksi lama (Edit/Biaya Operasional/dst), modal Detail Tujuan seolah tidak
+// pernah kebuka. Akar masalah: `.trip-card[data-trip]` (wadah badge ini di
+// bubble) punya listener klik LANGSUNG (bukan delegasi) yg attach ke elemen
+// itu sendiri (lihat `el.addEventListener('click', ...)` dekat
+// updateActiveTripBubble()) -- saat event click bubble dari badge ke atas,
+// listener LANGSUNG di .trip-card itu jalan LEBIH DULU (buka menu Aksi,
+// z-index:250) SEBELUM event sempat sampai ke listener delegasi di
+// `document` ini (yg baru jalan belakangan, buka modal Detail Tujuan,
+// z-index:145 -- LEBIH RENDAH). e.stopPropagation() yg dipanggil DI SINI
+// sudah kelewat telat -- itu cuma mencegah event lanjut ke elemen di ATAS
+// document (tidak ada), tidak bisa "membatalkan" listener leluhur yg SUDAH
+// keburu jalan. Diperbaiki dengan mendaftarkan listener ini di CAPTURE
+// phase (parameter ke-3 `true`) -- capture phase berjalan dari document
+// TURUN ke target SEBELUM bubble phase dimulai, jadi begitu badge ini
+// match, stopPropagation() di sini memotong event SEBELUM sempat turun ke
+// `.trip-card`/listener leluhur lain manapun (mis. `trip-timeline-item`),
+// bukan cuma setelah lewat semuanya. Pola ini WAJIB dipakai lagi kalau ada
+// badge/elemen serupa (data-attribute + delegasi document) yang ditaruh DI
+// DALAM elemen lain yg listen klik-nya sendiri secara LANGSUNG (bukan
+// delegasi) -- gejalanya persis sama: kelihatan "kadang jalan kadang
+// tidak"/"kebuka tapi ketutup elemen lain", padahal sebenarnya 2 handler
+// SAMA-SAMA jalan, cuma urutan & z-index yg bikin salah satunya tidak
+// kelihatan.
 document.addEventListener('click', (e)=>{
   const el = e.target.closest('[data-multitujuan-detail]');
   if(!el) return;
   e.stopPropagation();
   openMultiTujuanDetailModal(el.dataset.multitujuanDetail);
-});
+}, true);
 
 // yang punya literBensin & biayaBensin lengkap (maks 90 hari terakhir, atau
 // 30 trip terakhir kalau lebih cepat lengkap 30 -- supaya tetap relevan
@@ -20988,6 +21014,13 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.303.0',
+    date: '08 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG PENTING: badge "+N lainnya"/"X/Y selesai" (fitur modal "Detail Tujuan", v3.302.0) di bubble "Mobil Sedang Jalan" ternyata TIDAK PERNAH TERLIHAT kalau diketuk -- modal-nya sebenarnya SUDAH kebuka, tapi kebuka DI BELAKANG menu Aksi lama (Edit/Biaya Operasional/Akhiri Trip/dst) yang IKUT terpicu di kartu yang sama, krn kartu itu (<code>.trip-card[data-trip]</code>) punya listener klik LANGSUNG (bukan delegasi) yang selalu jalan lebih dulu sebelum listener badge (delegasi di <code>document</code>) sempat jalan -- ditambah z-index menu Aksi lama (250) lebih tinggi dari modal (145), jadi modal Detail Tujuan tertutup total tanpa terlihat sama sekali. Diperbaiki dengan mendaftarkan listener badge di CAPTURE phase (bukan bubble phase spt sebelumnya) supaya event dipotong SEBELUM sempat memicu listener leluhur mana pun. Badge di daftar trip &amp; kartu perjalanan tidak kena bug ini (kontainernya tidak punya listener klik langsung serupa), cuma bubble yang terdampak.',
+    ]
+  },
   {
     v: '3.302.0',
     date: '08 Agu 2026',
