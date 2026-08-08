@@ -8471,7 +8471,7 @@ function renderTripBubblePanelContent(){
         ${carPhotoHtml(carForBubble, 'car-thumb')}
         <div style="flex:1;min-width:0;">
           <b>${escapeHtml(carLabel(u.carId))}</b>
-          <div class="desc">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${escapeHtml(u.tujuan||'-')}${u.jamKeluar?' · sejak '+u.jamKeluar:''} ${mapsNavButtonHtml(u.mapsLink)}</div>
+          <div class="desc">${escapeHtml(driverLabel(u.driverId, u.driver))} · ${tujuanRingkasHtml(u)}${u.jamKeluar?' · sejak '+u.jamKeluar:''} ${mapsNavButtonHtml(u.mapsLink)}</div>
         </div>
       </div>`;
     }).join(''));
@@ -20854,6 +20854,7 @@ const CHANGELOG = [
       '✕ Tombol "Tutup" &amp; "Batal" di footer popup ini DIHAPUS -- sekarang satu-satunya cara menutup popup HANYA lewat ✕ di pojok kanan atas, supaya menutup popup jadi aksi yang lebih disengaja/sadar, bukan reflek tekan tombol besar di footer tanpa baca isinya dulu.',
       '🔔 BARU: kartu pengingat mengambang (tanpa overlay gelap, tidak menutupi seluruh layar) muncul sebagai jaring pengaman kedua kalau popup Tanda Terima ditutup TANPA sempat menekan Kirim ke Finance -- pilihan cuma 2: <b>Kirim ke Finance</b> (gaya pil hitam sama seperti di atas) atau <b>Nanti saja</b> (kalau "Nanti saja" ditekan, kartu ini tidak muncul lagi untuk trip itu, tetap diingatkan lewat pengingat Telegram 5 jam seperti biasa).',
       '🔧 Sekalian diperbaiki: tag <meta name="app-version"> di &lt;head&gt; sempat tidak disamakan dengan APP_VERSION (3.299.0 vs 3.300.0) -- disamakan lagi.',
+      '🔧 PERBAIKAN BUG: bubble mengambang "Mobil Sedang Jalan" untuk trip multi-tujuan (Tujuan Tambahan) sebelumnya cuma menampilkan nama tujuan PERTAMA polos -- tidak ikut badge "+N lainnya" / progres "Menuju: ... (1/3 selesai)" seperti yang sudah ada di daftar trip &amp; kartu perjalanan (tujuanRingkasHtml()). Sekarang disamakan supaya konsisten di semua tempat.',
     ]
   },
   {
