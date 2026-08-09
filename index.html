@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.313.0">
+<meta name="app-version" content="3.314.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2422,7 +2422,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.313.0';
+const APP_VERSION = '3.314.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -21642,6 +21642,13 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.314.0',
+    date: '08 Agu 2026',
+    notes: [
+      '📨 BARU: notifikasi balik ke SOPIR TERKAIT begitu Tanda Terima Perjalanan + Nota Pembayaran berhasil dikirim & diterima Admin Finance -- MENYEBUT JUMLAH NOTA eksplisit (mis. "1 Tanda Terima + 3 nota berhasil dikirim..."), bukan cuma "berhasil dikirim" tanpa angka. Berlaku di 2 jalur: (1) ketik "kirim"/tombol "kirimnota:" lewat bot Telegram -- SEBELUMNYA sudah ada konfirmasi tapi belum menyebut jumlah nota; (2) tombol "Kirim ke Finance" dari aplikasi web -- SEBELUMNYA sopir sama sekali tidak diberi tahu lewat jalur ini, Finance menerima tapi sopir tidak tahu. <code>worker.js</code> WAJIB diupload ulang kali ini.',
+    ]
+  },
   {
     v: '3.313.0',
     date: '08 Agu 2026',
