@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.316.0">
+<meta name="app-version" content="3.317.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2422,7 +2422,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.316.0';
+const APP_VERSION = '3.317.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -14683,7 +14683,7 @@ function buildTripReceiptTextTg(u){
   biayaOpItems.filter(it=>it.kategori==='Isi BBM').forEach(it=>{
     lines.push(`   ↳ <i>${escapeHtml(it.jenisBbm||'BBM')}${it.catatan?' — '+escapeHtml(it.catatan):''}${it.metodeBayar?' ['+escapeHtml(it.metodeBayar)+']':''}: ${fmtMoney(it.nominal)}</i>`);
   });
-  if(biayaTolInfo) lines.push(`<b>Biaya Tap Toll (total):</b> [Kartu E-Toll (Otomatis)] ${fmtMoney(biayaTol)}`);
+  if(biayaTolInfo) lines.push(`<b>Biaya Tap Toll (total):</b> [Kartu E-Toll] ${fmtMoney(biayaTol)}`);
   biayaOpItems.filter(it=>it.kategori==='Isi E-Toll').forEach(it=>{
     lines.push(`   ↳ <i>${it.catatan?escapeHtml(it.catatan):'Isi E-Toll'}${it.metodeBayar?' ['+escapeHtml(it.metodeBayar)+']':''}: ${fmtMoney(it.nominal)}</i>`);
   });
@@ -15121,6 +15121,24 @@ function buildTripReceiptElement(u){
     .reduce((sum,it)=> sum+(Number(it.nominal)||0), 0);
   const grandTotal = (Number(u.biayaBensin)||0) + biayaTol + biayaOpTotalUntukTotal;
 
+  // v3.317.0 -- PERBAIKAN BUG SERIUS: komentar penjelasan v3.315.0 soal
+  // "Biaya Tol" -> "Biaya Tap Toll" SEBELUMNYA ditulis langsung di DALAM
+  // template literal el.innerHTML di bawah (bukan di luar, seperti
+  // seharusnya) -- akibatnya baris komentar "// ..." itu ikut dianggap
+  // TEKS HTML MENTAH, bukan komentar kode, dan tampil sebagai paragraf
+  // aneh di tengah Tanda Terima Perjalanan yang di-generate. Sekarang
+  // dipindah ke sini (di LUAR template literal) supaya tidak pernah bisa
+  // ikut ter-render lagi -- pelajaran: JANGAN taruh komentar // di baris
+  // manapun di dalam template literal multi-baris seperti ini, HANYA
+  // boleh di dalam blok ${...} atau di luar backtick sepenuhnya.
+  //
+  // Label "Biaya Tol" diganti "Biaya Tap Toll" (lebih jelas ini transaksi
+  // tap kartu, bukan tarif jalan tol itu sendiri) + badge kuning "Kartu
+  // E-Toll" -- pola visual sama dgn badge metode bayar ("Cash"/dst di
+  // baris Isi BBM/Isi E-Toll), tapi beda arti: badge metode bayar itu
+  // PILIHAN manual sopir saat input, sedangkan angka Biaya Tap Toll ini
+  // BUKAN input manual sama sekali -- dihitung otomatis dari selisih
+  // saldo kartu E-Toll (lihat getBiayaTolTerpakai()/biayaTolInfo di atas).
   const el = document.createElement('div');
   el.style.cssText = 'width:380px;background:#fff;font-family:Inter,sans-serif;color:#1A2130;padding:22px;';
   el.innerHTML = `
@@ -15154,17 +15172,7 @@ function buildTripReceiptElement(u){
             <span style="font-family:'JetBrains Mono',monospace;color:#6B7280;font-size:11px;">${fmtMoney(it.nominal)}</span>
           </td>
         </tr>`).join('')}
-      // v3.315.0 -- BARU: label "Biaya Tol" -> "Biaya Tap Toll" (lebih jelas
-      // ini transaksi tap kartu, bukan tarif jalan tol itu sendiri) + badge
-      // kuning "Kartu E-Toll (Otomatis)" -- pola visual SAMA dgn badge
-      // metode bayar ("Cash"/dst di baris Isi BBM/Isi E-Toll di atas & bawah
-      // sini), TAPI beda arti: badge metode bayar itu PILIHAN manual sopir
-      // saat input, sedangkan angka Biaya Tap Toll ini BUKAN input manual
-      // sama sekali -- dihitung OTOMATIS dari selisih saldo kartu E-Toll
-      // (lihat getBiayaTolTerpakai()/biayaTolInfo di atas), makanya badge-nya
-      // ditulis eksplisit "(Otomatis)" supaya tidak dikira sopir yang
-      // mengetik nominal ini sendiri.
-      ${biayaTolInfo ? `<tr><td style="padding:4px 0;font-weight:700;">Biaya Tap Toll <span style="font-weight:400;color:#8993A4;font-size:10.5px;">(total)</span></td><td style="padding:4px 0;text-align:right;white-space:nowrap;"><span style="display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:20px;margin-right:6px;background:#FEF3DC;color:#B7791F;">Kartu E-Toll (Otomatis)</span><span style="font-family:'JetBrains Mono',monospace;font-weight:700;">${fmtMoney(biayaTol)}</span></td></tr>` : ''}
+      ${biayaTolInfo ? `<tr><td style="padding:4px 0;font-weight:700;">Biaya Tap Toll <span style="font-weight:400;color:#8993A4;font-size:10.5px;">(total)</span></td><td style="padding:4px 0;text-align:right;white-space:nowrap;"><span style="display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:20px;margin-right:6px;background:#FEF3DC;color:#B7791F;">Kartu E-Toll</span><span style="font-family:'JetBrains Mono',monospace;font-weight:700;">${fmtMoney(biayaTol)}</span></td></tr>` : ''}
       ${biayaOpItems.filter(it=>it.kategori==='Isi E-Toll').map(it=>`
         <tr>
           <td style="padding:2px 0 2px 14px;color:#6B7280;font-size:11px;position:relative;">
@@ -21675,6 +21683,14 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.317.0',
+    date: '08 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG SERIUS (regresi dari v3.315.0): komentar penjelasan soal "Biaya Tol" → "Biaya Tap Toll" sempat salah ditulis DI DALAM template literal HTML Tanda Terima Perjalanan (bukan di luar seperti seharusnya) -- akibatnya baris komentar itu ikut dianggap teks HTML mentah dan tampil sebagai paragraf aneh di tengah resi yang di-generate. Sekarang dipindah keluar dari template literal, tidak ada lagi teks nyasar di resi.',
+      '🎫 Badge kuning di baris "Biaya Tap Toll" disederhanakan jadi "Kartu E-Toll" saja (kata "(Otomatis)" dihapus) -- di app maupun teks Telegram. <code>worker.js</code> WAJIB diupload ulang kali ini.',
+    ]
+  },
   {
     v: '3.316.0',
     date: '08 Agu 2026',
