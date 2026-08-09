@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.314.0">
+<meta name="app-version" content="3.316.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2422,7 +2422,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.314.0';
+const APP_VERSION = '3.316.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -13566,6 +13566,29 @@ function renderUsage(){
       <div class="trip-timeline-meta" style="margin-top:6px;">${escapeHtml(driverLabel(u.driverId,u.driver))} · ${fmtDate(u.tglKeluar)}${u.tglKembali?' → '+fmtDate(u.tglKembali):''}</div>
       <div style="margin-top:10px;">${codeBadgeHtml(u.kode)}</div>
       <div class="usage-card-detail-grid" style="margin-top:16px;">
+        ${(() => {
+          // v3.316.0 -- BARU (Referensi B, dipilih dari 2 referensi visual):
+          // baris "Tujuan Tambahan" -- SEBELUMNYA panel ini (tab Riwayat
+          // Perjalanan, dibuka lewat tripDetailCardHtml()) sama sekali tidak
+          // menunjukkan tujuanTambahan, cuma judul berisi u.tujuan mentah
+          // (lihat trip-timeline-dest di atas) -- trip dgn 2+ tujuan jadi
+          // kelihatan seolah cuma 1 tujuan. Judul SENGAJA tidak diubah
+          // (tetap simpel) -- info tujuan tambahan jadi baris TERSENDIRI di
+          // sini, sejajar field lain (Jarak/Durasi/dst), full-width (grid-
+          // column:1/-1) krn kontennya (progres + tombol) tidak pas dipaksa
+          // 1 kolom sempit. Tombol "Detail" pakai data-multitujuan-detail
+          // yang sama dgn badge di bubble/daftar/kartu -- 1 listener
+          // delegasi yang sudah ada, tidak perlu wiring baru.
+          if(!Array.isArray(u.tujuanTambahan) || u.tujuanTambahan.length===0) return '';
+          const info = hitungProgresTujuan(u);
+          return `<div style="grid-column:1 / -1;border-top:1px solid var(--line);padding-top:10px;">
+            <span class="k">Tujuan Tambahan</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:2px;">
+              <span class="v">${info.total} titik · ${info.selesaiCount}/${info.total} selesai</span>
+              <button type="button" class="btn btn-ghost btn-sm" data-multitujuan-detail="${u.id}" style="flex-shrink:0;">Detail</button>
+            </div>
+          </div>`;
+        })()}
         <div><span class="k">Jenis Perjalanan</span> <span class="v">${u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman'}</span></div>
         <div><span class="k">Jarak</span> <span class="v">${r.jarakBadge}</span></div>
         <div><span class="k">Jam</span> <span class="v">${u.jamKeluar||'-'} → ${u.jamKembali||'-'}</span></div>
@@ -14660,7 +14683,7 @@ function buildTripReceiptTextTg(u){
   biayaOpItems.filter(it=>it.kategori==='Isi BBM').forEach(it=>{
     lines.push(`   ↳ <i>${escapeHtml(it.jenisBbm||'BBM')}${it.catatan?' — '+escapeHtml(it.catatan):''}${it.metodeBayar?' ['+escapeHtml(it.metodeBayar)+']':''}: ${fmtMoney(it.nominal)}</i>`);
   });
-  if(biayaTolInfo) lines.push(`<b>Biaya Tol (total):</b> ${fmtMoney(biayaTol)}`);
+  if(biayaTolInfo) lines.push(`<b>Biaya Tap Toll (total):</b> [Kartu E-Toll (Otomatis)] ${fmtMoney(biayaTol)}`);
   biayaOpItems.filter(it=>it.kategori==='Isi E-Toll').forEach(it=>{
     lines.push(`   ↳ <i>${it.catatan?escapeHtml(it.catatan):'Isi E-Toll'}${it.metodeBayar?' ['+escapeHtml(it.metodeBayar)+']':''}: ${fmtMoney(it.nominal)}</i>`);
   });
@@ -15131,7 +15154,17 @@ function buildTripReceiptElement(u){
             <span style="font-family:'JetBrains Mono',monospace;color:#6B7280;font-size:11px;">${fmtMoney(it.nominal)}</span>
           </td>
         </tr>`).join('')}
-      ${biayaTolInfo ? `<tr><td style="padding:4px 0;font-weight:700;">Biaya Tol <span style="font-weight:400;color:#8993A4;font-size:10.5px;">(total)</span></td><td style="padding:4px 0;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;">${fmtMoney(biayaTol)}</td></tr>` : ''}
+      // v3.315.0 -- BARU: label "Biaya Tol" -> "Biaya Tap Toll" (lebih jelas
+      // ini transaksi tap kartu, bukan tarif jalan tol itu sendiri) + badge
+      // kuning "Kartu E-Toll (Otomatis)" -- pola visual SAMA dgn badge
+      // metode bayar ("Cash"/dst di baris Isi BBM/Isi E-Toll di atas & bawah
+      // sini), TAPI beda arti: badge metode bayar itu PILIHAN manual sopir
+      // saat input, sedangkan angka Biaya Tap Toll ini BUKAN input manual
+      // sama sekali -- dihitung OTOMATIS dari selisih saldo kartu E-Toll
+      // (lihat getBiayaTolTerpakai()/biayaTolInfo di atas), makanya badge-nya
+      // ditulis eksplisit "(Otomatis)" supaya tidak dikira sopir yang
+      // mengetik nominal ini sendiri.
+      ${biayaTolInfo ? `<tr><td style="padding:4px 0;font-weight:700;">Biaya Tap Toll <span style="font-weight:400;color:#8993A4;font-size:10.5px;">(total)</span></td><td style="padding:4px 0;text-align:right;white-space:nowrap;"><span style="display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:20px;margin-right:6px;background:#FEF3DC;color:#B7791F;">Kartu E-Toll (Otomatis)</span><span style="font-family:'JetBrains Mono',monospace;font-weight:700;">${fmtMoney(biayaTol)}</span></td></tr>` : ''}
       ${biayaOpItems.filter(it=>it.kategori==='Isi E-Toll').map(it=>`
         <tr>
           <td style="padding:2px 0 2px 14px;color:#6B7280;font-size:11px;position:relative;">
@@ -21642,6 +21675,20 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.316.0',
+    date: '08 Agu 2026',
+    notes: [
+      '📍 PERBAIKAN BUG: panel detail trip di tab "Riwayat Perjalanan" (Detail Kendaraan) sekarang menampilkan baris "Tujuan Tambahan" (jumlah titik + progres X/Y selesai + tombol Detail) kalau trip punya lebih dari 1 tujuan -- SEBELUMNYA panel ini sama sekali tidak menunjukkan tujuanTambahan, judul cuma menampilkan tujuan pertama mentah-mentah, trip 2+ tujuan jadi kelihatan seolah cuma 1 tujuan. Baris baru ditaruh sejajar field lain (Jarak/Durasi/dst), tombol Detail-nya buka modal Detail Tujuan yang sama dengan yang lain di aplikasi.',
+    ]
+  },
+  {
+    v: '3.315.0',
+    date: '08 Agu 2026',
+    notes: [
+      '🎫 Label "Biaya Tol" di Tanda Terima Perjalanan (app & Telegram) diganti jadi "Biaya Tap Toll" -- lebih jelas ini transaksi tap kartu, bukan tarif jalan tol itu sendiri. Ditambahkan juga badge kuning "Kartu E-Toll (Otomatis)" di sebelahnya -- pola visual sama dengan badge metode bayar ("Cash"/dst) yang sudah ada di baris Isi BBM/Isi E-Toll, tapi beda arti: badge ini menegaskan angka Biaya Tap Toll BUKAN input manual sopir, melainkan dihitung otomatis dari selisih saldo kartu E-Toll. <code>worker.js</code> WAJIB diupload ulang kali ini (versi teks Telegram-nya ada di sana).',
+    ]
+  },
   {
     v: '3.314.0',
     date: '08 Agu 2026',
