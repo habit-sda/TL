@@ -15219,6 +15219,12 @@ function buildTripReceiptElement(u){
     <div style="border-top:1.5px solid #1A2130;padding-top:8px;display:flex;justify-content:space-between;font-weight:800;font-size:14px;">
       <span>TOTAL BIAYA</span><span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(grandTotal)}</span>
     </div>
+    ${biayaTol>0 ? `
+    <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #C7CCD4;display:flex;justify-content:space-between;font-weight:700;font-size:12.5px;color:#374151;">
+      <span>Total Pengeluaran</span><span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(grandTotal - biayaTol)}</span>
+    </div>
+    <div style="font-size:9.5px;color:#8993A4;margin-top:2px;">*Total Biaya dikurangi Biaya Tap Toll, karena tapping tol otomatis terpotong dari saldo Kartu E-Toll, bukan pengeluaran cash sopir.</div>
+    ` : ''}
     <div style="text-align:center;margin-top:16px;font-size:10.5px;color:#8993A4;">
       Dilaporkan oleh ${escapeHtml(currentAdmin)} · ${new Date().toLocaleString('id-ID')}
     </div>
@@ -25433,37 +25439,25 @@ if ('serviceWorker' in navigator) {
 
     if(versionKey && localStorage.getItem(LS_KEY) === versionKey) return; // sudah pernah diberitahu
 
-    if(versionKey && isPatchOnlyChange(APP_VERSION, versionKey)){
-      suppressNextReload = true;
-      localStorage.setItem(LS_KEY, versionKey);
-      newWorker.postMessage({ type: 'SKIP_WAITING' });
-      return;
-    }
-
+    // v3.??? -- SEMUA update (bukan cuma patch) sekarang dipasang OTOMATIS
+    // & DIAM-DIAM di background, TANPA popup "Versi Baru Tersedia" dan TANPA
+    // perlu petugas klik "Perbarui Sekarang" lagi. suppressNextReload=true
+    // dipertahankan supaya tidak memaksa reload mendadak di tengah petugas
+    // sedang input data -- versi baru otomatis aktif di reload/navigasi
+    // berikutnya yang wajar (natural), bukan interupsi paksa saat itu juga.
     if(versionKey) localStorage.setItem(LS_KEY, versionKey);
-    openPopupPending(newWorker, versionKey, info && info.items);
+    suppressNextReload = true;
+    newWorker.postMessage({ type: 'SKIP_WAITING' });
   }
 
   // Kalau tab sempat tertutup pas versi baru di-deploy, browser bisa otomatis
   // aktifkan worker baru begitu tab dibuka lagi TANPA sempat memicu popup di
   // atas. Untuk menutup celah itu: bandingkan versi yang SEDANG berjalan
   // sekarang (APP_VERSION, sudah termuat) dengan versi terakhir yang pernah
-  // diberi tahu ke petugas ini — kalau beda & bukan cuma patch, tetap kasih
-  // tahu (mode informational saja, karena sudah otomatis terpasang).
+  // diberi tahu ke petugas ini — kalau beda, cukup catat baseline baru (SEMUA
+  // update sekarang otomatis & diam-diam, tidak ada lagi popup informational).
   function checkStartupVersionChange(){
-    const seen = localStorage.getItem(LS_KEY);
-    if(seen === null){
-      localStorage.setItem(LS_KEY, APP_VERSION); // kunjungan pertama -> catat baseline saja
-      return;
-    }
-    if(seen === APP_VERSION) return;
-    if(isPatchOnlyChange(seen, APP_VERSION)){
-      localStorage.setItem(LS_KEY, APP_VERSION);
-      return;
-    }
     localStorage.setItem(LS_KEY, APP_VERSION);
-    const latest = CHANGELOG && CHANGELOG[0];
-    openPopupInformational(APP_VERSION, latest ? latest.notes : []);
   }
   checkStartupVersionChange();
   hideAppBootScreen(); // v3.277.0 -- boot app selesai, sembunyikan #app-boot-screen (jalur utama; fallback timer independen ada di dekat <div>-nya)
