@@ -2422,7 +2422,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.318.0';
+const APP_VERSION = '3.319.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -14462,6 +14462,14 @@ function openBiayaOperasionalModal(usageId){
         }))
         .filter(it => it.kategori && it.nominal > 0);
 
+      // BARU (v3.319.0) -- tandai item mana yang BARU (belum pernah tersimpan
+      // sebelum modal ini dibuka -- lihat flag savedOriginally saat formItems
+      // dibangun di awal openBiayaOperasionalModal()), supaya sendInstantBiayaOpBuktiAsk()
+      // di bawah cuma DM sopir minta bukti utk item yang benar-benar baru,
+      // bukan item lama yang kebetulan ikut tersimpan ulang (edit/hapus item lain).
+      const idItemBaru = new Set(formItems.filter(it=>!it.savedOriginally).map(it=>it.id));
+      const itemsBiayaOpBaru = validItems.filter(it=>idItemBaru.has(it.id));
+
       u.biayaOperasional = validItems;
 
       // Auto-akumulasi Biaya: kalau ada item berkategori "Isi BBM" (bisa lebih
@@ -14520,6 +14528,10 @@ function openBiayaOperasionalModal(usageId){
       showToast(totalBbmDariOperasional>0
         ? `Biaya operasional disimpan. Biaya BBM otomatis terisi ${fmtMoney(totalBbmDariOperasional)}${totalLiterDariOperasional>0 ? ` (${totalLiterDariOperasional} L)` : ''}.`
         : 'Biaya operasional disimpan.');
+      // BARU (v3.319.0) -- minta bukti pembayaran ke sopir lewat Telegram
+      // utk item biaya operasional yang baru saja ditambah (fire-and-forget,
+      // lihat sendInstantBiayaOpBuktiAsk()).
+      sendInstantBiayaOpBuktiAsk(u, itemsBiayaOpBaru);
       renderUsage();
       return true;
     }
@@ -14866,6 +14878,54 @@ async function sendInstantNotaConfirmAsk(u){
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }catch(e){
     console.error('Konfirmasi kirim nota otomatis gagal terkirim (tidak masalah -- pengingat 5 jam tetap jadi cadangan):', e);
+  }
+}
+
+// BARU (v3.319.0) -- begitu sopir menyimpan item BIAYA OPERASIONAL BARU
+// (trip operasional, bukan pribadi -- lihat gerbang isPribadi di bawah),
+// DM sopir yang bersangkutan lewat Telegram minta kirim foto bukti
+// pembayaran (struk/nota) utk item itu ke chat bot ini.
+// SENGAJA TIDAK butuh endpoint/mekanisme baru di worker.js utk MENERIMA
+// fotonya -- begitu sopir membalas dgn foto, itu otomatis tertangkap oleh
+// blok "isMediaMsg" generik yang SUDAH ADA (mekanisme nota/tanda terima),
+// yang melampirkannya ke trip AKTIF sopir itu (t.buktiPending), lalu ikut
+// diteruskan ke Admin Finance saat trip ditutup & tombol "Kirim
+// Sekarang"/ketik "kirim" dipakai -- SAMA PERSIS alur nota yang sudah
+// jalan, cuma dipicu lebih awal (real-time per-item, bukan nunggu trip
+// ditutup). Kalau sopir tidak pernah kirim buktinya, dibiarkan saja -- TIDAK
+// ada pengingat susulan khusus utk pesan ini (pengingat 5 jam yang sudah
+// ada itu punya tujuan lain -- nota trip yang belum "kirim" -- dan tetap
+// jalan seperti biasa, tidak disentuh sama sekali di sini). Tombol "Kirim
+// Sekarang" TETAP muncul/aktif seperti biasa walau ada item yang buktinya
+// belum/tidak dikirim -- fitur ini murni PENGINGAT, bukan syarat/gerbang.
+// Fire-and-forget, tidak pernah memblokir penyimpanan biaya operasional.
+async function sendInstantBiayaOpBuktiAsk(u, itemsBaru){
+  try{
+    if(!itemsBaru || !itemsBaru.length) return;
+    if(!isGhConnected() || !ghConfig.notifySecret) return;
+    if(u.jenisPenggunaan === 'pribadi') return; // khusus trip operasional
+    const driver = state.drivers.find(d=>d.id===u.driverId);
+    const chatId = driver && (driver.telegramChatId||'').toString().trim();
+    if(!chatId) return; // sopir ini tidak terdaftar Telegram -- tidak ada yang bisa di-DM
+
+    const daftarItem = itemsBaru.map(it=>`• ${escapeHtml(it.kategori)} — ${fmtMoney(it.nominal)}`).join('\n');
+    const text = [
+      '🧾 <b>Biaya operasional baru tercatat</b>',
+      '',
+      `${escapeHtml(carLabel(u.carId))} — ${escapeHtml(u.tujuan||'-')}`,
+      daftarItem,
+      '',
+      'Tolong kirim foto struk/bukti pembayarannya ke chat ini ya. Kalau tidak ada buktinya, tidak apa-apa, dilewati saja.',
+    ].join('\n');
+    const bodyStr = JSON.stringify({ chatId, text });
+    await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/notify-trip-selesai`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+      body: bodyStr,
+      ...(new Blob([bodyStr]).size < 60000 ? { keepalive: true } : {}),
+    });
+  }catch(e){
+    console.error('Minta bukti pembayaran biaya operasional gagal terkirim (tidak masalah, tidak wajib):', e);
   }
 }
 
@@ -21698,6 +21758,14 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.319.0',
+    date: '21 Agu 2026',
+    notes: [
+      '🧾 BARU: begitu sopir menyimpan item baru di "Biaya Operasional" (khusus trip operasional, bukan pribadi), bot Telegram langsung DM sopir itu minta kirim foto bukti pembayaran/struk. Foto yang dikirim balik otomatis tertampung sbg lampiran trip (mekanisme SAMA PERSIS dengan nota/tanda terima yang sudah ada) dan ikut diteruskan ke Admin Finance saat trip ditutup. Kalau sopir tidak kirim buktinya, dibiarkan saja -- tombol "Kirim Sekarang" ke Finance tetap muncul/aktif seperti biasa, tidak tertahan.',
+      'worker.js TIDAK perlu diupload ulang kali ini -- fitur ini murni memakai endpoint & mekanisme penerimaan foto yang sudah ada. sw.js WAJIB diupload ulang (CACHE_VERSION dinaikkan).',
+    ]
+  },
   {
     v: '3.318.0',
     date: '21 Agu 2026',
