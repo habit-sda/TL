@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.318.0">
+<meta name="app-version" content="3.320.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -596,6 +596,27 @@
      tidak lebih menonjol dari titik "sedang dituju" (kuning) yang memang
      harus tetap jadi fokus visual utama baris. */
   .mtj-tandai-btn{display:inline-block;}
+
+  /* v3.312.0 -- BARU: popup mandiri "Susun Ulang Sisa Titik" (lihat
+     susunUlangBodyHtml()/openSusunUlangModal()) -- gantikan jalan pintas
+     lama yang cuma nge-lempar ke form Edit Perjalanan besar. Style baru
+     ini SENGAJA dipisah dari .mtj-* (bukan dipakai ulang) krn baris di
+     sini butuh kontrol geser manual (⬆️⬇️) di kanan yang tidak ada di
+     timeline Detail Tujuan biasa. */
+  .sut-locked-list{margin-bottom:14px;}
+  .sut-locked-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;color:var(--muted);}
+  .sut-locked-row .sut-locked-dot{width:16px;height:16px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:9.5px;flex-shrink:0;}
+  .sut-optimalkan-btn{width:100%;justify-content:center;margin-bottom:10px;}
+  .sut-hasil{margin-bottom:12px;}
+  .sut-manual-label{font-size:11.5px;color:var(--muted);margin:0 0 8px 0;}
+  .sut-list{display:flex;flex-direction:column;gap:6px;}
+  .sut-row{display:flex;align-items:center;gap:10px;background:var(--neutral-bg);border-radius:9px;padding:9px 10px;}
+  .sut-row-num{width:20px;height:20px;border-radius:50%;background:var(--amber-bg);border:1.5px solid var(--amber);color:var(--amber);font-size:10.5px;font-weight:800;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .sut-row-name{flex:1;min-width:0;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sut-row-controls{display:flex;gap:4px;flex-shrink:0;}
+  .sut-row-controls button{width:28px;height:28px;border-radius:7px;border:1px solid var(--line);background:var(--card-bg);color:var(--text);font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;}
+  .sut-row-controls button:disabled{opacity:.3;cursor:default;}
+  .sut-row-controls button:not(:disabled):active{background:var(--hover-bg);}
 
   /* Tombol Navigasi Maps -- Opsi 2 (Outline Tegas), dipilih supaya lebih
      terlihat dibanding badge kecil sebelumnya, tanpa terlalu "ramai" kalau
@@ -2422,7 +2443,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.319.0';
+const APP_VERSION = '3.320.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -12792,26 +12813,249 @@ document.addEventListener('click', (e)=>{
   });
 }, true);
 
-// v3.310.0 -- BARU (ide #4): jalan pintas ke "Optimalkan Urutan" yang
-// SUDAH ADA di form Edit Perjalanan (btn-optimalkan-urutan, sejak v3.230.0
-// sudah bisa pakai posisi GPS.id mobil SEKARANG sbg titik start optimasi
-// utk trip AKTIF) -- tutup modal Detail Tujuan dulu (pola sama dgn
-// markReturned() -> openTripReceiptModal(), delay 350ms spy animasi
-// tutup modal lama selesai dulu), baru buka Edit Perjalanan & kasih
-// petunjuk toast krn tombolnya "nyempil" di bawah field Tujuan Tambahan,
-// tidak langsung kelihatan begitu form terbuka.
+// v3.312.0 -- GANTI TOTAL (sebelumnya jalan pintas ide #4 v3.310.0): dulu
+// tombol ini cuma menutup modal Detail Tujuan lalu melempar ke form Edit
+// Perjalanan besar & kasih toast suruh cari tombol "🔀 Optimalkan Urutan"
+// yang "nyempil" di bawah field Tujuan Tambahan -- dirasa berbelit utk
+// aksi yang sebenarnya sederhana (cuma menyusun ulang SISA titik).
+// Sekarang buka popup MANDIRI (openSusunUlangModal()) langsung dari modal
+// Detail Tujuan ini, isinya CUMA yang relevan: daftar sisa titik + tombol
+// optimasi otomatis (GPS) + geser manual ⬆️⬇️ -- tanpa perlu buka form
+// Edit Perjalanan sama sekali. Lihat definisi lengkap di susunUlangBodyHtml()
+// / openSusunUlangModal() sebelum handler ini.
 document.addEventListener('click', (e)=>{
   const btn = e.target.closest('[data-susun-ulang]');
   if(!btn) return;
   e.stopPropagation();
-  const usageId = btn.dataset.susunUlang;
-  const cancelBtn = document.getElementById('modal-cancel');
-  if(cancelBtn) cancelBtn.click();
-  setTimeout(()=>{
-    openUsageModal(usageId);
-    showToast('Klik "🔀 Optimalkan Urutan" di bawah Tujuan Tambahan untuk menyusun ulang sisa titik dari posisi GPS sekarang.', false, '🔧');
-  }, 350);
+  openSusunUlangModal(btn.dataset.susunUlang);
 }, true);
+
+// ============================================================================
+// v3.312.0 -- BARU: popup mandiri "🔧 Susun Ulang Sisa Titik" -- pengganti
+// jalan pintas lama yang melempar ke form Edit Perjalanan (lihat komentar
+// GANTI TOTAL di atas listener [data-susun-ulang]). Popup ini HANYA
+// menampilkan & mengoperasikan SISA titik (yang belum "Tandai Sampai"),
+// dgn 2 cara mengurutkan:
+//   1) OTOMATIS -- tombol "🔀 Optimalkan Urutan", pakai posisi GPS.id
+//      mobil SEKARANG sbg titik start (endpoint /optimize-route yang SAMA
+//      dgn punya form Edit Perjalanan, cuma dipanggil langsung dari sini
+//      tanpa lewat DOM form apa pun). Hasilnya LANGSUNG tersimpan begitu
+//      berhasil -- TIDAK ADA tombol konfirmasi lagi (beda dari form Edit,
+//      yang masih butuh klik "Simpan" utk trip BARU/booking -- di popup
+//      ini semua trip yang bisa dibuka sini sudah pasti trip AKTIF
+//      ('digunakan'), jadi wajar auto-simpan spt aksi Tandai Sampai/Lanjut
+//      Ke yang juga auto-simpan tanpa konfirmasi tambahan).
+//   2) MANUAL -- tombol ⬆️⬇️ per baris, menukar posisi dgn tetangga
+//      langsung (pola SAMA dgn reorder manual Tujuan Tambahan di form,
+//      v3.246.0) -- juga auto-simpan tiap kali digeser, TANPA tombol
+//      "Simpan" terpisah, supaya konsisten dgn cara (1) & tidak menambah
+//      langkah.
+// Titik yang SUDAH "Tandai Sampai" ditampilkan ringkas di atas (abu-abu,
+// bercentang) sbg KONTEKS SAJA -- tidak ikut bisa digeser/dioptimasi,
+// disamakan dgn penguncian "lockedNama" yang sudah ada di form Edit sejak
+// v3.230.0 (titik yang sudah dikunjungi tidak boleh diubah lagi supaya
+// histori penandaan lama tidak rusak).
+function susunUlangBodyHtml(u){
+  const { semua, total, selesaiMap, selesaiCount } = hitungProgresTujuan(u);
+  const sisaNomor = [];
+  for(let n=1; n<=total; n++){ if(!selesaiMap[n]) sisaNomor.push(n); }
+
+  const lockedHtml = selesaiCount>0 ? `
+    <div class="sut-locked-list">
+      ${sisaNomor.length ? '' : ''}
+      ${Array.from({length:total}).map((_,i)=>i+1).filter(n=>selesaiMap[n]).map(n=>`
+        <div class="sut-locked-row">
+          <span class="sut-locked-dot">✓</span>
+          <span style="text-decoration:line-through;text-decoration-color:var(--line);">${escapeHtml(semua[n-1])}</span>
+        </div>`).join('')}
+    </div>` : '';
+
+  if(sisaNomor.length < 2){
+    // Safety -- tombol pemicu popup ini harusnya sudah tidak tampil kalau
+    // begini (lihat bisaPilihLanjut di multiTujuanDetailBodyHtml()), tapi
+    // dijaga juga di sini kalau2 kondisi berubah SELAGI popup terbuka
+    // (mis. dari tab lain habis nandai sampai semua sisa titik).
+    return `${lockedHtml}<div class="hint" style="margin:0;">Tidak ada lagi sisa titik yang perlu disusun ulang.</div>`;
+  }
+
+  const rowsHtml = sisaNomor.map((n, i)=>`
+    <div class="sut-row" data-sut-nomor="${n}">
+      <span class="sut-row-num">${i+1}</span>
+      <span class="sut-row-name">${escapeHtml(semua[n-1])}</span>
+      <span class="sut-row-controls">
+        <button type="button" data-sut-up="${u.id}" data-sut-pos="${n}" ${i===0?'disabled':''} title="Naikkan urutan">⬆️</button>
+        <button type="button" data-sut-down="${u.id}" data-sut-pos="${n}" ${i===sisaNomor.length-1?'disabled':''} title="Turunkan urutan">⬇️</button>
+      </span>
+    </div>`).join('');
+
+  return `
+    ${lockedHtml}
+    <button type="button" class="btn btn-primary sut-optimalkan-btn" data-sut-optimalkan="${u.id}">🔀 Optimalkan Urutan (posisi GPS sekarang)</button>
+    <div class="hint sut-hasil" id="sut-hasil" style="display:none;"></div>
+    <p class="sut-manual-label">Atau susun manual dgn ⬆️⬇️ -- tersimpan otomatis tiap digeser:</p>
+    <div class="sut-list" id="sut-list">${rowsHtml}</div>
+  `;
+}
+
+// Tukar posisi 2 titik (identik dgn "kunci" lockedNama di form Edit: titik
+// yang SUDAH "Tandai Sampai" tidak pernah ikut ditulis ulang) lalu simpan
+// LANGSUNG -- dipakai baik oleh geser manual (swapSisaTitik) maupun hasil
+// Optimalkan Urutan (tulisSisaTitikBaru), keduanya lewat fungsi bersama
+// tulisUlangSemuaTujuan() supaya cara menulis balik ke u.tujuan/
+// u.tujuanTambahan TIDAK terduplikasi di 2 tempat.
+function tulisUlangSemuaTujuan(u, semuaBaru){
+  u.tujuan = semuaBaru[0];
+  u.tujuanTambahan = semuaBaru.slice(1);
+  touch(u);
+  saveData();
+}
+function refreshSusunUlangUI(u){
+  renderActiveTripBubble();
+  renderUsage();
+  const modalBody = document.querySelector('#modal-overlay .modal-body');
+  if(modalBody) modalBody.innerHTML = susunUlangBodyHtml(u);
+}
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-sut-up],[data-sut-down]');
+  if(!btn) return;
+  e.stopPropagation();
+  const usageId = btn.dataset.sutUp || btn.dataset.sutDown;
+  const pos = Number(btn.dataset.sutPos || btn.dataset.sutPos);
+  const isUp = btn.hasAttribute('data-sut-up');
+  const u = state.usage.find(x=>x.id===usageId);
+  if(!u) return;
+  const { semua, total, selesaiMap } = hitungProgresTujuan(u);
+  const sisaNomor = [];
+  for(let n=1; n<=total; n++){ if(!selesaiMap[n]) sisaNomor.push(n); }
+  const idx = sisaNomor.indexOf(pos);
+  const swapWithIdx = isUp ? idx-1 : idx+1;
+  if(idx<0 || swapWithIdx<0 || swapWithIdx>=sisaNomor.length) return; // safety -- tombol ujung harusnya sudah disabled
+  const posA = sisaNomor[idx], posB = sisaNomor[swapWithIdx];
+  const semuaBaru = semua.slice();
+  [semuaBaru[posA-1], semuaBaru[posB-1]] = [semuaBaru[posB-1], semuaBaru[posA-1]];
+  tulisUlangSemuaTujuan(u, semuaBaru);
+  refreshSusunUlangUI(u);
+}, true);
+
+// Tombol "🔀 Optimalkan Urutan" di dalam popup ini -- logika pencarian
+// koordinat & pemanggilan /optimize-route SENGAJA disalin & disederhanakan
+// dari handler btn-optimalkan-urutan di form Edit Perjalanan (bukan
+// dipanggil ulang fungsinya) krn versi form itu baca banyak elemen DOM
+// form (in-tujuan/in-maps-link/tujuanTambahanHandle) yang TIDAK ADA di
+// popup ringkas ini -- versi ini bekerja LANGSUNG di atas objek trip (u)
+// tersimpan. Titik start SELALU dicoba dari posisi GPS.id mobil sekarang
+// (bukan cuma kalau ada titik terkunci spt versi form) -- popup ini memang
+// KHUSUS utk trip yang sedang berjalan, jadi "posisi sekarang" selalu jadi
+// titik paling relevan sbg start.
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-sut-optimalkan]');
+  if(!btn) return;
+  e.stopPropagation();
+  handleSutOptimalkan(btn.dataset.sutOptimalkan);
+}, true);
+async function handleSutOptimalkan(usageId){
+  const u = state.usage.find(x=>x.id===usageId);
+  if(!u) return;
+  const hasilEl = document.getElementById('sut-hasil');
+  if(hasilEl) hasilEl.style.display = 'block';
+  const { semua, total, selesaiMap } = hitungProgresTujuan(u);
+  const sisaNomor = [];
+  for(let n=1; n<=total; n++){ if(!selesaiMap[n]) sisaNomor.push(n); }
+  if(sisaNomor.length < 2){
+    if(hasilEl) hasilEl.textContent = '⚠️ Sisa titik tinggal kurang dari 2 -- tidak ada lagi yang perlu diurutkan.';
+    return;
+  }
+  if(!isGhConnected() || !ghConfig.notifySecret){
+    if(hasilEl) hasilEl.textContent = '⚠️ Fitur ini butuh koneksi Worker & Notify Secret -- cek dulu di Pengaturan → Koneksi GitHub/Worker.';
+    return;
+  }
+  const sisaNama = sisaNomor.map(n=>semua[n-1]);
+  if(hasilEl) hasilEl.textContent = '⏳ Mengecek link Maps tiap tujuan...';
+  const poin = [];
+  const belumAdaLink = [];
+  const linkTanpaKoordinat = [];
+  for(let i=0; i<sisaNomor.length; i++){
+    const nomor = sisaNomor[i];
+    const nama = sisaNama[i];
+    // Titik ke-1 (kalau ikut jadi sisa, artinya belum ada yang "sampai"
+    // sama sekali) bisa juga ambil koordinat dari u.mapsLink langsung --
+    // titik lain WAJIB dicari by nama di Data Tujuan. Pola SAMA dgn
+    // getKoordinatTujuanKe() yang sudah dipakai jarak live di modal ini.
+    let link = (nomor===1 && u.mapsLink) ? u.mapsLink : null;
+    if(!link){ const dest = findDestinationByName(nama); link = dest ? dest.mapsLink : null; }
+    if(!link){ belumAdaLink.push(nama); continue; }
+    let koor = extractLatLng(link);
+    if(!koor){
+      const resolved = await autoResolveShortMapsLinkSilent(link, nama);
+      if(resolved){
+        koor = extractLatLng(resolved);
+        if(nomor===1 && u.mapsLink===link) u.mapsLink = resolved; // sinkronkan balik ke data trip, sama pola dgn form Edit
+      }
+    }
+    if(koor) poin.push({ nama, lat: koor.lat, lon: koor.lon });
+    else linkTanpaKoordinat.push(nama);
+  }
+  if(belumAdaLink.length > 0 || linkTanpaKoordinat.length > 0){
+    const bagian = [];
+    if(belumAdaLink.length > 0) bagian.push(`belum ada Link Maps tersimpan sama sekali: <b>${belumAdaLink.map(escapeHtml).join(', ')}</b>. Tambahkan link Maps-nya dulu di Data Tujuan.`);
+    if(linkTanpaKoordinat.length > 0) bagian.push(`Link Maps-nya sudah ada tapi belum bisa dibaca koordinatnya walau sudah dicoba diperbaiki otomatis: <b>${linkTanpaKoordinat.map(escapeHtml).join(', ')}</b>. Coba buka link itu di Google Maps lalu tempel ulang Link Maps-nya di Data Tujuan.`);
+    if(hasilEl) hasilEl.innerHTML = `⚠️ Belum bisa dioptimalkan -- ${bagian.join(' ')}`;
+    return;
+  }
+  const car = state.cars.find(c=>c.id===u.carId);
+  const startAnchor = car && car.imeiGps ? await fetchGpsLatLon(car.imeiGps) : null;
+  if(hasilEl) hasilEl.textContent = '⏳ Menghitung urutan paling efisien...';
+  try{
+    const res = await fetch(`${ghConfig.workerUrl.replace(/\/$/,'')}/optimize-route`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Notify-Secret': ghConfig.notifySecret },
+      body: JSON.stringify(startAnchor ? { points: poin.map(p=>({lat:p.lat, lon:p.lon})), start: startAnchor } : { points: poin.map(p=>({lat:p.lat, lon:p.lon})) }),
+    });
+    const data = await res.json();
+    if(!res.ok || !data.ok){ if(hasilEl) hasilEl.textContent = `❌ ${data.error || 'Gagal menghitung urutan.'}`; return; }
+    const urutanSisaBaru = data.order.map(idx => poin[idx].nama);
+    const semuaBaru = semua.slice();
+    sisaNomor.forEach((nomor, i)=>{ semuaBaru[nomor-1] = urutanSisaBaru[i]; });
+    tulisUlangSemuaTujuan(u, semuaBaru);
+    const jarakInfo = data.jarakMeter!=null ? ` (~${(data.jarakMeter/1000).toLocaleString('id-ID',{maximumFractionDigits:1})} KM total)` : '';
+    let etaInfo = '';
+    if(data.durasiDetik!=null){
+      etaInfo = ` · ≈${fmtDurationMinutes(data.durasiDetik/60)} perjalanan (tanpa macet/berhenti)`;
+    }
+    logActivity('penggunaan', 'Susun Ulang Sisa Titik (Optimalkan Urutan)', `${carLabel(u.carId)} — ${urutanSisaBaru.join(' → ')}`);
+    showToast(`Urutan sisa titik tersimpan otomatis${jarakInfo}.`, false, '🔀');
+    refreshSusunUlangUI(u);
+    // Tampilkan ringkasan hasil DI ATAS daftar yang baru dirender (elemen
+    // #sut-hasil sudah diganti oleh refreshSusunUlangUI() -> susunUlangBodyHtml(),
+    // jadi ambil ulang referensinya di sini, bukan pakai hasilEl yang lama).
+    const hasilElBaru = document.getElementById('sut-hasil');
+    if(hasilElBaru){
+      hasilElBaru.style.display = 'block';
+      hasilElBaru.innerHTML = `✅ Urutan diperbarui${startAnchor?' dari posisi mobil sekarang':''}${jarakInfo}${etaInfo} & tersimpan otomatis: ${urutanSisaBaru.map(escapeHtml).join(' → ')}`;
+    }
+  }catch(e){
+    if(hasilEl) hasilEl.textContent = '❌ Gagal terhubung ke server untuk menghitung urutan.';
+  }
+}
+
+// v3.312.0 -- BARU: buka popup mandiri "Susun Ulang Sisa Titik" -- pola
+// SAMA dgn openMultiTujuanDetailModal() (openModal() lalu sembunyikan
+// tombol "Simpan" & ganti "Batal" jadi "Tutup"), krn semua perubahan di
+// popup ini SUDAH auto-tersimpan sendiri (lihat komentar besar di
+// susunUlangBodyHtml()) -- tidak ada apa pun yang perlu "disimpan" lewat
+// tombol footer lagi.
+function openSusunUlangModal(usageId){
+  const u = state.usage.find(x=>x.id===usageId);
+  if(!u) return;
+  const subjudul = `${carLabel(u.carId)} · ${driverLabel(u.driverId, u.driver)}`;
+  openModal({
+    title: `🔧 Susun Ulang Sisa Titik — ${subjudul}`,
+    body: susunUlangBodyHtml(u),
+    onSave: ()=>true,
+  });
+  const saveBtn = document.getElementById('modal-save'); if(saveBtn) saveBtn.style.display='none';
+  const cancelBtn = document.getElementById('modal-cancel'); if(cancelBtn) cancelBtn.textContent='Tutup';
+}
 // Delegasi 1x di seluruh dokumen (pola sama dgn [data-copy-code]) -- badge
 // ini muncul di banyak tempat berbeda (bubble "Mobil Sedang Jalan", daftar
 // trip, kartu perjalanan) yang masing-masing di-render ulang sendiri-sendiri,
@@ -21758,6 +22002,16 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.320.0',
+    date: '21 Agu 2026',
+    notes: [
+      '🔧 REDESAIN: tombol "🔧 Susun Ulang Sisa Titik" di modal "Detail Tujuan" sekarang membuka popup MANDIRI berisi cuma daftar sisa titik + tombol "🔀 Optimalkan Urutan" -- SEBELUMNYA (v3.310.0) tombol ini cuma jalan pintas yang menutup modal lalu melempar ke form Edit Perjalanan besar & minta cari tombol optimasi yang "nyempil" di bawah field Tujuan Tambahan, dirasa berbelit utk aksi sesederhana menyusun ulang sisa titik. Popup baru ini TIDAK PERNAH membuka form Edit Perjalanan sama sekali.',
+      '➕ BARU (di popup yang sama): geser urutan MANUAL pakai tombol ⬆️⬇️ per titik, sbg alternatif dari optimasi otomatis GPS -- titik yang sudah "Tandai Sampai" ditampilkan abu-abu bercentang sbg konteks saja, tidak ikut bisa digeser/dioptimasi (dikunci, sama seperti perilaku "lockedNama" di form Edit sejak v3.230.0).',
+      '⚡ Baik hasil "Optimalkan Urutan" (GPS) maupun geser manual (⬆️⬇️) di popup ini LANGSUNG tersimpan otomatis begitu terjadi -- TIDAK ADA tombol "Simpan"/konfirmasi tambahan lagi, konsisten dgn aksi "Tandai Sampai"/"Lanjut ke tujuan mana?" yang juga auto-simpan.',
+      'worker.js TIDAK perlu diupload ulang kali ini -- popup baru ini memakai endpoint /optimize-route yang sudah ada, tidak ada endpoint baru. sw.js WAJIB diupload ulang (CACHE_VERSION dinaikkan).',
+    ]
+  },
   {
     v: '3.319.0',
     date: '21 Agu 2026',
