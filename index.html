@@ -25,7 +25,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.317.0">
+<meta name="app-version" content="3.318.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2422,7 +2422,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.317.0';
+const APP_VERSION = '3.318.0';
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -16368,7 +16368,16 @@ function renderBookings(){
     })));
   };
 
-  const allItems = [...state.bookings].sort((a,b)=> bookingDT(a.tglMulai,a.jamMulai).localeCompare(bookingDT(b.tglMulai,b.jamMulai)));
+  // BARU -- booking yang BARU DIBUAT sekarang tampil PALING ATAS (bukan
+  // paling bawah seperti sebelumnya, yang urut naik berdasar tanggal mulai
+  // trip -- itu bikin booking baru gampang "kelewat"/susah dicari kalau
+  // tanggal mulainya jauh di depan). Diurutkan turun berdasar waktu
+  // dibuat/diedit (updatedAt) -- booking paling baru dibuat/diedit di paling
+  // atas. Fallback ke tanggal mulai kalau updatedAt tidak ada (data lama).
+  const allItems = [...state.bookings].sort((a,b)=>
+    (b.updatedAt||0) - (a.updatedAt||0) ||
+    bookingDT(b.tglMulai,b.jamMulai).localeCompare(bookingDT(a.tglMulai,a.jamMulai))
+  );
   const html = `<div class="panel"><div class="panel-body">
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
       <div style="display:flex;background:var(--neutral-bg);border-radius:8px;padding:3px;">
@@ -21689,6 +21698,16 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.318.0',
+    date: '21 Agu 2026',
+    notes: [
+      '🧾 Baris baru "Total Pengeluaran" ditambahkan di Tanda Terima Perjalanan (di bawah TOTAL BIAYA), muncul kalau trip punya Biaya Tap Toll -- nilainya TOTAL BIAYA dikurangi Biaya Tap Toll, disertai keterangan kecil kenapa dikurangi (tapping tol otomatis terpotong dari saldo Kartu E-Toll, bukan pengeluaran cash sopir).',
+      '🔄 Sistem "Versi Baru Tersedia" disederhanakan: SEMUA update (bukan cuma patch kecil) sekarang otomatis terpasang diam-diam di background, TANPA popup & TANPA perlu petugas klik "Perbarui Sekarang" lagi. Reload tetap TIDAK dipaksakan mendadak di tengah petugas input data -- versi baru aktif otomatis di reload/navigasi wajar berikutnya.',
+      '📅 Booking Mobil: urutan daftar dibalik -- booking yang BARU DIBUAT/DIEDIT sekarang tampil PALING ATAS (sebelumnya urut naik berdasar tanggal mulai trip, bikin booking baru gampang terkubur di bawah kalau tanggal trip-nya jauh di depan). Tampilan Kalender tidak terpengaruh.',
+      'sw.js WAJIB diupload ulang kali ini (CACHE_VERSION dinaikkan) -- worker.js TIDAK berubah, tidak perlu diupload ulang.',
+    ]
+  },
   {
     v: '3.317.0',
     date: '08 Agu 2026',
