@@ -10,6 +10,17 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="FleetOps">
+<!-- ============================================================
+     [Telegram Mini App] SDK resmi Telegram. Ditaruh PALING AWAL di
+     <head> (sebelum script lain) supaya window.Telegram.WebApp sudah
+     tersedia buat script FOUC tema di bawah ini & buat inisialisasi
+     lengkap (ready/expand/warna header/dsb) di script utama nanti.
+     Kalau dibuka lewat browser biasa (BUKAN dari dalam Telegram),
+     script ini tetap aman dimuat -- window.Telegram.WebApp otomatis
+     tidak akan ada / tidak berefek apa-apa, seluruh pemakaiannya di
+     bawah selalu dibungkus pengecekan "kalau ada".
+     ============================================================ -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
   // v3.108.0 -- SENGAJA ditaruh paling awal di <head> (sebelum <style> pun
   // dibaca browser) supaya Mode Gelap langsung aktif SEJAK detik pertama
@@ -17,15 +28,49 @@
   // (yang baru jalan setelah HTML+CSS selesai di-parse), akan ada jeda
   // singkat "kilatan" tema terang dulu baru berubah gelap, yang terasa
   // mengganggu di mata.
+  // [Telegram] -- kalau app dibuka lewat Telegram Mini App DAN pengguna
+  // BELUM PERNAH memilih tema secara manual sendiri (toggle "Mode Gelap"
+  // di Pengaturan > Tampilan, lihat flag 'fleetops_theme_manual' yang
+  // diset di sana), ikuti skema warna Telegram (gelap/terang) bawaan akun
+  // Telegram user itu secara otomatis. Begitu user PERNAH memilih manual,
+  // pilihan manual itu yang SELALU menang -- tidak akan ditimpa otomatis
+  // lagi walau tema Telegram-nya beda.
+  var __tgEarly = window.Telegram && window.Telegram.WebApp;
+  var __fleetopsIsDark = false;
   try{
-    if(localStorage.getItem('fleetops_theme')==='dark'){
+    var __savedTheme = localStorage.getItem('fleetops_theme');
+    var __manualTheme = localStorage.getItem('fleetops_theme_manual');
+    if(!__manualTheme && __tgEarly && __tgEarly.colorScheme){
+      __savedTheme = (__tgEarly.colorScheme === 'dark') ? 'dark' : null;
+    }
+    if(__savedTheme==='dark'){
       document.documentElement.setAttribute('data-theme','dark');
+      __fleetopsIsDark = true;
+    }
+  }catch(e){}
+  // [Telegram] -- panggil ready()/expand() SEDINI mungkin (sebelum <style>
+  // pun selesai dibaca) supaya WebView Telegram langsung tahu halaman ini
+  // siap & langsung dibuka dalam mode layar-penuh (bukan bottom-sheet
+  // kecil setengah layar), juga kunci warna header/latar WebView Telegram
+  // supaya SENADA dengan tema panel sejak detik pertama (tidak kedip putih
+  // dulu). disableVerticalSwipes() supaya gestur geser-turun tidak sengaja
+  // menutup Mini App -- penting karena banyak form/list panjang yang perlu
+  // discroll di app ini.
+  try{
+    if(__tgEarly){
+      __tgEarly.ready();
+      __tgEarly.expand();
+      if(typeof __tgEarly.disableVerticalSwipes === 'function') __tgEarly.disableVerticalSwipes();
+      var __hdrColor = __fleetopsIsDark ? '#0B0F17' : '#161C27';
+      var __bgColor  = __fleetopsIsDark ? '#12151C' : '#F5F6F8';
+      if(typeof __tgEarly.setHeaderColor === 'function') __tgEarly.setHeaderColor(__hdrColor);
+      if(typeof __tgEarly.setBackgroundColor === 'function') __tgEarly.setBackgroundColor(__bgColor);
     }
   }catch(e){}
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.320.0">
+<meta name="app-version" content="3.321.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -94,7 +139,7 @@
     background:var(--bg);
     color:var(--text);
     display:flex;
-    min-height:100vh;
+    min-height:var(--tg-vh, 100vh); /* [Telegram] disesuaikan lewat --tg-vh (viewportHeight, ikut menyusut saat keyboard muncul) supaya tidak salah ukur di WebView Telegram, lihat applyTelegramViewportHeight() di script utama */
     overflow-x:hidden;
     max-width:100vw;
   }
@@ -110,7 +155,7 @@
     flex-direction:column;
     position:sticky;
     top:0;
-    height:100vh;
+    height:var(--tg-vh, 100vh); /* [Telegram] lihat catatan --tg-vh di body{} atas */
     border-right:1px solid var(--line);
     overflow-y:auto;overflow-x:hidden; /* v3.125.0 -- SEBELUMNYA tidak bisa digeser sama sekali -- kalau total isi (menu + Petugas Aktif + indikator Storage) lebih tinggi dari layar (umum di HP dgn banyak menu), bagian bawah jadi TIDAK TERJANGKAU tanpa cara scroll ke sana */
   }
@@ -1779,7 +1824,7 @@
     #sidebar{
       position:fixed;
       top:0;left:0;
-      height:100vh;
+      height:var(--tg-vh, 100vh); /* [Telegram] lihat catatan --tg-vh di body{} atas */
       width:78vw;
       max-width:270px;
       transform:translateX(-100%);
@@ -2443,7 +2488,80 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.320.0';
+const APP_VERSION = '3.321.0';
+
+/* ============================================================================
+   [Telegram Mini App] INISIALISASI UTAMA
+   ----------------------------------------------------------------------------
+   `tg` = window.Telegram.WebApp kalau app ini SEDANG dibuka lewat Telegram
+   (via tombol "Buka" di bot @toyyiblogistik_bot), atau `null` kalau dibuka
+   lewat browser biasa -- SEMUA pemakaian `tg` di bawah & di tempat lain
+   WAJIB dicek `if(tg){...}` dulu supaya app tetap jalan normal di browser
+   biasa tanpa error.
+   Bagian ready()/expand()/warna awal SUDAH dipanggil paling awal di <head>
+   (lihat script kedua sebelum <style>) -- di sini cuma lanjutan yang
+   BUTUH elemen halaman & fungsi-fungsi app (applyTelegramThemeColors,
+   sinkron tinggi viewport, listener perubahan tema/viewport dari Telegram,
+   dan integrasi tombol Kembali -- lihat wireTelegramBackButton() dekat
+   popstate handler di bagian bawah file).
+   ============================================================================ */
+const tg = (window.Telegram && window.Telegram.WebApp) || null;
+
+// Sinkron tinggi layar sebenarnya ke CSS var --tg-vh, dipakai body{}/
+// #sidebar{} (lihat <style>) menggantikan 100vh polos -- 100vh biasa di
+// WebView Telegram bisa salah ukur, PALING TERASA saat keyboard on-screen
+// muncul buat input teks: WebView-nya sendiri TIDAK benar-benar menyusut
+// (beda dari browser biasa), jadi 100vh polos akan tetap menghitung tinggi
+// PENUH termasuk area yang sudah ketutup keyboard, bikin field/tombol yang
+// sedang diketik bisa ketutup keyboard tanpa halaman ikut menyesuaikan diri.
+// FIX v3.321.0: pakai tg.viewportHeight (BUKAN viewportStableHeight) sbg
+// prioritas utama -- viewportHeight ini yang MEMANG ikut MENYUSUT
+// real-time selama keyboard terbuka (viewportStableHeight SENGAJA TIDAK
+// ikut menyusut, dirancang Telegram utk layout yang tidak mau
+// "lompat-lompat" tiap keyboard buka/tutup -- makanya SEBELUMNYA salah
+// pilih variabel, keyboard jadi tidak pernah kelihatan pengaruhnya ke
+// tinggi halaman). Dipanggil ulang tiap event 'viewportChanged' dari SDK
+// (persis dipicu saat keyboard buka/tutup, juga saat expand() awal).
+function applyTelegramViewportHeight(){
+  if(!tg) return;
+  const h = tg.viewportHeight || tg.viewportStableHeight || window.innerHeight;
+  document.documentElement.style.setProperty('--tg-vh', h + 'px');
+}
+// Set warna header (bar atas WebView Telegram) & latar Telegram supaya
+// senada dengan tema panel yang lagi aktif -- dipanggil ulang setiap kali
+// tema gelap/terang berganti (toggle manual di Pengaturan MAUPUN ganti
+// otomatis ikut skema warna Telegram user).
+function applyTelegramThemeColors(){
+  if(!tg) return;
+  try{
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if(typeof tg.setHeaderColor === 'function') tg.setHeaderColor(isDark ? '#0B0F17' : '#161C27');
+    if(typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor(isDark ? '#12151C' : '#F5F6F8');
+  }catch(e){}
+}
+if(tg){
+  applyTelegramViewportHeight();
+  tg.onEvent('viewportChanged', applyTelegramViewportHeight);
+  window.addEventListener('resize', applyTelegramViewportHeight);
+  // Kalau skema warna akun Telegram user berubah (mis. HP-nya sendiri
+  // dipindah ke Mode Gelap sistem) SAAT app sedang terbuka -- ikuti lagi,
+  // TAPI cuma kalau user belum pernah pilih tema manual sendiri di sini
+  // (lihat flag 'fleetops_theme_manual', diset di toggle "Mode Gelap" pada
+  // Pengaturan > Tampilan).
+  tg.onEvent('themeChanged', function(){
+    try{
+      if(localStorage.getItem('fleetops_theme_manual')) return; // preferensi manual user selalu menang
+      if(tg.colorScheme === 'dark'){
+        document.documentElement.setAttribute('data-theme','dark');
+        localStorage.setItem('fleetops_theme','dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.removeItem('fleetops_theme');
+      }
+      applyTelegramThemeColors();
+    }catch(e){}
+  });
+}
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -3280,6 +3398,7 @@ const ALIAS_KATEGORI_CATALOG = [
   { key:'saldo:sv', label:'🔧 Pintasan Saldo — Servis', defaults:['servis'] },
   { key:'saldo:bg', label:'💰 Pintasan Saldo — Budget', defaults:['budget'] },
   { key:'menu', label:'🏠 menu — kembali ke Menu Utama', defaults:['menu'] },
+  { key:'panel', label:'📊 panel — buka Panel FleetOps (Mini App), semua peran terdaftar', defaults:['panel','admin','web','website','situs','dashboard'] },
   { key:'rekomendasi', label:'📋 rekomendasi — daftar perintah lengkap', defaults:['rekomendasi'] },
   { key:'botupdate', label:'🤖 update/bot — 5 update fitur bot Telegram terbaru (Administrator, tersembunyi)', defaults:['update','bot'] },
   { key:'id', label:'🪪 id — ringkasan akun & data Anda sendiri (semua peran terdaftar)', defaults:['id'] },
@@ -7546,6 +7665,12 @@ function renderSettingsDetailNotifGabungan(){
         document.documentElement.removeAttribute('data-theme');
         localStorage.removeItem('fleetops_theme');
       }
+      // [Telegram] -- ini pilihan MANUAL user -- tandai supaya sinkron
+      // otomatis ikut skema warna Telegram (lihat tg.onEvent('themeChanged')
+      // & script FOUC di <head>) tidak lagi menimpa pilihan ini di sesi
+      // berikutnya, lalu sinkronkan warna header/latar Telegram sekarang juga.
+      localStorage.setItem('fleetops_theme_manual','1');
+      applyTelegramThemeColors();
     }catch(e){ console.error('Gagal menyimpan preferensi tema:', e); }
   });
   wireSettingsLockButtons('tampilan','lock-tampilan','btn-edit-tampilan','btn-cancel-tampilan');
@@ -8223,6 +8348,7 @@ function navigate(route, opts){
       fetchFromGithub();
     }
   }
+  if(typeof syncTelegramBackButton === 'function') syncTelegramBackButton(); // [Telegram] tampilkan/sembunyikan tombol Kembali Telegram sesuai posisi menu sekarang
 }
 let lastRouteSyncAttempt = 0;
 const ROUTE_SYNC_MIN_GAP_MS = 5000;
@@ -21913,11 +22039,13 @@ function markModalOpen(){
   const n = (parseInt(document.body.dataset.modalOpenCount || '0', 10) || 0) + 1;
   document.body.dataset.modalOpenCount = String(n);
   document.body.classList.add('modal-open');
+  if(typeof syncTelegramBackButton === 'function') syncTelegramBackButton(); // [Telegram] lihat catatan di deklarasi fungsinya
 }
 function markModalClosed(){
   const n = Math.max(0, (parseInt(document.body.dataset.modalOpenCount || '0', 10) || 0) - 1);
   document.body.dataset.modalOpenCount = String(n);
   if(n === 0) document.body.classList.remove('modal-open');
+  if(typeof syncTelegramBackButton === 'function') syncTelegramBackButton(); // [Telegram] lihat catatan di deklarasi fungsinya
 }
 function toggleFieldError(fieldId, hasError){
   const el = document.getElementById(fieldId);
@@ -22002,6 +22130,18 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.321.0',
+    date: '29 Agu 2026',
+    notes: [
+      '📱 BARU: integrasi Telegram Mini App -- app ini sekarang memuat SDK resmi Telegram (telegram-web-app.js) & langsung expand() layar-penuh begitu dibuka lewat tombol "Buka" bot @toyyiblogistik_bot, warna header/latar WebView Telegram otomatis disesuaikan tema gelap/terang panel. Gestur geser-turun tidak sengaja menutup app juga dimatikan (disableVerticalSwipes). Kalau dibuka lewat browser biasa (bukan dari Telegram), semua ini otomatis tidak berefek apa-apa, tidak ada perubahan perilaku.',
+      '⌨️ Tinggi layar disinkronkan ke ukuran sebenarnya (viewportHeight, BUKAN viewportStableHeight) supaya IKUT MENYESUAIKAN DIRI real-time saat keyboard on-screen muncul buat input teks -- sebelumnya salah pakai variabel yang sengaja tidak ikut menyusut, jadi keyboard bisa menutupi field/tombol yang sedang diketik tanpa halaman menyesuaikan diri.',
+      '🎨 Mode Gelap sekarang bisa ikut otomatis skema warna akun Telegram user (kalau belum pernah pilih toggle "Mode Gelap" manual sendiri di Pengaturan > Tampilan) -- begitu pernah dipilih manual, pilihan itu SELALU menang, tidak ditimpa otomatis lagi.',
+      '🔙 BARU: tombol "Kembali" bawaan Telegram (panah di header Mini App, termasuk tombol Kembali Android sistem saat dibuka dari Telegram) sekarang disambungkan ke sistem anti-keluar-app yang sudah ada -- urutannya PERSIS sama dengan tombol Kembali browser/HP biasa: tutup modal yang terbuka dulu -> menu sebelumnya -> Dashboard -> baru terakhir keluar app. Sebelumnya (sebelum integrasi ini) tombol Kembali Telegram akan langsung menutup Mini App tanpa tahapan ini sama sekali.',
+      '💬 BARU (worker.js): ketik "panel"/"admin"/"web"/"website"/"situs"/"dashboard" (atau /panel) ke bot Telegram sekarang langsung memunculkan tombol "📊 Buka Panel FleetOps" yang membuka Mini App -- tidak perlu lagi tergantung Menu Button bawaan Telegram yang harus diaktifkan manual di BotFather. Tombol yang sama juga ditambahkan sbg baris pertama di Menu Utama ("menu"). Alias katanya bisa ditambah sendiri lewat panel "✏️ Alias" (kategori baru: panel).',
+      'worker.js WAJIB diupload ulang kali ini (ada command "/panel" baru). sw.js WAJIB diupload ulang (CACHE_VERSION dinaikkan).',
+    ]
+  },
   {
     v: '3.320.0',
     date: '21 Agu 2026',
@@ -25533,14 +25673,19 @@ function pushNavGuard(){
   history.pushState({fleetops:true}, '', base + '#nav' + navGuardCounter);
 }
 pushNavGuard();
-window.addEventListener('popstate', ()=>{
-  // v3.257.0 -- BARU: kalau history.back() ini dipicu KODE KITA SENDIRI
-  // (lihat close() di openModal()) buat "konsumsi" langkah riwayat bekas
-  // modal yang baru saja ditutup lewat tombol Batal/Simpan/✕/tap di luar --
-  // jangan diproses lagi seolah-olah pengguna menekan Kembali sungguhan.
-  if(suppressNextPopstate){ suppressNextPopstate = false; return; }
-  if(exitConfirmed) return; // user sudah pilih "Iya" -> biarkan browser keluar secara alami
-  pushNavGuard();
+// v3.321.0 -- BARU: logika "1 langkah Kembali" (tutup modal -> menu
+// sebelumnya -> Dashboard) DIPINDAH dari dalam handler popstate langsung
+// ke fungsi tersendiri performBackStep() -- SEBELUMNYA cuma dipicu tombol
+// Kembali browser/HP (lewat popstate). Sekarang dipakai BERSAMA oleh DUA
+// pemicu: popstate (Kembali browser/HP, tetap seperti semula) DAN tombol
+// Kembali bawaan Telegram (chevron di header Mini App / tombol Kembali
+// Android sistem saat dibuka lewat Telegram -- lihat wireTelegramBackButton()
+// di bawah) supaya perilakunya PERSIS SAMA di kedua jalur: modal ditutup
+// dulu, baru menu sebelumnya, baru Dashboard -- BUKAN langsung keluar app.
+// Return true = ada langkah yang ditangani (modal ditutup / pindah menu),
+// false = sudah di Dashboard tanpa modal terbuka (tidak ada lagi tempat
+// "dalam app" untuk kembali).
+function performBackStep(){
   // v3.257.0 -- BARU: kalau ada modal (openModal()) sedang terbuka SAAT
   // tombol Kembali ditekan -- tutup modal itu DULU, JANGAN navigasi
   // halaman. Ini yang membuat urutan Kembali teratur sesuai langkah yang
@@ -25559,26 +25704,78 @@ window.addEventListener('popstate', ()=>{
     document.querySelectorAll('body > .modal-overlay').forEach(el=>el.remove());
     document.body.dataset.modalOpenCount = '0';
     document.body.classList.remove('modal-open');
-    return;
+    return true;
   }
   if(navHistory.length > 0){
     // Ada menu sebelumnya yang tercatat dalam sesi ini -> kembali ke situ,
     // persis seperti tombol Kembali di kebanyakan aplikasi lain.
     const prevRoute = navHistory.pop();
     navigate(prevRoute, {fromBack:true});
+    return true;
   } else if(currentRoute !== 'dashboard'){
     // Tidak ada riwayat tercatat (mis. baru buka aplikasi langsung ke menu
     // ini lewat sessionStorage) -> jatuhkan ke Dashboard dulu, jangan
     // langsung keluar aplikasi.
     navigate('dashboard', {fromBack:true});
-  } else {
+    return true;
+  }
+  return false; // sudah di Dashboard & tidak ada modal -> tidak ada lagi yang bisa "dikembalikan" dalam app
+}
+window.addEventListener('popstate', ()=>{
+  // v3.257.0 -- BARU: kalau history.back() ini dipicu KODE KITA SENDIRI
+  // (lihat close() di openModal()) buat "konsumsi" langkah riwayat bekas
+  // modal yang baru saja ditutup lewat tombol Batal/Simpan/✕/tap di luar --
+  // jangan diproses lagi seolah-olah pengguna menekan Kembali sungguhan.
+  if(suppressNextPopstate){ suppressNextPopstate = false; return; }
+  if(exitConfirmed) return; // user sudah pilih "Iya" -> biarkan browser keluar secara alami
+  pushNavGuard();
+  const handled = performBackStep();
+  if(!handled){
     // Popup konfirmasi "Yakin keluar halaman?" DIMATIKAN atas permintaan --
     // sebelumnya di sini dipanggil openExitConfirmModal(). Sekarang langsung
     // keluar aplikasi secara alami, sama seperti kalau user pilih "Iya".
     exitConfirmed = true;
     history.back();
   }
+  syncTelegramBackButton();
 });
+/* ----------------------------------------------------------------------
+   [Telegram Mini App] Tombol "Kembali" Telegram
+   ------------------------------------------------------------------------
+   Berbeda dari browser biasa: kalau tombol Kembali khusus Telegram
+   (`Telegram.WebApp.BackButton`, muncul sebagai panah "<" di header Mini
+   App) TIDAK diaktifkan/ditampilkan, maka tombol Kembali Android SISTEM
+   (fisik/gestur) akan LANGSUNG MENUTUP Mini App sepenuhnya -- tidak lewat
+   popstate sama sekali, jadi sistem pushNavGuard()/popstate di atas TIDAK
+   cukup sendirian untuk mencegah keluar tidak sengaja saat dibuka dari
+   dalam Telegram. Solusinya: tampilkan BackButton Telegram kapan pun ada
+   langkah "dalam app" untuk kembali (modal terbuka / bukan di Dashboard),
+   sembunyikan kalau sudah di Dashboard tanpa modal (barulah tombol Kembali
+   sistem boleh menutup Mini App seperti biasa) -- dan saat BackButton itu
+   ditekan, jalankan performBackStep() yang SAMA PERSIS dengan popstate di
+   atas, supaya perilakunya konsisten di kedua jalur (Telegram maupun
+   browser biasa kalau url ini dibuka langsung lewat browser). */
+function syncTelegramBackButton(){
+  if(!tg || !tg.BackButton) return;
+  // Pakai body.modal-open (ditandai markModalOpen()/markModalClosed(), lihat
+  // deklarasinya dekat modalHistoryGuardActive) supaya mencakup SEMUA jenis
+  // popup/modal di app ini (form openModal(), openConfirmModal(), modal
+  // "Hubungkan Sinkronisasi GitHub", popup "Versi Baru Tersedia", dst) --
+  // bukan cuma yang lewat modalHistoryGuardActive.
+  const shouldShow = document.body.classList.contains('modal-open') || currentRoute !== 'dashboard';
+  try{
+    if(shouldShow) tg.BackButton.show(); else tg.BackButton.hide();
+  }catch(e){}
+}
+function wireTelegramBackButton(){
+  if(!tg || !tg.BackButton) return;
+  tg.BackButton.onClick(()=>{
+    performBackStep();
+    syncTelegramBackButton();
+  });
+  syncTelegramBackButton(); // set status awal begitu app pertama dibuka (mis. langsung ke menu tersimpan lewat sessionStorage, bukan Dashboard)
+}
+wireTelegramBackButton();
 loadGhConfig();
 if(isGhConnected()){
   fetchFromGithub();
