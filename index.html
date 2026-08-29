@@ -28,24 +28,40 @@
   // (yang baru jalan setelah HTML+CSS selesai di-parse), akan ada jeda
   // singkat "kilatan" tema terang dulu baru berubah gelap, yang terasa
   // mengganggu di mata.
-  // [Telegram] -- kalau app dibuka lewat Telegram Mini App DAN pengguna
-  // BELUM PERNAH memilih tema secara manual sendiri (toggle "Mode Gelap"
-  // di Pengaturan > Tampilan, lihat flag 'fleetops_theme_manual' yang
-  // diset di sana), ikuti skema warna Telegram (gelap/terang) bawaan akun
-  // Telegram user itu secara otomatis. Begitu user PERNAH memilih manual,
-  // pilihan manual itu yang SELALU menang -- tidak akan ditimpa otomatis
-  // lagi walau tema Telegram-nya beda.
+  // v3.323.0 -- BARU: Mode Tampilan sekarang 3 pilihan (☀️ Terang/🌙 Gelap/
+  // 🌓 Otomatis), BUKAN cuma checkbox on/off spt sebelumnya. Kunci baru
+  // 'fleetops_theme_mode' menyimpan salah satu dari 'light'/'dark'/'auto'.
+  // 'auto' berarti ikut skema warna Telegram (kalau dibuka dari Telegram
+  // Mini App) atau skema warna sistem/perangkat (browser biasa, lewat
+  // matchMedia prefers-color-scheme).
+  // MIGRASI: kalau kunci baru ini belum ada (pengguna lama, sebelum fitur
+  // 3-mode ini ada), turunkan dari 2 kunci lama ('fleetops_theme' +
+  // 'fleetops_theme_manual') supaya preferensi yang SUDAH dipilih pengguna
+  // TIDAK berubah -- kalau dulu pernah pilih manual, itu jadi 'dark'/
+  // 'light' pasti (BUKAN 'auto'); kalau belum pernah pilih manual sama
+  // sekali, itu SAMA PERSIS dgn perilaku 'auto' yg sudah berjalan selama
+  // ini (ikut skema warna Telegram), jadi aman dipetakan ke 'auto'. Kunci
+  // lama SENGAJA TIDAK dihapus (biarkan menganggur) -- kalau perlu
+  // rollback ke versi sebelumnya, datanya masih ada.
   var __tgEarly = window.Telegram && window.Telegram.WebApp;
   var __fleetopsIsDark = false;
   try{
-    var __savedTheme = localStorage.getItem('fleetops_theme');
-    var __manualTheme = localStorage.getItem('fleetops_theme_manual');
-    if(!__manualTheme && __tgEarly && __tgEarly.colorScheme){
-      __savedTheme = (__tgEarly.colorScheme === 'dark') ? 'dark' : null;
+    var __themeMode = localStorage.getItem('fleetops_theme_mode');
+    if(__themeMode !== 'light' && __themeMode !== 'dark' && __themeMode !== 'auto'){
+      var __manualTheme = localStorage.getItem('fleetops_theme_manual');
+      __themeMode = __manualTheme ? (localStorage.getItem('fleetops_theme')==='dark' ? 'dark' : 'light') : 'auto';
     }
-    if(__savedTheme==='dark'){
-      document.documentElement.setAttribute('data-theme','dark');
+    if(__themeMode === 'dark'){
       __fleetopsIsDark = true;
+    } else if(__themeMode === 'auto'){
+      if(__tgEarly && __tgEarly.colorScheme){
+        __fleetopsIsDark = (__tgEarly.colorScheme === 'dark');
+      } else if(window.matchMedia){
+        __fleetopsIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+    }
+    if(__fleetopsIsDark){
+      document.documentElement.setAttribute('data-theme','dark');
     }
   }catch(e){}
   // [Telegram] -- panggil ready()/expand() SEDINI mungkin (sebelum <style>
@@ -70,7 +86,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.321.0">
+<meta name="app-version" content="3.323.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -383,6 +399,26 @@
     border-style:dashed;
   }
   .settings-edit-bar{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);}
+  /* v3.323.0 -- BARU: segmented control 3 pilihan Mode Tampilan (Terang/
+     Gelap/Otomatis) di panel Pengaturan > Tampilan -- dibangun dari radio
+     button ASLI (bukan div palsu) supaya otomatis ikut pola field-locked
+     yang sudah ada (input:disabled dikenali `applyFieldLock()` tanpa perlu
+     kode tambahan) & tetap dapat aksesibilitas keyboard/screen-reader
+     bawaan radio. Radio-nya sendiri disembunyikan visual (bukan display:
+     none -- itu bikin sebagian screen reader mengabaikannya -- opacity:0 +
+     ukuran 1px, tetap "ada" secara aksesibilitas), tampilan pil datang dari
+     <span> tetangganya lewat selector :checked. */
+  .theme-mode-group{display:flex;gap:8px;flex-wrap:wrap;}
+  .theme-mode-opt{position:relative;display:inline-flex;}
+  .theme-mode-opt input[type="radio"]{position:absolute;opacity:0;width:1px;height:1px;margin:0;}
+  .theme-mode-opt span{
+    display:inline-flex;align-items:center;gap:6px;padding:9px 15px;border-radius:20px;
+    border:1.5px solid var(--line);font-size:12.5px;font-weight:600;color:var(--muted);
+    cursor:pointer;user-select:none;transition:background .12s,border-color .12s,color .12s;
+  }
+  .theme-mode-opt input[type="radio"]:checked + span{background:var(--blue-bg);border-color:var(--blue);color:var(--blue-dark);}
+  .theme-mode-opt input[type="radio"]:focus-visible + span{outline:2px solid var(--blue);outline-offset:2px;}
+  .theme-mode-opt input[type="radio"]:disabled + span{cursor:not-allowed;opacity:.55;}
 
   table{width:100%;border-collapse:collapse;font-size:13px;}
   th{
@@ -1963,6 +1999,18 @@
     .mdh-search{ flex:1; background:#fff; border-radius:14px; padding:13px 15px; display:flex; align-items:center; gap:8px; cursor:pointer; }
     .mdh-search span{ font-size:13.5px; color:#9199A8; }
     .mdh-bell{ width:44px; height:44px; border-radius:50%; background:rgba(255,255,255,0.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; cursor:pointer; }
+    /* v3.323.0 -- BARU: tombol pintas Mode Tampilan (Terang/Gelap/Otomatis),
+       diletakkan TEPAT DI SAMPING lonceng (sebelum #mdh-bell-btn dlm DOM,
+       lihat renderHeaderDua()) sesuai referensi Gojek yang juga menaruh
+       tombol-tombol pintas berjajar di ujung kanan header. Gaya bulat &
+       latar semi-transparan SENGAJA disamakan PERSIS dgn .mdh-bell (bukan
+       style baru) supaya kelihatan sepasang/senada, bukan 2 komponen
+       berbeda yang kebetulan bersebelahan. Satu ketuk = geser 1 mode
+       (lihat cycleThemeModeFromMobileBtn()) -- ikonnya sendiri yang
+       berubah mengikuti mode aktif (mdhThemeIconSvg()), bukan teks label
+       (ruang di header terlalu sempit utk label + ikon lonceng + kotak
+       pencarian sekaligus). */
+    .mdh-theme-btn{ width:44px; height:44px; border-radius:50%; background:rgba(255,255,255,0.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; cursor:pointer; }
     /* v3.237.0 -- BARU: doa Dashboard (#header-dua, elemen BERSAMA, dipakai
        di semua kondisi) diberi latar biru KHUSUS saat HP terkunci -- di luar
        kondisi ini (desktop / HP sudah buka PIN) TIDAK terpengaruh sama
@@ -2167,6 +2215,28 @@
     .modal-body{ flex:1; overflow-y:auto; }
     .modal-foot{ flex-shrink:0; }
     .grid-2{grid-template-columns:1fr;}
+    /* v3.322.0 -- BARU: perbaikan Mode Gelap KHUSUS beranda mobile terkunci
+       (body.mobile-nav-locked, hero gaya Gojek). AKAR MASALAH: latar
+       body/#content/.mdh-summary di area ini SENGAJA di-hardcode putih
+       (#fff, lihat catatan v3.251.0/v3.286.0 di atas -- meniru referensi
+       Gojek yg latarnya putih polos), sementara SEMUA teks di dalamnya
+       (nilai ringkasan mobil, label menu, judul seksi, kartu "Trip Aktif")
+       sudah pakai var(--text)/var(--muted) yang OTOMATIS berubah nyaris
+       putih saat Mode Gelap aktif -- akibatnya begitu pengguna menyalakan
+       Mode Gelap sambil tampilan HP ini terkunci, teksnya jadi TIDAK
+       TERBACA (putih di atas putih). Perbaikan CUKUP 3 baris: gelapkan 3
+       latar hardcode ini KHUSUS saat [data-theme="dark"] -- SEMUA teks di
+       dalamnya otomatis ikut kontras lagi krn sudah pakai var(--text)/
+       var(--muted) sejak awal, tidak perlu disentuh satu per satu. Default
+       terang TIDAK diubah sama sekali (referensi Gojek tetap persis sama).
+       Badge ikon berwarna pastel (kpi, .mdh-menu-item, dst) SENGAJA TIDAK
+       ikut digelapkan di sini -- itu warna aksen kategori yang memang tetap
+       (bukan var(--text)), jadi tidak berisiko tidak-terbaca; ini konsisten
+       dgn keterbatasan cakupan Mode Gelap yang sudah didokumentasikan di
+       komentar dekat :root[data-theme="dark"] di awal file. */
+    [data-theme="dark"] body.mobile-nav-locked,
+    [data-theme="dark"] body.mobile-nav-locked #content{ background:var(--bg); }
+    [data-theme="dark"] .mdh-summary{ background:var(--card); box-shadow:0 4px 14px rgba(0,0,0,0.4); }
   }
   @media(max-width:420px){
     .kpi-grid{grid-template-columns:1fr;}
@@ -2488,7 +2558,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.321.0';
+const APP_VERSION = '3.323.0';
 
 /* ============================================================================
    [Telegram Mini App] INISIALISASI UTAMA
@@ -2529,8 +2599,8 @@ function applyTelegramViewportHeight(){
 }
 // Set warna header (bar atas WebView Telegram) & latar Telegram supaya
 // senada dengan tema panel yang lagi aktif -- dipanggil ulang setiap kali
-// tema gelap/terang berganti (toggle manual di Pengaturan MAUPUN ganti
-// otomatis ikut skema warna Telegram user).
+// tema gelap/terang berganti (ganti mode manual di Pengaturan MAUPUN ganti
+// otomatis ikut skema warna Telegram/perangkat user).
 function applyTelegramThemeColors(){
   if(!tg) return;
   try{
@@ -2539,29 +2609,115 @@ function applyTelegramThemeColors(){
     if(typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor(isDark ? '#12151C' : '#F5F6F8');
   }catch(e){}
 }
+
+// ============================================================
+// v3.323.0 -- BARU: MODE TAMPILAN (☀️ Terang / 🌙 Gelap / 🌓 Otomatis)
+// ============================================================
+// SATU sumber kebenaran utk mode tema dipakai bersama oleh: script FOUC
+// di <head> (lihat awal file, versi migrasi-nya SENDIRI krn jalan sebelum
+// fungsi ini sempat didefinisikan -- keduanya WAJIB dijaga logikanya tetap
+// SAMA kalau salah satu diubah lagi ke depannya), toggle di Pengaturan >
+// Tampilan, DAN tombol bulat baru di sebelah lonceng pada hero mobile
+// terkunci (lihat renderHeaderDua()). 'auto' mengikuti skema warna
+// Telegram (kalau dibuka dari Mini App) atau skema warna sistem/perangkat
+// (browser biasa, prefers-color-scheme) -- SAMA PERSIS sumbernya dgn yang
+// sudah dipakai script FOUC di <head>.
+const THEME_MODE_KEY = 'fleetops_theme_mode';
+function getThemeMode(){
+  try{
+    const m = localStorage.getItem(THEME_MODE_KEY);
+    if(m==='light' || m==='dark' || m==='auto') return m;
+  }catch(e){}
+  return 'auto'; // default aman kalau localStorage error/kosong -- sama spt perilaku lama sebelum fitur mode ada
+}
+function computeIsDarkForMode(mode){
+  if(mode==='dark') return true;
+  if(mode==='light') return false;
+  // auto:
+  try{
+    if(tg && tg.colorScheme) return tg.colorScheme === 'dark';
+    if(window.matchMedia) return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }catch(e){}
+  return false;
+}
+// Dipanggil dari 3 tempat (radio Pengaturan, tombol hero mobile, listener
+// otomatis themeChanged/matchMedia) -- SATU fungsi supaya efek sampingnya
+// (simpan localStorage, set atribut data-theme, sinkron warna Telegram,
+// sinkron tampilan tombol/radio yang lagi kelihatan) selalu konsisten,
+// tidak ada jalur yang lupa salah satu langkah.
+function applyThemeMode(mode){
+  try{
+    localStorage.setItem(THEME_MODE_KEY, mode);
+    const isDark = computeIsDarkForMode(mode);
+    if(isDark) document.documentElement.setAttribute('data-theme','dark');
+    else document.documentElement.removeAttribute('data-theme');
+    applyTelegramThemeColors();
+    syncThemeModeUI();
+  }catch(e){ console.error('Gagal menerapkan Mode Tampilan:', e); }
+}
+// Sinkronkan tampilan kontrol tema yang SEDANG kelihatan di layar (radio
+// di panel Pengaturan > Tampilan, DAN/ATAU tombol bulat di hero mobile) --
+// dipanggil tiap kali mode berubah dari jalur MANAPUN (termasuk jalur
+// otomatis yang tidak dipicu oleh tap radio/tombol itu sendiri, mis. HP
+// user pindah tema sistem saat app sedang terbuka).
+function syncThemeModeUI(){
+  try{
+    const mode = getThemeMode();
+    document.querySelectorAll('input[name="theme-mode"]').forEach(r=>{ r.checked = (r.value===mode); });
+    const btn = document.getElementById('mdh-theme-btn');
+    if(btn) btn.innerHTML = mdhThemeIconSvg(mode);
+  }catch(e){}
+}
+// Ikon monokrom putih (senada gaya lonceng #mdh-bell-btn di sebelahnya,
+// SAMA-SAMA duduk di atas banner biru header hero) -- BUKAN emoji, supaya
+// konsisten dgn gaya ikon SVG putih yang sudah dipakai lonceng & kotak
+// pencarian di header yang sama.
+function mdhThemeIconSvg(mode){
+  if(mode==='dark'){
+    return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8.5 8.5 0 1110.5 4a7 7 0 009.5 10.5z" fill="#fff"/></svg>';
+  }
+  if(mode==='auto'){
+    return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="#fff" stroke-width="1.8"/><path d="M12 4a8 8 0 010 16z" fill="#fff"/></svg>';
+  }
+  return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="#fff" stroke-width="1.8"/><path d="M12 2.5v2.4M12 19.1v2.4M4.5 12H2.1M21.9 12h-2.4M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>';
+}
+// Dipanggil dari tap tombol bulat di hero mobile -- geser 1 langkah tiap
+// ketuk (Terang -> Gelap -> Otomatis -> Terang -> ...), disertai toast
+// singkat sbg konfirmasi (tombolnya tanpa label teks, cuma ikon, jadi
+// perlu micro-feedback supaya jelas berhasil berganti & jadi mode apa).
+function cycleThemeModeFromMobileBtn(){
+  const order = ['light','dark','auto'];
+  const next = order[(order.indexOf(getThemeMode())+1) % order.length];
+  applyThemeMode(next);
+  const label = next==='light' ? '☀️ Mode Terang' : next==='dark' ? '🌙 Mode Gelap' : '🌓 Mode Otomatis (ikut perangkat)';
+  if(typeof showToast === 'function') showToast(label);
+}
 if(tg){
   applyTelegramViewportHeight();
   tg.onEvent('viewportChanged', applyTelegramViewportHeight);
   window.addEventListener('resize', applyTelegramViewportHeight);
   // Kalau skema warna akun Telegram user berubah (mis. HP-nya sendiri
   // dipindah ke Mode Gelap sistem) SAAT app sedang terbuka -- ikuti lagi,
-  // TAPI cuma kalau user belum pernah pilih tema manual sendiri di sini
-  // (lihat flag 'fleetops_theme_manual', diset di toggle "Mode Gelap" pada
-  // Pengaturan > Tampilan).
+  // TAPI cuma kalau mode yang lagi aktif memang 'auto' (Terang/Gelap manual
+  // SELALU menang, tidak pernah ditimpa otomatis).
   tg.onEvent('themeChanged', function(){
-    try{
-      if(localStorage.getItem('fleetops_theme_manual')) return; // preferensi manual user selalu menang
-      if(tg.colorScheme === 'dark'){
-        document.documentElement.setAttribute('data-theme','dark');
-        localStorage.setItem('fleetops_theme','dark');
-      } else {
-        document.documentElement.removeAttribute('data-theme');
-        localStorage.removeItem('fleetops_theme');
-      }
-      applyTelegramThemeColors();
-    }catch(e){}
+    if(getThemeMode()==='auto') applyThemeMode('auto');
   });
 }
+// [Non-Telegram / browser biasa] -- kalau mode 'auto' aktif & skema warna
+// SISTEM/PERANGKAT berubah (mis. HP dipindah ke Mode Gelap sistem, atau
+// laptop ikut jadwal gelap-otomatis OS) SAAT app sedang terbuka di tab
+// browser biasa (bukan dari dalam Telegram) -- ikuti juga secara live,
+// simetris dgn listener tg.onEvent('themeChanged') di atas utk konteks
+// Telegram. addEventListener modern browser, fallback addListener lama
+// dibungkus try/catch terpisah supaya browser sangat lawas tidak error
+// (fitur auto-follow ini cuma hilang di browser itu, bukan bikin crash).
+try{
+  const __mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const __onMqChange = function(){ if(getThemeMode()==='auto') applyThemeMode('auto'); };
+  if(typeof __mq.addEventListener === 'function') __mq.addEventListener('change', __onMqChange);
+  else if(typeof __mq.addListener === 'function') __mq.addListener(__onMqChange);
+}catch(e){}
 // v3.155.0 -- Ikon kustom (gambar asli user, TIDAK diedit -- cuma diperkecil
 // resolusinya dari upload asli 1254x1254px supaya ringan, bentuk/isi ikon
 // sama sekali tidak diubah) dipakai di toggle "Peta" (Lacak Kendaraan) & Aksi
@@ -6883,7 +7039,7 @@ function getSettingsCategories(){
   // dikonfirmasi ke Administrator dan sengaja dikecualikan.
   const categories = [
   { key:'tampilan', icon:'🎨', title:'Tampilan', desc:'Mode gelap/terang', hasLock:true,
-    status: () => localStorage.getItem('fleetops_theme')==='dark' ? 'Mode Gelap' : 'Mode Terang' },
+    status: () => { const m = getThemeMode(); return m==='dark' ? '🌙 Mode Gelap' : m==='auto' ? '🌓 Otomatis (ikut perangkat)' : '☀️ Mode Terang'; } },
   { key:'backup', icon:'💾', title:'Backup & Pulihkan', desc:'Cadangan data mandiri (file JSON)', hasLock:false,
     status: () => { try{ const raw = localStorage.getItem(BACKUP_TRACKING_KEY); return raw ? 'Terakhir '+new Date(raw).toLocaleDateString('id-ID') : 'Belum pernah backup'; }catch(e){ return '-'; } } },
   { key:'izin-notif', icon:'🔔', title:'Izin Notifikasi Browser', desc:'Notifikasi HP saat app di background', hasLock:false,
@@ -7066,14 +7222,23 @@ function renderSettingsDetailNotifGabungan(){
       <div class="panel-head"><h2>🎨 Tampilan</h2></div>
       <div class="panel-body">
         <div class="field-locked" id="lock-tampilan">
-          <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;">
-            <span>
-              <span style="font-weight:700;font-size:13px;">🌙 Mode Gelap</span>
-              <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">Cocok dipakai malam hari/kondisi minim cahaya. Tersimpan per-perangkat (tidak ikut sinkron ke HP lain).</div>
-            </span>
-            <input type="checkbox" id="in-dark-mode" ${localStorage.getItem('fleetops_theme')==='dark'?'checked':''} style="width:20px;height:20px;flex-shrink:0;">
-          </label>
-          <div class="hint" style="margin-top:10px;">⚠️ Cakupan jujur: sebagian besar tampilan (latar, kartu, teks, badge status) sudah otomatis ikut gelap. Beberapa elemen dengan warna khusus (mis. bubble "Mobil Jalan") sengaja TIDAK ikut berubah, supaya identitas visualnya tetap konsisten.</div>
+          <span style="font-weight:700;font-size:13px;">🎨 Mode Tampilan</span>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:2px;margin-bottom:12px;">Pilih Terang, Gelap, atau Otomatis (ikut skema warna Telegram/perangkat kamu, berubah sendiri kalau sistemnya berubah). Tersimpan per-perangkat (tidak ikut sinkron ke HP lain).</div>
+          <div class="theme-mode-group" role="radiogroup" aria-label="Mode Tampilan">
+            <label class="theme-mode-opt">
+              <input type="radio" name="theme-mode" value="light" ${getThemeMode()==='light'?'checked':''}>
+              <span>☀️ Terang</span>
+            </label>
+            <label class="theme-mode-opt">
+              <input type="radio" name="theme-mode" value="dark" ${getThemeMode()==='dark'?'checked':''}>
+              <span>🌙 Gelap</span>
+            </label>
+            <label class="theme-mode-opt">
+              <input type="radio" name="theme-mode" value="auto" ${getThemeMode()==='auto'?'checked':''}>
+              <span>🌓 Otomatis</span>
+            </label>
+          </div>
+          <div class="hint" style="margin-top:10px;">⚠️ Cakupan jujur: sebagian besar tampilan (latar, kartu, teks, badge status) sudah otomatis ikut gelap. Beberapa elemen dengan warna khusus (mis. bubble "Mobil Jalan") sengaja TIDAK ikut berubah, supaya identitas visualnya tetap konsisten. Tombol pintas mode tampilan yang sama juga tersedia di sebelah lonceng pada beranda mobile terkunci.</div>
         </div>
         ${settingsEditBarHtml('tampilan','btn-edit-tampilan','btn-save-tampilan','btn-cancel-tampilan')}
       </div>
@@ -7656,22 +7821,10 @@ function renderSettingsDetailNotifGabungan(){
   document.getElementById('content').innerHTML = html;
   wireSettingsDetailBack();
   if(settingsView==='tampilan'){
-  document.getElementById('in-dark-mode').addEventListener('change', function(){
-    try{
-      if(this.checked){
-        document.documentElement.setAttribute('data-theme','dark');
-        localStorage.setItem('fleetops_theme','dark');
-      } else {
-        document.documentElement.removeAttribute('data-theme');
-        localStorage.removeItem('fleetops_theme');
-      }
-      // [Telegram] -- ini pilihan MANUAL user -- tandai supaya sinkron
-      // otomatis ikut skema warna Telegram (lihat tg.onEvent('themeChanged')
-      // & script FOUC di <head>) tidak lagi menimpa pilihan ini di sesi
-      // berikutnya, lalu sinkronkan warna header/latar Telegram sekarang juga.
-      localStorage.setItem('fleetops_theme_manual','1');
-      applyTelegramThemeColors();
-    }catch(e){ console.error('Gagal menyimpan preferensi tema:', e); }
+  document.querySelectorAll('input[name="theme-mode"]').forEach(r=>{
+    r.addEventListener('change', function(){
+      if(this.checked) applyThemeMode(this.value);
+    });
   });
   wireSettingsLockButtons('tampilan','lock-tampilan','btn-edit-tampilan','btn-cancel-tampilan');
   const btnSaveTampilan = document.getElementById('btn-save-tampilan');
@@ -8218,6 +8371,9 @@ function renderHeaderDua(route){
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#9199A8" stroke-width="2"/><path d="M20 20l-4-4" stroke="#9199A8" stroke-width="2" stroke-linecap="round"/></svg>
           <span>Cari menu, mobil, sopir...</span>
         </div>
+        <div class="mdh-theme-btn" id="mdh-theme-btn" role="button" tabindex="0" aria-label="Ganti mode tampilan">
+          ${mdhThemeIconSvg(getThemeMode())}
+        </div>
         <div class="mdh-bell" id="mdh-bell-btn">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 4a5 5 0 015 5v4l2 3H5l2-3V9a5 5 0 015-5z" stroke="#fff" stroke-width="1.8"/><path d="M10 19a2 2 0 004 0" stroke="#fff" stroke-width="1.8"/></svg>
         </div>
@@ -8231,6 +8387,13 @@ function renderHeaderDua(route){
       // definisinya utk detail sumber data (menu/mobil/sopir).
       const searchBtn = document.getElementById('mdh-search-btn');
       if(searchBtn) searchBtn.onclick = (e)=>{ e.stopPropagation(); openGlobalSearchModal(); };
+      // v3.323.0 -- BARU: tombol pintas Mode Tampilan -- stopPropagation()
+      // sama spt lonceng di sebelahnya (lihat komentar v3.312.0 di bawah
+      // utk alasan lengkapnya: tanpa ini, klik bubble ke listener "klik di
+      // luar dropdown notifikasi -> tutup" & terasa seperti tidak terjadi
+      // apa-apa kalau kebetulan dropdown lagi terbuka).
+      const themeBtn = document.getElementById('mdh-theme-btn');
+      if(themeBtn) themeBtn.onclick = (e)=>{ e.stopPropagation(); cycleThemeModeFromMobileBtn(); };
       const bell = document.getElementById('mdh-bell-btn');
       // v3.312.0 -- PERBAIKAN BUG: SEBELUMNYA `bell.onclick = toggleNotifDropdown;`
       // TANPA stopPropagation() -- klik lonceng hero ini bubble sampai ke
@@ -22130,6 +22293,25 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.323.0',
+    date: '29 Agu 2026',
+    notes: [
+      '🎨 BARU: Mode Tampilan sekarang 3 pilihan -- ☀️ Terang, 🌙 Gelap, 🌓 Otomatis (ikut skema warna akun Telegram atau tema sistem perangkat, berubah sendiri kalau sistemnya berubah walau app sedang terbuka) -- sebelumnya cuma checkbox on/off. Diatur dari Pengaturan &gt; Tampilan.',
+      '📍 BARU: tombol pintas bulat yang sama diletakkan langsung di sebelah lonceng notifikasi pada beranda mobile terkunci (hero gaya Gojek) -- 1 ketuk = geser 1 mode (Terang → Gelap → Otomatis → ...), ikonnya berubah sesuai mode aktif, disertai toast singkat sbg konfirmasi. Tidak perlu buka Pengaturan lagi kalau cuma mau ganti tema dari beranda.',
+      '🔒 Preferensi tema pengguna lama TIDAK berubah sama sekali -- kalau sebelumnya sudah pernah pilih Mode Gelap manual, otomatis terbawa jadi "Gelap"; kalau belum pernah pilih manual sama sekali, otomatis terbawa jadi "Otomatis" (itu memang perilaku yang sudah berjalan selama ini).',
+      'worker.js TIDAK perlu diupload ulang kali ini -- murni fitur sisi tampilan di index.html, tidak menyentuh data/endpoint apa pun. sw.js WAJIB diupload ulang (CACHE_VERSION dinaikkan) supaya popup "Versi Baru Tersedia" muncul ke pengguna lama.',
+    ]
+  },
+  {
+    v: '3.322.0',
+    date: '29 Agu 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG: teks di beranda mobile terkunci (hero gaya Gojek -- ringkasan mobil aktif, grid menu Aksi Cepat, kartu "Trip Aktif") jadi TIDAK TERBACA (putih di atas putih) saat Mode Gelap dinyalakan. Penyebabnya latar area ini sengaja di-hardcode putih sejak awal (meniru referensi Gojek), sementara teksnya sudah otomatis berubah nyaris putih saat Mode Gelap aktif. Sekarang latar area itu ikut menggelap KHUSUS saat Mode Gelap aktif -- tampilan terang (default) tidak berubah sama sekali.',
+      '🎨 Diteliti ulang seluruh tampilan mobile (bar navigasi bawah, kartu KPI geser, popup "Lainnya", modal penuh layar) untuk memastikan tidak ada bagian lain yang tidak terbaca di Mode Gelap -- bagian lain sudah memakai variabel warna tema dari awal, jadi otomatis aman.',
+      'worker.js TIDAK perlu diupload ulang kali ini -- murni perbaikan tampilan CSS di index.html. sw.js WAJIB diupload ulang (CACHE_VERSION dinaikkan) supaya popup "Versi Baru Tersedia" muncul ke pengguna lama.',
+    ]
+  },
   {
     v: '3.321.0',
     date: '29 Agu 2026',
