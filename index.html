@@ -86,7 +86,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.323.0">
+<meta name="app-version" content="3.326.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2558,7 +2558,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.323.0';
+const APP_VERSION = '3.326.0';
 
 /* ============================================================================
    [Telegram Mini App] INISIALISASI UTAMA
@@ -5067,6 +5067,8 @@ async function fetchFromGithub(){
     // sinkron cloud jalan.
     state = Object.assign({}, state, mergedState);
     ensureDestinationsArray();
+    detectTelegramDriver(); // v3.324.0 -- data sopir (termasuk telegramChatId) bisa saja baru berubah lewat sinkron ini
+    maybeOfferLocalDriverBinding(); // v3.325.0 -- kalau di luar Telegram & belum pernah diikat/dilewati di perangkat ini
     tombstones = mergedTombstones;
     // Sinkron gabung berdasarkan id, bukan nama -- kalau 2 device sempat
     // menambahkan nama tujuan yang sama sebelum sinkron, gabungkan sekarang
@@ -5281,6 +5283,11 @@ document.getElementById('gh-modal-repo').addEventListener('keydown', (e)=>{
 });
 
 let state = loadData();
+// v3.324.0 -- id sopir hasil auto-deteksi Telegram (lihat detectTelegramDriver
+// dekat buildDriverOptions) -- null kalau bukan dibuka dari Telegram atau
+// belum ada sopir yang cocok. Dipakai HANYA utk pra-isi dropdown Sopir di
+// form Catat Perjalanan, TIDAK pernah mengunci apa pun.
+let telegramMatchedDriverId = null;
 ensureDestinationsArray();
 let tombstones = loadTombstones();
 // Sengaja SELALU mulai dari "Admin 1" tiap aplikasi dibuka -- tidak lagi
@@ -16359,6 +16366,274 @@ function buildDriverOptions(selectedId){
     + `<option value="__new__">+ Tambah sopir baru...</option>`;
 }
 
+/* ============================================================================
+   v3.324.0 -- BARU: AUTO-DETEKSI SOPIR VIA TELEGRAM ID
+   ----------------------------------------------------------------------------
+   Tujuan: kalau app dibuka SEBAGAI Telegram Mini App, field "Sopir *" di form
+   Catat Perjalanan (openUsageModal) otomatis PRA-ISI dengan sopir yang cocok
+   -- supaya sopir tidak perlu cari-cari nama sendiri di dropdown tiap mau
+   mulai trip. Field TETAP dropdown biasa yang bisa diganti manual kapan pun
+   (SENGAJA tidak dikunci) -- kalau salah cocok atau HP dipakai gantian
+   sopir lain, tinggal pilih ulang seperti biasa.
+
+   Cara kerja pencocokan: memakai field `telegramChatId` yang SUDAH ADA di
+   setiap data sopir (selama ini dipakai utk kirim notifikasi armada, diisi
+   manual di menu Data Sopir). Untuk chat PRIBADI di Telegram, chat ID = user
+   ID akun itu sendiri -- jadi angka yang sama bisa dipakai ulang utk
+   pencocokan ini tanpa perlu field baru. Diambil dari
+   tg.initDataUnsafe.user.id (SDK resmi Telegram, lihat konstanta `tg` di
+   atas) -- TIDAK divalidasi ke server (worker.js) karena cuma dipakai utk
+   pra-isi form yang tetap bisa diganti manual, bukan gerbang keamanan/akses
+   data. Kalau nanti dipakai utk sesuatu yang lebih sensitif, WAJIB divalidasi
+   HMAC pakai bot token di worker.js dulu.
+
+   Kalau TIDAK ada sopir yang cocok (device/akun Telegram ini belum pernah
+   didaftarkan), tawarkan pendaftaran otomatis sebagai sopir baru (bukan
+   peran lain seperti Admin/Finance/Administrator -- itu semua tetap lewat
+   PIN manual seperti biasa, TIDAK tersentuh oleh fitur ini sama sekali).
+   Ditawarkan lewat popup konfirmasi (openConfirmModal), BUKAN otomatis diam-
+   diam, supaya tidak nyampah data kalau yang buka app ternyata bukan sopir
+   (mis. admin yang belum masuk PIN, atau orang iseng buka link bot). Kalau
+   ditolak, tidak ditanya lagi di akun Telegram yang sama (disimpan di
+   localStorage) -- tidak mengganggu tiap kali app dibuka ulang.
+   ============================================================================ */
+const TG_DRIVER_DISMISS_KEY = 'fleetops_tg_driver_dismiss_v1';
+
+function findDriverIdByTelegramUserId(tgUserId){
+  if(!tgUserId) return null;
+  const match = (state.drivers||[]).find(d=>d.telegramChatId && String(d.telegramChatId)===String(tgUserId));
+  return match ? match.id : null;
+}
+
+function tgDriverRegistrationDismissed(tgUserId){
+  try{
+    const raw = localStorage.getItem(TG_DRIVER_DISMISS_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return list.includes(String(tgUserId));
+  }catch(e){ return false; }
+}
+function markTgDriverRegistrationDismissed(tgUserId){
+  try{
+    const raw = localStorage.getItem(TG_DRIVER_DISMISS_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    if(!list.includes(String(tgUserId))) list.push(String(tgUserId));
+    localStorage.setItem(TG_DRIVER_DISMISS_KEY, JSON.stringify(list));
+  }catch(e){}
+}
+
+// v3.326.0 -- BARU: cache lokal id_telegram -> id_sopir, TERPISAH dari
+// state.drivers (yang datanya dari cloud/localStorage utama). Alasannya:
+// detectTelegramDriver() dipanggil di boot PALING AWAL, SEBELUM sinkron
+// GitHub sempat selesai (lihat pemanggilannya) -- di HP/tab BARU yang
+// localStorage utamanya masih kosong, state.drivers pada momen itu bisa
+// SAJA belum berisi data sopir sama sekali (padahal sopirnya sendiri sudah
+// terdaftar sejak lama dari device lain). Tanpa cache ini, jendela waktu
+// itu bisa membuat detectTelegramDriver() keliru mengira "belum terdaftar"
+// & menawarkan pendaftaran baru -- kalau keburu diketuk "Iya", jadinya
+// SOPIR YANG SAMA TERDAFTAR DOBEL. Begitu SEKALI SAJA berhasil cocok (baik
+// lewat state.drivers maupun lewat pendaftaran baru), id-nya disimpan di
+// sini -- kunjungan berikutnya di device yg SAMA langsung percaya cache ini
+// duluan, TIDAK pernah menawarkan pendaftaran lagi selama cache ini ada.
+const TG_DRIVER_CACHE_KEY = 'fleetops_tg_driver_cache_v1';
+function getCachedTelegramDriverId(tgUserId){
+  try{
+    const raw = localStorage.getItem(TG_DRIVER_CACHE_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    return map[String(tgUserId)] || null;
+  }catch(e){ return null; }
+}
+function setCachedTelegramDriverId(tgUserId, driverId){
+  try{
+    const raw = localStorage.getItem(TG_DRIVER_CACHE_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    map[String(tgUserId)] = driverId;
+    localStorage.setItem(TG_DRIVER_CACHE_KEY, JSON.stringify(map));
+  }catch(e){}
+}
+
+// Dipanggil di boot awal (pakai data lokal) & tiap selesai sinkron GitHub
+// (lihat fetchFromGithub) -- supaya tetap ketemu meski data sopir baru saja
+// disinkron dari perangkat lain (mis. Administrator baru isi telegramChatId
+// sopir ini dari HP-nya sendiri).
+function detectTelegramDriver(){
+  if(!tg || !tg.initDataUnsafe || !tg.initDataUnsafe.user) return; // bukan dibuka dari dalam Telegram -> tidak berlaku
+  const tgUser = tg.initDataUnsafe.user;
+
+  // 1) Sumber PALING akurat: cocokkan langsung ke data sopir yang sedang
+  //    dimuat sekarang -- ikut perubahan terbaru (mis. Chat ID diganti/
+  //    sopirnya dihapus Administrator). Kalau cocok, sekalian perbarui
+  //    cache supaya tetap sinkron.
+  const matchId = findDriverIdByTelegramUserId(tgUser.id);
+  if(matchId){
+    telegramMatchedDriverId = matchId;
+    setCachedTelegramDriverId(tgUser.id, matchId);
+    return;
+  }
+
+  // 2) Belum ketemu di data SAAT INI -- BUKAN berarti pasti belum
+  //    terdaftar, bisa jadi data sopir dari cloud belum sempat sinkron di
+  //    device ini (lihat catatan panjang di atas TG_DRIVER_CACHE_KEY). Cek
+  //    dulu cache hasil pencocokan sebelumnya di device ini -- kalau ADA,
+  //    percaya cache itu & JANGAN tawarkan pendaftaran lagi.
+  const cachedId = getCachedTelegramDriverId(tgUser.id);
+  if(cachedId){
+    telegramMatchedDriverId = cachedId;
+    return;
+  }
+
+  // 3) Benar-benar belum pernah cocok sama sekali di device ini -- baru di
+  //    titik ini tawarkan pendaftaran sebagai sopir baru.
+  telegramMatchedDriverId = null;
+  offerTelegramDriverRegistration(tgUser);
+}
+
+let tgDriverOfferShown = false; // cegah popup dobel kalau detectTelegramDriver() sempat terpanggil >1x sebelum sopir sempat merespons
+function offerTelegramDriverRegistration(tgUser){
+  if(tgDriverOfferShown) return;
+  if(tgDriverRegistrationDismissed(tgUser.id)) return;
+  if(document.body.classList.contains('modal-open')) return; // jangan menyela popup lain yg sedang tampil (mis. update PWA, GPS engine)
+  const namaUsulan = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ').trim() || ('@'+(tgUser.username||'')) || 'Sopir Telegram';
+  tgDriverOfferShown = true;
+  openConfirmModal(
+    `Akun Telegram ini (<b>${escapeHtml(namaUsulan)}</b>) belum terdaftar sebagai sopir. Daftarkan sekarang supaya field Sopir otomatis terisi tiap Catat Perjalanan?`,
+    ()=>{
+      const newDriver = touch({
+        id: uid(), kode: nextDriverCode(), nama: namaUsulan,
+        noSim:'', noHp:'', alamat:'',
+        telegramChatId: String(tgUser.id),
+        notifKategori: null,
+        createdAt: today(),
+        petugas: 'Telegram (' + (tgUser.username ? '@'+tgUser.username : 'otomatis') + ')'
+      });
+      state.drivers.push(newDriver);
+      saveData();
+      telegramMatchedDriverId = newDriver.id;
+      setCachedTelegramDriverId(tgUser.id, newDriver.id); // v3.326.0 -- langsung cache supaya device ini tidak ditanya lagi kapan pun
+      if(currentRoute==='drivers') renderDrivers();
+      showToast(`Terdaftar sebagai sopir: ${newDriver.nama}. Nama/data lain bisa dilengkapi kapan saja lewat Data Sopir.`);
+    }
+  );
+  // v3.324.0 -- openConfirmModal cuma punya tombol "Iya"/"Tidak" (label baku,
+  // lihat definisinya) -- tombol "Tidak" di sini berarti "jangan tanya lagi
+  // di akun ini", bukan "batal sebentar", jadi catat langsung sbg dismissed.
+  const noBtn = document.getElementById('confirm-no-btn');
+  if(noBtn) noBtn.addEventListener('click', ()=> markTgDriverRegistrationDismissed(tgUser.id));
+}
+
+/* ============================================================================
+   v3.325.0 -- BARU: SOPIR DEFAULT PERANGKAT (utk browser BIASA, bukan
+   Telegram Mini App)
+   ----------------------------------------------------------------------------
+   Fitur AUTO-DETEKSI di atas (detectTelegramDriver dkk) cuma jalan kalau app
+   dibuka LEWAT Telegram (tg.initDataUnsafe.user tersedia). Kalau dibuka lewat
+   browser biasa (PWA di-install, atau tab browser biasa di luar Telegram),
+   tidak ada info identitas otomatis yang bisa dipakai -- Telegram ID pun
+   TIDAK diminta diketik manual karena kebanyakan orang tidak tahu angka ID
+   Telegram mereka sendiri (beda dari @username) dan tidak ada cara
+   memverifikasinya di sisi browser murni.
+
+   Solusinya: "penandatanganan perangkat" yang lebih sederhana -- sopir cukup
+   PILIH namanya sendiri SEKALI dari daftar Data Sopir yang sudah ada,
+   disimpan di localStorage KHUSUS perangkat/browser itu (bukan akun
+   Telegram), lalu dipakai sbg default pengisi field Sopir di Catat
+   Perjalanan -- SAMA seperti versi Telegram: cuma pra-isi, TIDAK PERNAH
+   mengunci, tetap bisa diganti manual kapan saja lewat dropdown biasa.
+
+   Ditawarkan OTOMATIS sekali saat pertama app dibuka (bukan cuma lewat
+   tombol manual) -- kalau ditolak/dilewati, tidak ditanya lagi di perangkat
+   itu. Bisa diikat ulang/diganti kapan saja lewat link "Ganti sopir default
+   perangkat ini" yang muncul di bawah field Sopir pada form Catat
+   Perjalanan (lihat openUsageModal).
+   ============================================================================ */
+const LOCAL_DRIVER_BIND_KEY = 'fleetops_local_driver_id_v1';
+const LOCAL_DRIVER_DISMISS_KEY = 'fleetops_local_driver_dismiss_v1';
+
+function isTelegramContext(){
+  return !!(tg && tg.initDataUnsafe && tg.initDataUnsafe.user);
+}
+function getLocalBoundDriverId(){
+  try{
+    const id = localStorage.getItem(LOCAL_DRIVER_BIND_KEY);
+    if(!id) return null;
+    // Validasi ulang: sopirnya mungkin sudah dihapus sejak diikat -- kalau
+    // sudah tidak ada, anggap belum pernah diikat (jangan pra-isi dgn id basi).
+    return (state.drivers||[]).some(d=>d.id===id) ? id : null;
+  }catch(e){ return null; }
+}
+function setLocalBoundDriverId(id){
+  try{ localStorage.setItem(LOCAL_DRIVER_BIND_KEY, id); }catch(e){}
+}
+function localDriverBindingDismissed(){
+  try{ return localStorage.getItem(LOCAL_DRIVER_DISMISS_KEY) === '1'; }catch(e){ return false; }
+}
+function markLocalDriverBindingDismissed(){
+  try{ localStorage.setItem(LOCAL_DRIVER_DISMISS_KEY, '1'); }catch(e){}
+}
+
+// Dipanggil di titik boot yang sama dgn detectTelegramDriver() -- lihat
+// kedua pemanggilannya di bagian bawah script. Saling eksklusif secara
+// alami: isTelegramContext() cuma true kalau dibuka dari Telegram, jadi
+// tidak pernah tawarkan keduanya sekaligus.
+function maybeOfferLocalDriverBinding(){
+  if(isTelegramContext()) return; // dalam Telegram -> pakai jalur Telegram di atas, bukan ini
+  if(getLocalBoundDriverId()) return; // sudah pernah diikat di perangkat ini
+  if(localDriverBindingDismissed()) return;
+  if(!(state.drivers||[]).length) return; // belum ada data sopir sama sekali -- tidak relevan ditawarkan
+  if(document.body.classList.contains('modal-open')) return; // jangan menyela popup lain yg sedang tampil
+  openLocalDriverBindingModal(false);
+}
+
+// isManualChange=true dipanggil dari link "Ganti sopir default perangkat
+// ini" di form Catat Perjalanan -- bedanya cuma judul modal & modal ini
+// boleh dibuka ulang walau sebelumnya sudah pernah diikat/dilewati.
+function openLocalDriverBindingModal(isManualChange){
+  const currentId = getLocalBoundDriverId();
+  const options = state.drivers.map(d=>`<option value="${d.id}" ${d.id===currentId?'selected':''}>${escapeHtml(d.nama)}</option>`).join('');
+  const body = `
+    <div class="field" id="f-local-driver-pick">
+      <label>Sopir *</label>
+      <select id="in-local-driver-pick"><option value="">— pilih sopir —</option>${options}</select>
+      <div class="err-msg">Pilih sopir dulu, atau ketuk "Lewati" di bawah.</div>
+    </div>
+    <div class="hint" style="margin-top:10px;">
+      <a href="#" id="link-skip-local-driver">Bukan sopir / lewati, jangan tanya lagi di perangkat ini</a>
+    </div>
+  `;
+  openModal({
+    title: isManualChange ? '🧑\u200d✈️ Ganti Sopir Default Perangkat' : '🧑\u200d✈️ Sopir mana yang pakai perangkat ini?',
+    body,
+    saveLabel: 'Simpan',
+    footerNote: 'Cuma dipakai utk pra-isi field Sopir di Catat Perjalanan pada perangkat ini -- tetap bisa diganti manual kapan saja, tidak mengunci apa pun.',
+    onSave: () => {
+      const val = document.getElementById('in-local-driver-pick').value;
+      if(!val){ toggleFieldError('f-local-driver-pick', true); return false; }
+      setLocalBoundDriverId(val);
+      const nama = (state.drivers.find(d=>d.id===val)||{}).nama || '';
+      showToast(`Sopir default perangkat ini: ${nama}.`);
+    }
+  });
+  const skipLink = document.getElementById('link-skip-local-driver');
+  if(skipLink){
+    skipLink.addEventListener('click', (e)=>{
+      e.preventDefault();
+      markLocalDriverBindingDismissed();
+      const closeBtn = document.getElementById('modal-close');
+      if(closeBtn) closeBtn.click();
+    });
+  }
+}
+
+// Default gabungan dipakai openUsageModal utk pra-isi field Sopir: kalau
+// sedang EDIT trip lama, selalu pakai sopir yg sudah tercatat di trip itu
+// (jangan diganggu auto-deteksi apa pun). Kalau trip BARU: Telegram (kalau
+// cocok) lebih diutamakan drpd ikatan perangkat lokal, karena datanya
+// datang langsung dari SDK Telegram tiap kali app dibuka (selalu ter-
+// update), sedangkan ikatan perangkat cuma tersimpan sekali di localStorage.
+function getDefaultDriverIdForTripForm(editing){
+  if(editing) return editing.driverId;
+  return telegramMatchedDriverId || getLocalBoundDriverId() || null;
+}
+
 function openUsageModal(editId, presetCarId){
   const editing = editId ? state.usage.find(u=>u.id===editId) : null;
   const carOptions = state.cars.map(c=>{
@@ -16387,8 +16662,9 @@ function openUsageModal(editId, presetCarId){
       </div>
       <div class="tf-row-divider"></div>
       <div class="field" id="f-driver" style="margin-bottom:0;">
-        <select id="in-driver" data-sheet="1" data-sheet-field-label="Sopir *" data-icon="🧑‍✈️" data-icon-mode="driver" data-sheet-title="Pilih sopir"><option value="">— pilih sopir —</option>${buildDriverOptions(editing?editing.driverId:null)}</select>
+        <select id="in-driver" data-sheet="1" data-sheet-field-label="Sopir *" data-icon="🧑‍✈️" data-icon-mode="driver" data-sheet-title="Pilih sopir"><option value="">— pilih sopir —</option>${buildDriverOptions(getDefaultDriverIdForTripForm(editing))}</select>
         <div class="err-msg">Pilih sopir.</div>
+        ${(!editing && !isTelegramContext()) ? `<div class="hint" style="margin-top:4px;"><a href="#" id="link-rebind-local-driver">🔄 Bukan Anda? Ganti sopir default perangkat ini</a></div>` : ''}
       </div>
     </div>
     <div class="tf-card">
@@ -16912,6 +17188,19 @@ function openUsageModal(editId, presetCarId){
       }
     }
   });
+
+  // v3.325.0 -- link "🔄 Bukan Anda? Ganti sopir default perangkat ini"
+  // (cuma dirender kalau !editing && !isTelegramContext(), lihat body di
+  // atas) -- buka ulang modal ikat-sopir-perangkat, hasilnya baru kepakai
+  // di form BERIKUTNYA (form yg sedang terbuka ini tidak diri-render ulang
+  // sendiri, biar tidak mengejutkan pengguna di tengah sedang isi form).
+  const rebindLink = document.getElementById('link-rebind-local-driver');
+  if(rebindLink){
+    rebindLink.addEventListener('click', (e)=>{
+      e.preventDefault();
+      openLocalDriverBindingModal(true);
+    });
+  }
 }
 
 /* ========================================================================
@@ -22294,6 +22583,35 @@ function wirePinEnterKey(inputId){
    ======================================================================== */
 const CHANGELOG = [
   {
+    v: '3.326.0',
+    date: '29 Agu 2026',
+    notes: [
+      '🔒 PERBAIKAN: Auto-deteksi Sopir via Telegram (v3.324.0) sekarang mengingat hasil pencocokan lewat cache lokal per-device -- mencegah celah dobel-daftar yang bisa terjadi kalau app dibuka di HP/tab BARU sebelum data sopir sempat sinkron ulang dari cloud (device baru sempat mengira "belum terdaftar" walau sebenarnya sudah, dari sesi/device lain).',
+      'Sekali cocok (baik lewat data sopir yang sudah tersinkron, maupun lewat pendaftaran otomatis), id-nya disimpan di device itu -- kunjungan berikutnya TIDAK PERNAH ditanya/ditawari daftar ulang lagi selama cache ini masih ada di device tsb.',
+      'worker.js TIDAK perlu diupload ulang kali ini -- murni perbaikan sisi tampilan di index.html. sw.js WAJIB diupload ulang (CACHE_VERSION dinaikkan) supaya popup "Versi Baru Tersedia" muncul ke pengguna lama.',
+    ]
+  },
+  {
+    v: '3.325.0',
+    date: '29 Agu 2026',
+    notes: [
+      '🧑‍✈️ BARU: Sopir Default Perangkat (versi non-Telegram) -- kalau app dibuka lewat browser biasa/PWA (BUKAN dari dalam Telegram, lihat fitur v3.324.0 kemarin utk versi Telegram), sekali di awal muncul tawaran "Sopir mana yang pakai perangkat ini?". Setelah dipilih sekali, field Sopir di Catat Perjalanan otomatis pra-isi nama itu tiap kali -- tetap dropdown biasa yang bisa diganti manual, TIDAK dikunci.',
+      '🔗 Sengaja TIDAK minta orang mengetik ID Telegram sendiri -- kebanyakan tidak tahu angka ID-nya (beda dari @username), dan tidak bisa diverifikasi dari browser murni. Sebagai gantinya cukup pilih nama dari Data Sopir yang sudah ada, disimpan per-perangkat (localStorage), bukan per-akun.',
+      '🔄 Bisa diganti kapan saja lewat link "Bukan Anda? Ganti sopir default perangkat ini" di bawah field Sopir pada form Catat Perjalanan. Ditolak/dilewati sekali = tidak ditanya lagi di perangkat itu.',
+      'worker.js TIDAK perlu diupload ulang kali ini -- murni fitur sisi tampilan di index.html. sw.js WAJIB diupload ulang (CACHE_VERSION dinaikkan) supaya popup "Versi Baru Tersedia" muncul ke pengguna lama.',
+    ]
+  },
+  {
+    v: '3.324.0',
+    date: '29 Agu 2026',
+    notes: [
+      '🧑‍✈️ BARU: Auto-deteksi Sopir via Telegram -- kalau app dibuka SEBAGAI Telegram Mini App, field "Sopir *" di form Catat Perjalanan otomatis PRA-ISI dengan sopir yang cocok, tidak perlu cari-cari nama sendiri lagi di dropdown. Field tetap dropdown biasa yang bisa diganti manual kapan saja (SENGAJA tidak dikunci) -- kalau HP dipakai gantian sopir lain, tinggal pilih ulang seperti biasa.',
+      '🔗 Pencocokan memakai field "Telegram Chat ID" yang SUDAH ADA di Data Sopir (selama ini dipakai utk notifikasi armada) -- tidak ada field/setup baru yang perlu diisi ulang buat sopir yang Chat ID-nya sudah tersimpan.',
+      '🆕 Kalau akun Telegram yang membuka app belum cocok dengan sopir manapun, muncul popup tawaran "Daftarkan sebagai sopir baru?" (nama diambil dari profil Telegram, bisa dilengkapi/diedit lagi lewat Data Sopir). Ditolak sekali = tidak ditanya lagi di akun itu. Peran lain (Admin/Finance/Administrator, yang tetap lewat PIN manual) SAMA SEKALI tidak tersentuh fitur ini.',
+      'worker.js TIDAK perlu diupload ulang kali ini -- murni fitur sisi tampilan di index.html, tidak ada endpoint baru. sw.js WAJIB diupload ulang (CACHE_VERSION dinaikkan) supaya popup "Versi Baru Tersedia" muncul ke pengguna lama.',
+    ]
+  },
+  {
     v: '3.323.0',
     date: '29 Agu 2026',
     notes: [
@@ -25958,6 +26276,8 @@ function wireTelegramBackButton(){
   syncTelegramBackButton(); // set status awal begitu app pertama dibuka (mis. langsung ke menu tersimpan lewat sessionStorage, bukan Dashboard)
 }
 wireTelegramBackButton();
+detectTelegramDriver(); // v3.324.0 -- coba cocokkan dulu pakai data lokal yg sudah ada (mis. offline/belum sempat sync)
+maybeOfferLocalDriverBinding(); // v3.325.0 -- versi non-Telegram: tawarkan ikat sopir default perangkat, pakai data lokal dulu
 loadGhConfig();
 if(isGhConnected()){
   fetchFromGithub();
