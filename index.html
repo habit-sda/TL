@@ -5831,14 +5831,14 @@ function servisBerkalaReminderInfo(car){
 
 const SERVICE_CATEGORIES = ['Ganti Oli','Servis Berkala / Tune Up','Rem','Ban & Balancing','AC','Kelistrikan','Suspensi/Understel','Aki','Lainnya'];
 
-const BIAYA_OP_CATEGORIES = ['Isi BBM','Isi E-Toll','Konsumsi','Parkir','Tol Tunai','Lainnya']; // v3.341.0 -- 'Makan' diganti 'Konsumsi' (lbh mencakup, mis. minum/snack, bukan cuma makan). Kembaran: BIAYA_OP_CATEGORIES di worker.js WAJIB disamakan.
+const BIAYA_OP_CATEGORIES = ['Isi BBM','Isi E-Toll','Konsumsi','Parkir','Tol Tunai','Lainnya']; // v3.302.0 -- 'Makan' diganti 'Konsumsi' (lbh mencakup, mis. minum/snack, bukan cuma makan). Kembaran: BIAYA_OP_CATEGORIES di worker.js WAJIB disamakan.
 // v3.99.0 -- sub-kategori WAJIB kalau kategori = "Isi BBM" (jenis BBM yang
 // diisi) -- daftar dasar cuma 2, tapi bisa ditambah bebas lewat "+ Jenis
 // lain (baru)..." dan otomatis "diingat" (diambil dari riwayat, sama
 // seperti kategori custom Biaya Operasional lainnya) untuk dipakai lagi ke
 // depannya tanpa perlu ketik ulang.
 const JENIS_BBM_DEFAULT = ['Pertalite','Pertamax'];
-// v3.335.0 -- Metode Pembayaran WAJIB diisi per item Biaya Operasional/Pribadi
+// v3.297.0 -- Metode Pembayaran WAJIB diisi per item Biaya Operasional/Pribadi
 // (semua kategori, bukan cuma Isi BBM/E-Toll) -- dipakai jg di Tanda Terima
 // Perjalanan (badge kecil di samping nominal tiap baris, "Opsi A").
 const METODE_BAYAR_OPTIONS = ['Cash','Kartu Perusahaan','Kartu Pribadi'];
@@ -14975,7 +14975,7 @@ function openBiayaOperasionalModal(usageId){
         const levelOverMax = it.bensinSebelumIsi!=='' && isFinite(levelAngka) && levelAngka>levelSebelumMax;
         if(levelOverMax) valid = false;
       });
-      // v3.335.0 -- Metode Pembayaran WAJIB diisi utk SEMUA kategori (bukan
+      // v3.297.0 -- Metode Pembayaran WAJIB diisi utk SEMUA kategori (bukan
       // cuma Isi BBM) -- item locked (sudah tersimpan, tidak sedang dibuka
       // lewat Edit) dilewati krn field-nya tidak ada di DOM sama sekali &
       // data lama sebelum fitur ini ada boleh tetap tanpa metodeBayar.
@@ -15243,7 +15243,7 @@ function buildTripReceiptTextTg(u){
   if(adaIsiEtollTg || u.saldoEtoll!=null){
     const linkedCardTg = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
     const nomorRingkasTg = linkedCardTg ? (linkedCardTg.nomorKartu.length>4 ? '•••• '+linkedCardTg.nomorKartu.slice(-4) : linkedCardTg.nomorKartu) : '';
-    // v3.341.0 -- label "Saldo Akhir E-Toll" (lebih jelas ini saldo kartu, bukan
+    // v3.302.0 -- label "Saldo Akhir E-Toll" (lebih jelas ini saldo kartu, bukan
     // biaya) & SENGAJA pakai <i> (bukan <b> spt baris Biaya BBM/Biaya Tol) --
     // Telegram HTML tidak dukung warna teks, jadi italic dipakai sbg penanda
     // visual "baris ini BUKAN bagian dari Total di bawah", pola yang sama dgn
@@ -15794,7 +15794,7 @@ function buildTripReceiptElement(u){
         if(!adaIsiEtoll && u.saldoEtoll==null) return '';
         const linkedCard = u.etollCardId ? state.etollCards.find(c=>c.id===u.etollCardId) : null;
         const nomorRingkas = linkedCard ? (linkedCard.nomorKartu.length>4 ? '•••• '+linkedCard.nomorKartu.slice(-4) : linkedCard.nomorKartu) : '';
-        // v3.341.0 -- label diganti "Saldo Akhir E-Toll" (lebih jelas ini SALDO KARTU,
+        // v3.302.0 -- label diganti "Saldo Akhir E-Toll" (lebih jelas ini SALDO KARTU,
         // bukan biaya) & warnanya SENGAJA dibuat abu-abu muted (bukan hitam tebal spt
         // baris Biaya BBM/Biaya Tol di atasnya) -- baris ini BUKAN bagian dari
         // penjumlahan TOTAL BIAYA di bawah (lihat grandTotal), jadi warnanya harus
@@ -22577,6 +22577,29 @@ function wirePinEnterKey(inputId){
     }
   });
 }
+
+/* ========================================================================
+   CATATAN UTANG TEKNIS (untuk developer, TIDAK tampil di popup pengguna)
+   -- diringkas dari audit kode Agu 2026, biar tidak hilang/terlupa:
+
+   1) scripts/telegram-notify.mjs (file terpisah, TIDAK ada di repo/upload
+      sesi ini) masih BELUM disamakan dengan format Tanda Terima Perjalanan
+      terbaru -- lihat detail lengkap di catatan "CATATAN SINKRONISASI" pada
+      entri v3.301.0/v3.302.0 di array CHANGELOG di bawah ini (baris kode +
+      label "Saldo Akhir E-Toll" belum ikut disamakan di file itu). Kalau
+      file itu masih dipakai sbg jalur pengiriman resi, cek & samakan
+      buildTripReceiptText di sana dengan versi di worker.js/index.html
+      SEBELUM menganggap ini beres.
+
+   2) worker.js: fungsi checkIncomingReplies() (jalur fallback getUpdates(),
+      dipakai HANYA kalau webhook /telegram-webhook mati) belum di-porting
+      dgn alur chat bebas "isi"/"biaya"/"operasional"/"pribadi" yang sudah
+      ada di processTelegramUpdate() (jalur webhook). SAAT INI fungsi ini
+      memang sengaja tidak pernah dipanggil selama webhook aktif (cek
+      komentar di dekat pemanggilannya), jadi tidak berdampak ke pengguna
+      selama mode webhook tetap jalan normal. Kalau suatu saat terpaksa
+      pindah ke mode polling, porting alur ini dulu sebelum dipakai.
+   ======================================================================== */
 
 /* ========================================================================
    Changelog popup
