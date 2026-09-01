@@ -86,7 +86,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.327.0">
+<meta name="app-version" content="3.328.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2558,7 +2558,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.327.0';
+const APP_VERSION = '3.328.0';
 
 /* ============================================================================
    [Telegram Mini App] INISIALISASI UTAMA
@@ -13755,6 +13755,8 @@ function renderUsage(){
     } else if(u.odoKeluar!=null){
       jarakBadge = `<span class="badge neutral">Belum kembali</span>`;
     }
+    const odoAwalLabel = u.odoKeluar!=null ? `${Number(u.odoKeluar).toLocaleString('id-ID')} KM` : '-';
+    const odoAkhirLabel = u.odoKembali!=null ? `${Number(u.odoKembali).toLocaleString('id-ID')} KM` : '-';
     const bbmLabel = (u.literBensin || u.biayaBensin) ? `${u.literBensin?Number(u.literBensin).toLocaleString('id-ID')+' L':''}${u.biayaBensin?' / '+fmtMoney(u.biayaBensin):''}` : '-';
     const literTerpakaiVal = carForRow ? estimateLiterUsed(u, carForRow) : null;
     const literTerpakaiLabel = literTerpakaiVal!=null ? literTerpakaiVal.toFixed(1)+' L' : '-';
@@ -13769,7 +13771,7 @@ function renderUsage(){
       <button class="btn btn-ghost btn-sm" data-biayaop="${u.id}">${isOperasional ? '🧾 Biaya Operasional' : '🏠 Biaya Pribadi'}</button>
       ${u.status==='digunakan' ? `<button class="btn btn-ghost btn-sm" data-return="${u.id}">✅ Akhiri Trip</button>` : ''}
     `;
-    return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, biayaTolInfo, linkedCard, jarakBadge, bbmLabel, literTerpakaiLabel, biayaOpTotal, etollBiayaTotal, isOperasional, durationLabel, actionButtonsHtml };
+    return { u, carForRow, bensinKeluarBadge, bensinKembaliBadge, etoll, biayaTolInfo, linkedCard, jarakBadge, odoAwalLabel, odoAkhirLabel, bbmLabel, literTerpakaiLabel, biayaOpTotal, etollBiayaTotal, isOperasional, durationLabel, actionButtonsHtml };
   }
 
   function renderListView(items){
@@ -13824,6 +13826,8 @@ function renderUsage(){
             </div>
             <div class="triprow-mid">
               <div><span class="stat-k">Jarak</span><span class="stat-v">${r.jarakBadge}</span></div>
+              <div><span class="stat-k">Odo Awal</span><span class="stat-v">${r.odoAwalLabel}</span></div>
+              <div><span class="stat-k">Odo Akhir</span><span class="stat-v">${r.odoAkhirLabel}</span></div>
               <div><span class="stat-k">Durasi</span><span class="stat-v">${r.durationLabel}</span></div>
               <div><span class="stat-k">Efisiensi BBM</span><span class="stat-v">${ratioLabel(u)}</span></div>
               <div><span class="stat-k">Pengisian BBM</span><span class="stat-v">${r.bbmLabel}</span></div>
@@ -13854,6 +13858,8 @@ function renderUsage(){
               <div class="usage-card-detail-grid">
                 <div><span class="k">Jenis Perjalanan</span> <span class="v">${u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman'}</span></div>
                 <div><span class="k">Jarak</span> <span class="v">${r.jarakBadge}</span></div>
+                <div><span class="k">Odo Awal</span> <span class="v">${r.odoAwalLabel}</span></div>
+                <div><span class="k">Odo Akhir</span> <span class="v">${r.odoAkhirLabel}</span></div>
                 <div><span class="k">Jam</span> <span class="v">${u.jamKeluar||'-'} → ${u.jamKembali||'-'}</span></div>
                 <div><span class="k">Durasi</span> <span class="v">${r.durationLabel}</span></div>
                 <div><span class="k">Efisiensi BBM (KM/L)</span> <span class="v">${ratioLabel(u)}</span></div>
@@ -14131,6 +14137,8 @@ function renderUsage(){
         })()}
         <div><span class="k">Jenis Perjalanan</span> <span class="v">${u.jenisPenggunaan==='pribadi'?'Pribadi':'Pengiriman'}</span></div>
         <div><span class="k">Jarak</span> <span class="v">${r.jarakBadge}</span></div>
+        <div><span class="k">Odo Awal</span> <span class="v">${r.odoAwalLabel}</span></div>
+        <div><span class="k">Odo Akhir</span> <span class="v">${r.odoAkhirLabel}</span></div>
         <div><span class="k">Jam</span> <span class="v">${u.jamKeluar||'-'} → ${u.jamKembali||'-'}</span></div>
         <div><span class="k">Durasi</span> <span class="v">${r.durationLabel}</span></div>
         <div><span class="k">Efisiensi BBM (KM/L)</span> <span class="v">${ratioLabel(u)}</span></div>
@@ -22624,6 +22632,16 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.328.0',
+    date: '1 Sep 2026',
+    notes: [
+      '🛣️ BARU: Riwayat Perjalanan sekarang menampilkan "Odo Awal" & "Odo Akhir" (odometer saat berangkat & saat tiba) di setiap trip -- sebelumnya cuma terlihat hasil selisihnya (Jarak), angka odometer aslinya tidak ditampilkan sama sekali di tampilan Riwayat (baik versi tabel desktop, kartu mobile, maupun panel detail 1 trip).',
+      'Ditambahkan di 3 tempat sekaligus supaya konsisten: baris statistik utama tabel desktop, grid detail kartu mobile, dan panel detail 1 trip (tripDetailCardHtml) -- ketiganya sudah pakai data yang sama dari buildTripRowData(), jadi tidak ada logika baru, cuma field tampilan tambahan (odoAwalLabel/odoAkhirLabel) dari u.odoKeluar/u.odoKembali yang sudah ada.',
+      'Kalau odometer belum diisi (mis. trip masih "Digunakan" & belum Akhiri Trip), otomatis tampil "-" seperti field lain yang belum terisi.',
+      'worker.js TIDAK perlu diupload ulang kali ini -- murni perubahan tampilan di index.html. sw.js WAJIB diupload ulang (CACHE_VERSION dinaikkan) supaya popup "Versi Baru Tersedia" muncul ke pengguna lama.',
+    ]
+  },
   {
     v: '3.327.0',
     date: '1 Sep 2026',
