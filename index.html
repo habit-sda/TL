@@ -86,7 +86,7 @@
 </script>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="app-version" content="3.326.0">
+<meta name="app-version" content="3.327.0">
 <!-- Penanda versi khusus untuk sistem cek-update (dibaca lewat tag HTML
      sederhana ini, bukan cuma parsing kode JavaScript mentah), lebih tahan
      kalau struktur kode di bagian bawah suatu saat direfaktor. WAJIB
@@ -2558,7 +2558,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.326.0';
+const APP_VERSION = '3.327.0';
 
 /* ============================================================================
    [Telegram Mini App] INISIALISASI UTAMA
@@ -15721,6 +15721,25 @@ function buildTripReceiptElement(u){
     .reduce((sum,it)=> sum+(Number(it.nominal)||0), 0);
   const grandTotal = (Number(u.biayaBensin)||0) + biayaTol + biayaOpTotalUntukTotal;
 
+  // v3.318.0 -- PERBAIKAN BUG "Total Pengeluaran": SEBELUMNYA baris ini cuma
+  // TOTAL BIAYA dikurangi biayaTol (asumsi biayaTol SELALU dibayar dari saldo
+  // yang "sudah diisi sebelumnya" alias TAB Kartu, jadi bukan uang keluar
+  // trip ini). Itu SALAH kalau isi ulang E-Toll-nya justru terjadi PAS trip
+  // ini juga (kartu pribadi/nombok) -- nominal isi ulang itu (`isiEtollGross`
+  // di bawah, GROSS/sebelum dipotong Biaya Admin -- karena sopir tetap bayar
+  // penuh nominalnya ke loket/aplikasi, Biaya Admin cuma bikin yg MASUK ke
+  // saldo kartu lebih kecil, bukan bikin yg DIBAYAR sopir lebih kecil) dulu
+  // tidak pernah ikut dihitung ke mana pun. Sekarang ditambahkan balik:
+  //   Total Pengeluaran = TOTAL BIAYA - biayaTol (pemakaian tol, bukan cash
+  //                        keluar trip ini) + isiEtollGross (isi ulang E-Toll
+  //                        trip ini SELALU cash keluar, apa pun metode
+  //                        bayarnya -- beda dgn TAB Kartu yg saldonya sudah
+  //                        diisi & dibayar SEBELUM ditabkan ke trip).
+  const isiEtollGross = biayaOpItems
+    .filter(it=> it.kategori==='Isi E-Toll')
+    .reduce((sum,it)=> sum+(Number(it.nominal)||0), 0);
+  const totalPengeluaran = grandTotal - biayaTol + isiEtollGross;
+
   // v3.317.0 -- PERBAIKAN BUG SERIUS: komentar penjelasan v3.315.0 soal
   // "Biaya Tol" -> "Biaya Tap Toll" SEBELUMNYA ditulis langsung di DALAM
   // template literal el.innerHTML di bawah (bukan di luar, seperti
@@ -15819,11 +15838,11 @@ function buildTripReceiptElement(u){
     <div style="border-top:1.5px solid #1A2130;padding-top:8px;display:flex;justify-content:space-between;font-weight:800;font-size:14px;">
       <span>TOTAL BIAYA</span><span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(grandTotal)}</span>
     </div>
-    ${biayaTol>0 ? `
+    ${(biayaTol>0 || isiEtollGross>0) ? `
     <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #C7CCD4;display:flex;justify-content:space-between;font-weight:700;font-size:12.5px;color:#374151;">
-      <span>Total Pengeluaran</span><span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(grandTotal - biayaTol)}</span>
+      <span>Total Pengeluaran</span><span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(totalPengeluaran)}</span>
     </div>
-    <div style="font-size:9.5px;color:#8993A4;margin-top:2px;">*Total Biaya dikurangi Biaya Tap Toll, karena tapping tol otomatis terpotong dari saldo Kartu E-Toll, bukan pengeluaran cash sopir.</div>
+    <div style="font-size:9.5px;color:#8993A4;margin-top:2px;">*Total Biaya dikurangi Biaya Tap Toll (terpotong otomatis dari saldo Kartu E-Toll, bukan cash sopir saat ini) ${isiEtollGross>0 ? 'lalu ditambah nominal Isi E-Toll (tetap uang keluar meski pakai Kartu Pribadi, beda dengan TAB Kartu yang saldonya sudah diisi sebelum ditabkan)' : ''}.</div>
     ` : ''}
     <div style="text-align:center;margin-top:16px;font-size:10.5px;color:#8993A4;">
       Dilaporkan oleh ${escapeHtml(currentAdmin)} · ${new Date().toLocaleString('id-ID')}
@@ -22605,6 +22624,17 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.327.0',
+    date: '1 Sep 2026',
+    notes: [
+      '🐛 PERBAIKAN BUG UANG: "Total Pengeluaran" di Tanda Terima Perjalanan sebelumnya SELALU = TOTAL BIAYA dikurangi Biaya Tap Toll -- benar kalau saldo Kartu E-Toll dianggap "sudah diisi sebelumnya" (TAB Kartu), tapi SALAH kalau isi ulang E-Toll-nya justru terjadi PAS trip itu juga (mis. bayar cash/Kartu Pribadi di lokasi) -- nominal isi ulang itu dulu tidak pernah ikut kehitung ke mana pun, padahal itu tetap uang yang benar-benar keluar dari sopir/kantor.',
+      'Rumus baru: Total Pengeluaran = TOTAL BIAYA − Biaya Tap Toll (pemakaian tol tetap dikeluarkan dari perhitungan, karena itu cuma konsumsi saldo yang sudah ada) + nominal Isi E-Toll GROSS pada trip ini (sebelum dipotong Biaya Admin -- karena sopir tetap bayar penuh ke loket/aplikasi, Biaya Admin cuma bikin yang MASUK ke saldo kartu lebih kecil, bukan bikin yang DIBAYAR sopir lebih kecil).',
+      'Baris "Total Pengeluaran" sekarang juga muncul kalau trip TIDAK ada Biaya Tap Toll tapi ADA Isi E-Toll (sebelumnya baris ini cuma muncul kalau Biaya Tap Toll > 0).',
+      'Sudah dicek: hanya buildTripReceiptElement() (resi gambar) di index.html yang punya baris "Total Pengeluaran" -- versi teks Telegram (buildTripReceiptTextTg di index.html, buildTripReceiptText di worker.js) TIDAK pernah menampilkan baris ini sama sekali, jadi tidak perlu diubah.',
+      'worker.js TIDAK perlu diupload ulang kali ini -- murni perbaikan di buildTripReceiptElement() (index.html). sw.js WAJIB diupload ulang (CACHE_VERSION dinaikkan) supaya popup "Versi Baru Tersedia" muncul ke pengguna lama.',
+    ]
+  },
   {
     v: '3.326.0',
     date: '29 Agu 2026',
