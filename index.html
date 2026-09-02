@@ -2558,7 +2558,7 @@ const STORAGE_KEY = 'fleetops_data_v1';
       angkanya, anggap catatan changelog selalu berpotensi terbaca orang
       yang belum semestinya tahu.
    ============================================================================ */
-const APP_VERSION = '3.328.0';
+const APP_VERSION = '3.329.0';
 
 /* ============================================================================
    [Telegram Mini App] INISIALISASI UTAMA
@@ -14790,7 +14790,15 @@ function openBiayaOperasionalModal(usageId){
     const biayaAdmin = Number(getRibuanValue('bo-biayaadmin-'+itemId)) || 0;
     if(rpEtoll<=0){ infoEl.textContent = ''; return; }
     const net = rpEtoll - biayaAdmin;
-    infoEl.textContent = `Bersih masuk saldo kartu: ${fmtMoney(net)}`;
+    infoEl.textContent = biayaAdmin>0
+      ? `Dari ${fmtMoney(rpEtoll)} yang dibayar, ${fmtMoney(biayaAdmin)} jadi biaya admin → ${fmtMoney(net)} masuk saldo kartu`
+      : `Bersih masuk saldo kartu: ${fmtMoney(net)}`;
+    // v3.329.0 -- class ".hint" bawaan warnanya abu-abu muda (var(--muted)),
+    // kurang kebaca utk info uang sepenting ini -- override warna langsung di
+    // sini (inline style, cuma elemen ini) supaya lebih kontras & jelas
+    // terbaca, tanpa mengubah warna ".hint" di tempat lain manapun.
+    infoEl.style.color = 'var(--text)';
+    infoEl.style.fontWeight = '600';
   }
   // Kartu ringkasan baca-saja utk item yang sedang locked (sudah tersimpan &
   // belum ditekan "Edit") -- ditaruh terpisah dari template form editable di
@@ -22632,6 +22640,15 @@ function wirePinEnterKey(inputId){
    Changelog popup
    ======================================================================== */
 const CHANGELOG = [
+  {
+    v: '3.329.0',
+    date: '2 Sep 2026',
+    notes: [
+      '✏️ Teks "Bersih masuk saldo kartu" di field Biaya Admin (kategori Isi E-Toll, form Biaya Operasional/Pribadi) diperjelas -- sebelumnya cuma tampil angka bersih sendirian tanpa konteks (rawan disangka biaya admin itu tambahan di luar Nominal), sekarang tampil rincian lengkap: "Dari Rp200.000 yang dibayar, Rp1.000 jadi biaya admin → Rp199.000 masuk saldo kartu". Warnanya juga diubah dari abu-abu muda bawaan (class ".hint", kurang kebaca) jadi warna teks utama + tebal, khusus elemen ini saja (class ".hint" di tempat lain TIDAK ikut berubah).',
+      'Perhitungan uangnya TIDAK berubah (sudah benar dari dulu) -- Nominal E-Toll tetap = total yang dibayar sopir (termasuk biaya admin di dalamnya), jadi Total Pengeluaran di Tanda Terima Perjalanan juga tidak berubah. Ini murni perbaikan kejelasan tulisan.',
+      'worker.js TIDAK perlu diupload ulang kali ini. sw.js WAJIB diupload ulang (CACHE_VERSION dinaikkan) supaya popup "Versi Baru Tersedia" muncul ke pengguna lama.',
+    ]
+  },
   {
     v: '3.328.0',
     date: '1 Sep 2026',
