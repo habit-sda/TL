@@ -14476,6 +14476,12 @@ function markReturned(id){
         </div>
       </div>
     </div>
+    <div class="tf-card">
+      <div class="field" style="margin-bottom:0;">
+        <label>📝 Keterangan Tambahan (opsional)</label>
+        <textarea id="in-keterangan-tambahan" rows="3" placeholder="Contoh: macet parah di tol, sempat singgah isi angin ban, dll." style="width:100%;resize:vertical;font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border, #D7DBE2);border-radius:8px;box-sizing:border-box;">${escapeHtml(u.keteranganTambahan||'')}</textarea>
+      </div>
+    </div>
   `;
   openModal({
     title: u.status==='digunakan' ? 'Konfirmasi Akhiri Trip' : 'Edit Data Akhiri Trip',
@@ -14490,6 +14496,7 @@ function markReturned(id){
       const jamKembali = document.getElementById('in-jam-kembali').value;
       const literBensinVal = document.getElementById('in-liter-bensin').value;
       const biayaBensinVal = getRibuanValue('in-biaya-bensin');
+      const keteranganTambahanVal = document.getElementById('in-keterangan-tambahan').value.trim();
 
       const invalidOdo = odoKembali !== null && u.odoKeluar !== null && u.odoKeluar !== undefined && odoKembali < u.odoKeluar;
       toggleFieldError('f-odo-kembali', invalidOdo);
@@ -14520,6 +14527,7 @@ function markReturned(id){
       u.odoKembali = odoKembali === null ? (u.odoKembali ?? null) : odoKembali;
       u.literBensin = literBensinVal === '' ? (u.literBensin ?? null) : Number(literBensinVal);
       u.biayaBensin = biayaBensinVal === '' ? (u.biayaBensin ?? null) : Number(biayaBensinVal);
+      u.keteranganTambahan = keteranganTambahanVal === '' ? null : keteranganTambahanVal;
       touch(u);
 
       // Sinkronkan ke Odometer Saat Ini di Data Mobil, supaya pengingat servis
@@ -14595,6 +14603,7 @@ function markReturned(id){
           ['bensinKembali', 'BBM Akhir', v=> v==null?'-':formatBensinDisplay(v, carForFuel)],
           ['literBensin', 'Liter BBM', v=> v==null?'-':v+' L'],
           ['biayaBensin', 'Biaya BBM', v=> v==null?'-':fmtMoney(v)],
+          ['keteranganTambahan', 'Keterangan Tambahan', v=> v||'-'],
         ]);
       }
       showToast('Mobil ditandai telah kembali.', false, '✅');
@@ -15268,6 +15277,9 @@ function buildTripReceiptTextTg(u){
   }
   const grandTotal = (Number(u.biayaBensin)||0) + biayaTol + biayaOpTotalUntukTotal;
   lines.push('', `<b>Total:</b> ${fmtMoney(grandTotal)}`);
+  if(u.keteranganTambahan){
+    lines.push('', `<b>Keterangan Tambahan:</b>`, escapeHtml(u.keteranganTambahan));
+  }
   return lines.join('\n');
 }
 
@@ -15859,6 +15871,12 @@ function buildTripReceiptElement(u){
       <span>Total Pengeluaran</span><span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(totalPengeluaran)}</span>
     </div>
     <div style="font-size:9.5px;color:#8993A4;margin-top:2px;">*Total Biaya dikurangi Biaya Tap Toll (terpotong otomatis dari saldo Kartu E-Toll, bukan cash sopir saat ini) ${isiEtollGross>0 ? 'lalu ditambah nominal Isi E-Toll (tetap uang keluar meski pakai Kartu Pribadi, beda dengan TAB Kartu yang saldonya sudah diisi sebelum ditabkan)' : ''}.</div>
+    ` : ''}
+    ${u.keteranganTambahan ? `
+    <div style="margin-top:12px;padding-top:10px;border-top:1.5px dashed #C7CCD4;">
+      <div style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8993A4;margin-bottom:4px;">Keterangan Tambahan</div>
+      <div style="font-size:12px;color:#374151;white-space:pre-wrap;line-height:1.5;">${escapeHtml(u.keteranganTambahan)}</div>
+    </div>
     ` : ''}
     <div style="text-align:center;margin-top:16px;font-size:10.5px;color:#8993A4;">
       Dilaporkan oleh ${escapeHtml(currentAdmin)} · ${new Date().toLocaleString('id-ID')}
